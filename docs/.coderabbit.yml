@@ -1,0 +1,297 @@
+# CodeRabbit Configuration
+# https://docs.coderabbit.ai/guides/configure-coderabbit
+
+# Language settings
+language: en-US
+
+# Review behavior
+reviews:
+  # Request changes if critical issues found
+  request_changes_on:
+    - high_severity_issues
+    - security_issues
+  
+  # Auto-approve if no issues
+  auto_approve_on:
+    - no_issues
+    - documentation_only
+  
+  # Review depth
+  review_level: thorough
+  
+  # Include positive feedback
+  include_positive_feedback: true
+  
+  # Collapse resolved conversations
+  collapse_resolved: true
+
+# What to review
+review_areas:
+  - code_quality
+  - security
+  - performance
+  - best_practices
+  - error_handling
+  - testing
+  - documentation
+
+# Code quality checks
+quality_checks:
+  # Complexity
+  max_function_lines: 50
+  max_function_complexity: 10
+  max_file_length: 500
+  
+  # TypeScript specific
+  enforce_strict_types: true
+  no_any_types: true
+  require_return_types: true
+  
+  # Best practices
+  no_console_log: warn
+  no_unused_imports: error
+  no_commented_code: warn
+  
+  # Testing
+  require_tests_for_new_code: true
+  min_test_coverage: 80
+
+# Security checks
+security:
+  scan_for_secrets: true
+  check_dependencies: true
+  flag_sql_injection: true
+  flag_xss_vulnerabilities: true
+  check_environment_variables: true
+
+# Performance checks
+performance:
+  check_n_plus_one_queries: true
+  check_unnecessary_loops: true
+  check_memory_leaks: true
+  flag_blocking_operations: true
+
+# File patterns to review
+include:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.jsx"
+  - "**/*.md"
+  - "**/*.yml"
+  - "**/*.yaml"
+  - "**/*.json"
+  - "**/Dockerfile"
+  - "**/*.sql"
+
+# File patterns to ignore
+exclude:
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/coverage/**"
+  - "**/*.config.ts"
+  - "**/*.config.js"
+  - "**/pnpm-lock.yaml"
+  - "**/.github/**"
+
+# Path-specific rules
+path_rules:
+  - path: "apps/server/**"
+    rules:
+      - focus: security
+      - focus: performance
+      - check_error_handling: strict
+  
+  - path: "apps/web/**"
+    rules:
+      - focus: performance
+      - focus: accessibility
+      - check_component_complexity: true
+  
+  - path: "packages/db/**"
+    rules:
+      - focus: security
+      - check_sql_injection: strict
+      - require_migrations: true
+  
+  - path: "**/*.md"
+    rules:
+      - focus: documentation
+      - check_formatting: false
+
+# Comments and suggestions
+comments:
+  # Comment style
+  style: constructive
+  tone: professional
+  
+  # When to comment
+  min_severity_to_comment: medium
+  
+  # Comment format
+  include_code_suggestions: true
+  include_explanation: true
+  include_references: true
+  
+  # Batch similar issues
+  batch_similar_issues: true
+  max_comments_per_review: 20
+
+# Auto-fix capabilities
+auto_fix:
+  enabled: true
+  safe_fixes_only: true
+  
+  # What can be auto-fixed
+  fix_formatting: true
+  fix_imports: true
+  fix_simple_typos: true
+  add_missing_types: false  # Too risky
+  remove_unused_code: false  # Needs review
+
+# Integration settings
+github:
+  # PR labels to add
+  add_labels:
+    - "coderabbit-reviewed"
+  
+  # When to review
+  review_on:
+    - opened
+    - synchronize
+    - reopened
+  
+  # Review assignment
+  auto_request_review: true
+  request_review_from:
+    - coderabbit[bot]
+
+# Custom rules for this project
+custom_rules:
+  - name: "No hardcoded secrets"
+    pattern: "(sk-ant-|pa-|AKIA|ghp_)"
+    severity: critical
+    message: "Hardcoded secret detected. Use environment variables."
+  
+  - name: "Use parameterized queries"
+    pattern: "query\\(.*\\$.*\\+"
+    severity: high
+    message: "Potential SQL injection. Use parameterized queries."
+    files: "**/*.ts"
+  
+  - name: "No direct console.log in production"
+    pattern: "console\\.log"
+    severity: medium
+    message: "Use proper logging (pino) instead of console.log"
+    files: "apps/server/**/*.ts"
+    exclude: "**/*.test.ts"
+  
+  - name: "Async functions should handle errors"
+    pattern: "async.*function.*{[^}]*await[^}]*}(?!.*catch)"
+    severity: medium
+    message: "Async function missing error handling"
+  
+  - name: "Database queries should use types"
+    pattern: "db\\.query\\(.*\\).*any"
+    severity: low
+    message: "Database query should use typed results"
+
+# AI model preferences
+ai_model:
+  # Which model to use
+  model: gpt-4
+  
+  # Temperature (0-1)
+  temperature: 0.3  # Lower = more consistent
+  
+  # Context window
+  max_context_tokens: 8000
+
+# Notification settings
+notifications:
+  # When to notify
+  notify_on:
+    - critical_issues
+    - security_issues
+  
+  # Where to notify
+  notify_via:
+    - pr_comment
+    - review_comment
+
+# Learning and improvement
+learning:
+  # Learn from feedback
+  learn_from_feedback: true
+  
+  # Adapt to project style
+  adapt_to_project: true
+  
+  # Track review accuracy
+  track_accuracy: true
+
+# Performance settings
+performance:
+  # Timeout for review
+  timeout_seconds: 300
+  
+  # Max file size to review
+  max_file_size_kb: 500
+  
+  # Parallel review
+  parallel_review: true
+
+# Experimental features
+experimental:
+  # Enable experimental checks
+  enable_experimental: false
+  
+  # Beta features
+  beta_features: []
+
+---
+
+# Quick Reference for Agents
+
+## Severity Levels
+- **critical**: Blocks PR, must fix immediately
+- **high**: Should fix before merge
+- **medium**: Should fix, or justify why not
+- **low**: Nice to have, can defer
+
+## Common Issues
+1. **Secrets in code** → Use .env
+2. **SQL injection risk** → Use parameterized queries
+3. **console.log** → Use pino logger
+4. **Missing error handling** → Add try/catch
+5. **No tests** → Add unit tests
+6. **Type `any`** → Use proper types
+
+## Auto-fix Safe Items
+- Formatting issues
+- Import organization
+- Simple typos
+- Missing semicolons
+
+## Manual Review Required
+- Logic changes
+- Security fixes
+- Type additions
+- Architectural changes
+
+---
+
+# Customization Notes
+
+This configuration is tailored for the Synthesis RAG project:
+
+1. **Strict TypeScript**: No `any`, require types
+2. **Security first**: Scan for secrets, SQL injection, XSS
+3. **Performance aware**: Flag N+1 queries, memory leaks
+4. **Testing required**: 80%+ coverage for new code
+5. **Documentation encouraged**: MD files reviewed for clarity
+
+Adjust `quality_checks` thresholds based on team needs.

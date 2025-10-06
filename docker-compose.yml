@@ -1,0 +1,150 @@
+version: "3.9"
+
+services:
+  # PostgreSQL with pgvector
+  synthesis-db:
+    image: pgvector/pgvector:pg16
+    container_name: synthesis-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: synthesis
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - synthesis-network
+
+  # Ollama (Local LLM with GPU support)
+  synthesis-ollama:
+    image: ollama/ollama:latest
+    container_name: synthesis-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - synthesis-network
+
+  # Fastify Backend (Built in Phase 1+)
+  synthesis-server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: synthesis-server
+    restart: unless-stopped
+    depends_on:
+      synthesis-db:
+        condition: service_healthy
+      synthesis-ollama:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@synthesis-db:5432/synthesis
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OLLAMA_BASE_URL=http://synthesis-ollama:11434
+      - NODE_ENV=development
+      - PORT=3333
+      - STORAGE_PATH=/app/storage
+    ports:
+      - "3333:3333"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/server/node_modules
+      - /app/apps/web/node_modules
+      - /app/apps/mcp/node_modules
+      - /app/packages/db/node_modules
+      - /app/packages/shared/node_modules
+      - storage_data:/app/storage
+    working_dir: /app
+    networks:
+      - synthesis-network
+    profiles:
+      - app  # Only start with --profile app
+    stdin_open: true
+    tty: true
+
+  # React Frontend (Built in Phase 5)
+  synthesis-web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: synthesis-web
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=http://localhost:3333
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/server/node_modules
+      - /app/apps/web/node_modules
+      - /app/apps/mcp/node_modules
+      - /app/packages/db/node_modules
+      - /app/packages/shared/node_modules
+    working_dir: /app
+    networks:
+      - synthesis-network
+    profiles:
+      - app  # Only start with --profile app
+    stdin_open: true
+    tty: true
+
+  # MCP Server (Built in Phase 6)
+  synthesis-mcp:
+    build:
+      context: .
+      dockerfile: apps/mcp/Dockerfile
+    container_name: synthesis-mcp
+    restart: unless-stopped
+    depends_on:
+      - synthesis-server
+    environment:
+      - API_URL=http://synthesis-server:3333
+      - MCP_PORT=3334
+      - MCP_MODE=${MCP_MODE:-stdio}
+    ports:
+      - "3334:3334"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/server/node_modules
+      - /app/apps/web/node_modules
+      - /app/apps/mcp/node_modules
+      - /app/packages/db/node_modules
+      - /app/packages/shared/node_modules
+    working_dir: /app
+    networks:
+      - synthesis-network
+    profiles:
+      - app  # Only start with --profile app
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data:
+    driver: local
+  ollama_data:
+    driver: local
+  storage_data:
+    driver: local
+
+networks:
+  synthesis-network:
+    driver: bridge

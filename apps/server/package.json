@@ -1,0 +1,40 @@
+{
+  "name": "@synthesis/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.0",
+    "@fastify/cors": "^10.0.1",
+    "@fastify/multipart": "^8.3.0",
+    "fastify": "^4.28.1",
+    "mammoth": "^1.6.0",
+    "ollama": "^0.5.8",
+    "pdf-parse": "^1.1.1",
+    "pg": "^8.12.0",
+    "pino": "^9.4.0",
+    "playwright": "^1.40.0",
+    "remark": "^15.0.1",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.4",
+    "zod": "^3.23.8",
+    "@synthesis/db": "workspace:*",
+    "@synthesis/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "@types/pg": "^8.11.6",
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.4"
+  }
+}
