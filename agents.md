@@ -8,6 +8,17 @@
 
 This document defines how AI agents collaborate to build the Synthesis RAG system using a structured, review-based workflow.
 
+## 📜 Core Directives
+
+**ALL AGENTS MUST FOLLOW THESE DIRECTIVES AT ALL TIMES.**
+
+1.  **Prioritize Quality and Caution:** Always adhere to software development best practices and community standards. When in doubt, err on the side of caution and ask for clarification before proceeding.
+2.  **Ensure Human Review:** You **MUST NOT** commit any changes without explicit user approval. Your primary role is to prepare changes for review.
+3.  **Follow the Review Workflow:**
+    *   After completing a task, present all file changes for the user to review.
+    *   Wait for the user to give a clear "go-ahead" (e.g., "ok," "proceed," "yes").
+    *   Only after receiving approval, stage the changes and create the commit. Pre-commit hooks will run at this stage.
+
 ## YOU MUST NOT BE LAZY
 ## YOU MUST NOT LIE
 ## YOU MUST COMPLETE ALL WORK AS CALLED FOR IN THE PLANS OR TOLD TO BY ME.

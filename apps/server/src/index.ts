@@ -1,16 +1,22 @@
-import Fastify from 'fastify';
+/**
+ * The main entry point for the Synthesis server.
+ * This file initializes the Fastify server, connects to the database, registers routes,
+ * and sets up graceful shutdown handlers.
+ * @module server
+ */
+
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
-import { getPool, closePool } from '@synthesis/db';
-import { ingestRoutes } from './routes/ingest.js';
+import { closePool, getPool } from '@synthesis/db';
+import Fastify from 'fastify';
 import { collectionRoutes } from './routes/collections.js';
+import { ingestRoutes } from './routes/ingest.js';
 
 const PORT = Number(process.env.SERVER_PORT) || 3333;
 const HOST = process.env.HOST || '0.0.0.0';
 
 // Initialize database pool
-
-const pool = getPool(process.env.DATABASE_URL);
+getPool(process.env.DATABASE_URL);
 console.log('Database pool initialized');
 
 const fastify = Fastify({
@@ -34,7 +40,12 @@ await fastify.register(multipart, {
 await fastify.register(collectionRoutes);
 await fastify.register(ingestRoutes);
 
-// Health check
+/**
+ * Health check endpoint to verify the server is running.
+ * @name /health
+ * @function
+ * @memberof module:server
+ */
 fastify.get('/health', async () => {
   return { status: 'ok', timestamp: new Date().toISOString() };
 });
@@ -48,7 +59,11 @@ try {
   process.exit(1);
 }
 
-// Graceful shutdown
+/**
+ * Handles graceful shutdown of the server.
+ * Closes the Fastify server and the database pool before exiting.
+ * @param {string} signal The signal that triggered the shutdown (e.g., 'SIGTERM').
+ */
 const shutdown = async (signal: string) => {
   console.log(`\n${signal} received, shutting down gracefully...`);
   await fastify.close();

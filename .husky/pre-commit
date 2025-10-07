@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+. "$(dirname "$0")/_/husky.sh"
+
+echo "Running pre-commit hooks..."
+pnpm lint
+pnpm format
+pnpm typecheck
+echo "Pre-commit hooks passed."

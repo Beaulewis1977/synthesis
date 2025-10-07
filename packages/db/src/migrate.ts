@@ -1,11 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { getPool, closePool } from './client.js';
+import { closePool, getPool } from './client.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * Runs database migrations from the `../migrations` directory.
+ * It creates a `migrations` table to track applied migrations and applies any pending ones.
+ * @param connectionString The database connection string. If not provided, it uses the DATABASE_URL environment variable.
+ * @throws Will throw an error if any migration fails.
+ */
 export async function runMigrations(connectionString?: string): Promise<void> {
   const pool = getPool(connectionString);
   const migrationsDir = path.join(__dirname, '../migrations');

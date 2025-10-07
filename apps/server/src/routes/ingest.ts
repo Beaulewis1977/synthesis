@@ -1,9 +1,9 @@
-import type { FastifyPluginAsync } from 'fastify';
-import type { MultipartFile } from '@fastify/multipart';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { z } from 'zod';
+import type { MultipartFile } from '@fastify/multipart';
 import { createDocument, updateDocumentStatus } from '@synthesis/db';
+import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
 import { extract } from '../pipeline/extract.js';
 
 const STORAGE_PATH = process.env.STORAGE_PATH || './storage';
@@ -13,20 +13,39 @@ const IngestBodySchema = z.object({
   collection_id: z.string().uuid(),
 });
 
+/**
+ * Defines the routes for document ingestion.
+ * @param fastify The Fastify instance.
+ */
 export const ingestRoutes: FastifyPluginAsync = async (fastify) => {
-  // POST /api/ingest - Upload and process documents
+  /**
+   * Handles the upload and processing of a new document.
+   * It expects a multipart form with a file and a 'collection_id'.
+   * The file is saved to storage, a document record is created in the database,
+   * and the text extraction process is started asynchronously.
+   * @name POST /api/ingest
+   * @function
+   */
   fastify.post('/api/ingest', async (request, reply) => {
     try {
       // Get multipart data
       const data = await request.file();
-      
+
       if (!data) {
         return reply.code(400).send({ error: 'No file uploaded' });
       }
 
       // Get collection_id from fields
-      const collectionId = data.fields.collection_id?.value;
-      
+      const collectionIdField = data.fields.collection_id;
+      if (
+        !collectionIdField ||
+        Array.isArray(collectionIdField) ||
+        !('value' in collectionIdField)
+      ) {
+        return reply.code(400).send({ error: 'collection_id is missing or invalid' });
+      }
+      const collectionId = collectionIdField.value as string;
+
       if (!collectionId) {
         return reply.code(400).send({ error: 'collection_id is required' });
       }
@@ -34,9 +53,9 @@ export const ingestRoutes: FastifyPluginAsync = async (fastify) => {
       // Validate collection_id
       const validation = IngestBodySchema.safeParse({ collection_id: collectionId });
       if (!validation.success) {
-        return reply.code(400).send({ 
-          error: 'Invalid collection_id', 
-          details: validation.error.issues 
+        return reply.code(400).send({
+          error: 'Invalid collection_id',
+          details: validation.error.issues,
         });
       }
 
@@ -79,16 +98,22 @@ export const ingestRoutes: FastifyPluginAsync = async (fastify) => {
       });
     } catch (error) {
       fastify.log.error(error, 'Ingest error');
-      return reply.code(500).send({ 
+      return reply.code(500).send({
         error: 'Internal server error',
-        message: error instanceof Error ? error.message : String(error)
+        message: error instanceof Error ? error.message : String(error),
       });
     }
   });
 };
 
 /**
- * Extract document text (runs async after upload)
+ * Asynchronously extracts text from a document, updates its status in the database,
+ * and handles any errors that occur during the process.
+ * This function is designed to run in the background after the initial file upload.
+ * @param documentId The UUID of the document to process.
+ * @param buffer The file content as a Buffer.
+ * @param contentType The MIME type of the file.
+ * @param filePath The path to the saved file in storage.
  */
 async function extractDocument(
   documentId: string,

@@ -5,7 +5,7 @@ let pool: Pool | undefined;
 export function getPool(connectionString?: string): Pool {
   if (!pool) {
     const connString = connectionString || process.env.DATABASE_URL;
-    
+
     if (!connString) {
       throw new Error('DATABASE_URL environment variable is not set');
     }
@@ -34,11 +34,9 @@ export async function closePool(): Promise<void> {
 }
 
 // Helper for transactions
-export async function withTransaction<T>(
-  callback: (client: PoolClient) => Promise<T>
-): Promise<T> {
+export async function withTransaction<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await getPool().connect();
-  
+
   try {
     await client.query('BEGIN');
     const result = await callback(client);
@@ -55,7 +53,7 @@ export async function withTransaction<T>(
 // Export query method for convenience
 export async function query(
   text: string,
-  params?: any[]
+  params?: (string | number | boolean | null)[]
 ): Promise<QueryResult> {
   return getPool().query(text, params);
 }
