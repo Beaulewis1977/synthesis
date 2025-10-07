@@ -65,7 +65,7 @@ export const ingestRoutes: FastifyPluginAsync = async (fastify) => {
       await fs.writeFile(filePath, buffer);
 
       // Update document with file path
-      await updateDocumentStatus(document.id, 'pending');
+      await updateDocumentStatus(document.id, 'pending', undefined, filePath);
 
       // Start extraction (async, don't wait)
       extractDocument(document.id, buffer, contentType, filePath).catch((error) => {

@@ -108,14 +108,16 @@ export async function createDocument(doc: {
 export async function updateDocumentStatus(
   id: string,
   status: Document['status'],
-  errorMessage?: string
+  errorMessage?: string,
+  filePath?: string
 ): Promise<void> {
   await query(
     `UPDATE documents 
      SET status = $1, error_message = $2, updated_at = NOW(), 
-         processed_at = CASE WHEN $1 = 'complete' THEN NOW() ELSE processed_at END
+         processed_at = CASE WHEN $1 = 'complete' THEN NOW() ELSE processed_at END,
+         file_path = COALESCE($4, file_path)
      WHERE id = $3`,
-    [status, errorMessage || null, id]
+    [status, errorMessage || null, id, filePath || null]
   );
 }
 

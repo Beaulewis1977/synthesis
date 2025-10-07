@@ -32,7 +32,7 @@ Below are the rewritten prompts for Phases 1-4. They are more accurate and compl
 
 ### Corrected Phase 1 Prompt: Database + Core Pipeline
 
-```
+```markdown
 # Phase 1: Database Setup and Core Pipeline
 
 ## Phase Overview
@@ -90,8 +90,8 @@ Below are the rewritten prompts for Phases 1-4. They are more accurate and compl
 
 ## Files to Create
 
-```
-packages/db/
+```text
+
 ├── migrations/
 │   ├── 001_initial_schema.sql
 │   └── 002_seed_collections.sql
@@ -121,7 +121,7 @@ apps/server/src/
 
 ### Corrected Phase 2 Prompt: Chunking + Embeddings
 
-```
+```markdown
 # Phase 2: Chunking and Embeddings
 
 ## Phase Overview
@@ -158,7 +158,7 @@ apps/server/src/
 
 ## Files to Create / Update
 
-```
+```text
 # Create these new files
 apps/server/src/pipeline/chunk.ts
 apps/server/src/pipeline/embed.ts
@@ -178,7 +178,7 @@ apps/server/src/routes/ingest.ts # Update to call the new orchestrator
 
 ### Corrected Phase 3 Prompt: Search + Agent Tools
 
-```
+```markdown
 # Phase 3: Search and Agent Tools
 
 ## Phase Overview
@@ -213,7 +213,7 @@ apps/server/src/routes/ingest.ts # Update to call the new orchestrator
 
 ## Files to Create
 
-```
+```text
 apps/server/src/
 ├── services/
 │   └── search.ts
@@ -233,7 +233,7 @@ apps/server/src/
 
 ### Corrected Phase 4 Prompt: Web Fetching
 
-```
+```markdown
 # Phase 4: Autonomous Web Fetching
 
 **Goal:** Give the agent tools to autonomously fetch content from URLs and manage documents in the RAG system.

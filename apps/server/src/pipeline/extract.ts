@@ -1,4 +1,4 @@
-import { pdf } from 'pdf-parse';
+import pdf from 'pdf-parse';
 import mammoth from 'mammoth';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';

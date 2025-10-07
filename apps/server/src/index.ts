@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
-import { getPool } from '@synthesis/db';
+import { getPool, closePool } from '@synthesis/db';
 import { ingestRoutes } from './routes/ingest.js';
 import { collectionRoutes } from './routes/collections.js';
 
@@ -9,7 +9,7 @@ const PORT = Number(process.env.SERVER_PORT) || 3333;
 const HOST = process.env.HOST || '0.0.0.0';
 
 // Initialize database pool
-console.log('DATABASE_URL:', process.env.DATABASE_URL);
+
 const pool = getPool(process.env.DATABASE_URL);
 console.log('Database pool initialized');
 
@@ -52,6 +52,7 @@ try {
 const shutdown = async (signal: string) => {
   console.log(`\n${signal} received, shutting down gracefully...`);
   await fastify.close();
+  await closePool();
   process.exit(0);
 };
 
