@@ -1,6 +1,6 @@
 # Agent Prompts - Copy & Paste
-**Version:** 1.0  
-**Last Updated:** October 6, 2025
+**Version:** 1.1  
+**Last Updated:** October 7, 2025
 
 ---
 
@@ -61,7 +61,9 @@ All planning docs are in: `docs/` directory
 - API spec: `docs/05_API_SPEC.md`
 - Pipeline: `docs/06_PIPELINE.md`
 
-## MCP Servers You Must Use
+## Optional IDE MCP Servers (for you)
+
+These IDE MCP servers assist with searching docs and the web while building. They are distinct from the RAG MCP server you will implement in Phase 6.
 
 **Context7 (or similar):** Search planning docs when unclear
 ```
@@ -75,6 +77,8 @@ All planning docs are in: `docs/` directory
 
 **Sequential Thinking:** For complex problems
 - Use when planning multi-step implementations
+
+Note: Use these only if installed in your IDE; otherwise skip.
 
 ## Git Workflow
 
@@ -195,7 +199,9 @@ If yes to all, say "READY FOR PHASE 1" and I'll provide the Phase 1 prompt.
   "unified": "^11.0.4",
   "remark": "^15.0.1",
   "remark-parse": "^11.0.0",
-  "@fastify/multipart": "^8.3.0"
+  "@fastify/multipart": "^8.3.0",
+  "@fastify/cors": "latest",
+  "zod": "latest"
 }
 ```
 
@@ -256,7 +262,9 @@ docker compose exec db psql -U postgres -d synthesis \
 5. Push branch
 6. Create PR to develop
 
-## MCP Usage
+## IDE MCP Usage (optional)
+
+Use only if you have these IDE MCP servers installed; otherwise skip.
 
 - Search docs: `@context7 search "database schema"`
 - Web help: `@perplexity "pgvector HNSW index setup"`
@@ -332,6 +340,14 @@ apps/server/src/pipeline/
 └── store.ts      # Database upsert
 ```
 
+## Dependencies to Install
+
+```json
+{
+  "ollama": "latest"
+}
+```
+
 ## Prerequisites
 
 Phase 1 must be complete:
@@ -387,14 +403,16 @@ Questions before starting Phase 2?
 
 ### Afternoon (4 hours):
 2. **Claude Agent SDK Setup**
-   - Install agent SDK
+   - Install `@anthropic-ai/claude-agent-sdk`
    - Configure system prompt
-   - Register search_rag tool
+   - Register `search_rag` tool
+   - Set up agent with tool permissions
 
 3. **Agent Chat Endpoint**
    - POST /api/agent/chat
-   - Pass to agent
-   - Return responses with tool calls
+   - Pass messages to agent
+   - Handle tool calls automatically
+   - Return responses with citations
 
 ## Detailed Specifications
 
@@ -406,7 +424,7 @@ Questions before starting Phase 2?
 
 ```json
 {
-  "@anthropic-ai/agent-sdk": "^0.4.0",
+  "@anthropic-ai/claude-agent-sdk": "latest",
   "@anthropic-ai/sdk": "^0.27.0"
 }
 ```
@@ -430,10 +448,11 @@ apps/server/src/
 
 - [ ] Vector search returns relevant results
 - [ ] Results include citations
-- [ ] Agent SDK configured
-- [ ] search_rag tool works
+- [ ] Claude Agent SDK configured
+- [ ] search_rag tool registered and works
 - [ ] POST /api/agent/chat works
 - [ ] Agent responds with citations
+- [ ] Tool permissions configured
 - [ ] Tests pass
 
 Questions before starting Phase 3?
@@ -458,6 +477,14 @@ Questions before starting Phase 3?
 5. Test multi-step workflows
 
 Questions?
+```
+
+## Dependencies
+
+```json
+{
+  "playwright": "latest"
+}
 ```
 
 ### Phase 5: UI

@@ -8,6 +8,10 @@
 
 This document defines how AI agents collaborate to build the Synthesis RAG system using a structured, review-based workflow.
 
+## YOU MUST NOT BE LAZY
+## YOU MUST NOT LIE
+## YOU MUST COMPLETE ALL WORK AS CALLED FOR IN THE PLANS OR TOLD TO BY ME.
+
 ---
 
 ## 👥 Agent Roles
