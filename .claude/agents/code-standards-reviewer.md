@@ -74,7 +74,7 @@ For each issue you identify, provide:
 - **Severity:** Categorize as CRITICAL (breaks standards), WARNING (style issue), or INFO (suggestion)
 
 Format your findings as:
-```
+```text
 [SEVERITY] File: <path>
 Line(s): <number(s)>
 Standard: <reference to docs/17_CODE_STANDARDS.md section>

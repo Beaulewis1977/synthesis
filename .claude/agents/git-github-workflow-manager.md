@@ -304,7 +304,7 @@ Before creating a pull request:
 **Interactive Rebase in Non-Interactive Environment:**
 1. Use `GIT_SEQUENCE_EDITOR` environment variable
 2. Prepare rebase script programmatically
-3. Execute with: `GIT_SEQUENCE_EDITOR="sed -i 's/^pick/squash/'" git rebase -i`
+3. Execute with: `GIT_SEQUENCE_EDITOR="sh -c 'sed -i \"2,\\$s/^pick/squash/\" \"$1\"'" git rebase -i`
 4. Handle each step with appropriate git commands
 
 ### When to Escalate
