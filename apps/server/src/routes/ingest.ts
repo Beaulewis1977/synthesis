@@ -87,7 +87,7 @@ export const ingestRoutes: FastifyPluginAsync = async (fastify) => {
       await updateDocumentStatus(document.id, 'pending', undefined, filePath);
 
       // Start extraction (async, don't wait)
-      extractDocument(document.id, buffer, contentType, filePath).catch((error) => {
+      extractDocument(document.id, buffer, contentType, filename).catch((error) => {
         fastify.log.error({ docId: document.id, error }, 'Document extraction failed');
       });
 
@@ -114,19 +114,20 @@ export const ingestRoutes: FastifyPluginAsync = async (fastify) => {
  * @param buffer The file content as a Buffer.
  * @param contentType The MIME type of the file.
  * @param filePath The path to the saved file in storage.
+ * @param filename The original filename of the uploaded document.
  */
 async function extractDocument(
   documentId: string,
   buffer: Buffer,
   contentType: string,
-  filePath: string
+  filename: string
 ): Promise<void> {
   try {
     // Update status to extracting
     await updateDocumentStatus(documentId, 'extracting');
 
     // Extract text
-    const result = await extract(buffer, contentType, filePath);
+    const result = await extract(buffer, contentType, filename);
 
     // For now, just mark as complete
     // In Phase 2, we'll add chunking and embedding

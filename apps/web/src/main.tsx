@@ -9,4 +9,6 @@ if (rootElement) {
       <h1>Hello, world!</h1>
     </React.StrictMode>
   );
+} else {
+  console.error('Root element not found');
 }

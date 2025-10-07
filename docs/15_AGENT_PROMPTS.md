@@ -79,12 +79,12 @@ All planning docs are in: `docs/` directory
 These IDE MCP servers assist with searching docs and the web while building. They are distinct from the RAG MCP server you will implement in Phase 6.
 
 **Context7 (or similar):** Search planning docs when unclear
-```
+```bash
 @context7 search "database schema"
 ```
 
 **Perplexity:** Search web for technical solutions
-```
+```bash
 @perplexity "pgvector HNSW index configuration"
 ```
 
@@ -101,7 +101,7 @@ Note: Use these only if installed in your IDE; otherwise skip.
 - `feature/phase-X-name` - Your work branches
 
 **Commits:** Conventional commits format
-```
+```text
 feat(scope): description
 fix(scope): description
 docs(scope): description
