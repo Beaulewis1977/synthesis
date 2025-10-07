@@ -531,3 +531,7 @@ pnpm migrate:down   # Rollback last
 ---
 
 **This stack is proven, not bleeding-edge, and gets you to working MVP fast.**
+
+
+### Tooling updates
+- Husky hooks now execute pnpm scripts directly without legacy shims.

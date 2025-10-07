@@ -24,6 +24,7 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+*:Zone.Identifier
 
 # IDE
 .vscode/
@@ -37,3 +38,4 @@ storage/*
 # Misc
 .turbo/
 .cache/
+codeant_email_draft.md
