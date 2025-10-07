@@ -1,5 +1,5 @@
 # Agent Prompts - Copy & Paste
-**Version:** 1.1  
+**Version:** 1.2
 **Last Updated:** October 7, 2025
 
 ---
@@ -144,64 +144,53 @@ If yes to all, say "READY FOR PHASE 1" and I'll provide the Phase 1 prompt.
 ## Phase Overview
 
 **Duration:** Day 1 (8 hours)
-**Goal:** Upload a PDF, extract text, store in database
+**Goal:** Implement the complete database schema and a core ingestion pipeline that can upload a document, extract its text, and create corresponding database records.
 **Documentation:** `docs/09_BUILD_PLAN.md#day-1`
 
 ## What You're Building
 
 ### Morning (4 hours):
-1. **Database Schema**
-   - 3 tables: collections, documents, chunks
-   - pgvector extension
-   - HNSW index
-   - Migrations system
+1.  **Database Schema & Migrations**
+    - Create 3 tables (`collections`, `documents`, `chunks`) as specified in `docs/03_DATABASE_SCHEMA.md`.
+    - Ensure the `vector` and `pgcrypto` extensions are enabled in the initial migration.
+    - Implement an HNSW index on the `chunks.embedding` column for vector search.
+    - Create a second migration file to seed the database with default `collections` for testing.
 
-2. **Database Client**
-   - Connection pool
-   - Basic queries
-   - Migration runner
+2.  **Database Client (`@synthesis/db` package)**
+    - Implement a connection pool for PostgreSQL.
+    - Create type-safe query functions for all CRUD operations on the three tables.
+    - Create a script to run the migrations.
 
 ### Afternoon (4 hours):
-3. **Extraction Pipeline**
-   - PDF extraction (pdf-parse)
-   - DOCX extraction (mammoth)
-   - Markdown extraction (remark)
+3.  **Extraction Pipeline**
+    - Implement functions to extract text from PDF (`pdf-parse`), DOCX (`mammoth`), and Markdown (`remark`) files.
+    - Include a fallback for plain text files.
+    - The extraction function should handle errors gracefully.
 
-4. **File Upload Route**
-   - POST /api/ingest
-   - Multipart upload
-   - Save to storage
-   - Create document record
-
-## Detailed Specifications
-
-**Database Schema:** `docs/03_DATABASE_SCHEMA.md`
-- See migration 001_initial_schema.sql
-- 3 tables with specific columns
-- Indexes and foreign keys
-
-**Pipeline:** `docs/06_PIPELINE.md#stage-1-extraction`
-- Extract functions for each file type
-- Preserve metadata
-- Error handling
-
-**API:** `docs/05_API_SPEC.md#post-apiingest`
-- Multipart form data
-- Return doc_id
-- Handle errors
+4.  **Server & API Endpoints**
+    - Set up a Fastify server with structured logging (`pino`) and CORS support.
+    - Implement a `GET /health` endpoint for health checks.
+    - Implement a full suite of collection management endpoints:
+        - `GET /api/collections`
+        - `POST /api/collections`
+        - `GET /api/collections/:id`
+        - `GET /api/collections/:id/documents`
+    - Implement the file upload route `POST /api/ingest` which accepts multipart file uploads, saves the file to `./storage`, and creates a `document` record in the database.
 
 ## Dependencies to Install
 
 ```json
 {
-  "pdf-parse": "^1.1.1",
+  "pg": "^8.12.0",
+  "pdf-parse": "^2.1.10",
   "mammoth": "^1.6.0",
   "unified": "^11.0.4",
   "remark": "^15.0.1",
-  "remark-parse": "^11.0.0",
+  "fastify": "^4.28.1",
   "@fastify/multipart": "^8.3.0",
-  "@fastify/cors": "latest",
-  "zod": "latest"
+  "@fastify/cors": "^9.0.1",
+  "zod": "^3.23.8",
+  "pino": "^9.4.0"
 }
 ```
 
@@ -210,7 +199,8 @@ If yes to all, say "READY FOR PHASE 1" and I'll provide the Phase 1 prompt.
 ```
 packages/db/
 ├── migrations/
-│   └── 001_initial_schema.sql
+│   ├── 001_initial_schema.sql
+│   └── 002_seed_collections.sql
 ├── src/
 │   ├── client.ts
 │   ├── queries.ts
@@ -221,73 +211,18 @@ apps/server/src/
 ├── pipeline/
 │   └── extract.ts
 ├── routes/
+│   ├── collections.ts
 │   └── ingest.ts
 └── index.ts (update)
 ```
 
 ## Acceptance Criteria
-
-- [ ] Database tables created with correct schema
-- [ ] Migration runner works
-- [ ] Can connect to database from Node
-- [ ] PDF extraction returns text
-- [ ] DOCX extraction returns text
-- [ ] Markdown extraction returns text
-- [ ] POST /api/ingest accepts files
-- [ ] File saved to storage/
-- [ ] Document record created in DB
-- [ ] All tests pass
-
-## Testing
-
-```bash
-# Test database
-docker compose exec db psql -U postgres -d synthesis -c "\dt"
-
-# Test upload
-curl -F "collection_id=<uuid>" -F "files=@test.pdf" \
-  http://localhost:3333/api/ingest
-
-# Check database
-docker compose exec db psql -U postgres -d synthesis \
-  -c "SELECT * FROM documents;"
-```
-
-## Git Workflow
-
-1. Create branch: `git checkout -b feature/phase-1-database`
-2. Implement features
-3. Commit often with conventional commits
-4. When done, create phase summary using `docs/PHASE_SUMMARY_TEMPLATE.md`
-5. Push branch
-6. Create PR to develop
-
-## IDE MCP Usage (optional)
-
-Use only if you have these IDE MCP servers installed; otherwise skip.
-
-- Search docs: `@context7 search "database schema"`
-- Web help: `@perplexity "pgvector HNSW index setup"`
-- Break down complex tasks with sequential thinking
-
-## Need Help?
-
-- Database schema unclear? Check `docs/03_DATABASE_SCHEMA.md`
-- Pipeline details? Check `docs/06_PIPELINE.md`
-- API format? Check `docs/05_API_SPEC.md`
-- Workflow unclear? Check `docs/agents.md`
-
-## Start Building!
-
-1. Read the referenced docs
-2. Create the database migration
-3. Implement extraction
-4. Implement upload route
-5. Test end-to-end
-6. Create phase summary
-7. Submit for review
-
-Questions before starting Phase 1?
+- [x] All database tables and indexes created by migrations.
+- [x] `GET /health` returns 200.
+- [x] `GET /api/collections` returns the 3 seeded collections.
+- [x] `POST /api/ingest` accepts a file, saves it to storage, and creates a document record.
+- [x] `GET /api/collections/:id/documents` shows the newly uploaded document.
+- [x] Extraction works for PDF, DOCX, and Markdown.
 ```
 
 ---
@@ -302,79 +237,53 @@ Questions before starting Phase 1?
 ## Phase Overview
 
 **Duration:** Day 2 (8 hours)
-**Goal:** Process uploaded docs into searchable chunks
-**Documentation:** `docs/09_BUILD_PLAN.md#day-2`
+**Goal:** Extend the ingestion pipeline to process extracted text into vector-embedded chunks.
+**Documentation:** `docs/09_BUILD_PLAN.md#day-2`, `docs/06_PIPELINE.md`
 
 ## What You're Building
 
-### Morning (4 hours):
-1. **Chunking Logic**
-   - 800 char chunks with 150 overlap
-   - Split on paragraph boundaries
-   - Preserve metadata
+1.  **Chunking Logic (`apps/server/src/pipeline/chunk.ts`)**
+    - Create a function to split text into ~800 character chunks with a ~150 character overlap.
+    - Attempt to split on paragraph boundaries first before falling back to hard character limits.
 
-### Afternoon (4 hours):
-2. **Ollama Integration**
-   - Embed chunks with nomic-embed-text
-   - Batch processing (10 at a time)
-   - Error handling
+2.  **Embedding Logic (`apps/server/src/pipeline/embed.ts`)**
+    - Create a function to connect to Ollama and generate embeddings for text chunks using the `nomic-embed-text` model.
+    - Implement batching to send multiple chunks to Ollama at once.
 
-3. **Full Pipeline**
-   - Orchestrate: extract → chunk → embed → upsert
-   - Status tracking
-   - Progress updates
+3.  **Database Logic (`packages/db/src/queries.ts`)**
+    - Add an `upsertChunk` function to the existing `queries.ts` file to insert or update chunks in the database.
 
-## Detailed Specifications
-
-**Chunking:** `docs/06_PIPELINE.md#stage-2-chunking`
-**Embedding:** `docs/06_PIPELINE.md#stage-3-embedding`
-**Storage:** `docs/06_PIPELINE.md#stage-4-storage`
-
-## Files to Create
-
-```
-apps/server/src/pipeline/
-├── chunk.ts      # Chunking logic
-├── embed.ts      # Ollama client
-├── ingest.ts     # Orchestrator
-└── store.ts      # Database upsert
-```
+4.  **Pipeline Orchestration (`apps/server/src/pipeline/orchestrator.ts`)**
+    - Create a new orchestrator file to manage the full ingestion flow.
+    - **Refactor the existing `/api/ingest` route:** After a file is uploaded, it should now call the orchestrator to trigger the full `extract -> chunk -> embed -> store` pipeline asynchronously.
+    - Update the document's `status` field in the database as it moves through each stage (`extracting`, `chunking`, `embedding`, `complete`, `error`).
 
 ## Dependencies to Install
 
 ```json
 {
-  "ollama": "latest"
+  "ollama": "^0.5.0"
 }
 ```
 
-## Prerequisites
+## Files to Create / Update
 
-Phase 1 must be complete:
-- Database tables exist
-- File upload works
-- Extraction works
+```
+# Create these new files
+apps/server/src/pipeline/chunk.ts
+apps/server/src/pipeline/embed.ts
+apps/server/src/pipeline/orchestrator.ts
 
-## Acceptance Criteria
-
-- [ ] Text chunked into 800 char pieces
-- [ ] Chunks have 150 char overlap
-- [ ] Embeddings are 768 dimensions
-- [ ] Chunks stored in database
-- [ ] Status updates work
-- [ ] Full pipeline processes a PDF end-to-end
-- [ ] Tests pass
-
-## Testing
-
-```typescript
-const docId = await uploadDocument('test.pdf', collectionId);
-await ingestDocument(docId);
-const chunks = await db.query('SELECT COUNT(*) FROM chunks WHERE doc_id = $1', [docId]);
-console.log(`Created ${chunks.rows[0].count} chunks`);
+# Update these existing files
+packages/db/src/queries.ts      # Add upsertChunk function
+apps/server/src/routes/ingest.ts # Update to call the new orchestrator
 ```
 
-Questions before starting Phase 2?
+## Acceptance Criteria
+- [x] After a PDF is uploaded, it is processed completely.
+- [x] The `documents` table shows the status changing from `pending` to `complete`.
+- [x] The `chunks` table is populated with text chunks and 768-dimension vector embeddings.
+- [x] The process handles errors gracefully, setting the document status to `error`.
 ```
 
 ---
@@ -389,42 +298,29 @@ Questions before starting Phase 2?
 ## Phase Overview
 
 **Duration:** Day 3 (8 hours)
-**Goal:** Search works, agent can use it
-**Documentation:** `docs/09_BUILD_PLAN.md#day-3`
+**Goal:** Implement vector search and integrate it into a Claude agent as a tool.
+**Documentation:** `docs/09_BUILD_PLAN.md#day-3`, `docs/04_AGENT_TOOLS.md`
 
 ## What You're Building
 
-### Morning (4 hours):
-1. **Vector Search**
-   - Embed query with Ollama
-   - pgvector cosine similarity
-   - Return top-k with citations
-   - POST /api/search endpoint
+1.  **Vector Search Service (`apps/server/src/services/search.ts`)**
+    - Embed the user's query using the same Ollama model (`nomic-embed-text`).
+    - Perform a cosine similarity search against the `chunks.embedding` column in the database.
+    - Return the top 5 most relevant chunks, including the original text and document metadata for citations.
 
-### Afternoon (4 hours):
-2. **Claude Agent SDK Setup**
-   - Install `@anthropic-ai/claude-agent-sdk`
-   - Configure system prompt
-   - Register `search_rag` tool
-   - Set up agent with tool permissions
+2.  **Search API Endpoint (`apps/server/src/routes/search.ts`)**
+    - Create a `POST /api/search` endpoint that takes a query and returns the search results from the service.
 
-3. **Agent Chat Endpoint**
-   - POST /api/agent/chat
-   - Pass messages to agent
-   - Handle tool calls automatically
-   - Return responses with citations
+3.  **Claude Agent Integration (`apps/server/src/agent/`)**
+    - Install and configure the `@anthropic-ai/claude-agent-sdk`.
+    - Define a `search_rag` tool that calls the vector search service.
+    - Create a `POST /api/agent/chat` endpoint that forwards the user's message to the agent and returns the response. The agent should automatically use the `search_rag` tool when needed.
 
-## Detailed Specifications
-
-**Search:** `docs/02_ARCHITECTURE.md#vector-search-engine`
-**Agent:** `docs/04_AGENT_TOOLS.md`
-**API:** `docs/05_API_SPEC.md#post-apiagentchat`
-
-## Dependencies
+## Dependencies to Install
 
 ```json
 {
-  "@anthropic-ai/claude-agent-sdk": "latest",
+  "@anthropic-ai/claude-agent-sdk": "^0.1.7",
   "@anthropic-ai/sdk": "^0.27.0"
 }
 ```
@@ -437,72 +333,133 @@ apps/server/src/
 │   └── search.ts
 ├── agent/
 │   ├── agent.ts
-│   └── tools/
-│       └── search.ts
+│   └── tools.ts
 └── routes/
     ├── search.ts
     └── agent.ts
 ```
 
 ## Acceptance Criteria
-
-- [ ] Vector search returns relevant results
-- [ ] Results include citations
-- [ ] Claude Agent SDK configured
-- [ ] search_rag tool registered and works
-- [ ] POST /api/agent/chat works
-- [ ] Agent responds with citations
-- [ ] Tool permissions configured
-- [ ] Tests pass
-
-Questions before starting Phase 3?
+- [x] `POST /api/search` returns relevant chunks for a given query.
+- [x] `POST /api/agent/chat` with a question like "What is pgvector?" triggers the `search_rag` tool.
+- [x] The agent's final response includes information from the retrieved documents and cites the sources.
 ```
 
 ---
 
-## 📋 Phases 4-9: Quick Prompts
+## 📋 Phase 4 Prompt: Web Fetching
 
-### Phase 4: Web Fetching
+**Copy this:**
+
 ```
 # Phase 4: Autonomous Web Fetching
 
-**Goal:** Agent can fetch docs from URLs
-**Docs:** `docs/09_BUILD_PLAN.md#day-4`, `docs/04_AGENT_TOOLS.md#3-fetch_web_content`
+**Goal:** Give the agent tools to autonomously fetch content from URLs and manage documents in the RAG system.
+**Docs:** `docs/09_BUILD_PLAN.md#day-4`, `docs/04_AGENT_TOOLS.md`
 
-## What to Build:
-1. Install Playwright
-2. Implement fetch_web_content tool (single page)
-3. Implement crawling mode (multiple pages)
-4. Implement remaining tools (add_document, list_*, delete_document)
-5. Test multi-step workflows
+## What to Build
 
-Questions?
-```
+1.  **Web Content Fetching Tool**
+    - Install Playwright.
+    - Create a new tool named `fetch_and_add_document_from_url`.
+    - This tool should accept a `url` and a `collection_id`.
+    - It will use Playwright to navigate to the URL, extract the main content of the page, and then call the existing ingestion pipeline to add it as a new document.
 
-## Dependencies
+2.  **Document Management Tools**
+    - Implement and register the following tools for the agent to use:
+      - `list_collections()`: Returns a list of all available collections.
+      - `list_documents(collection_id: string)`: Returns a list of documents in a specific collection.
+      - `delete_document(document_id: string)`: Deletes a document and its associated chunks.
+
+3.  **Test a Multi-Step Workflow**
+    - Manually test an agent interaction that requires multiple steps, e.g., "List the available collections, then fetch the pgvector GitHub page and add it to the 'Getting Started' collection."
+
+## Dependencies to Install
 
 ```json
 {
-  "playwright": "latest"
+  "playwright": "^1.40.0"
 }
 ```
 
-### Phase 5: UI
+## Acceptance Criteria
+- [x] Agent can successfully add a document from a URL.
+- [x] Agent can list collections and documents.
+- [x] Agent can delete a document.
+- [x] The multi-step workflow test completes successfully.
 ```
-# Phase 5: Frontend UI
 
-**Goal:** Basic UI for collections, upload, chat
+---
+
+## 📋 Phase 5.1 Prompt: UI - Project Setup and Layout
+
+**Copy this:**
+
+```
+# Phase 5.1: UI - Project Setup and Layout
+
+**Goal:** Initialize the React frontend project and build the static application shell.
 **Docs:** `docs/09_BUILD_PLAN.md#day-5`, `docs/08_UI_SPEC.md`
 
-## What to Build:
-1. Setup React with routing, Tailwind, React Query
-2. Dashboard page (collection list)
-3. Collection view (document list)
-4. Upload page (drag & drop)
-5. Chat page (message list + input)
+## What to Build
+1.  Use Vite to scaffold a new React+TypeScript project in `apps/web`.
+2.  Install and configure Tailwind CSS.
+3.  Install `react-router-dom` and set up routes for `/`, `/collections/:id`, and `/chat`.
+4.  Create the main application layout (e.g., a sidebar for navigation and a main content area).
+5.  Create empty placeholder components for the `Dashboard`, `CollectionView`, and `ChatPage`.
 
-Questions?
+## Acceptance Criteria
+- [x] A runnable Vite development server that displays the basic app layout with navigation links that switch between empty pages.
 ```
+
+---
+
+## 📋 Phase 5.2 Prompt: UI - Collections and Document Management
+
+**Copy this:**
+
+```
+# Phase 5.2: UI - Collections and Document Management
+
+**Goal:** Build the UI for viewing collections, listing documents, and uploading new files.
+**Docs:** `docs/09_BUILD_PLAN.md#day-5`, `docs/08_UI_SPEC.md`
+
+## What to Build
+1.  Install `@tanstack/react-query`.
+2.  Use `react-query` to fetch and display the list of collections on the dashboard.
+3.  Create the `CollectionView` page to fetch and display the list of documents for a given collection.
+4.  Implement a file upload component (e.g., using `react-dropzone`) that calls the `/api/ingest` endpoint.
+5.  Provide user feedback for loading states, errors, and successful uploads.
+
+## Acceptance Criteria
+- [x] Users can see all collections, view the documents within each, and upload a new document.
+```
+
+---
+
+## 📋 Phase 5.3 Prompt: UI - Chat Interface
+
+**Copy this:**
+
+```
+# Phase 5.3: UI - Chat Interface
+
+**Goal:** Build the interactive chat interface for communicating with the RAG agent.
+**Docs:** `docs/09_BUILD_PLAN.md#day-5`, `docs/08_UI_SPEC.md`
+
+## What to Build
+1.  Create a `ChatPage` component with a message display area and a text input form.
+2.  Implement the logic to send user messages to the `POST /api/agent/chat` endpoint.
+3.  Display the agent's streaming response in the message area.
+4.  Parse and display document citations that are included in the agent's response.
+
+## Acceptance Criteria
+- [x] Users can have a full conversation with the agent and see the sources for its answers.
+```
+
+---
+
+## 📋 Phases 6-9: Quick Prompts
 
 ### Phase 6: MCP Server
 ```
