@@ -43,7 +43,15 @@ const DEFAULTS: NormalisedOptions = {
 };
 
 /**
- * Splits free-form text into overlapping chunks sized for downstream embedding.
+ * Split a text into overlapping, trimmed chunks optimized for downstream embedding.
+ *
+ * @param text - The input text to split; CRLF/CR line endings are normalized to LF before processing.
+ * @param options - Chunking configuration. Supported fields:
+ *   - `maxSize` (default 800): preferred maximum characters per chunk.
+ *   - `overlap` (default 150): number of characters to overlap between consecutive chunks.
+ *   - `paragraphSeparator` (default: regex matching two or more newlines): pattern used to prefer paragraph breaks.
+ * @param documentMetadata - Metadata to merge into each chunk's `metadata`; `startOffset`, `endOffset`, and inferred `heading` are added or overridden per chunk.
+ * @returns An array of chunks covering the input text in order; each chunk includes `text`, a zero-based `index`, and `metadata` with `startOffset` (inclusive) and `endOffset` (exclusive). Returns an empty array for input that is empty or only whitespace after normalization.
  */
 export function chunkText(
   text: string,
@@ -131,6 +139,16 @@ export function chunkText(
   return chunks;
 }
 
+/**
+ * Determine the end index for a chunk starting at `start` using paragraph/sentence heuristics and size constraints.
+ *
+ * @param text - The full source text being chunked.
+ * @param start - The inclusive start index for the current chunk.
+ * @param config - Normalised options controlling `maxSize`, `overlap`, and `paragraphSeparator`.
+ * @returns An object with:
+ *  - `end`: the exclusive end index where the chunk should finish (chosen by paragraph break, sentence boundary, or size limit),
+ *  - `hardLimit`: the maximum index considered when searching for boundaries (typically `min(start + maxSize, text.length)`, but may be `start + maxSize + overlap` when a forward sentence boundary is used).
+ */
 function determineChunkEnd(
   text: string,
   start: number,
@@ -163,6 +181,17 @@ function determineChunkEnd(
   return { end: hardLimit, hardLimit };
 }
 
+/**
+ * Locate the last paragraph separator between `start` and `limit` and return the index immediately after it.
+ *
+ * Searches `text` for the final match of `paragraphSeparator` whose match position is greater than `start` and less than `limit`. If found, returns the position after any leading newline characters that follow the separator so the separator is included in the chunk; otherwise returns `-1`.
+ *
+ * @param text - The full text to search.
+ * @param start - The inclusive start index from which to search for paragraph separators.
+ * @param limit - The exclusive upper bound for match positions.
+ * @param paragraphSeparator - A RegExp used to identify paragraph separators; the function will iterate matches and will reset `paragraphSeparator.lastIndex` to `0` before returning.
+ * @returns `-1` if no suitable paragraph separator is found; otherwise the index immediately after the separator (including any following newline characters).
+ */
 function findParagraphBreak(
   text: string,
   start: number,
@@ -191,6 +220,14 @@ function findParagraphBreak(
   return candidate + separatorLength;
 }
 
+/**
+ * Finds the final sentence boundary within the specified window of the text.
+ *
+ * @param text - The full text to search
+ * @param start - The start offset (inclusive) of the search window
+ * @param limit - The end offset (exclusive) of the search window
+ * @returns The index in `text` immediately after the last sentence-ending punctuation and following whitespace within `[start, limit)`, or `-1` if no sentence boundary is found
+ */
 function findLastSentenceBoundary(text: string, start: number, limit: number): number {
   if (limit <= start) {
     return -1;
@@ -210,6 +247,17 @@ function findLastSentenceBoundary(text: string, start: number, limit: number): n
   return boundary;
 }
 
+/**
+ * Finds the first sentence boundary inside the specified substring range.
+ *
+ * A sentence boundary is defined as a sentence-ending punctuation mark (`.`, `!`, or `?`)
+ * optionally followed by closing quotes/parens/brackets and then whitespace.
+ *
+ * @param text - The full text to search
+ * @param rangeStart - Inclusive start index of the search range
+ * @param rangeEnd - Exclusive end index of the search range
+ * @returns The index immediately after the sentence boundary within `[rangeStart, rangeEnd]`, or `-1` if none is found
+ */
 function findFirstSentenceBoundary(text: string, rangeStart: number, rangeEnd: number): number {
   if (rangeEnd <= rangeStart) {
     return -1;
@@ -228,6 +276,12 @@ function findFirstSentenceBoundary(text: string, rangeStart: number, rangeEnd: n
   return -1;
 }
 
+/**
+ * Infer a heading from the first line of a text chunk.
+ *
+ * @param chunk - The chunk of text to inspect
+ * @returns The first line as a heading if it is non-empty, at most 120 characters, and starts with `#` or an uppercase letter; `undefined` otherwise.
+ */
 function extractHeading(chunk: string): string | undefined {
   const firstLine = chunk.split('\n', 1)[0]?.trim();
   if (!firstLine) {
@@ -241,6 +295,12 @@ function extractHeading(chunk: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Normalize line endings to LF (`\n`).
+ *
+ * @param text - The input string whose line endings should be normalized
+ * @returns The input string with all CRLF (`\r\n`) and CR (`\r`) sequences replaced by LF (`\n`)
+ */
 function normaliseNewlines(text: string): string {
   return text.replace(/\r\n?/g, '\n');
 }

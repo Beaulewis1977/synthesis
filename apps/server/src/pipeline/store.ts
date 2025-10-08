@@ -10,10 +10,25 @@ export interface StoreChunksOptions {
   maxConcurrentUpserts?: number;
 }
 
+/**
+ * Estimates the number of tokens in a text.
+ *
+ * @param text - The input text to estimate tokens for.
+ * @returns The estimated token count, computed as Math.ceil(text.length / 4)
+ */
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+/**
+ * Stores the provided chunks for a document, replacing any existing chunks, and upserts their embeddings into the database.
+ *
+ * @param documentId - Identifier of the document whose chunks will be replaced.
+ * @param chunks - Array of chunk objects to store; each chunk's `index`, `text`, and `metadata` will be persisted.
+ * @param embeddings - Array of embeddings corresponding to `chunks`; may be empty to store chunks without embeddings.
+ * @param options - Optional settings: `embeddingModel` to record with stored vectors and `maxConcurrentUpserts` to cap parallel upserts.
+ * @throws Error if `embeddings` is non-empty and its length does not match `chunks.length`.
+ */
 export async function storeChunks(
   documentId: string,
   chunks: Chunk[],

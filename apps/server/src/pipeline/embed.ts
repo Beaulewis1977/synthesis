@@ -30,6 +30,11 @@ interface EmbeddingsClient {
 
 let cachedClient: EmbeddingsClient | null = null;
 
+/**
+ * Get a cached singleton Ollama embeddings client configured from OLLAMA_HOST or the default host.
+ *
+ * @returns An `EmbeddingsClient` instance connected to the configured Ollama host.
+ */
 function getOllamaClient(): EmbeddingsClient {
   if (cachedClient) {
     return cachedClient;
@@ -40,10 +45,24 @@ function getOllamaClient(): EmbeddingsClient {
   return cachedClient;
 }
 
+/**
+ * Injects or clears the cached Ollama embeddings client for testing.
+ *
+ * @param client - EmbeddingsClient to use as the cached client, or `null` to clear the cache
+ */
 export function __setOllamaClientForTesting(client: EmbeddingsClient | null): void {
   cachedClient = client;
 }
 
+/**
+ * Obtain an embedding vector for the given text.
+ *
+ * Applies configured model, retry, and validation rules from `options`.
+ *
+ * @param text - The input text to embed
+ * @param options - Optional embedding configuration (model, maxRetries, retryDelayMs, batchSize)
+ * @returns The embedding vector as an array of numbers
+ */
 export async function embedText(text: string, options: EmbedOptions = {}): Promise<number[]> {
   const config = resolveRuntimeConfig(options);
 
@@ -63,6 +82,14 @@ export async function embedText(text: string, options: EmbedOptions = {}): Promi
   return embedding;
 }
 
+/**
+ * Embed multiple input texts in configurable-size batches and return their vector embeddings.
+ *
+ * @param texts - Array of input strings to embed, processed in order.
+ * @param options - Optional embedding configuration (e.g., `model`, `batchSize`, `maxRetries`, `retryDelayMs`).
+ * @returns An array of embedding vectors (`number[]`) corresponding to each input text, in the same order.
+ * @throws If `options.batchSize` is less than or equal to zero.
+ */
 export async function embedBatch(texts: string[], options: EmbedOptions = {}): Promise<number[][]> {
   if (texts.length === 0) {
     return [];
@@ -84,6 +111,15 @@ export async function embedBatch(texts: string[], options: EmbedOptions = {}): P
   return results;
 }
 
+/**
+ * Validate and normalize embedding options into a concrete runtime configuration.
+ *
+ * @param options - Partial embedding options; `model` is trimmed and defaults to `DEFAULT_MODEL`, `maxRetries` defaults to `DEFAULT_MAX_RETRIES`, and `retryDelayMs` defaults to `DEFAULT_RETRY_DELAY_MS`.
+ * @returns The resolved EmbedRuntimeConfig containing `model`, `maxRetries`, and `retryDelayMs`.
+ * @throws Error if `model` is empty after trimming.
+ * @throws Error if `maxRetries` is negative.
+ * @throws Error if `retryDelayMs` is negative.
+ */
 function resolveRuntimeConfig(options: EmbedOptions): EmbedRuntimeConfig {
   const model = options.model?.trim() ?? DEFAULT_MODEL;
   if (model.length === 0) {
@@ -103,6 +139,15 @@ function resolveRuntimeConfig(options: EmbedOptions): EmbedRuntimeConfig {
   return { model, maxRetries, retryDelayMs };
 }
 
+/**
+ * Retries an asynchronous operation up to a configured number of retries, applying an incremental delay between attempts.
+ *
+ * @param fn - The async operation to execute.
+ * @param maxRetries - Number of retry attempts allowed after the initial attempt (e.g., 3 means up to 4 total attempts).
+ * @param retryDelayMs - Base delay in milliseconds used between retries; the actual delay is `retryDelayMs * attempt` where `attempt` starts at 1 for the first retry.
+ * @returns The value resolved by `fn`.
+ * @throws The last error thrown by `fn` if all attempts (initial + `maxRetries`) fail.
+ */
 async function withRetry<T>(
   fn: () => Promise<T>,
   maxRetries: number,
@@ -127,12 +172,27 @@ async function withRetry<T>(
   }
 }
 
+/**
+ * Pauses execution for a specified number of milliseconds.
+ *
+ * @param ms - Delay duration in milliseconds
+ * @returns Resolves after the specified delay
+ */
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
 }
 
+/**
+ * Validate and extract a numeric embedding array from an Ollama response.
+ *
+ * @param response - The Ollama response object that is expected to contain an `embedding` array.
+ * @returns The validated embedding array as a `number[]`.
+ * @throws Error if `response` is null/undefined or does not contain an embedding array.
+ * @throws Error if any embedding value is not a finite number.
+ * @throws Error if the embedding array is empty.
+ */
 function normalizeEmbedding(response: { embedding?: unknown } | null | undefined): number[] {
   if (!response || !Array.isArray(response.embedding)) {
     throw new Error('Ollama embedding response missing embedding array');

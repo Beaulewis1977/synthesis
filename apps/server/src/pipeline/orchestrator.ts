@@ -19,6 +19,17 @@ type ReadyDocument = Document & {
   content_type: string;
 };
 
+/**
+ * Asserts that a retrieved document is present and contains the required ingestion fields.
+ *
+ * Throws an Error if the document is null or if either `file_path` or `content_type` is missing.
+ *
+ * @param document - The document object to validate.
+ * @param documentId - The document identifier used in error messages.
+ * @throws Error - "Document {documentId} not found" if `document` is null.
+ * @throws Error - "Document {documentId} is missing file_path" if `file_path` is falsy.
+ * @throws Error - "Document {documentId} is missing content_type" if `content_type` is falsy.
+ */
 function assertDocumentReady(
   document: Document | null,
   documentId: string
@@ -36,6 +47,14 @@ function assertDocumentReady(
   }
 }
 
+/**
+ * Orchestrates ingestion of a document by extracting its contents, chunking the text, producing embeddings, storing results, and updating the document's status through each stage.
+ *
+ * @param documentId - The identifier of the document to ingest.
+ * @param options - Optional overrides for chunking and embedding behavior.
+ *
+ * @throws If any stage fails, updates the document status to `'error'` with the failure message and rethrows the original error.
+ */
 export async function ingestDocument(
   documentId: string,
   options: IngestOptions = {}
