@@ -4,7 +4,7 @@ import type { MultipartFile } from '@fastify/multipart';
 import { createDocument, updateDocumentStatus } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { extract } from '../pipeline/extract.js';
+import { ingestDocument } from '../pipeline/orchestrator.js';
 
 const STORAGE_PATH = process.env.STORAGE_PATH || './storage';
 
@@ -86,9 +86,9 @@ export const ingestRoutes: FastifyPluginAsync = async (fastify) => {
       // Update document with file path
       await updateDocumentStatus(document.id, 'pending', undefined, filePath);
 
-      // Start extraction (async, don't wait)
-      extractDocument(document.id, buffer, contentType, filename).catch((error) => {
-        fastify.log.error({ docId: document.id, error }, 'Document extraction failed');
+      // Start ingestion pipeline asynchronously
+      ingestDocument(document.id).catch((error) => {
+        fastify.log.error({ docId: document.id, error }, 'Document ingestion failed');
       });
 
       return reply.code(201).send({
@@ -105,38 +105,3 @@ export const ingestRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 };
-
-/**
- * Asynchronously extracts text from a document, updates its status in the database,
- * and handles any errors that occur during the process.
- * This function is designed to run in the background after the initial file upload.
- * @param documentId The UUID of the document to process.
- * @param buffer The file content as a Buffer.
- * @param contentType The MIME type of the file.
- * @param filePath The path to the saved file in storage.
- * @param filename The original filename of the uploaded document.
- */
-async function extractDocument(
-  documentId: string,
-  buffer: Buffer,
-  contentType: string,
-  filename: string
-): Promise<void> {
-  try {
-    // Update status to extracting
-    await updateDocumentStatus(documentId, 'extracting');
-
-    // Extract text
-    const result = await extract(buffer, contentType, filename);
-
-    // For now, just mark as complete
-    // In Phase 2, we'll add chunking and embedding
-    await updateDocumentStatus(documentId, 'complete');
-
-    console.log(`✅ Extracted document ${documentId}: ${result.text.length} characters`);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    await updateDocumentStatus(documentId, 'error', errorMessage);
-    throw error;
-  }
-}
