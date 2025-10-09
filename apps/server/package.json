@@ -27,11 +27,13 @@
     "playwright": "^1.40.0",
     "remark": "^15.0.1",
     "remark-parse": "^11.0.0",
+    "turndown": "^7.1.2",
     "unified": "^11.0.4",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.7.5",
+    "@types/turndown": "^5.0.4",
     "@types/pg": "^8.11.6",
     "tsup": "^8.3.0",
     "tsx": "^4.19.1",

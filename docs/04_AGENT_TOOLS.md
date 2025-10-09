@@ -305,7 +305,7 @@ export function createFetchWebContentTool(db: Pool, context: ToolContext) {
 ```
 User: "Add the Flutter documentation"
 Agent: fetch_web_content("https://docs.flutter.dev", collection_id, mode="crawl", max_pages=100)
-Agent: "I've crawled the Flutter docs and added 100 pages to your collection."
+Agent: "I'm fetching the Flutter docs and added 100 pages to your collection."
 ```
 
 ---

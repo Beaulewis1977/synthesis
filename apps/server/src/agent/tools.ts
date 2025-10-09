@@ -8,6 +8,7 @@ import {
 } from '@synthesis/db';
 import type { Pool } from 'pg';
 import { chromium } from 'playwright';
+import TurndownService from 'turndown';
 import { z } from 'zod';
 import { ingestDocument } from '../pipeline/orchestrator.js';
 import { searchCollection } from '../services/search.js';
@@ -244,79 +245,104 @@ export function createFetchWebContentTool(
     executor: async (args: unknown) => {
       const parsed = inputSchema.parse(args);
       const collectionId = parsed.collection_id ?? context.collectionId;
-      const queue = [parsed.url];
+      const turndownService = createTurndownService();
+      const initialUrl = normalizeUrl(parsed.url);
+      const queue = [initialUrl];
+      const pending = new Set(queue);
       const visited = new Set<string>();
       const processed: Array<{ docId: string; url: string; title: string }> = [];
 
       const browser = await chromium.launch({ headless: true });
       try {
-        const page = await browser.newPage();
+        const context = await browser.newContext({
+          userAgent:
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        });
+        const page = await context.newPage();
 
         while (queue.length > 0 && processed.length < parsed.max_pages) {
           const nextUrl = queue.shift();
           if (!nextUrl) {
             break;
           }
-          if (visited.has(nextUrl)) {
+          pending.delete(nextUrl);
+
+          const normalizedUrl = normalizeUrl(nextUrl);
+
+          if (visited.has(normalizedUrl)) {
             continue;
           }
 
-          visited.add(nextUrl);
+          visited.add(normalizedUrl);
           if (processed.length > 0) {
             // Avoid hammering target servers when crawling multiple pages.
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }
           try {
-            await page.goto(nextUrl, { waitUntil: 'networkidle', timeout: 30_000 });
+            await page.goto(normalizedUrl, { waitUntil: 'networkidle', timeout: 30_000 });
           } catch (navigationError) {
-            console.warn(`Failed to load ${nextUrl}`, navigationError);
+            console.warn(`Failed to load ${normalizedUrl}`, navigationError);
             continue;
           }
 
           const title = await page.title();
-          const bodyText = await page.evaluate(() => {
-            type TextNode = { innerText?: string } | null | undefined;
-            type DocumentLike = {
-              querySelector?: (selector: string) => TextNode;
-              body?: TextNode;
-              documentElement?: TextNode;
+          const content = await page.evaluate(() => {
+            type ElementLike = {
+              innerHTML?: string;
+              innerText?: string;
+            } | null;
+
+            const selectors = ['main', 'article', '.content', '#content'];
+            // biome-ignore lint/suspicious/noExplicitAny: This is necessary to bridge the server-side type checker with the browser context where `document` is a full DOM object.
+            const doc = document as any;
+
+            if (!doc) {
+              return { html: '', text: '' };
+            }
+
+            const candidate = selectors
+              .map((selector) => doc.querySelector(selector) as ElementLike)
+              .find((node) => node && typeof node.innerText === 'string' && node.innerText.trim());
+
+            const element =
+              candidate ?? (doc.body as ElementLike) ?? (doc.documentElement as ElementLike);
+
+            return {
+              html: element?.innerHTML ?? '',
+              text: element?.innerText ?? '',
             };
-            const doc = (globalThis as { document?: DocumentLike }).document;
-            const main =
-              doc?.querySelector?.('main, article, .content, #content') ??
-              doc?.body ??
-              doc?.documentElement;
-            const text = main?.innerText;
-            return typeof text === 'string' ? text : '';
           });
 
-          if (!bodyText.trim()) {
-            console.warn(`No content extracted from ${nextUrl}`);
+          const markdown = convertHtmlToMarkdown(content.html, turndownService);
+          const textFallback = (content.text ?? '').trim();
+
+          if (!markdown && !textFallback) {
+            console.warn(`No content extracted from ${normalizedUrl}`);
             continue;
           }
 
           const cleanedTitle = parsed.title_prefix
-            ? `${parsed.title_prefix} - ${title || inferTitle(nextUrl)}`
-            : title || inferTitle(nextUrl);
+            ? `${parsed.title_prefix} - ${title || inferTitle(normalizedUrl)}`
+            : title || inferTitle(normalizedUrl);
 
-          const buffer = Buffer.from(bodyText.trim(), 'utf-8');
+          const contentBuffer = Buffer.from(markdown || textFallback, 'utf-8');
           const document = await createDocument({
             collection_id: collectionId,
             title: cleanedTitle,
             file_path: undefined,
             content_type: 'text/markdown',
-            file_size: buffer.length,
-            source_url: nextUrl,
+            file_size: contentBuffer.length,
+            source_url: normalizedUrl,
           });
 
-          const filePath = await writeDocumentFile(collectionId, document.id, '.md', buffer);
+          const filePath = await writeDocumentFile(collectionId, document.id, '.md', contentBuffer);
           await updateDocumentStatusSafe(db, document.id, 'pending', undefined, filePath);
 
           ingestDocument(document.id).catch((error: unknown) => {
             console.error(`Ingestion failed for ${document.id}`, error);
           });
 
-          processed.push({ docId: document.id, url: nextUrl, title: cleanedTitle });
+          processed.push({ docId: document.id, url: normalizedUrl, title: cleanedTitle });
 
           if (parsed.mode === 'crawl') {
             const discovered = await page.$$eval(
@@ -333,7 +359,7 @@ export function createFetchWebContentTool(
                         getAttribute?: (attr: string) => string | null;
                       };
                       const node = anchor as AnchorLike;
-                      const candidate: string | null =
+                      const candidate: string | null = 
                         typeof node.href === 'string'
                           ? node.href
                           : typeof node.getAttribute === 'function'
@@ -350,14 +376,16 @@ export function createFetchWebContentTool(
                     }
                   })
                   .filter((href): href is string => typeof href === 'string')
-                  .filter((href) => href.startsWith(originHost) && !href.includes('#'));
+                  .filter((href) => href.startsWith(originHost));
               },
-              nextUrl
+              normalizedUrl
             );
 
             for (const link of discovered) {
-              if (!visited.has(link) && !queue.includes(link)) {
-                queue.push(link);
+              const normalisedLink = normalizeUrl(link);
+              if (!visited.has(normalisedLink) && !pending.has(normalisedLink)) {
+                queue.push(normalisedLink);
+                pending.add(normalisedLink);
               }
             }
           }
@@ -385,7 +413,7 @@ export function createListCollectionsTool(db: Pool): { definition: Tool; executo
       },
     },
     executor: async () => {
-      const { rows } = await db.query<{
+      const { rows } = await db.query<{ 
         id: string;
         name: string;
         description: string | null;
@@ -426,10 +454,11 @@ export function createListDocumentsTool(
 } {
   const inputSchema = z.object({
     collection_id: z.string().uuid().optional().default(context.collectionId),
-    status: z
-      .enum(['pending', 'extracting', 'chunking', 'embedding', 'complete', 'error', 'all'])
-      .optional()
-      .default('all'),
+    status:
+      z
+        .enum(['pending', 'extracting', 'chunking', 'embedding', 'complete', 'error', 'all'])
+        .optional()
+        .default('all'),
     limit: z.number().int().min(1).max(200).optional().default(50),
   });
 
@@ -453,7 +482,7 @@ export function createListDocumentsTool(
 
       params.push(parsed.limit);
 
-      const { rows } = await db.query<{
+      const { rows } = await db.query<{ 
         id: string;
         title: string;
         status: string;
@@ -519,7 +548,7 @@ export function createGetDocumentStatusTool(db: Pool): {
     },
     executor: async (args: unknown) => {
       const parsed = inputSchema.parse(args);
-      const { rows } = await db.query<{
+      const { rows } = await db.query<{ 
         id: string;
         title: string;
         status: string;
@@ -721,6 +750,53 @@ export function createSummarizeDocumentTool(_db: Pool): {
       });
     },
   };
+}
+
+function createTurndownService(): TurndownService {
+  return new TurndownService({
+    headingStyle: 'atx',
+    bulletListMarker: '-',
+    codeBlockStyle: 'fenced',
+  });
+}
+
+function convertHtmlToMarkdown(html: string | null | undefined, service: TurndownService): string {
+  const trimmed = (html ?? '').trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  try {
+    return service.turndown(trimmed).trim();
+  } catch (error) {
+    console.warn('Failed to convert HTML to Markdown', error);
+    return '';
+  }
+}
+
+function normalizeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return url;
+    }
+
+    parsed.hash = '';
+    parsed.searchParams.sort();
+
+    if (parsed.pathname && parsed.pathname !== '/') {
+      parsed.pathname = parsed.pathname.replace(/\/+/g, '/');
+      parsed.pathname = parsed.pathname.replace(/\/+$/, '');
+      if (parsed.pathname === '') {
+        parsed.pathname = '/';
+      }
+    }
+
+    return parsed.toString();
+  } catch {
+    return url;
+  }
 }
 
 function extractTextContent(

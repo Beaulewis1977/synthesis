@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildAgentTools,
   createAddDocumentTool,
+  createDeleteDocumentTool,
   createFetchWebContentTool,
+  createGetDocumentStatusTool,
   createListCollectionsTool,
   createListDocumentsTool,
   createSearchRagTool,
@@ -26,6 +28,12 @@ const writeDocumentFileMock = vi.hoisted(() => vi.fn());
 const deleteFileIfExistsMock = vi.hoisted(() => vi.fn());
 const chromiumLaunchMock = vi.hoisted(() => vi.fn());
 const anthropicCreateMock = vi.hoisted(() => vi.fn());
+const turndownConvertMock = vi.hoisted(() => vi.fn());
+const turndownConstructorMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    turndown: turndownConvertMock,
+  }))
+);
 
 vi.mock('../../services/search.js', () => ({
   __esModule: true,
@@ -75,15 +83,29 @@ vi.mock('@anthropic-ai/sdk', () => {
   };
 });
 
+vi.mock('turndown', () => ({
+  __esModule: true,
+  default: turndownConstructorMock,
+}));
+
 function createDbMock() {
-  return {
+  const query = vi.fn().mockResolvedValue({ rows: [] });
+  const connect = vi.fn().mockResolvedValue({
     query: vi.fn().mockResolvedValue({ rows: [] }),
+    release: vi.fn(),
+  });
+
+  return {
+    query,
+    connect,
   } as unknown as Pool;
 }
 
 describe('agent tools', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    turndownConvertMock.mockReset();
+    turndownConvertMock.mockReturnValue('# Markdown\n');
   });
 
   it('search tool proxies to searchCollection', async () => {
@@ -141,11 +163,15 @@ describe('agent tools', () => {
     expect(ingestDocumentMock).toHaveBeenCalledWith('doc-1');
   });
 
-  it('fetch_web_content tool processes pages and queues ingestion', async () => {
+  it('fetch_web_content tool converts HTML to markdown and queues ingestion', async () => {
     const db = createDbMock();
     const pageGoto = vi.fn();
     const pageTitle = vi.fn().mockResolvedValue('Sample Page');
-    const pageEvaluate = vi.fn().mockResolvedValueOnce('Page content').mockResolvedValueOnce([]);
+    const pageEvaluate = vi.fn().mockResolvedValue({
+      html: '<main><h1>Heading</h1><p>Paragraph</p></main>',
+      text: 'Heading\nParagraph',
+    });
+    const pageEvalLinks = vi.fn().mockResolvedValue([]);
     const browserClose = vi.fn();
 
     chromiumLaunchMock.mockResolvedValue({
@@ -153,13 +179,15 @@ describe('agent tools', () => {
         goto: pageGoto,
         title: pageTitle,
         evaluate: pageEvaluate,
-        $$eval: vi.fn().mockResolvedValue([]),
+        $$eval: pageEvalLinks,
       }),
       close: browserClose,
     });
 
     createDocumentMock.mockResolvedValue({ id: 'doc-2' });
     writeDocumentFileMock.mockResolvedValue('/storage/doc-2.md');
+
+    turndownConvertMock.mockReturnValueOnce('# Heading\n\nParagraph');
 
     const tool = createFetchWebContentTool(db, {
       collectionId: '11111111-1111-4111-8111-111111111111',
@@ -172,13 +200,17 @@ describe('agent tools', () => {
     });
 
     expect(result).toContain('Fetched and queued 1 page');
-    expect(createDocumentMock).toHaveBeenCalled();
-    expect(writeDocumentFileMock).toHaveBeenCalledWith(
-      '11111111-1111-4111-8111-111111111111',
-      'doc-2',
-      '.md',
-      expect.any(Buffer)
+    expect(turndownConstructorMock).toHaveBeenCalled();
+    expect(turndownConvertMock).toHaveBeenCalledWith(
+      '<main><h1>Heading</h1><p>Paragraph</p></main>'
     );
+    expect(createDocumentMock).toHaveBeenCalled();
+
+    const writeArgs = writeDocumentFileMock.mock.calls[0];
+    expect(writeArgs[0]).toBe('11111111-1111-4111-8111-111111111111');
+    expect(writeArgs[1]).toBe('doc-2');
+    expect(writeArgs[2]).toBe('.md');
+    expect((writeArgs[3] as Buffer).toString('utf-8')).toBe('# Heading\n\nParagraph');
     expect(browserClose).toHaveBeenCalled();
   });
 
@@ -228,6 +260,93 @@ describe('agent tools', () => {
 
     expect(db.query as vi.Mock).toHaveBeenCalled();
     expect(result).toContain('Retrieved 1 document');
+  });
+
+  it('get_document_status tool returns not found message', async () => {
+    const db = createDbMock();
+    (db.query as vi.Mock).mockResolvedValue({ rows: [] });
+
+    const tool = createGetDocumentStatusTool(db);
+    const result = await tool.executor({ doc_id: '11111111-1111-4111-8111-111111111111' });
+
+    expect(result).toContain('not found');
+  });
+
+  it('get_document_status tool returns document payload', async () => {
+    const db = createDbMock();
+    (db.query as vi.Mock).mockResolvedValue({
+      rows: [
+        {
+          id: '11111111-1111-4111-8111-555555555555',
+          title: 'Important Doc',
+          status: 'complete',
+          error_message: null,
+          created_at: new Date('2025-01-01T00:00:00Z'),
+          processed_at: new Date('2025-01-02T00:00:00Z'),
+          file_path: '/storage/doc-5.md',
+          chunk_count: '4',
+          total_tokens: '1200',
+        },
+      ],
+    });
+
+    const tool = createGetDocumentStatusTool(db);
+    const result = await tool.executor({
+      doc_id: '11111111-1111-4111-8111-555555555555',
+    });
+
+    expect(result).toContain('Status retrieved for document Important Doc');
+    expect(result).toContain('"chunk_count": 4');
+  });
+
+  it('delete_document tool requires explicit confirmation', async () => {
+    const db = createDbMock();
+    const tool = createDeleteDocumentTool(db);
+
+    const result = await tool.executor({
+      doc_id: '11111111-1111-4111-8111-333333333333',
+      confirm: false,
+    });
+
+    expect(result).toContain('Deletion not confirmed');
+    expect(getDocumentMock).not.toHaveBeenCalled();
+  });
+
+  it('delete_document tool removes document when confirmed', async () => {
+    const db = createDbMock();
+    deleteDocumentChunksMock.mockResolvedValue(undefined);
+    getDocumentMock.mockResolvedValue({
+      id: '11111111-1111-4111-8111-666666666666',
+      title: 'Deletable Doc',
+      file_path: '/storage/doc-6.md',
+    });
+
+    const clientQuery = vi.fn().mockResolvedValue(undefined);
+    const clientRelease = vi.fn();
+    const client = {
+      query: clientQuery,
+      release: clientRelease,
+    };
+    (db.connect as unknown as vi.Mock).mockResolvedValue(client);
+
+    const tool = createDeleteDocumentTool(db);
+    const result = await tool.executor({
+      doc_id: '11111111-1111-4111-8111-666666666666',
+      confirm: true,
+    });
+
+    expect(clientQuery).toHaveBeenCalledWith('BEGIN');
+    expect(deleteDocumentChunksMock).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-666666666666',
+      client
+    );
+    expect(clientQuery).toHaveBeenCalledWith('DELETE FROM documents WHERE id = $1', [
+      '11111111-1111-4111-8111-666666666666',
+    ]);
+    expect(clientQuery).toHaveBeenCalledWith('COMMIT');
+    expect(deleteFileIfExistsMock).toHaveBeenCalledWith('/storage/doc-6.md');
+    expect(clientRelease).toHaveBeenCalled();
+    expect(result).toContain('Document Deletable Doc deleted.');
   });
 
   it('summarize_document tool calls Anthropic API', async () => {
