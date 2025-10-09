@@ -176,13 +176,11 @@ console.log(`Created ${chunks.rows[0].count} chunks`);
     -d '{"query": "test query", "collection_id": "uuid", "top_k": 5}'
   ```
 
-**Afternoon (4 hours):**
-- [ ] Install Agent SDK: `pnpm add @anthropic-ai/agent-sdk @anthropic-ai/sdk`
-
-- [ ] Create agent
-  - `apps/server/src/agent/agent.ts`
-  - Basic setup with system prompt
-  - Register `search_rag` tool
+- **Afternoon (4 hours):**
+- [ ] Wire up Claude Messages API loop
+  - Use `@anthropic-ai/sdk` directly (no `claude-agent-sdk` dependency)
+  - Implement manual tool-use loop in `apps/server/src/agent/agent.ts`
+  - Track token usage totals across turns
 
 - [ ] Implement `search_rag` tool
   - `apps/server/src/agent/tools/search.ts`

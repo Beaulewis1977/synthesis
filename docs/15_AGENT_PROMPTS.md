@@ -275,7 +275,7 @@ apps/server/src/
 
 ```json
 {
-  "ollama": "^0.5.0"
+  "ollama": "^0.5.17"
 }
 ```
 
@@ -325,16 +325,15 @@ apps/server/src/routes/ingest.ts # Update to call the new orchestrator
     - Create a `POST /api/search` endpoint that takes a query and returns the search results from the service.
 
 3.  **Claude Agent Integration (`apps/server/src/agent/`)**
-    - Install and configure the `@anthropic-ai/claude-agent-sdk`.
-    - Define a `search_rag` tool that calls the vector search service.
-    - Create a `POST /api/agent/chat` endpoint that forwards the user's message to the agent and returns the response. The agent should automatically use the `search_rag` tool when needed.
+    - Use the `@anthropic-ai/sdk` Messages API directly (no `claude-agent-sdk`).
+    - Build `buildAgentTools()` so each tool exposes `{ definition, executor }`.
+    - Implement the manual tool loop in `POST /api/agent/chat`, executing local tools whenever Claude emits `tool_use` blocks.
 
 ## Dependencies to Install
 
 ```json
 {
-  "@anthropic-ai/claude-agent-sdk": "^0.1.7",
-  "@anthropic-ai/sdk": "^0.27.0"
+  "@anthropic-ai/sdk": "^0.65.0"
 }
 ```
 
@@ -391,7 +390,7 @@ apps/server/src/
 
 ```json
 {
-  "playwright": "^1.40.0"
+  "playwright": "^1.56.0"
 }
 ```
 

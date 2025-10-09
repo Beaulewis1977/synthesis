@@ -37,11 +37,14 @@ export async function extractPDF(buffer: Buffer): Promise<ExtractionResult> {
   try {
     const data = (await pdf(buffer)) as unknown as PDFParseData;
 
+    const wordCount =
+      !data.text || data.text.trim() === '' ? 0 : data.text.trim().split(/\s+/).length;
+
     return {
       text: data.text,
       metadata: {
         pageCount: data.numpages,
-        wordCount: data.text.split(/\s+/).length,
+        wordCount,
       },
     };
   } catch (error) {
@@ -61,10 +64,13 @@ export async function extractDOCX(buffer: Buffer): Promise<ExtractionResult> {
   try {
     const result = await mammoth.extractRawText({ buffer });
 
+    const wordCount =
+      !result.value || result.value.trim() === '' ? 0 : result.value.trim().split(/\s+/).length;
+
     return {
       text: result.value,
       metadata: {
-        wordCount: result.value.split(/\s+/).length,
+        wordCount,
       },
     };
   } catch (error) {
@@ -88,10 +94,12 @@ export async function extractMarkdown(buffer: Buffer): Promise<ExtractionResult>
     const tree = processor.parse(text);
     const extracted = mdastToString(tree);
 
+    const wordCount = !text || text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+
     return {
       text: extracted || text, // Fallback to raw text if parsing fails
       metadata: {
-        wordCount: text.split(/\s+/).length,
+        wordCount,
       },
     };
   } catch (error) {
@@ -109,10 +117,12 @@ export async function extractMarkdown(buffer: Buffer): Promise<ExtractionResult>
 export function extractPlainText(buffer: Buffer): ExtractionResult {
   const text = buffer.toString('utf-8');
 
+  const wordCount = !text || text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+
   return {
     text,
     metadata: {
-      wordCount: text.split(/\s+/).length,
+      wordCount,
     },
   };
 }

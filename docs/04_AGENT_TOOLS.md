@@ -1,6 +1,6 @@
-# Claude Agent SDK - Tools Specification
-**Version:** 1.0  
-**Last Updated:** October 6, 2025
+# Claude Agent Tools Specification
+**Version:** 1.1  
+**Last Updated:** October 8, 2025
 
 ---
 
@@ -12,58 +12,69 @@ Define all tools the autonomous agent can use to manage your RAG system.
 
 ---
 
-## 🤖 Agent Configuration
+## 🤖 Agent Architecture
 
-**File:** `apps/server/src/agent/agent.ts`
+**Key files**
+- Conversation loop: `apps/server/src/agent/agent.ts`
+- Tool factories: `apps/server/src/agent/tools.ts`
+
+### Messages API Loop
+
+The agent now talks directly to Anthropic's Messages API. Each turn:
+
+1. `buildAgentTools()` returns a list of tool **definitions** (JSON schema metadata Anthropic understands) and tool **executors** (local functions that perform the work).
+2. `runAgentChat()` calls `anthropic.messages.create({ …, tools })`.
+3. If Claude emits any `tool_use` blocks, the matching executor runs locally and the structured results are appended as `tool_result` content.
+4. The loop continues until Claude responds without tool calls or the 10-turn safety cap is hit.
 
 ```typescript
-import { Agent } from '@anthropic-ai/agent-sdk';
-import Anthropic from '@anthropic-ai/sdk';
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const { tools, toolExecutors } = buildAgentTools(db, { collectionId });
 
-export function createRAGAgent(db: Pool) {
-  const client = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
+while (turns < 10) {
+  const response = await anthropic.messages.create({
+    model: 'claude-3-7-sonnet-20250219',
+    system,
+    messages,
+    tools, // Tool definitions from buildAgentTools
   });
 
-  return new Agent({
-    client,
-    model: 'claude-3-5-sonnet-20241022',
-    maxTurns: 10,  // Allow multi-step workflows
-    
-    systemPrompt: `You are an autonomous RAG assistant helping a developer manage documentation for multiple projects.
+  const toolUses = response.content.filter((block) => block.type === 'tool_use');
+  if (toolUses.length === 0) break;
 
-Your capabilities:
-- Search the knowledge base across collections
-- Add documents from file paths or URLs
-- Fetch and process web documentation (crawl pages)
-- List and manage collections and documents
-- Provide answers with specific citations
+  for (const call of toolUses) {
+    const executor = toolExecutors[call.name];
+    const resultText = await executor(call.input);
+    toolResults.push({ type: 'tool_result', tool_use_id: call.id, content: resultText });
+  }
 
-Guidelines:
-- Always cite sources with document title and page/section when available
-- When asked to add docs, proactively fetch and process them without asking for confirmation
-- If documentation is outdated, offer to update it
-- Be concise but thorough in your responses
-- Confirm destructive actions (delete) before executing
-- Use multiple tools in sequence when needed to complete a task
-
-Current context:
-- You have access to multiple project collections (Flutter, Supabase, etc.)
-- All operations are collection-scoped
-- The user can switch between collections in the UI`,
-
-    tools: [
-      searchRAGTool(db),
-      addDocumentTool(db),
-      fetchWebContentTool(db),
-      listCollectionsTool(db),
-      listDocumentsTool(db),
-      deleteDocumentTool(db),
-      getDocumentStatusTool(db),
-    ],
-  });
+  messages.push({ role: 'assistant', content: response.content });
+  messages.push({ role: 'user', content: toolResults });
 }
 ```
+
+Each tool factory follows the same shape:
+
+```typescript
+export function createSearchRagTool(db: Pool, context: ToolContext) {
+  const inputSchema = z.object({ /* … */ });
+
+  return {
+    definition: {
+      name: 'search_rag',
+      description: 'Search the RAG knowledge base…',
+      input_schema: zodToJsonSchema(inputSchema),
+    },
+    executor: async (rawInput) => {
+      const args = inputSchema.parse(rawInput);
+      const results = await searchCollection(db, { /* … */ });
+      return formatResult(results);
+    },
+  };
+}
+```
+
+> **Environment:** Ensure `ANTHROPIC_API_KEY`, `DATABASE_URL`, `OLLAMA_BASE_URL`, and `STORAGE_PATH` are set (see `apps/server/.env.example`).
 
 ---
 
@@ -105,58 +116,28 @@ Current context:
 }
 ```
 
-**Implementation:**
+**Implementation:** `apps/server/src/agent/tools.ts`
 ```typescript
-// apps/server/src/agent/tools/search.ts
-import { embedText } from '../../pipeline/embed';
-import type { Pool } from 'pg';
+export function createSearchRagTool(db: Pool, context: ToolContext) {
+  const inputSchema = z.object({ /* … */ });
 
-export function searchRAGTool(db: Pool) {
   return {
-    name: "search_rag",
-    description: "Search the RAG knowledge base...",
-    input_schema: { /* as above */ },
-    
-    async execute({ query, collection_id, top_k = 10, min_similarity = 0.5 }) {
-      // 1. Embed the query
-      const queryEmbedding = await embedText(query);
-      
-      // 2. Vector search
-      const result = await db.query(`
-        SELECT 
-          ch.id,
-          ch.text,
-          ch.metadata,
-          d.id as doc_id,
-          d.title as doc_title,
-          d.source_url,
-          (1 - (ch.embedding <=> $1::vector)) as similarity
-        FROM chunks ch
-        JOIN documents d ON d.id = ch.doc_id
-        WHERE d.collection_id = $2
-          AND (1 - (ch.embedding <=> $1::vector)) >= $3
-        ORDER BY ch.embedding <=> $1::vector
-        LIMIT $4
-      `, [queryEmbedding, collection_id, min_similarity, top_k]);
-      
-      // 3. Format results
-      return {
-        results: result.rows.map(row => ({
-          text: row.text,
-          similarity: row.similarity,
-          doc_id: row.doc_id,
-          doc_title: row.doc_title,
-          source_url: row.source_url,
-          citation: {
-            title: row.doc_title,
-            page: row.metadata?.page,
-            section: row.metadata?.heading,
-          }
-        })),
-        query,
-        total_results: result.rows.length
-      };
-    }
+    definition: {
+      name: 'search_rag',
+      description: 'Search the RAG knowledge base…',
+      input_schema: zodToJsonSchema(inputSchema),
+    },
+    executor: async (rawInput) => {
+      const args = inputSchema.parse(rawInput);
+      const searchResult = await searchCollection(db, {
+        query: args.query,
+        collectionId: args.collection_id ?? context.collectionId,
+        topK: args.top_k ?? 5,
+        minSimilarity: args.min_similarity ?? 0.5,
+      });
+
+      return formatSearchPayload(searchResult);
+    },
   };
 }
 ```
@@ -204,63 +185,47 @@ Agent response: "To set up RLS in Supabase... [cites Supabase Docs, p. 34]"
 }
 ```
 
-**Implementation:**
+**Implementation:** `apps/server/src/agent/tools.ts`
 ```typescript
-// apps/server/src/agent/tools/add-doc.ts
-import { ingestDocument } from '../../pipeline/ingest';
+export function createAddDocumentTool(db: Pool, context: ToolContext) {
+  const inputSchema = z.object({ /* … */ });
 
-export function addDocumentTool(db: Pool) {
   return {
-    name: "add_document",
-    description: "Add a document to the RAG system...",
-    input_schema: { /* as above */ },
-    
-    async execute({ source, collection_id, title, metadata = {} }) {
-      // Determine if source is URL or file path
-      const isURL = source.startsWith('http://') || source.startsWith('https://');
-      
-      let filePath: string;
-      let contentType: string;
-      
-      if (isURL) {
-        // Download file
-        const response = await fetch(source);
-        const buffer = await response.arrayBuffer();
-        contentType = response.headers.get('content-type') || 'application/octet-stream';
-        
-        // Save to temp storage
-        const tempPath = await saveTemp(buffer, contentType);
-        filePath = tempPath;
-      } else {
-        // Use local file
-        filePath = source;
-        contentType = inferContentType(source);
-      }
-      
-      // Infer title if not provided
-      const docTitle = title || inferTitle(source);
-      
-      // Create document record
-      const { rows } = await db.query(`
-        INSERT INTO documents (collection_id, title, file_path, content_type, source_url, metadata)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id
-      `, [collection_id, docTitle, filePath, contentType, isURL ? source : null, metadata]);
-      
-      const docId = rows[0].id;
-      
-      // Start ingestion pipeline (async)
-      ingestDocument(db, docId).catch(err => {
-        console.error(`Ingestion failed for ${docId}:`, err);
+    definition: {
+      name: 'add_document',
+      description: 'Add a document to the RAG system…',
+      input_schema: zodToJsonSchema(inputSchema),
+    },
+    executor: async (rawInput) => {
+      const args = inputSchema.parse(rawInput);
+      const download = isUrl(args.source)
+        ? await downloadRemoteFile(args.source)
+        : await readLocalFile(args.source);
+
+      const document = await createDocument({
+        collection_id: args.collection_id ?? context.collectionId,
+        title: deriveTitle(args, download),
+        content_type: resolveContentType(args, download),
+        file_size: download.buffer.length,
+        source_url: isUrl(args.source) ? args.source : undefined,
       });
-      
-      return {
-        success: true,
-        doc_id: docId,
-        title: docTitle,
-        status: "Document added and processing started. Use get_document_status to check progress."
-      };
-    }
+
+      const filePath = await writeDocumentFile(
+        args.collection_id ?? context.collectionId,
+        document.id,
+        inferExtension(resolveContentType(args, download), args.source),
+        download.buffer
+      );
+
+      await updateDocumentStatusSafe(db, document.id, 'pending', undefined, filePath);
+      ingestDocument(document.id).catch((err) => console.error('Ingestion failed', err));
+
+      return createToolResponse('Document queued for ingestion.', {
+        doc_id: document.id,
+        title: document.title,
+        file_path: filePath,
+      });
+    },
   };
 }
 ```
@@ -308,94 +273,33 @@ export function addDocumentTool(db: Pool) {
 }
 ```
 
-**Implementation:**
+**Implementation:** `apps/server/src/agent/tools.ts`
 ```typescript
-// apps/server/src/agent/tools/fetch-web.ts
-import { chromium } from 'playwright';
-import { htmlToMarkdown } from '../../utils/converter';
+export function createFetchWebContentTool(db: Pool, context: ToolContext) {
+  const inputSchema = z.object({ /* … */ });
 
-export function fetchWebContentTool(db: Pool) {
   return {
-    name: "fetch_web_content",
-    description: "Fetch and process content from a URL...",
-    input_schema: { /* as above */ },
-    
-    async execute({ url, collection_id, mode = 'single', max_pages = 50, title_prefix }) {
+    definition: {
+      name: 'fetch_web_content',
+      description: 'Fetch and process content from a URL…',
+      input_schema: zodToJsonSchema(inputSchema),
+    },
+    executor: async (rawInput) => {
+      const args = inputSchema.parse(rawInput);
       const browser = await chromium.launch({ headless: true });
-      const page = await browser.newPage();
-      
-      const processed: string[] = [];
-      const toProcess = [url];
-      const visited = new Set<string>();
-      
-      while (toProcess.length > 0 && processed.length < max_pages) {
-        const currentURL = toProcess.shift()!;
-        if (visited.has(currentURL)) continue;
-        visited.add(currentURL);
-        
-        try {
-          await page.goto(currentURL, { waitUntil: 'networkidle' });
-          
-          // Extract content
-          const content = await page.evaluate(() => {
-            // Remove nav, footer, ads
-            const main = document.querySelector('main, article, .content, #content') || document.body;
-            return main.innerText;
-          });
-          
-          const html = await page.content();
-          const markdown = htmlToMarkdown(html);
-          
-          // Get title
-          const pageTitle = await page.title();
-          const docTitle = title_prefix ? `${title_prefix} - ${pageTitle}` : pageTitle;
-          
-          // Save as document
-          const { rows } = await db.query(`
-            INSERT INTO documents (collection_id, title, source_url, content_type)
-            VALUES ($1, $2, $3, 'text/markdown')
-            RETURNING id
-          `, [collection_id, docTitle, currentURL]);
-          
-          const docId = rows[0].id;
-          
-          // Save markdown to storage
-          const filePath = await saveMarkdown(docId, markdown);
-          await db.query(`UPDATE documents SET file_path = $1 WHERE id = $2`, [filePath, docId]);
-          
-          // Process
-          await ingestDocument(db, docId);
-          
-          processed.push(currentURL);
-          
-          // Find more links if crawling
-          if (mode === 'crawl') {
-            const links = await page.evaluate((baseURL) => {
-              const domain = new URL(baseURL).origin;
-              return Array.from(document.querySelectorAll('a[href]'))
-                .map(a => a.href)
-                .filter(href => href.startsWith(domain) && !href.includes('#'));
-            }, url);
-            
-            toProcess.push(...links.filter(link => !visited.has(link)));
-          }
-        } catch (error) {
-          console.error(`Failed to fetch ${currentURL}:`, error);
-        }
+      try {
+        const page = await browser.newPage();
+        const processed = await crawlAndQueue({ page, db, context, args });
+        return createToolResponse(`Fetched and queued ${processed.length} page(s) for ingestion.`, processed);
+      } finally {
+        await browser.close();
       }
-      
-      await browser.close();
-      
-      return {
-        success: true,
-        pages_processed: processed.length,
-        urls: processed,
-        message: `Successfully fetched and processed ${processed.length} page(s)`
-      };
-    }
+    },
   };
 }
 ```
+
+> ℹ️ **Prerequisite:** Install Playwright browsers once per environment with `pnpm --filter @synthesis/server exec -- npx playwright install chromium` so the tool can launch headless Chromium.
 
 **Example:**
 ```
@@ -422,35 +326,9 @@ Agent: "I've crawled the Flutter docs and added 100 pages to your collection."
 }
 ```
 
-**Implementation:**
-```typescript
-export function listCollectionsTool(db: Pool) {
-  return {
-    name: "list_collections",
-    description: "List all available collections...",
-    input_schema: { type: "object", properties: {} },
-    
-    async execute() {
-      const result = await db.query(`
-        SELECT 
-          c.id,
-          c.name,
-          c.description,
-          COUNT(d.id) as doc_count,
-          c.created_at
-        FROM collections c
-        LEFT JOIN documents d ON d.collection_id = c.id
-        GROUP BY c.id
-        ORDER BY c.created_at DESC
-      `);
-      
-      return {
-        collections: result.rows
-      };
-    }
-  };
-}
-```
+**Implementation:** `createListCollectionsTool`
+- Provides tool metadata with an empty schema.
+- Executor aggregates document counts per collection and returns the response via `createToolResponse`.
 
 ---
 
@@ -486,45 +364,8 @@ export function listCollectionsTool(db: Pool) {
 }
 ```
 
-**Implementation:**
-```typescript
-export function listDocumentsTool(db: Pool) {
-  return {
-    name: "list_documents",
-    description: "List all documents...",
-    input_schema: { /* as above */ },
-    
-    async execute({ collection_id, status = 'all', limit = 50 }) {
-      const statusFilter = status === 'all' ? '' : 'AND d.status = $2';
-      const params = status === 'all' ? [collection_id, limit] : [collection_id, status, limit];
-      
-      const result = await db.query(`
-        SELECT 
-          d.id,
-          d.title,
-          d.content_type,
-          d.file_size,
-          d.status,
-          d.source_url,
-          d.created_at,
-          d.processed_at,
-          COUNT(ch.id) as chunk_count
-        FROM documents d
-        LEFT JOIN chunks ch ON ch.doc_id = d.id
-        WHERE d.collection_id = $1 ${statusFilter}
-        GROUP BY d.id
-        ORDER BY d.created_at DESC
-        LIMIT ${status === 'all' ? '$2' : '$3'}
-      `, params);
-      
-      return {
-        documents: result.rows,
-        total: result.rows.length
-      };
-    }
-  };
-}
-```
+**Implementation:** `createListDocumentsTool`
+- Builds a filtered query (status, limit) and serialises the resulting rows via `createToolResponse`.
 
 ---
 
@@ -555,53 +396,9 @@ export function listDocumentsTool(db: Pool) {
 }
 ```
 
-**Implementation:**
-```typescript
-export function deleteDocumentTool(db: Pool) {
-  return {
-    name: "delete_document",
-    description: "Delete a document...",
-    input_schema: { /* as above */ },
-    
-    async execute({ doc_id, confirm = false }) {
-      if (!confirm) {
-        return {
-          success: false,
-          message: "Deletion cancelled. Set confirm=true to proceed."
-        };
-      }
-      
-      // Get doc info before deletion
-      const { rows } = await db.query(
-        'SELECT title, file_path FROM documents WHERE id = $1',
-        [doc_id]
-      );
-      
-      if (rows.length === 0) {
-        return {
-          success: false,
-          message: "Document not found"
-        };
-      }
-      
-      const doc = rows[0];
-      
-      // Delete from DB (chunks cascade)
-      await db.query('DELETE FROM documents WHERE id = $1', [doc_id]);
-      
-      // Delete file
-      if (doc.file_path) {
-        await fs.unlink(doc.file_path).catch(() => {});
-      }
-      
-      return {
-        success: true,
-        message: `Deleted document "${doc.title}" and all its chunks`
-      };
-    }
-  };
-}
-```
+**Implementation:** `createDeleteDocumentTool`
+- Requires `confirm=true`; otherwise the executor returns a safety message.
+- Deletes associated chunks, removes the document row, and deletes the stored file path before responding.
 
 ---
 
@@ -627,57 +424,67 @@ export function deleteDocumentTool(db: Pool) {
 }
 ```
 
-**Implementation:**
+**Implementation:** `createGetDocumentStatusTool`
+- Aggregates processing metadata (status, error message, chunk/token counts) and returns a formatted string or a not-found message.
+
+---
+
+### 8. restart_ingest
+
+**Purpose:** Retry ingestion for a document that previously failed or needs to be reprocessed.
+
+**Input Schema:**
 ```typescript
-export function getDocumentStatusTool(db: Pool) {
-  return {
-    name: "get_document_status",
-    description: "Check the processing status...",
-    input_schema: { /* as above */ },
-    
-    async execute({ doc_id }) {
-      const { rows } = await db.query(`
-        SELECT 
-          d.id,
-          d.title,
-          d.status,
-          d.error_message,
-          d.created_at,
-          d.processed_at,
-          COUNT(ch.id) as chunk_count,
-          SUM(ch.token_count) as total_tokens
-        FROM documents d
-        LEFT JOIN chunks ch ON ch.doc_id = d.id
-        WHERE d.id = $1
-        GROUP BY d.id
-      `, [doc_id]);
-      
-      if (rows.length === 0) {
-        return {
-          success: false,
-          message: "Document not found"
-        };
+{
+  name: "restart_ingest",
+  description: "Retry ingestion for a document that failed or is stuck.",
+  input_schema: {
+    type: "object",
+    properties: {
+      doc_id: {
+        type: "string",
+        description: "Document UUID"
       }
-      
-      const doc = rows[0];
-      
-      return {
-        doc_id: doc.id,
-        title: doc.title,
-        status: doc.status,
-        error: doc.error_message,
-        chunks_processed: doc.chunk_count,
-        total_tokens: doc.total_tokens,
-        created_at: doc.created_at,
-        processed_at: doc.processed_at,
-        processing_time_sec: doc.processed_at 
-          ? (new Date(doc.processed_at).getTime() - new Date(doc.created_at).getTime()) / 1000
-          : null
-      };
-    }
-  };
+    },
+    required: ["doc_id"]
+  }
 }
 ```
+
+**Implementation:** `createRestartIngestTool`
+- Resets the document to `pending`, clears errors, and replays the ingestion pipeline before returning a confirmation string.
+
+---
+
+### 9. summarize_document
+
+**Purpose:** Generate a high-level summary of a document leveraging Claude and stored chunks.
+
+**Input Schema:**
+```typescript
+{
+  name: "summarize_document",
+  description: "Summarize a processed document using Claude.",
+  input_schema: {
+    type: "object",
+    properties: {
+      doc_id: {
+        type: "string",
+        description: "Document UUID"
+      },
+      max_chunks: {
+        type: "number",
+        description: "Maximum number of chunks to include in the summary prompt",
+        default: 10
+      }
+    },
+    required: ["doc_id"]
+  }
+}
+```
+
+**Implementation:** `createSummarizeDocumentTool`
+- Validates the document and available chunks, streams up to `max_chunks` into Claude, and returns the generated summary.
 
 ---
 

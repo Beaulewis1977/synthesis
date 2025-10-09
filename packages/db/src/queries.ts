@@ -1,3 +1,4 @@
+import type { PoolClient } from 'pg';
 import { query } from './client.js';
 
 // Type definitions
@@ -175,23 +176,28 @@ export async function getDocumentChunks(docId: string): Promise<Chunk[]> {
  * Inserts or updates a chunk in the database.
  * If a chunk with the same doc_id and chunk_index already exists, it will be updated.
  * @param chunk An object containing the chunk's properties.
+ * @param client Optional PoolClient for transaction support.
  * @returns A promise that resolves to the created or updated Chunk object.
  */
-export async function upsertChunk(chunk: {
-  doc_id: string;
-  chunk_index: number;
-  text: string;
-  token_count?: number;
-  embedding?: number[];
-  embedding_model?: string;
-  // biome-ignore lint/suspicious/noExplicitAny: Metadata can be any shape
-  metadata?: Record<string, any>;
-}): Promise<Chunk> {
-  const result = await query(
+export async function upsertChunk(
+  chunk: {
+    doc_id: string;
+    chunk_index: number;
+    text: string;
+    token_count?: number;
+    embedding?: number[];
+    embedding_model?: string;
+    // biome-ignore lint/suspicious/noExplicitAny: Metadata can be any shape
+    metadata?: Record<string, any>;
+  },
+  client?: PoolClient
+): Promise<Chunk> {
+  const queryFn = client ? client.query.bind(client) : query;
+  const result = await queryFn(
     `INSERT INTO chunks (doc_id, chunk_index, text, token_count, embedding, embedding_model, metadata)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
-     ON CONFLICT (doc_id, chunk_index) 
-     DO UPDATE SET 
+     ON CONFLICT (doc_id, chunk_index)
+     DO UPDATE SET
        text = EXCLUDED.text,
        token_count = EXCLUDED.token_count,
        embedding = EXCLUDED.embedding,
@@ -214,8 +220,10 @@ export async function upsertChunk(chunk: {
 /**
  * Deletes all chunks associated with a specific document.
  * @param docId The UUID of the document whose chunks should be deleted.
+ * @param client Optional PoolClient for transaction support.
  * @returns A promise that resolves when the chunks have been deleted.
  */
-export async function deleteDocumentChunks(docId: string): Promise<void> {
-  await query('DELETE FROM chunks WHERE doc_id = $1', [docId]);
+export async function deleteDocumentChunks(docId: string, client?: PoolClient): Promise<void> {
+  const queryFn = client ? client.query.bind(client) : query;
+  await queryFn('DELETE FROM chunks WHERE doc_id = $1', [docId]);
 }

@@ -9,13 +9,19 @@ import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import { closePool, getPool } from '@synthesis/db';
 import Fastify from 'fastify';
+import { agentRoutes } from './routes/agent.js';
 import { collectionRoutes } from './routes/collections.js';
 import { ingestRoutes } from './routes/ingest.js';
+import { searchRoutes } from './routes/search.js';
 
 const PORT = Number(process.env.SERVER_PORT) || 3333;
 const HOST = process.env.HOST || '0.0.0.0';
 
 // Initialize database pool
+if (!process.env.DATABASE_URL || process.env.DATABASE_URL.trim() === '') {
+  console.error('ERROR: DATABASE_URL environment variable is not defined or empty');
+  process.exit(1);
+}
 getPool(process.env.DATABASE_URL);
 console.log('Database pool initialized');
 
@@ -26,8 +32,15 @@ const fastify = Fastify({
 });
 
 // Register plugins
+const isProduction = process.env.NODE_ENV === 'production';
+const corsOrigins = isProduction
+  ? process.env.CORS_ALLOWED_ORIGINS?.split(',')
+      .map((o) => o.trim())
+      .filter(Boolean) || false
+  : true;
+
 await fastify.register(cors, {
-  origin: true, // Allow all origins in development
+  origin: corsOrigins,
 });
 
 await fastify.register(multipart, {
@@ -38,6 +51,8 @@ await fastify.register(multipart, {
 
 // Register routes
 await fastify.register(collectionRoutes);
+await fastify.register(searchRoutes);
+await fastify.register(agentRoutes);
 await fastify.register(ingestRoutes);
 
 /**
