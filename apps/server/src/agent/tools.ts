@@ -359,7 +359,7 @@ export function createFetchWebContentTool(
                         getAttribute?: (attr: string) => string | null;
                       };
                       const node = anchor as AnchorLike;
-                      const candidate: string | null = 
+                      const candidate: string | null =
                         typeof node.href === 'string'
                           ? node.href
                           : typeof node.getAttribute === 'function'
@@ -413,7 +413,7 @@ export function createListCollectionsTool(db: Pool): { definition: Tool; executo
       },
     },
     executor: async () => {
-      const { rows } = await db.query<{ 
+      const { rows } = await db.query<{
         id: string;
         name: string;
         description: string | null;
@@ -454,11 +454,10 @@ export function createListDocumentsTool(
 } {
   const inputSchema = z.object({
     collection_id: z.string().uuid().optional().default(context.collectionId),
-    status:
-      z
-        .enum(['pending', 'extracting', 'chunking', 'embedding', 'complete', 'error', 'all'])
-        .optional()
-        .default('all'),
+    status: z
+      .enum(['pending', 'extracting', 'chunking', 'embedding', 'complete', 'error', 'all'])
+      .optional()
+      .default('all'),
     limit: z.number().int().min(1).max(200).optional().default(50),
   });
 
@@ -482,7 +481,7 @@ export function createListDocumentsTool(
 
       params.push(parsed.limit);
 
-      const { rows } = await db.query<{ 
+      const { rows } = await db.query<{
         id: string;
         title: string;
         status: string;
@@ -548,7 +547,7 @@ export function createGetDocumentStatusTool(db: Pool): {
     },
     executor: async (args: unknown) => {
       const parsed = inputSchema.parse(args);
-      const { rows } = await db.query<{ 
+      const { rows } = await db.query<{
         id: string;
         title: string;
         status: string;
