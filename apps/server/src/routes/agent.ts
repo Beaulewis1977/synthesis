@@ -1,7 +1,6 @@
 import { getPool } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import type { AgentConversationMessage } from '../agent/agent.js';
 import { runAgentChat } from '../agent/agent.js';
 
 const ConversationMessageSchema = z
@@ -20,13 +19,6 @@ const AgentChatBodySchema = z
   .strict();
 
 type AgentChatBody = z.infer<typeof AgentChatBodySchema>;
-
-function mapHistory(history: AgentConversationMessage[]) {
-  return history.map((item) => ({
-    role: item.role,
-    content: item.content,
-  }));
-}
 
 export const agentRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/api/agent/chat', async (request, reply) => {
@@ -58,7 +50,7 @@ export const agentRoutes: FastifyPluginAsync = async (fastify) => {
           result: call.result,
           server: call.serverName,
         })),
-        history: mapHistory(result.history),
+        history: result.history,
         usage: result.usage,
       });
     } catch (error) {

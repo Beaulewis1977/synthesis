@@ -14,7 +14,7 @@ Define all tools the autonomous agent can use to manage your RAG system.
 
 ## 🤖 Agent Architecture
 
-**Key files**
+#### Key files
 - Conversation loop: `apps/server/src/agent/agent.ts`
 - Tool factories: `apps/server/src/agent/tools.ts`
 

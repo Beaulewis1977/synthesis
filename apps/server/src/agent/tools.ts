@@ -262,6 +262,10 @@ export function createFetchWebContentTool(
           }
 
           visited.add(nextUrl);
+          if (processed.length > 0) {
+            // Avoid hammering target servers when crawling multiple pages.
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
           try {
             await page.goto(nextUrl, { waitUntil: 'networkidle', timeout: 30_000 });
           } catch (navigationError) {
@@ -592,9 +596,19 @@ export function createDeleteDocumentTool(db: Pool): { definition: Tool; executor
         return createToolResponse(`Document ${parsed.doc_id} not found.`);
       }
 
-      await deleteDocumentChunks(document.id);
-      await db.query('DELETE FROM documents WHERE id = $1', [document.id]);
-      await deleteFileIfExists(document.file_path);
+      const client = await db.connect();
+      try {
+        await client.query('BEGIN');
+        await deleteDocumentChunks(document.id, client);
+        await client.query('DELETE FROM documents WHERE id = $1', [document.id]);
+        await client.query('COMMIT');
+        await deleteFileIfExists(document.file_path);
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
 
       return createToolResponse(`Document ${document.title} deleted.`, {
         doc_id: document.id,
@@ -663,7 +677,9 @@ export function createSummarizeDocumentTool(_db: Pool): {
     executor: async (args: unknown) => {
       const parsed = inputSchema.parse(args);
       if (!process.env.ANTHROPIC_API_KEY) {
-        throw new Error('ANTHROPIC_API_KEY environment variable must be set for summarization.');
+        return createToolResponse(
+          'Summarization unavailable: ANTHROPIC_API_KEY environment variable is not set.'
+        );
       }
 
       const document = await getDocument(parsed.doc_id);
@@ -684,7 +700,7 @@ export function createSummarizeDocumentTool(_db: Pool): {
       });
 
       const response = await client.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-3-7-sonnet-20250219',
         max_tokens: 512,
         system:
           'You are a documentation assistant that summarizes technical documents concisely with key points and citations when possible.',

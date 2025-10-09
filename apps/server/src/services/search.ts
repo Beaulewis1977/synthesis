@@ -19,8 +19,8 @@ export interface SearchResult {
   metadata: Record<string, unknown> | null;
   citation: {
     title: string | null;
-    page?: unknown;
-    section?: unknown;
+    page?: string | number | null;
+    section?: string | null;
   };
 }
 
@@ -84,6 +84,10 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
 
   const results: SearchResult[] = rows.map((row) => {
     const metadata = (row.metadata ?? null) as Record<string, unknown> | null;
+    const rawPage = metadata?.page;
+    const page = typeof rawPage === 'number' || typeof rawPage === 'string' ? rawPage : null;
+    const rawSection = (metadata?.heading ?? metadata?.section) as unknown;
+    const section = typeof rawSection === 'string' ? rawSection : null;
 
     return {
       id: row.id as number,
@@ -95,8 +99,8 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
       metadata,
       citation: {
         title: (row.doc_title as string | null) ?? null,
-        page: metadata?.page,
-        section: metadata?.heading,
+        page,
+        section,
       },
     };
   });
