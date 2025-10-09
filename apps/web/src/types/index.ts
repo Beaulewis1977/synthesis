@@ -38,3 +38,40 @@ export interface ApiError {
   details?: Record<string, unknown>;
   timestamp: string;
 }
+
+// Chat-related types
+export interface ToolCall {
+  id: string;
+  tool: string;
+  status: string;
+  input?: unknown;
+  result?: unknown;
+  server?: string;
+}
+
+export interface Citation {
+  title: string;
+  page?: number;
+  section?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  tool_calls?: ToolCall[];
+  citations?: Citation[];
+}
+
+export interface AgentChatRequest {
+  message: string;
+  collection_id: string;
+  history?: Array<{ role: string; content: string }>;
+}
+
+export interface AgentChatResponse {
+  message: string;
+  tool_calls: ToolCall[];
+  history: Array<{ role: string; content: string }>;
+  usage?: unknown;
+}

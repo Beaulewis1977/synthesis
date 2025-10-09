@@ -1,6 +1,12 @@
 // API client functions for interacting with the backend
 
-import type { ApiError, CollectionsResponse, DocumentsResponse } from '../types';
+import type {
+  AgentChatRequest,
+  AgentChatResponse,
+  ApiError,
+  CollectionsResponse,
+  DocumentsResponse,
+} from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3333';
 
@@ -82,6 +88,13 @@ class ApiClient {
   async deleteDocument(documentId: string): Promise<{ success: boolean; message: string }> {
     return this.request(`/api/documents/${encodeURIComponent(documentId)}`, {
       method: 'DELETE',
+    });
+  }
+
+  async sendChatMessage(request: AgentChatRequest): Promise<AgentChatResponse> {
+    return this.request<AgentChatResponse>('/api/agent/chat', {
+      method: 'POST',
+      body: JSON.stringify(request),
     });
   }
 }
