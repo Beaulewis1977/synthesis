@@ -11,13 +11,21 @@ export function ChatPage() {
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const createMessageId = () => {
+    const randomSource = typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;
+
+    if (randomSource && 'randomUUID' in randomSource) {
+      return randomSource.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  };
+
   // Fetch collection name
   const { data: collection } = useQuery({
     queryKey: ['collection', collectionId],
     queryFn: async () => {
       if (!collectionId) throw new Error('Collection ID is required');
-      const collections = await apiClient.fetchCollections();
-      return collections.collections.find((c) => c.id === collectionId);
+      return apiClient.fetchCollection(collectionId);
     },
     enabled: !!collectionId,
   });
@@ -42,7 +50,7 @@ export function ChatPage() {
     onSuccess: (data) => {
       // Add assistant's response to messages
       const assistantMessage: ChatMessageType = {
-        id: `msg-${Date.now()}`,
+        id: createMessageId(),
         role: 'assistant',
         content: data.message,
         tool_calls: data.tool_calls,
@@ -57,7 +65,7 @@ export function ChatPage() {
       console.error('Chat error:', error);
       // Add error message to chat
       const errorMessage: ChatMessageType = {
-        id: `error-${Date.now()}`,
+        id: `error-${createMessageId()}`,
         role: 'assistant',
         content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
       };
@@ -67,8 +75,9 @@ export function ChatPage() {
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
+    if (messages.length === 0) return;
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  });
+  }, [messages]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,7 +87,7 @@ export function ChatPage() {
 
     // Add user message to chat immediately
     const userMessage: ChatMessageType = {
-      id: `msg-${Date.now()}`,
+      id: createMessageId(),
       role: 'user',
       content: trimmedMessage,
     };

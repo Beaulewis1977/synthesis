@@ -1,9 +1,8 @@
-// API client functions for interacting with the backend
-
 import type {
   AgentChatRequest,
   AgentChatResponse,
   ApiError,
+  Collection,
   CollectionsResponse,
   DocumentsResponse,
 } from '../types';
@@ -19,14 +18,16 @@ class ApiClient {
 
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+    const headers = new Headers(options?.headers ?? undefined);
+
+    if (options?.body && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
 
     try {
       const response = await fetch(url, {
         ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options?.headers,
-        },
+        headers,
       });
 
       if (!response.ok) {
@@ -75,22 +76,41 @@ class ApiClient {
     }
   }
 
+  /**
+   * Fetch all available collections.
+   */
   async fetchCollections(): Promise<CollectionsResponse> {
     return this.request<CollectionsResponse>('/api/collections');
   }
 
+  /**
+   * Fetch a single collection by its identifier.
+   */
+  async fetchCollection(collectionId: string): Promise<Collection> {
+    return this.request<Collection>(`/api/collections/${encodeURIComponent(collectionId)}`);
+  }
+
+  /**
+   * Fetch documents that belong to the provided collection.
+   */
   async fetchDocuments(collectionId: string): Promise<DocumentsResponse> {
     return this.request<DocumentsResponse>(
       `/api/collections/${encodeURIComponent(collectionId)}/documents`
     );
   }
 
+  /**
+   * Delete a document by its identifier.
+   */
   async deleteDocument(documentId: string): Promise<{ success: boolean; message: string }> {
     return this.request(`/api/documents/${encodeURIComponent(documentId)}`, {
       method: 'DELETE',
     });
   }
 
+  /**
+   * Send a chat message to the agent API.
+   */
   async sendChatMessage(request: AgentChatRequest): Promise<AgentChatResponse> {
     return this.request<AgentChatResponse>('/api/agent/chat', {
       method: 'POST',

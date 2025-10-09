@@ -13,7 +13,7 @@ export interface Document {
   collection_id: string;
   title: string;
   content_type: string;
-  file_size: string; // API returns string, we'll parse it
+  file_size: number;
   file_path: string;
   status: 'pending' | 'complete' | 'error';
   source_url: string | null;
@@ -73,5 +73,4 @@ export interface AgentChatResponse {
   message: string;
   tool_calls: ToolCall[];
   history: Array<{ role: string; content: string }>;
-  usage?: unknown;
 }

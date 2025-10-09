@@ -84,6 +84,7 @@ function DocumentItem({ document, onDelete, isDeleting }: DocumentItemProps) {
               onClick={() => setShowConfirm(true)}
               className="text-text-secondary hover:text-error transition-colors"
               title="Delete document"
+              aria-label="Delete document"
               disabled={isDeleting}
             >
               <Trash2 size={18} />

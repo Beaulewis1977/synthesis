@@ -1,11 +1,9 @@
-// Utility functions for formatting and display
-
 import { formatDistanceToNow } from 'date-fns';
 import { FileCode, FileIcon, FileText } from 'lucide-react';
 
 /**
- * Format file size in bytes to human-readable format
- * Accepts both number and string (API returns string)
+ * Format a byte size into a human-readable string.
+ * @param bytes Size value expressed as a number or numeric string.
  */
 export function formatFileSize(bytes: number | string): string {
   const numBytes = typeof bytes === 'string' ? Number.parseInt(bytes, 10) : bytes;
@@ -20,7 +18,8 @@ export function formatFileSize(bytes: number | string): string {
 }
 
 /**
- * Format date to relative time (e.g., "2 days ago")
+ * Format a date into relative time (e.g., "2 days ago").
+ * @param date A Date or ISO string to format.
  */
 export function formatRelativeTime(date: string | Date): string {
   try {
@@ -32,28 +31,34 @@ export function formatRelativeTime(date: string | Date): string {
 }
 
 /**
- * Get the appropriate icon component for a file type
+ * Choose the appropriate icon component for a file content type.
+ * @param contentType MIME type string reported by the API.
  */
 export function getFileTypeIcon(contentType: string): typeof FileIcon {
-  if (contentType.includes('pdf')) {
+  const normalized = contentType.toLowerCase();
+
+  if (normalized.includes('pdf')) {
     return FileText;
   }
-  if (contentType.includes('word') || contentType.includes('document')) {
+  if (normalized.includes('word') || normalized.includes('document')) {
     return FileText;
   }
-  if (contentType.includes('markdown') || contentType.includes('text')) {
+  if (normalized.includes('markdown') || normalized.includes('text')) {
     return FileCode;
   }
   return FileIcon;
 }
 
 /**
- * Get a user-friendly label for content type
+ * Map a MIME content type to a user-friendly label.
+ * @param contentType MIME type string reported by the API.
  */
 export function getFileTypeLabel(contentType: string): string {
-  if (contentType.includes('pdf')) return 'PDF';
-  if (contentType.includes('word') || contentType.includes('document')) return 'DOCX';
-  if (contentType.includes('markdown')) return 'MD';
-  if (contentType.includes('text')) return 'TXT';
+  const normalized = contentType.toLowerCase();
+
+  if (normalized.includes('pdf')) return 'PDF';
+  if (normalized.includes('word') || normalized.includes('document')) return 'DOCX';
+  if (normalized.includes('markdown')) return 'MD';
+  if (normalized.includes('text')) return 'TXT';
   return 'File';
 }
