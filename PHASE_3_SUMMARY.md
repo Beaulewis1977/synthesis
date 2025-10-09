@@ -12,7 +12,7 @@ Implemented production-ready semantic search and integrated the Claude Messages 
 
 ---
 
-## ✅ Features Implemented
+## Features Implemented
 
 - [x] Vector search service with cosine similarity and citations (`searchCollection`)
 - [x] `/api/search` endpoint returning top-k chunk matches

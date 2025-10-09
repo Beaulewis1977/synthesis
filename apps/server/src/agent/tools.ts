@@ -786,8 +786,8 @@ function normalizeUrl(url: string): string {
     parsed.searchParams.sort();
 
     if (parsed.pathname && parsed.pathname !== '/') {
-      parsed.pathname = parsed.pathname.replace(/\/+/g, '/');
-      parsed.pathname = parsed.pathname.replace(/\/+$/, '');
+      parsed.pathname = parsed.pathname.replace(///+/g, '/');
+      parsed.pathname = parsed.pathname.replace(///+$/, '');
       if (parsed.pathname === '') {
         parsed.pathname = '/';
       }
