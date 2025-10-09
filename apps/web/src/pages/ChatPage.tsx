@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { AlertCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChatMessage } from '../components/ChatMessage';
@@ -21,7 +22,13 @@ export function ChatPage() {
   };
 
   // Fetch collection name
-  const { data: collection } = useQuery({
+  const {
+    data: collection,
+    isLoading: isCollectionLoading,
+    isError: isCollectionError,
+    error: collectionError,
+    refetch: refetchCollection,
+  } = useQuery({
     queryKey: ['collection', collectionId],
     queryFn: async () => {
       if (!collectionId) throw new Error('Collection ID is required');
@@ -108,12 +115,33 @@ export function ChatPage() {
           ← Back to Collections
         </Link>
         <h1 className="text-2xl font-bold text-text-primary">
-          Chatting with: {collection?.name || 'Loading...'}
+          Chatting with: {isCollectionLoading ? '...' : (collection?.name ?? 'Unknown Collection')}
         </h1>
-        {collectionId && (
-          <p className="text-text-secondary mt-sm text-sm">Ask questions about your documents</p>
-        )}
+        <p className="text-text-secondary mt-sm text-sm">Ask questions about your documents</p>
       </div>
+
+      {isCollectionError && (
+        <div className="card bg-red-50 border-error mb-lg">
+          <div className="flex items-start gap-md">
+            <AlertCircle className="text-error flex-shrink-0" size={24} />
+            <div>
+              <h3 className="font-semibold text-error mb-sm">Failed to load collection details</h3>
+              <p className="text-sm text-text-secondary mb-md">
+                {collectionError instanceof Error
+                  ? collectionError.message
+                  : 'An unexpected error occurred'}
+              </p>
+              <button
+                type="button"
+                onClick={() => refetchCollection()}
+                className="btn btn-secondary text-sm"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Chat interface */}
       <div className="flex-1 card flex flex-col overflow-hidden">
