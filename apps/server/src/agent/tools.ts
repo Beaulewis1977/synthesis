@@ -376,7 +376,7 @@ export function createFetchWebContentTool(
                     }
                   })
                   .filter((href): href is string => typeof href === 'string')
-                  .filter((href) => href.startsWith(originHost) && !href.includes('#'));
+                  .filter((href) => href.startsWith(originHost));
               },
               normalizedUrl
             );
@@ -786,8 +786,8 @@ function normalizeUrl(url: string): string {
     parsed.searchParams.sort();
 
     if (parsed.pathname && parsed.pathname !== '/') {
-      parsed.pathname = parsed.pathname.replace(///+/g, '/');
-      parsed.pathname = parsed.pathname.replace(///+$/, '');
+      parsed.pathname = parsed.pathname.replace(/\/+/g, '/');
+      parsed.pathname = parsed.pathname.replace(/\/+$/, '');
       if (parsed.pathname === '') {
         parsed.pathname = '/';
       }
