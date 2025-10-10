@@ -201,18 +201,33 @@ export async function deleteDocumentById(
     throw new Error(`Document ${params.docId} not found`);
   }
 
+  // Store file path for deletion after transaction
+  const filePath = document.file_path;
+
   const client = await db.connect();
+  let transactionCompleted = false;
+
   try {
     await client.query('BEGIN');
     await deleteDocumentChunks(document.id, client);
     await client.query('DELETE FROM documents WHERE id = $1', [document.id]);
     await client.query('COMMIT');
-    await deleteFileIfExists(document.file_path);
+    transactionCompleted = true;
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
   } finally {
     client.release();
+  }
+
+  // Delete file only after successful transaction commit
+  if (transactionCompleted && filePath) {
+    try {
+      await deleteFileIfExists(filePath);
+    } catch (error) {
+      // Log but don't fail the operation if file deletion fails
+      console.error(`Failed to delete file ${filePath}:`, error);
+    }
   }
 
   return {

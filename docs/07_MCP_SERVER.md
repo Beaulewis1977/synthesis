@@ -186,13 +186,15 @@ $ echo '{"id": "1", "method": "tools/list"}' | pnpm --filter @synthesis/mcp dev
 ### Test from Command Line (HTTP/SSE)
 ```bash
 # Start the server
-$ pnpm --filter @synthesis/mcp dev
+$ MCP_MODE=http pnpm --filter @synthesis/mcp dev
 
-# In another terminal, list tools via HTTP
-$ curl http://localhost:3334/tools/list
-
-# Call a tool
+# In another terminal, list tools via JSON-RPC
 $ curl -X POST -H "Content-Type: application/json" \
-  -d '{"tool_name": "list_collections", "input": {}}' \
-  http://localhost:3334/tools/call
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
+  http://localhost:3334
+
+# Call a tool via JSON-RPC
+$ curl -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_collections","arguments":{}}}' \
+  http://localhost:3334
 ```

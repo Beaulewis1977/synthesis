@@ -71,7 +71,23 @@ EOF
 # Helper function to check if response is error
 is_error_response() {
   local response=$1
-  echo "$response" | jq -e '.result.isError == true' >/dev/null 2>&1
+
+  # Check if response is valid JSON
+  if ! echo "$response" | jq empty >/dev/null 2>&1; then
+    return 0  # Malformed JSON is an error
+  fi
+
+  # Check for JSON-RPC error field
+  if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+    return 0  # JSON-RPC error present
+  fi
+
+  # Check for MCP result.isError
+  if echo "$response" | jq -e '.result.isError == true' >/dev/null 2>&1; then
+    return 0  # MCP tool returned error
+  fi
+
+  return 1  # No error detected
 }
 
 # Helper function to extract text content from MCP response
