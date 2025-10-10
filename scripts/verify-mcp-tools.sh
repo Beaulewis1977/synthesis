@@ -24,6 +24,8 @@ SERVER_BIN="node apps/server/dist/index.js"
 TIMEOUT=60
 SERVER_PID=""
 TEMP_DIR=$(mktemp -d)
+COLLECTION_ID=""
+DOC_ID=""
 
 # Cleanup function
 cleanup() {
@@ -382,14 +384,14 @@ main() {
   local passed=0
   local skipped=0
   
-  test_list_collections && ((passed++)) || { ((failed++)) || true; }
-  test_create_collection && ((passed++)) || { ((failed++)) || true; }
-  test_fetch_web_content && ((passed++)) || { ((failed++)) || true; }
-  test_get_document_status; case $? in 0) ((passed++)) ;; 2) ((skipped++)) ;; *) ((failed++)) ;; esac
-  test_search_rag && ((passed++)) || { ((failed++)) || true; }
-  test_list_documents && ((passed++)) || { ((failed++)) || true; }
-  test_delete_document; case $? in 0) ((passed++)) ;; 2) ((skipped++)) ;; *) ((failed++)) ;; esac
-  test_delete_collection; case $? in 0) ((passed++)) ;; 2) ((skipped++)) ;; *) ((failed++)) ;; esac
+  test_list_collections && ((passed+=1)) || { ((failed+=1)) || true; }
+  test_create_collection && ((passed+=1)) || { ((failed+=1)) || true; }
+  test_fetch_web_content && ((passed+=1)) || { ((failed+=1)) || true; }
+  test_get_document_status; case $? in 0) ((passed+=1)) ;; 2) ((skipped+=1)) ;; *) ((failed+=1)) ;; esac
+  test_search_rag && ((passed+=1)) || { ((failed+=1)) || true; }
+  test_list_documents && ((passed+=1)) || { ((failed+=1)) || true; }
+  test_delete_document; case $? in 0) ((passed+=1)) ;; 2) ((skipped+=1)) ;; *) ((failed+=1)) ;; esac
+  test_delete_collection; case $? in 0) ((passed+=1)) ;; 2) ((skipped+=1)) ;; *) ((failed+=1)) ;; esac
   
   # Summary
   print_header "Test Summary"

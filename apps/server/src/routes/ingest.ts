@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { MultipartFile } from '@fastify/multipart';
-import { createDocument, updateDocumentStatus } from '@synthesis/db';
+import { type Document, createDocument, updateDocumentStatus } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { ingestDocument } from '../pipeline/orchestrator.js';
@@ -67,28 +67,73 @@ export const ingestRoutes: FastifyPluginAsync = async (fastify) => {
       const buffer = await file.toBuffer();
       const fileSize = buffer.length;
 
-      // Create document record
-      const document = await createDocument({
-        collection_id: collectionId as string,
-        title: filename,
-        content_type: contentType,
-        file_size: fileSize,
-      });
+      let document: Document | undefined;
+      let filePath: string | undefined;
+      let collectionStoragePath: string | undefined;
 
-      // Create storage directory if needed
-      const collectionStoragePath = path.join(STORAGE_PATH, collectionId as string);
-      await fs.mkdir(collectionStoragePath, { recursive: true });
+      try {
+        // Create document record with status 'uploading'
+        document = await createDocument({
+          collection_id: collectionId as string,
+          title: filename,
+          content_type: contentType,
+          file_size: fileSize,
+        });
 
-      // Save file to storage
-      const filePath = path.join(collectionStoragePath, `${document.id}${path.extname(filename)}`);
-      await fs.writeFile(filePath, buffer);
+        // Create storage directory if needed
+        collectionStoragePath = path.join(STORAGE_PATH, collectionId as string);
+        await fs.mkdir(collectionStoragePath, { recursive: true });
 
-      // Update document with file path
-      await updateDocumentStatus(document.id, 'pending', undefined, filePath);
+        // Save file to storage
+        filePath = path.join(collectionStoragePath, `${document.id}${path.extname(filename)}`);
+        await fs.writeFile(filePath, buffer);
+
+        // Update document with file path and set to 'pending' only after successful write
+        await updateDocumentStatus(document.id, 'pending', undefined, filePath);
+      } catch (uploadError) {
+        // Cleanup on failure
+        if (document) {
+          try {
+            await updateDocumentStatus(
+              document.id,
+              'error',
+              uploadError instanceof Error ? uploadError.message : String(uploadError)
+            );
+          } catch (statusError) {
+            fastify.log.error(
+              { docId: document.id, statusError },
+              'Failed to update document status during cleanup'
+            );
+          }
+        }
+
+        // Clean up partial file if it was created
+        if (filePath) {
+          try {
+            await fs.unlink(filePath);
+          } catch (unlinkError) {
+            fastify.log.error({ filePath, unlinkError }, 'Failed to cleanup partial file');
+          }
+        }
+
+        throw uploadError;
+      }
 
       // Start ingestion pipeline asynchronously
-      ingestDocument(document.id).catch((error) => {
+      ingestDocument(document.id).catch(async (error) => {
         fastify.log.error({ docId: document.id, error }, 'Document ingestion failed');
+        try {
+          await updateDocumentStatus(
+            document.id,
+            'error',
+            error instanceof Error ? error.message : String(error)
+          );
+        } catch (statusError) {
+          fastify.log.error(
+            { docId: document.id, statusError },
+            'Failed to update document status after ingestion error'
+          );
+        }
       });
 
       return reply.code(201).send({

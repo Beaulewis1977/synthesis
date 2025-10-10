@@ -7,6 +7,7 @@
  * to external AI agents via both stdio and HTTP transports.
  */
 
+import { randomUUID } from 'node:crypto';
 import http from 'node:http';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -311,10 +312,10 @@ server.registerTool(
     try {
       const result = await apiClient.post('/api/agent/fetch-web-content', {
         url,
-        collection_id,
+        collectionId: collection_id,
         mode: mode || 'single',
-        max_pages: max_pages || 25,
-        title_prefix,
+        maxPages: max_pages || 25,
+        titlePrefix: title_prefix,
       });
 
       return {
@@ -483,7 +484,7 @@ async function main() {
     } else if (MCP_MODE === 'http') {
       // Start HTTP/SSE transport for Claude Desktop and web clients
       const httpTransport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => crypto.randomUUID(),
+        sessionIdGenerator: () => randomUUID(),
       });
 
       await server.connect(httpTransport);

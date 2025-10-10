@@ -222,9 +222,9 @@ export async function upsertChunk(
       chunk.doc_id,
       chunk.chunk_index,
       chunk.text,
-      chunk.token_count || null,
+      chunk.token_count ?? null,
       chunk.embedding ? `[${chunk.embedding.join(',')}]` : null,
-      chunk.embedding_model || null,
+      chunk.embedding_model ?? null,
       JSON.stringify(chunk.metadata || {}),
     ]
   );

@@ -26,7 +26,7 @@ class ApiClient {
 
     try {
       const response = await fetch(url, {
-        ...options,
+        ...(options ?? {}),
         headers,
       });
 

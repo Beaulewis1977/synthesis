@@ -14,7 +14,7 @@ export interface Document {
   title: string;
   content_type: string;
   file_size: number;
-  file_path: string;
+  file_path: string | null;
   status: 'pending' | 'complete' | 'error';
   source_url: string | null;
   error_message: string | null;

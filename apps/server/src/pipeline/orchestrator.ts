@@ -43,9 +43,9 @@ export async function ingestDocument(
   const document = await getDocument(documentId);
   assertDocumentReady(document, documentId);
 
-  const buffer = await fs.readFile(document.file_path);
-
   try {
+    const buffer = await fs.readFile(document.file_path);
+
     await updateDocumentStatus(documentId, 'extracting');
     const extraction = await extract(buffer, document.content_type, document.title);
 
