@@ -40,3 +40,7 @@ storage/*
 .cache/
 codeant_email_draft.md
 rovo-review.md
+
+.gemini/
+gha-creds-*.json
+.github/workflows/gemini-scheduled-triage.yml

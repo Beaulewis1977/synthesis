@@ -1,4 +1,10 @@
-import { createCollection, getCollection, listCollections, listDocuments } from '@synthesis/db';
+import {
+  createCollection,
+  deleteCollection,
+  getCollection,
+  listCollections,
+  listDocuments,
+} from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
@@ -72,4 +78,27 @@ export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
   );
+
+  // DELETE /api/collections/:id - Delete collection and all its documents
+  fastify.delete<{ Params: { id: string } }>('/api/collections/:id', async (request, reply) => {
+    try {
+      const collection = await getCollection(request.params.id);
+
+      if (!collection) {
+        return reply.code(404).send({ error: 'Collection not found' });
+      }
+
+      await deleteCollection(request.params.id);
+      fastify.log.info({ collection_id: request.params.id }, 'Collection deleted');
+
+      return reply.send({
+        message: 'Collection deleted successfully',
+        collection_id: request.params.id,
+        collection_name: collection.name,
+      });
+    } catch (error) {
+      fastify.log.error(error, 'Failed to delete collection');
+      return reply.code(500).send({ error: 'Failed to delete collection' });
+    }
+  });
 };

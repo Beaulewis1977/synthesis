@@ -14,7 +14,6 @@ import {
 
 const searchCollectionMock = vi.hoisted(() => vi.fn());
 const createDocumentMock = vi.hoisted(() => vi.fn());
-const deleteDocumentChunksMock = vi.hoisted(() => vi.fn());
 const getDocumentMock = vi.hoisted(() => vi.fn());
 const getDocumentChunksMock = vi.hoisted(() => vi.fn());
 const ingestDocumentMock = vi.hoisted(() => vi.fn());
@@ -25,15 +24,9 @@ const inferExtensionMock = vi.hoisted(() => vi.fn());
 const inferTitleMock = vi.hoisted(() => vi.fn());
 const isUrlMock = vi.hoisted(() => vi.fn());
 const writeDocumentFileMock = vi.hoisted(() => vi.fn());
-const deleteFileIfExistsMock = vi.hoisted(() => vi.fn());
-const chromiumLaunchMock = vi.hoisted(() => vi.fn());
 const anthropicCreateMock = vi.hoisted(() => vi.fn());
-const turndownConvertMock = vi.hoisted(() => vi.fn());
-const turndownConstructorMock = vi.hoisted(() =>
-  vi.fn(() => ({
-    turndown: turndownConvertMock,
-  }))
-);
+const fetchWebContentMock = vi.hoisted(() => vi.fn());
+const deleteDocumentByIdMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../services/search.js', () => ({
   __esModule: true,
@@ -43,7 +36,6 @@ vi.mock('../../services/search.js', () => ({
 vi.mock('@synthesis/db', () => ({
   __esModule: true,
   createDocument: createDocumentMock,
-  deleteDocumentChunks: deleteDocumentChunksMock,
   getDocument: getDocumentMock,
   getDocumentChunks: getDocumentChunksMock,
 }));
@@ -62,14 +54,6 @@ vi.mock('../utils/storage.js', () => ({
   inferTitle: inferTitleMock,
   isUrl: isUrlMock,
   writeDocumentFile: writeDocumentFileMock,
-  deleteFileIfExists: deleteFileIfExistsMock,
-}));
-
-vi.mock('playwright', () => ({
-  __esModule: true,
-  chromium: {
-    launch: chromiumLaunchMock,
-  },
 }));
 
 vi.mock('@anthropic-ai/sdk', () => {
@@ -83,9 +67,10 @@ vi.mock('@anthropic-ai/sdk', () => {
   };
 });
 
-vi.mock('turndown', () => ({
+vi.mock('../../services/documentOperations.js', () => ({
   __esModule: true,
-  default: turndownConstructorMock,
+  fetchWebContent: fetchWebContentMock,
+  deleteDocumentById: deleteDocumentByIdMock,
 }));
 
 function createDbMock() {
@@ -104,8 +89,6 @@ function createDbMock() {
 describe('agent tools', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    turndownConvertMock.mockReset();
-    turndownConvertMock.mockReturnValue('# Markdown\n');
   });
 
   it('search tool proxies to searchCollection', async () => {
@@ -163,31 +146,17 @@ describe('agent tools', () => {
     expect(ingestDocumentMock).toHaveBeenCalledWith('doc-1');
   });
 
-  it('fetch_web_content tool converts HTML to markdown and queues ingestion', async () => {
+  it('fetch_web_content tool delegates to service', async () => {
     const db = createDbMock();
-    const pageGoto = vi.fn();
-    const pageTitle = vi.fn().mockResolvedValue('Sample Page');
-    const pageEvaluate = vi.fn().mockResolvedValue({
-      html: '<main><h1>Heading</h1><p>Paragraph</p></main>',
-      text: 'Heading\nParagraph',
+    fetchWebContentMock.mockResolvedValue({
+      processed: [
+        {
+          docId: 'doc-123',
+          url: 'https://example.com',
+          title: 'Example',
+        },
+      ],
     });
-    const pageEvalLinks = vi.fn().mockResolvedValue([]);
-    const browserClose = vi.fn();
-
-    chromiumLaunchMock.mockResolvedValue({
-      newPage: vi.fn().mockResolvedValue({
-        goto: pageGoto,
-        title: pageTitle,
-        evaluate: pageEvaluate,
-        $$eval: pageEvalLinks,
-      }),
-      close: browserClose,
-    });
-
-    createDocumentMock.mockResolvedValue({ id: 'doc-2' });
-    writeDocumentFileMock.mockResolvedValue('/storage/doc-2.md');
-
-    turndownConvertMock.mockReturnValueOnce('# Heading\n\nParagraph');
 
     const tool = createFetchWebContentTool(db, {
       collectionId: '11111111-1111-4111-8111-111111111111',
@@ -195,23 +164,19 @@ describe('agent tools', () => {
     const result = await tool.executor({
       url: 'https://example.com',
       mode: 'single',
-      max_pages: 1,
+      max_pages: 5,
       collection_id: '11111111-1111-4111-8111-111111111111',
     });
 
-    expect(result).toContain('Fetched and queued 1 page');
-    expect(turndownConstructorMock).toHaveBeenCalled();
-    expect(turndownConvertMock).toHaveBeenCalledWith(
-      '<main><h1>Heading</h1><p>Paragraph</p></main>'
-    );
-    expect(createDocumentMock).toHaveBeenCalled();
-
-    const writeArgs = writeDocumentFileMock.mock.calls[0];
-    expect(writeArgs[0]).toBe('11111111-1111-4111-8111-111111111111');
-    expect(writeArgs[1]).toBe('doc-2');
-    expect(writeArgs[2]).toBe('.md');
-    expect((writeArgs[3] as Buffer).toString('utf-8')).toBe('# Heading\n\nParagraph');
-    expect(browserClose).toHaveBeenCalled();
+    expect(fetchWebContentMock).toHaveBeenCalledWith(db, {
+      url: 'https://example.com',
+      collectionId: '11111111-1111-4111-8111-111111111111',
+      mode: 'single',
+      maxPages: 5,
+      titlePrefix: undefined,
+    });
+    expect(result).toContain('Fetched and queued 1 page(s)');
+    expect(result).toContain('doc-123');
   });
 
   it('list_collections tool returns formatted collections', async () => {
@@ -309,25 +274,15 @@ describe('agent tools', () => {
     });
 
     expect(result).toContain('Deletion not confirmed');
-    expect(getDocumentMock).not.toHaveBeenCalled();
+    expect(deleteDocumentByIdMock).not.toHaveBeenCalled();
   });
 
   it('delete_document tool removes document when confirmed', async () => {
     const db = createDbMock();
-    deleteDocumentChunksMock.mockResolvedValue(undefined);
-    getDocumentMock.mockResolvedValue({
-      id: '11111111-1111-4111-8111-666666666666',
+    deleteDocumentByIdMock.mockResolvedValue({
+      docId: '11111111-1111-4111-8111-666666666666',
       title: 'Deletable Doc',
-      file_path: '/storage/doc-6.md',
     });
-
-    const clientQuery = vi.fn().mockResolvedValue(undefined);
-    const clientRelease = vi.fn();
-    const client = {
-      query: clientQuery,
-      release: clientRelease,
-    };
-    (db.connect as unknown as vi.Mock).mockResolvedValue(client);
 
     const tool = createDeleteDocumentTool(db);
     const result = await tool.executor({
@@ -335,17 +290,9 @@ describe('agent tools', () => {
       confirm: true,
     });
 
-    expect(clientQuery).toHaveBeenCalledWith('BEGIN');
-    expect(deleteDocumentChunksMock).toHaveBeenCalledWith(
-      '11111111-1111-4111-8111-666666666666',
-      client
-    );
-    expect(clientQuery).toHaveBeenCalledWith('DELETE FROM documents WHERE id = $1', [
-      '11111111-1111-4111-8111-666666666666',
-    ]);
-    expect(clientQuery).toHaveBeenCalledWith('COMMIT');
-    expect(deleteFileIfExistsMock).toHaveBeenCalledWith('/storage/doc-6.md');
-    expect(clientRelease).toHaveBeenCalled();
+    expect(deleteDocumentByIdMock).toHaveBeenCalledWith(db, {
+      docId: '11111111-1111-4111-8111-666666666666',
+    });
     expect(result).toContain('Document Deletable Doc deleted.');
   });
 

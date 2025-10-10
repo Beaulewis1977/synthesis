@@ -316,52 +316,35 @@ curl -X POST http://localhost:3333/api/agent/chat \
 
 ### Day 6: MCP Server
 
-**Goal:** External agents can access RAG
+**Goal:** External agents can access the full capabilities of the RAG system.
 
 **Morning (4 hours):**
-- [ ] Create MCP package
-  - `apps/mcp/` directory
-  - Install `@modelcontextprotocol/sdk`
-  - Create `server.ts`
-
-- [ ] Implement stdio mode (WSL/IDE)
-  - Register `search_docs` tool
-  - Register `list_collections` tool
-  - Call backend API internally
-
-- [ ] Test from command line
-  ```bash
-  echo '{"method":"tools/list"}' | node apps/mcp/dist/server.js
-  ```
+- [ ] Create MCP package in `apps/mcp/`.
+- [ ] Install `@modelcontext/server` and `dotenv`.
+- [ ] Implement a simple API client to communicate with the `apps/server` backend, configurable via `BACKEND_API_URL`.
+- [ ] Define and implement the full MCP toolset:
+  - `search_rag`
+  - `list_collections`
+  - `list_documents`
+  - `create_collection`
+  - `fetch_and_add_document_from_url`
+  - `delete_document`
+  - `delete_collection`
 
 **Afternoon (4 hours):**
-- [ ] Implement SSE mode (Windows/Claude Desktop)
-  - Add HTTP server with SSE transport
-  - Same tools, different transport
-  - Listen on port 3334
-
-- [ ] Create MCP config for Claude Desktop
-  ```json
-  {
-    "mcpServers": {
-      "synthesis-rag": {
-        "url": "http://localhost:3334/sse"
-      }
-    }
-  }
+- [ ] Implement `stdio` transport for IDE agents.
+- [ ] Implement `SSE` transport on a separate port (e.g., 3334) for clients like Claude Desktop.
+- [ ] Test `stdio` mode from the command line.
+  ```bash
+  echo '{"method":"tools/list"}' | node apps/mcp/dist/index.js
   ```
-
-- [ ] Test from Claude Desktop (Windows)
-  - Add config
-  - Restart Claude Desktop
-  - Ask: "Search my docs for X"
-  - Verify it calls your MCP server
+- [ ] Test `SSE` mode with `curl`.
+- [ ] Perform end-to-end tests for `search_rag` and `fetch_and_add_document_from_url` to ensure they work through the MCP server.
 
 **Definition of Done:**
-- stdio mode works for IDE agents
-- SSE mode works for Claude Desktop
-- Both modes access same backend
-- External agents can search RAG
+- External agents can discover and call all 7 tools.
+- Both `stdio` and `SSE` modes are functional and connect to the same backend logic.
+- The server is configurable and ready for the Docker phase.
 
 ---
 

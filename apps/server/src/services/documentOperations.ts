@@ -1,0 +1,288 @@
+import { createDocument, deleteDocumentChunks, getDocument } from '@synthesis/db';
+import type { Pool } from 'pg';
+import { chromium } from 'playwright';
+import TurndownService from 'turndown';
+import { deleteFileIfExists, inferTitle, writeDocumentFile } from '../agent/utils/storage.js';
+import { ingestDocument } from '../pipeline/orchestrator.js';
+
+export interface FetchWebContentParams {
+  url: string;
+  collectionId: string;
+  mode?: 'single' | 'crawl';
+  maxPages?: number;
+  titlePrefix?: string;
+}
+
+export interface FetchWebContentResult {
+  processed: Array<{
+    docId: string;
+    url: string;
+    title: string;
+  }>;
+}
+
+export interface DeleteDocumentParams {
+  docId: string;
+}
+
+export interface DeleteDocumentResult {
+  docId: string;
+  title: string;
+}
+
+const DEFAULT_MAX_PAGES = 25;
+
+export async function fetchWebContent(
+  db: Pool,
+  params: FetchWebContentParams
+): Promise<FetchWebContentResult> {
+  const collectionId = params.collectionId;
+  const mode = params.mode ?? 'single';
+  const maxPages = params.maxPages ?? DEFAULT_MAX_PAGES;
+
+  const turndownService = createTurndownService();
+  const initialUrl = normalizeUrl(params.url);
+  const queue = [initialUrl];
+  const pending = new Set(queue);
+  const visited = new Set<string>();
+  const processed: Array<{ docId: string; url: string; title: string }> = [];
+
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const context = await browser.newContext({
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    });
+    const page = await context.newPage();
+
+    while (queue.length > 0 && processed.length < maxPages) {
+      const nextUrl = queue.shift();
+      if (!nextUrl) {
+        break;
+      }
+      pending.delete(nextUrl);
+
+      const normalizedUrl = normalizeUrl(nextUrl);
+
+      if (visited.has(normalizedUrl)) {
+        continue;
+      }
+
+      visited.add(normalizedUrl);
+      if (processed.length > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      try {
+        await page.goto(normalizedUrl, { waitUntil: 'networkidle', timeout: 30_000 });
+      } catch {
+        continue;
+      }
+
+      const title = await page.title();
+      const content = await page.evaluate(() => {
+        type ElementLike = {
+          innerHTML?: string;
+          innerText?: string;
+        } | null;
+
+        const selectors = ['main', 'article', '.content', '#content'];
+        const doc = document as unknown as {
+          querySelector: (selector: string) => ElementLike;
+          body: ElementLike;
+          documentElement: ElementLike;
+        };
+
+        if (!doc) {
+          return { html: '', text: '' };
+        }
+
+        const candidate = selectors
+          .map((selector) => doc.querySelector(selector) as ElementLike)
+          .find((node) => node && typeof node.innerText === 'string' && node.innerText.trim());
+
+        const element =
+          candidate ?? (doc.body as ElementLike) ?? (doc.documentElement as ElementLike);
+
+        return {
+          html: element?.innerHTML ?? '',
+          text: element?.innerText ?? '',
+        };
+      });
+
+      const markdown = convertHtmlToMarkdown(content.html, turndownService);
+      const textFallback = (content.text ?? '').trim();
+
+      if (!markdown && !textFallback) {
+        continue;
+      }
+
+      const cleanedTitle = params.titlePrefix
+        ? `${params.titlePrefix} - ${title || inferTitle(normalizedUrl)}`
+        : title || inferTitle(normalizedUrl);
+
+      const contentBuffer = Buffer.from(markdown || textFallback, 'utf-8');
+      const document = await createDocument({
+        collection_id: collectionId,
+        title: cleanedTitle,
+        file_path: undefined,
+        content_type: 'text/markdown',
+        file_size: contentBuffer.length,
+        source_url: normalizedUrl,
+      });
+
+      const filePath = await writeDocumentFile(collectionId, document.id, '.md', contentBuffer);
+      await updateDocumentStatus(db, document.id, 'pending', undefined, filePath);
+
+      ingestDocument(document.id).catch((error: unknown) => {
+        console.error(`Ingestion failed for ${document.id}`, error);
+      });
+
+      processed.push({ docId: document.id, url: normalizedUrl, title: cleanedTitle });
+
+      if (mode === 'crawl') {
+        const discovered = await page.$$eval(
+          'a[href]',
+          (anchors, origin) => {
+            const baseUrl = new URL(origin);
+            const originHost = baseUrl.origin;
+
+            return anchors
+              .map((anchor) => {
+                try {
+                  type AnchorLike = {
+                    href?: string;
+                    getAttribute?: (attr: string) => string | null;
+                  };
+                  const node = anchor as AnchorLike;
+                  const candidate: string | null =
+                    typeof node.href === 'string'
+                      ? node.href
+                      : typeof node.getAttribute === 'function'
+                        ? node.getAttribute('href')
+                        : null;
+
+                  if (!candidate) {
+                    return null;
+                  }
+
+                  return new URL(candidate, origin).href;
+                } catch {
+                  return null;
+                }
+              })
+              .filter((href): href is string => typeof href === 'string')
+              .filter((href) => href.startsWith(originHost));
+          },
+          normalizedUrl
+        );
+
+        for (const link of discovered) {
+          const normalisedLink = normalizeUrl(link);
+          if (!visited.has(normalisedLink) && !pending.has(normalisedLink)) {
+            queue.push(normalisedLink);
+            pending.add(normalisedLink);
+          }
+        }
+      }
+    }
+  } finally {
+    await browser.close();
+  }
+
+  return { processed };
+}
+
+export async function deleteDocumentById(
+  db: Pool,
+  params: DeleteDocumentParams
+): Promise<DeleteDocumentResult> {
+  const document = await getDocument(params.docId);
+  if (!document) {
+    throw new Error(`Document ${params.docId} not found`);
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await deleteDocumentChunks(document.id, client);
+    await client.query('DELETE FROM documents WHERE id = $1', [document.id]);
+    await client.query('COMMIT');
+    await deleteFileIfExists(document.file_path);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  return {
+    docId: document.id,
+    title: document.title,
+  };
+}
+
+function createTurndownService(): TurndownService {
+  return new TurndownService({
+    headingStyle: 'atx',
+    bulletListMarker: '-',
+    codeBlockStyle: 'fenced',
+  });
+}
+
+function convertHtmlToMarkdown(html: string | null | undefined, service: TurndownService): string {
+  const trimmed = (html ?? '').trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  try {
+    return service.turndown(trimmed).trim();
+  } catch (error) {
+    console.warn('Failed to convert HTML to Markdown', error);
+    return '';
+  }
+}
+
+function normalizeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return url;
+    }
+
+    parsed.hash = '';
+    parsed.searchParams.sort();
+
+    if (parsed.pathname && parsed.pathname !== '/') {
+      parsed.pathname = parsed.pathname.replace(/\/+/g, '/');
+      parsed.pathname = parsed.pathname.replace(/\/+$/, '');
+      if (parsed.pathname === '') {
+        parsed.pathname = '/';
+      }
+    }
+
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+async function updateDocumentStatus(
+  db: Pool,
+  documentId: string,
+  status: string,
+  errorMessage?: string,
+  filePath?: string
+): Promise<void> {
+  await db.query(
+    `UPDATE documents
+       SET status = $1,
+           error_message = $2,
+           updated_at = NOW(),
+           processed_at = CASE WHEN $1 = 'complete' THEN NOW() ELSE processed_at END,
+           file_path = COALESCE($3, file_path)
+     WHERE id = $4`,
+    [status, errorMessage ?? null, filePath ?? null, documentId]
+  );
+}
