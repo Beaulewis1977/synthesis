@@ -38,8 +38,8 @@ The server exposes a comprehensive set of tools for reading, searching, and mana
 ### Management Tools
 - **`create_collection(name: string, description: string)`**: Creates a new, empty collection.
 - **`fetch_and_add_document_from_url(url: string, collection_id: string)`**: Fetches content from a public URL and ingests it as a new document.
-- **`delete_document(document_id: string)`**: Deletes a document and its associated data.
-- **`delete_collection(collection_id: string)`**: Deletes an entire collection. Use with caution.
+- **`delete_document(doc_id: string, confirm: boolean)`**: Deletes a document and its associated data. Requires confirmation flag.
+- **`delete_collection(collection_id: string, confirm: boolean)`**: Deletes an entire collection. Requires confirmation flag. Use with caution.
 
 ---
 
@@ -73,17 +73,29 @@ const server = new McpServer({
 });
 
 // Register tools using server.registerTool()
+// Define Zod schema for runtime validation
+const searchRagSchema = z.object({
+  collection_id: z.string().uuid(),
+  query: z.string().min(1),
+  top_k: z.number().int().min(1).max(50).optional(),
+});
+
 server.registerTool(
   'search_rag',
   {
     description: 'Search the RAG knowledge base for relevant information and return matching chunks with citations.',
     inputSchema: {
-      collection_id: z.string().uuid().describe('The ID of the collection to search'),
-      query: z.string().min(1).describe('The search query'),
-      top_k: z.number().int().min(1).max(50).optional().describe('Number of results to return (default: 5)'),
+      type: 'object',
+      properties: {
+        collection_id: { type: 'string', format: 'uuid', description: 'The ID of the collection to search' },
+        query: { type: 'string', minLength: 1, description: 'The search query' },
+        top_k: { type: 'integer', minimum: 1, maximum: 50, default: 5, description: 'Number of results to return (default: 5)' },
+      },
+      required: ['collection_id', 'query'],
     },
   },
-  async ({ collection_id, query, top_k }) => {
+  async (input) => {
+    const { collection_id, query, top_k } = searchRagSchema.parse(input);
     const result = await apiClient.post('/api/search', { collection_id, query, top_k });
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],

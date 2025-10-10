@@ -210,16 +210,16 @@ EOF
   # Extract document ID
   local text=$(extract_text "$response")
   DOC_ID=$(echo "$text" | jq -r '.processed[0].docId // empty')
-  
-  if [ -z "$DOC_ID" ]; then
-    echo -e "${YELLOW}⚠ WARNING - Could not extract document ID${NC}"
+
+  if [ -z "$DOC_ID" ] || [ "$DOC_ID" = "null" ]; then
+    echo -e "${RED}✗ FAILED - Could not extract document ID${NC}"
     echo "Response preview:"
     echo "$text" | jq -C '.' 2>/dev/null || echo "$text"
-  else
-    echo -e "${GREEN}✓ PASSED${NC}"
-    echo "Document ID: ${DOC_ID}"
+    return 1
   fi
-  
+
+  echo -e "${GREEN}✓ PASSED${NC}"
+  echo "Document ID: ${DOC_ID}"
   return 0
 }
 

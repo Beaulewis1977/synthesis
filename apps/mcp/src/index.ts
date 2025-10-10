@@ -58,9 +58,10 @@ server.registerTool(
           description: 'The search query',
         },
         top_k: {
-          type: 'number',
+          type: 'integer',
           minimum: 1,
           maximum: 50,
+          default: 5,
           description: 'Number of results to return (default: 5)',
         },
         min_similarity: {
@@ -291,9 +292,10 @@ server.registerTool(
           description: 'Fetch mode: single page or crawl (default: single)',
         },
         max_pages: {
-          type: 'number',
+          type: 'integer',
           minimum: 1,
           maximum: 200,
+          default: 25,
           description: 'Maximum pages to crawl (default: 25)',
         },
         title_prefix: {

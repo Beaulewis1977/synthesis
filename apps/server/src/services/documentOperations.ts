@@ -205,23 +205,25 @@ export async function deleteDocumentById(
   const filePath = document.file_path;
 
   const client = await db.connect();
-  let transactionCompleted = false;
+  let transactionStarted = false;
 
   try {
     await client.query('BEGIN');
+    transactionStarted = true;
     await deleteDocumentChunks(document.id, client);
     await client.query('DELETE FROM documents WHERE id = $1', [document.id]);
     await client.query('COMMIT');
-    transactionCompleted = true;
   } catch (error) {
-    await client.query('ROLLBACK');
+    if (transactionStarted) {
+      await client.query('ROLLBACK');
+    }
     throw error;
   } finally {
     client.release();
   }
 
   // Delete file only after successful transaction commit
-  if (transactionCompleted && filePath) {
+  if (filePath) {
     try {
       await deleteFileIfExists(filePath);
     } catch (error) {
