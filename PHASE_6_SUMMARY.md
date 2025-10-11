@@ -76,7 +76,7 @@ Implemented a complete Model Context Protocol (MCP) server that exposes the Synt
 - Manual testing: All tools verified working
 
 ### Test Results
-```
+```bash
 Command: pnpm verify:mcp
 
 ✓ tools/list - Returns all 7 tools with correct schemas
@@ -263,7 +263,7 @@ curl -X POST http://localhost:3334 \
 
 The refactored architecture works as designed:
 
-```
+```text
 External Agent (IDE/Claude Desktop)
     ↓
 MCP Server (stdio or HTTP/SSE transport)
@@ -290,7 +290,7 @@ Database Layer (PostgreSQL + pgvector)
 ## 🎬 Demo / Screenshots
 
 ### MCP Server Startup (stdio mode)
-```
+```text
 🚀 Synthesis MCP Server started successfully
    Mode: stdio
    Backend API: http://localhost:3333

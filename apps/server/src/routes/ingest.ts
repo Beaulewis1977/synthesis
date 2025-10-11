@@ -72,7 +72,7 @@ export const ingestRoutes: FastifyPluginAsync = async (fastify) => {
       let collectionStoragePath: string | undefined;
 
       try {
-        // Create document record with status 'uploading'
+        // Create document record (createDocument defaults status to 'pending')
         document = await createDocument({
           collection_id: collectionId as string,
           title: filename,
@@ -120,20 +120,8 @@ export const ingestRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       // Start ingestion pipeline asynchronously
-      ingestDocument(document.id).catch(async (error) => {
+      ingestDocument(document.id).catch((error) => {
         fastify.log.error({ docId: document.id, error }, 'Document ingestion failed');
-        try {
-          await updateDocumentStatus(
-            document.id,
-            'error',
-            error instanceof Error ? error.message : String(error)
-          );
-        } catch (statusError) {
-          fastify.log.error(
-            { docId: document.id, statusError },
-            'Failed to update document status after ingestion error'
-          );
-        }
       });
 
       return reply.code(201).send({

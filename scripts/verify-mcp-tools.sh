@@ -103,10 +103,18 @@ is_error_response() {
   return 1  # No error detected
 }
 
-# Helper function to extract text content from MCP response
-extract_text() {
+# Helper to parse JSON payload from tool response
+extract_json_payload() {
   local response=$1
-  echo "$response" | jq -r '.result.content[0].text // empty'
+  echo "$response" | jq -c '
+    limit(1;
+      (.result.content // [])[]
+      | if has("json") then .json
+        elif (.text? | type == "string") then (try (.text | fromjson) catch empty)
+        else empty
+        end
+    )
+  '
 }
 
 # Start the backend server
@@ -171,7 +179,13 @@ test_list_collections() {
   
   echo -e "${GREEN}✓ PASSED${NC}"
   echo "Response preview:"
-  echo "$response" | jq -C '.result.content[0].text | fromjson | .collections | .[0:2]' || true
+  local payload
+  payload=$(extract_json_payload "$response")
+  if [ -n "$payload" ]; then
+    echo "$payload" | jq -C '.collections | .[0:2]' 2>/dev/null || echo "$payload"
+  else
+    echo "$response"
+  fi
   
   return 0
 }
@@ -196,13 +210,19 @@ EOF
   fi
   
   # Extract collection ID
-  local text
-  text=$(extract_text "$response")
-  COLLECTION_ID=$(echo "$text" | jq -r '.collection.id // empty' 2>/dev/null || true)
-  
+  local payload
+  payload=$(extract_json_payload "$response")
+  if [ -z "$payload" ]; then
+    echo -e "${RED}✗ FAILED - Could not parse collection payload${NC}"
+    echo "Response: $response"
+    return 1
+  fi
+
+  COLLECTION_ID=$(echo "$payload" | jq -r '.collection.id // .collection_id // empty' 2>/dev/null || true)
+
   if [ -z "$COLLECTION_ID" ] || [ "$COLLECTION_ID" == "null" ]; then
     echo -e "${RED}✗ FAILED - Could not extract collection ID${NC}"
-    echo "Response: $response"
+    echo "Payload: $payload"
     return 1
   fi
   
@@ -232,14 +252,20 @@ EOF
   fi
   
   # Extract document ID
-  local text
-  text=$(extract_text "$response")
-  DOC_ID=$(echo "$text" | jq -r '.processed[0].docId // empty' 2>/dev/null || true)
+  local payload
+  payload=$(extract_json_payload "$response")
+  if [ -z "$payload" ]; then
+    echo -e "${RED}✗ FAILED - Could not parse fetch payload${NC}"
+    echo "Response: $response"
+    return 1
+  fi
+
+  DOC_ID=$(echo "$payload" | jq -r '.processed[0].docId // empty' 2>/dev/null || true)
 
   if [ -z "$DOC_ID" ] || [ "$DOC_ID" = "null" ]; then
     echo -e "${RED}✗ FAILED - Could not extract document ID${NC}"
     echo "Response preview:"
-    echo "$text" | jq -C '.' 2>/dev/null || echo "$text"
+    echo "$payload" | jq -C '.' 2>/dev/null || echo "$payload"
     return 1
   fi
 
@@ -279,10 +305,12 @@ EOF
     return 1
   fi
   
-  local text
-  text=$(extract_text "$response")
+  local payload
+  payload=$(extract_json_payload "$response")
   local result_count=0
-  result_count=$(echo "$text" | jq -r 'fromjson | .total_results // 0' 2>/dev/null || true)
+  if [ -n "$payload" ]; then
+    result_count=$(echo "$payload" | jq -r '.total_results // 0' 2>/dev/null || true)
+  fi
   
   echo -e "${GREEN}✓ PASSED${NC}"
   echo "Results found: ${result_count}"
@@ -308,10 +336,12 @@ EOF
     return 1
   fi
   
-  local text
-  text=$(extract_text "$response")
+  local payload
+  payload=$(extract_json_payload "$response")
   local doc_count=0
-  doc_count=$(echo "$text" | jq -r 'fromjson | .documents | length' 2>/dev/null || true)
+  if [ -n "$payload" ]; then
+    doc_count=$(echo "$payload" | jq -r '.documents | length' 2>/dev/null || true)
+  fi
   
   echo -e "${GREEN}✓ PASSED${NC}"
   echo "Documents listed: ${doc_count}"
@@ -341,12 +371,14 @@ EOF
     echo "Response: $response"
     return 1
   fi
-  
+
   echo -e "${GREEN}✓ PASSED${NC}"
-  local text
-  text=$(extract_text "$response")
-  echo "$text" | jq -C 'fromjson | .title' 2>/dev/null || true
-  
+  local payload
+  payload=$(extract_json_payload "$response")
+  if [ -n "$payload" ]; then
+    echo "$payload" | jq -C '.title' 2>/dev/null || echo "$payload"
+  fi
+
   return 0
 }
 

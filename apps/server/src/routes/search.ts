@@ -23,12 +23,7 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    const {
-      query,
-      collectionId,
-      top_k: topK,
-      min_similarity: minSimilarity,
-    } = validation.data;
+    const { query, collectionId, top_k: topK, min_similarity: minSimilarity } = validation.data;
 
     try {
       const result = await searchCollection(getPool(), {

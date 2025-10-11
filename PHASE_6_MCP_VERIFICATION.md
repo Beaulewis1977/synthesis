@@ -67,7 +67,7 @@ Both critical routes work perfectly:
 1. **`POST /api/agent/fetch-web-content`**
    - MCP tool `fetch_and_add_document_from_url` successfully called endpoint
    - Document created: `6e1440f6-3bc8-4733-9fa7-6979ef882658`
-   - URL fetched: https://example.com
+   - URL fetched: <https://example.com>
    - Result: Queued for ingestion
 
 2. **`POST /api/agent/delete-document`**
@@ -79,7 +79,7 @@ Both critical routes work perfectly:
 
 The refactored architecture works as designed:
 
-```
+```text
 MCP Server (stdio/JSON-RPC)
     ↓
 MCP Tools (apps/mcp/src/index.ts)

@@ -309,7 +309,12 @@ function normalizeUrl(url: string): string {
 
 function isPublicUrl(url: string): boolean {
   try {
-    const { hostname } = new URL(url);
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+
+    const hostname = parsed.hostname;
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') {
       return false;
     }
@@ -322,7 +327,7 @@ function isPublicUrl(url: string): boolean {
     if (hostname.startsWith('192.168.')) {
       return false;
     }
-    const ipParts = hostname.split('.').map(part => parseInt(part, 10));
+    const ipParts = hostname.split('.').map((part) => Number.parseInt(part, 10));
     if (ipParts.length === 4 && ipParts[0] === 172 && ipParts[1] >= 16 && ipParts[1] <= 31) {
       return false;
     }

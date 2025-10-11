@@ -14,24 +14,54 @@ const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:3333';
  */
 async function request<T = unknown>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${BACKEND_API_URL}${endpoint}`;
+  const headers = new Headers(options.headers);
+
+  if (options.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
 
   try {
     const response = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
     });
 
+    const rawBody = await response.text();
+
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `API request to ${endpoint} failed with status ${response.status}: ${errorText}`
-      );
+      let parsedBody: unknown;
+      let message = `Request failed with status ${response.status}`;
+
+      if (rawBody) {
+        try {
+          parsedBody = JSON.parse(rawBody);
+        } catch {
+          parsedBody = rawBody;
+        }
+
+        if (
+          parsedBody &&
+          typeof parsedBody === 'object' &&
+          'error' in parsedBody &&
+          typeof (parsedBody as { error?: unknown }).error === 'string'
+        ) {
+          message = (parsedBody as { error: string }).error;
+        } else if (typeof parsedBody === 'string') {
+          message = parsedBody;
+        }
+      }
+
+      const error = new Error(message) as Error & { status?: number; body?: unknown };
+      error.status = response.status;
+      error.body = parsedBody ?? rawBody;
+      throw error;
     }
 
-    return (await response.json()) as T;
+    if (!rawBody) {
+      return undefined as T;
+    }
+
+    return JSON.parse(rawBody) as T;
   } catch (error) {
     if (error instanceof Error) {
       throw error;

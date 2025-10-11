@@ -14,7 +14,7 @@ Expose the full capabilities of the Synthesis RAG system to external AI agents v
 
 The MCP server is a lightweight wrapper that translates agent tool calls into standard HTTP requests to the main backend server. It does not contain any core business logic itself.
 
-```mermaid
+```text
 External Agent (e.g., IDE Agent)
            ↓
 MCP Server (stdio or SSE transport)
@@ -31,7 +31,7 @@ Core Services (Database, Ollama, etc.)
 The server exposes a comprehensive set of tools for reading, searching, and managing RAG collections and documents.
 
 ### Search & Read Tools
-- **`search_rag(query: string, collection_id: string, top_k?: number)`**: Searches for information within a specific collection.
+- **`search_rag({ collectionId: string, query: string, top_k?: number = 5, min_similarity?: number = 0.5 })`**: Searches for information within a specific collection (collectionId must be a UUID).
 - **`list_collections()`**: Lists all available document collections.
 - **`list_documents(collection_id: string)`**: Lists all documents within a given collection.
 
@@ -52,84 +52,101 @@ The implementation uses the official `@modelcontextprotocol/sdk` library, which 
 The main file registers tools with the `McpServer` instance and configures either stdio or HTTP transport based on the `MCP_MODE` environment variable.
 
 ```typescript
+import { randomUUID } from 'node:crypto';
+import http from 'node:http';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import dotenv from 'dotenv';
-import http from 'node:http';
 import { z } from 'zod';
+import { zodToJsonSchema, type JsonSchema7Type } from 'zod-to-json-schema';
 import { apiClient } from './api.js';
 
-// Load environment variables
 dotenv.config();
 
 const MCP_PORT = Number.parseInt(process.env.MCP_PORT || '3334', 10);
-const MCP_MODE = process.env.MCP_MODE || 'stdio'; // 'stdio' or 'http'
+const MCP_MODE = process.env.MCP_MODE || 'stdio';
 
-// Initialize MCP Server
 const server = new McpServer({
   name: 'synthesis-rag',
   version: '1.0.0',
 });
 
-// Register tools using server.registerTool()
-// Define Zod schema for runtime validation with descriptive metadata
-const searchRagSchema = z.object({
-  collection_id: z.string().uuid().describe('The ID of the collection to search'),
-  query: z.string().min(1).describe('The search query'),
-  top_k: z
-    .number()
-    .int()
-    .min(1)
-    .max(50)
-    .default(5)
-    .describe('Number of results to return (default: 5)'),
-  min_similarity: z
-    .number()
-    .min(0)
-    .max(1)
-    .default(0.5)
-    .describe('Minimum similarity threshold (default: 0.5)'),
-});
+function toJsonSchema<T extends z.ZodTypeAny>(schema: T, name: string): JsonSchema7Type {
+  const jsonSchema = zodToJsonSchema(schema, { target: 'jsonSchema7', name });
+
+  if (
+    jsonSchema &&
+    typeof jsonSchema === 'object' &&
+    '$ref' in jsonSchema &&
+    typeof jsonSchema.$ref === 'string' &&
+    jsonSchema.$ref.startsWith('#/definitions/') &&
+    'definitions' in jsonSchema &&
+    jsonSchema.definitions
+  ) {
+    const key = jsonSchema.$ref.slice('#/definitions/'.length);
+    const definition = (jsonSchema.definitions as Record<string, JsonSchema7Type>)[key];
+    if (definition) {
+      return definition;
+    }
+  }
+
+  return jsonSchema as JsonSchema7Type;
+}
+
+const searchRagInput = z
+  .object({
+    collectionId: z.string().uuid(),
+    query: z.string().min(1),
+    top_k: z.number().int().min(1).max(50).default(5),
+    min_similarity: z.number().min(0).max(1).default(0.5),
+  })
+  .strict();
+
+const searchRagInputSchema = toJsonSchema(searchRagInput, 'SearchRagInput');
 
 server.registerTool(
   'search_rag',
   {
-    description: 'Search the RAG knowledge base for relevant information and return matching chunks with citations.',
-    inputSchema: searchRagSchema.shape,
+    description:
+      'Search the RAG knowledge base for relevant information and return matching chunks with citations.',
+    inputSchema: searchRagInput.shape,
+    _meta: {
+      jsonSchema: searchRagInputSchema,
+    },
   },
-  async ({ collection_id, query, top_k, min_similarity }) => {
+  async (rawInput) => {
+    const { collectionId, query, top_k, min_similarity } = searchRagInput.parse(rawInput);
     const result = await apiClient.post('/api/search', {
-      collection_id,
+      collectionId,
       query,
       top_k,
       min_similarity,
     });
+
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     };
   }
 );
 
-// ... other tool registrations ...
+// ...
 
-// Start transport based on MCP_MODE
 async function main() {
   if (MCP_MODE === 'stdio') {
-    // Start stdio transport for IDE agents (e.g., Cursor, VSCode)
     const stdioTransport = new StdioServerTransport();
     await server.connect(stdioTransport);
     console.error('🚀 Synthesis MCP Server started (stdio mode)');
-  } else if (MCP_MODE === 'http') {
-    // Start HTTP/SSE transport for Claude Desktop and web clients
+    return;
+  }
+
+  if (MCP_MODE === 'http') {
     const httpTransport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => crypto.randomUUID(),
+      sessionIdGenerator: () => randomUUID(),
     });
     await server.connect(httpTransport);
 
-    // Create HTTP server to handle requests
     const httpServer = http.createServer(async (req, res) => {
-      // CORS headers
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
@@ -140,9 +157,11 @@ async function main() {
         return;
       }
 
-      // Parse body and delegate to transport
       let body = '';
-      for await (const chunk of req) body += chunk;
+      for await (const chunk of req) {
+        body += chunk;
+      }
+
       const parsedBody = body ? JSON.parse(body) : undefined;
       await httpTransport.handleRequest(req, res, parsedBody);
     });
@@ -153,9 +172,13 @@ async function main() {
   }
 }
 
-main();
-
+main().catch((error) => {
+  console.error('Fatal error:', error);
+  process.exit(1);
+});
 ```
+
+Each tool keeps its runtime Zod validator and the generated JSON Schema aligned by adding a `_meta.jsonSchema` payload, which is useful for documentation and external validation while the SDK still performs server-side parsing.
 
 **Key Points:**
 

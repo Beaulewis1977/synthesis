@@ -36,9 +36,12 @@ const fastify = Fastify({
 const isProduction = process.env.NODE_ENV === 'production';
 const corsOrigins = isProduction
   ? process.env.CORS_ALLOWED_ORIGINS
-    ? process.env.CORS_ALLOWED_ORIGINS.split(',')
-        .map((o) => o.trim())
-        .filter(Boolean)
+    ? (() => {
+        const origins = process.env.CORS_ALLOWED_ORIGINS.split(',')
+          .map((o) => o.trim())
+          .filter(Boolean);
+        return origins.length > 0 ? origins : false;
+      })()
     : false
   : true;
 
