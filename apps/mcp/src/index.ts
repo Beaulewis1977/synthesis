@@ -14,7 +14,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import dotenv from 'dotenv';
 import { z } from 'zod';
-import { zodToJsonSchema, type JsonSchema7Type } from 'zod-to-json-schema';
+import { type JsonSchema7Type, zodToJsonSchema } from 'zod-to-json-schema';
 
 import { apiClient } from './api.js';
 
@@ -87,12 +87,11 @@ server.registerTool(
   {
     description:
       'Search the RAG knowledge base for relevant information and return matching chunks with citations.',
-    inputSchema: searchRagInput.shape,
-    _meta: {
-      jsonSchema: searchRagInputSchema,
-    },
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
+    inputSchema: searchRagInputSchema as any,
   },
-  async (input) => {
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
     const { collectionId, query, top_k, min_similarity } = searchRagInput.parse(input);
     try {
       const result = await apiClient.post('/api/search', {
@@ -175,12 +174,11 @@ server.registerTool(
   'list_documents',
   {
     description: 'List all documents in a specific collection.',
-    inputSchema: listDocumentsInput.shape,
-    _meta: {
-      jsonSchema: listDocumentsInputSchema,
-    },
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
+    inputSchema: listDocumentsInputSchema as any,
   },
-  async (input) => {
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
     const { collectionId } = listDocumentsInput.parse(input);
     try {
       const result = await apiClient.get(`/api/collections/${collectionId}/documents`);
@@ -224,12 +222,11 @@ server.registerTool(
   'create_collection',
   {
     description: 'Create a new document collection.',
-    inputSchema: createCollectionInput.shape,
-    _meta: {
-      jsonSchema: createCollectionInputSchema,
-    },
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
+    inputSchema: createCollectionInputSchema as any,
   },
-  async (input) => {
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
     const { name, description } = createCollectionInput.parse(input);
     try {
       const result = await apiClient.post('/api/collections', {
@@ -288,12 +285,11 @@ server.registerTool(
   'fetch_and_add_document_from_url',
   {
     description: 'Fetch content from a public URL and ingest it as a new document.',
-    inputSchema: fetchDocumentInput.shape,
-    _meta: {
-      jsonSchema: fetchDocumentInputSchema,
-    },
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
+    inputSchema: fetchDocumentInputSchema as any,
   },
-  async (input) => {
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
     const { url, collectionId, mode, maxPages, titlePrefix } = fetchDocumentInput.parse(input);
     try {
       const result = await apiClient.post('/api/agent/fetch-web-content', {
@@ -343,12 +339,11 @@ server.registerTool(
   'delete_document',
   {
     description: 'Delete a document and all associated chunks.',
-    inputSchema: deleteDocumentInput.shape,
-    _meta: {
-      jsonSchema: deleteDocumentInputSchema,
-    },
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
+    inputSchema: deleteDocumentInputSchema as any,
   },
-  async (input) => {
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
     const { docId, confirm } = deleteDocumentInput.parse(input);
     try {
       const result = await apiClient.post('/api/agent/delete-document', {
@@ -395,12 +390,11 @@ server.registerTool(
   'delete_collection',
   {
     description: 'Delete an entire collection and all its documents. Use with caution.',
-    inputSchema: deleteCollectionInput.shape,
-    _meta: {
-      jsonSchema: deleteCollectionInputSchema,
-    },
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
+    inputSchema: deleteCollectionInputSchema as any,
   },
-  async (input) => {
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
     const { collectionId, confirm } = deleteCollectionInput.parse(input);
     try {
       if (!confirm) {
