@@ -326,7 +326,7 @@ const metadata = buildMetadata()
   embedding_model: 'voyage-code-2',
   embedding_provider: 'voyage',
   embedding_dimensions: 1024,
-  last_verified: Date('2025-10-11'),
+  last_verified: new Date('2025-10-11'),
   tags: ['authentication', 'security']
 }
 ```
