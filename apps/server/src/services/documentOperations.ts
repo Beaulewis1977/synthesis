@@ -49,6 +49,9 @@ export async function fetchWebContent(
 
   const turndownService = createTurndownService();
   const initialUrl = normalizeUrl(params.url);
+  if (!isPublicUrl(initialUrl)) {
+    throw new Error('Initial URL is not a public URL');
+  }
   const queue = [initialUrl];
   const pending = new Set(queue);
   const visited = new Set<string>();
@@ -74,6 +77,11 @@ export async function fetchWebContent(
       pending.delete(nextUrl);
 
       const normalizedUrl = normalizeUrl(nextUrl);
+
+      if (!isPublicUrl(normalizedUrl)) {
+        console.warn(`Skipping non-public URL: ${normalizedUrl}`);
+        continue;
+      }
 
       if (visited.has(normalizedUrl)) {
         continue;
@@ -189,6 +197,9 @@ export async function fetchWebContent(
 
         for (const link of discovered) {
           const normalizedLink = normalizeUrl(link);
+          if (!isPublicUrl(normalizedLink)) {
+            continue;
+          }
           if (!visited.has(normalizedLink) && !pending.has(normalizedLink)) {
             queue.push(normalizedLink);
             pending.add(normalizedLink);
@@ -293,6 +304,31 @@ function normalizeUrl(url: string): string {
     return parsed.toString();
   } catch {
     return url;
+  }
+}
+
+function isPublicUrl(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') {
+      return false;
+    }
+    if (hostname.startsWith('169.254.')) {
+      return false;
+    }
+    if (hostname.startsWith('10.')) {
+      return false;
+    }
+    if (hostname.startsWith('192.168.')) {
+      return false;
+    }
+    const ipParts = hostname.split('.').map(part => parseInt(part, 10));
+    if (ipParts.length === 4 && ipParts[0] === 172 && ipParts[1] >= 16 && ipParts[1] <= 31) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
   }
 }
 
