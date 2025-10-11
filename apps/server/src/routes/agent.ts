@@ -2,6 +2,11 @@ import { getPool } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { runAgentChat } from '../agent/agent.js';
+import {
+  DocumentNotFoundError,
+  deleteDocumentById,
+  fetchWebContent,
+} from '../services/documentOperations.js';
 
 const ConversationMessageSchema = z
   .object({
@@ -19,6 +24,23 @@ const AgentChatBodySchema = z
   .strict();
 
 type AgentChatBody = z.infer<typeof AgentChatBodySchema>;
+
+const FetchWebContentSchema = z
+  .object({
+    url: z.string().url(),
+    collectionId: z.string().uuid(),
+    mode: z.enum(['single', 'crawl']).optional(),
+    maxPages: z.number().int().min(1).max(200).optional(),
+    titlePrefix: z.string().min(1).optional(),
+  })
+  .strict();
+
+const DeleteDocumentSchema = z
+  .object({
+    docId: z.string().uuid(),
+    confirm: z.boolean(),
+  })
+  .strict();
 
 export const agentRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/api/agent/chat', async (request, reply) => {
@@ -57,6 +79,86 @@ export const agentRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.log.error(error, 'Agent chat failed');
       return reply.code(500).send({
         error: 'AGENT_ERROR',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
+  fastify.post('/api/agent/fetch-web-content', async (request, reply) => {
+    fastify.log.info(request.body, 'request body');
+    const validation = FetchWebContentSchema.safeParse(request.body);
+
+    if (!validation.success) {
+      return reply.code(400).send({
+        error: 'INVALID_INPUT',
+        details: validation.error.issues,
+      });
+    }
+
+    const body = validation.data;
+
+    try {
+      const result = await fetchWebContent(getPool(), {
+        url: body.url,
+        collectionId: body.collectionId,
+        mode: body.mode,
+        maxPages: body.maxPages,
+        titlePrefix: body.titlePrefix,
+      });
+
+      return reply.send({
+        message: `Fetched and queued ${result.processed.length} page(s) for ingestion.`,
+        processed: result.processed,
+      });
+    } catch (error) {
+      fastify.log.error(error, 'Fetch web content failed');
+      return reply.code(500).send({
+        error: 'FETCH_WEB_CONTENT_ERROR',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
+  fastify.post('/api/agent/delete-document', async (request, reply) => {
+    const validation = DeleteDocumentSchema.safeParse(request.body);
+
+    if (!validation.success) {
+      return reply.code(400).send({
+        error: 'INVALID_INPUT',
+        details: validation.error.issues,
+      });
+    }
+
+    const body = validation.data;
+
+    if (!body.confirm) {
+      return reply.code(400).send({
+        error: 'CONFIRMATION_REQUIRED',
+        message: 'Set confirm=true to permanently remove the document.',
+      });
+    }
+
+    try {
+      const result = await deleteDocumentById(getPool(), {
+        docId: body.docId,
+      });
+
+      return reply.send({
+        message: `Document ${result.title} deleted.`,
+        doc_id: result.docId,
+        title: result.title,
+      });
+    } catch (error) {
+      fastify.log.error(error, 'Delete document failed');
+      if (error instanceof DocumentNotFoundError) {
+        return reply.code(404).send({
+          error: 'DOCUMENT_NOT_FOUND',
+          message: error.message,
+        });
+      }
+
+      return reply.code(500).send({
+        error: 'DELETE_DOCUMENT_ERROR',
         message: error instanceof Error ? error.message : 'Unknown error',
       });
     }

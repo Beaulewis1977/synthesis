@@ -12,13 +12,13 @@ export interface Document {
   id: string;
   collection_id: string;
   title: string;
-  content_type: string;
-  file_size: number;
-  file_path: string;
-  status: 'pending' | 'complete' | 'error';
+  content_type: string | null;
+  file_size: number | null;
+  file_path: string | null;
+  status: 'pending' | 'extracting' | 'chunking' | 'embedding' | 'complete' | 'error';
   source_url: string | null;
   error_message: string | null;
-  metadata: Record<string, unknown>;
+  metadata: Record<string, unknown> | null;
   created_at: string;
   processed_at: string | null;
   updated_at: string;

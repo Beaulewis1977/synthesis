@@ -26,6 +26,10 @@ export function CollectionView() {
       // Also invalidate collections to update doc count
       queryClient.invalidateQueries({ queryKey: ['collections'] });
     },
+    onError: (error) => {
+      console.error('Failed to delete document:', error);
+      // TODO: Show user-facing notification/toast with error message
+    },
   });
 
   const handleDelete = (documentId: string) => {
@@ -53,7 +57,14 @@ export function CollectionView() {
               <MessageSquare size={18} />
               Chat
             </button>
-            <button type="button" className="btn btn-secondary">
+            {/* TODO: Phase 5.4 - Implement upload functionality */}
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled
+              aria-disabled="true"
+              title="Upload coming in Phase 5.4"
+            >
               Upload
             </button>
           </div>

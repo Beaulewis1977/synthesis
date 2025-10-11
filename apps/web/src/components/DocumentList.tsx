@@ -22,7 +22,7 @@ interface DocumentItemProps {
 
 function DocumentItem({ document, onDelete, isDeleting }: DocumentItemProps) {
   const [showConfirm, setShowConfirm] = useState(false);
-  const FileIcon = getFileTypeIcon(document.content_type);
+  const FileIcon = getFileTypeIcon(document.content_type ?? '');
 
   const handleDelete = () => {
     onDelete(document.id);
@@ -65,9 +65,9 @@ function DocumentItem({ document, onDelete, isDeleting }: DocumentItemProps) {
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-text-primary truncate mb-xs">{document.title}</h3>
             <div className="flex flex-wrap items-center gap-x-md gap-y-xs text-sm text-text-secondary">
-              <span>{getFileTypeLabel(document.content_type)}</span>
+              <span>{getFileTypeLabel(document.content_type ?? '')}</span>
               <span>•</span>
-              <span>{formatFileSize(document.file_size)}</span>
+              <span>{formatFileSize(document.file_size ?? 0)}</span>
               <span>•</span>
               <span>{formatRelativeTime(document.created_at)}</span>
             </div>

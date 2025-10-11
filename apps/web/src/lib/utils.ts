@@ -34,7 +34,9 @@ export function formatRelativeTime(date: string | Date): string {
  * Choose the appropriate icon component for a file content type.
  * @param contentType MIME type string reported by the API.
  */
-export function getFileTypeIcon(contentType: string): typeof FileIcon {
+export function getFileTypeIcon(
+  contentType: string
+): typeof FileIcon | typeof FileText | typeof FileCode {
   const normalized = contentType.toLowerCase();
 
   if (normalized.includes('pdf')) {

@@ -29,6 +29,7 @@
     "docker:up": "docker compose --profile app up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
+    "verify:mcp": "bash scripts/verify-mcp-tools.sh",
     "prepare": "[ -d .git ] && command -v husky >/dev/null && husky install || true"
   },
   "devDependencies": {

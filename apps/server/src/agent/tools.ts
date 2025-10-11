@@ -1,20 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Tool } from '@anthropic-ai/sdk/resources/messages.js';
-import {
-  createDocument,
-  deleteDocumentChunks,
-  getDocument,
-  getDocumentChunks,
-} from '@synthesis/db';
+import { createDocument, getDocument, getDocumentChunks } from '@synthesis/db';
 import type { Pool } from 'pg';
-import { chromium } from 'playwright';
-import TurndownService from 'turndown';
 import { z } from 'zod';
 import { ingestDocument } from '../pipeline/orchestrator.js';
+import { deleteDocumentById, fetchWebContent } from '../services/documentOperations.js';
 import { searchCollection } from '../services/search.js';
 import {
   type RemoteDownloadResult,
-  deleteFileIfExists,
   downloadRemoteFile,
   inferContentType,
   inferExtension,
@@ -245,159 +238,27 @@ export function createFetchWebContentTool(
     executor: async (args: unknown) => {
       const parsed = inputSchema.parse(args);
       const collectionId = parsed.collection_id ?? context.collectionId;
-      const turndownService = createTurndownService();
-      const initialUrl = normalizeUrl(parsed.url);
-      const queue = [initialUrl];
-      const pending = new Set(queue);
-      const visited = new Set<string>();
-      const processed: Array<{ docId: string; url: string; title: string }> = [];
-
-      const browser = await chromium.launch({ headless: true });
       try {
-        const context = await browser.newContext({
-          userAgent:
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        const result = await fetchWebContent(db, {
+          url: parsed.url,
+          collectionId,
+          mode: parsed.mode,
+          maxPages: parsed.max_pages,
+          titlePrefix: parsed.title_prefix,
         });
-        const page = await context.newPage();
 
-        while (queue.length > 0 && processed.length < parsed.max_pages) {
-          const nextUrl = queue.shift();
-          if (!nextUrl) {
-            break;
-          }
-          pending.delete(nextUrl);
-
-          const normalizedUrl = normalizeUrl(nextUrl);
-
-          if (visited.has(normalizedUrl)) {
-            continue;
-          }
-
-          visited.add(normalizedUrl);
-          if (processed.length > 0) {
-            // Avoid hammering target servers when crawling multiple pages.
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-          }
-          try {
-            await page.goto(normalizedUrl, { waitUntil: 'networkidle', timeout: 30_000 });
-          } catch (navigationError) {
-            console.warn(`Failed to load ${normalizedUrl}`, navigationError);
-            continue;
-          }
-
-          const title = await page.title();
-          const content = await page.evaluate(() => {
-            type ElementLike = {
-              innerHTML?: string;
-              innerText?: string;
-            } | null;
-
-            const selectors = ['main', 'article', '.content', '#content'];
-            // biome-ignore lint/suspicious/noExplicitAny: This is necessary to bridge the server-side type checker with the browser context where `document` is a full DOM object.
-            const doc = document as any;
-
-            if (!doc) {
-              return { html: '', text: '' };
-            }
-
-            const candidate = selectors
-              .map((selector) => doc.querySelector(selector) as ElementLike)
-              .find((node) => node && typeof node.innerText === 'string' && node.innerText.trim());
-
-            const element =
-              candidate ?? (doc.body as ElementLike) ?? (doc.documentElement as ElementLike);
-
-            return {
-              html: element?.innerHTML ?? '',
-              text: element?.innerText ?? '',
-            };
-          });
-
-          const markdown = convertHtmlToMarkdown(content.html, turndownService);
-          const textFallback = (content.text ?? '').trim();
-
-          if (!markdown && !textFallback) {
-            console.warn(`No content extracted from ${normalizedUrl}`);
-            continue;
-          }
-
-          const cleanedTitle = parsed.title_prefix
-            ? `${parsed.title_prefix} - ${title || inferTitle(normalizedUrl)}`
-            : title || inferTitle(normalizedUrl);
-
-          const contentBuffer = Buffer.from(markdown || textFallback, 'utf-8');
-          const document = await createDocument({
-            collection_id: collectionId,
-            title: cleanedTitle,
-            file_path: undefined,
-            content_type: 'text/markdown',
-            file_size: contentBuffer.length,
-            source_url: normalizedUrl,
-          });
-
-          const filePath = await writeDocumentFile(collectionId, document.id, '.md', contentBuffer);
-          await updateDocumentStatusSafe(db, document.id, 'pending', undefined, filePath);
-
-          ingestDocument(document.id).catch((error: unknown) => {
-            console.error(`Ingestion failed for ${document.id}`, error);
-          });
-
-          processed.push({ docId: document.id, url: normalizedUrl, title: cleanedTitle });
-
-          if (parsed.mode === 'crawl') {
-            const discovered = await page.$$eval(
-              'a[href]',
-              (anchors, origin) => {
-                const baseUrl = new URL(origin);
-                const originHost = baseUrl.origin;
-
-                return anchors
-                  .map((anchor) => {
-                    try {
-                      type AnchorLike = {
-                        href?: string;
-                        getAttribute?: (attr: string) => string | null;
-                      };
-                      const node = anchor as AnchorLike;
-                      const candidate: string | null =
-                        typeof node.href === 'string'
-                          ? node.href
-                          : typeof node.getAttribute === 'function'
-                            ? node.getAttribute('href')
-                            : null;
-
-                      if (!candidate) {
-                        return null;
-                      }
-
-                      return new URL(candidate, origin).href;
-                    } catch {
-                      return null;
-                    }
-                  })
-                  .filter((href): href is string => typeof href === 'string')
-                  .filter((href) => href.startsWith(originHost));
-              },
-              normalizedUrl
-            );
-
-            for (const link of discovered) {
-              const normalisedLink = normalizeUrl(link);
-              if (!visited.has(normalisedLink) && !pending.has(normalisedLink)) {
-                queue.push(normalisedLink);
-                pending.add(normalisedLink);
-              }
-            }
-          }
-        }
-      } finally {
-        await browser.close();
+        return createToolResponse(
+          `Fetched and queued ${result.processed.length} page(s) for ingestion.`,
+          result.processed
+        );
+      } catch (error) {
+        return createToolResponse(
+          `Failed to fetch content from ${parsed.url}: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`,
+          undefined
+        );
       }
-
-      return createToolResponse(
-        `Fetched and queued ${processed.length} page(s) for ingestion.`,
-        processed
-      );
     },
   };
 }
@@ -619,29 +480,20 @@ export function createDeleteDocumentTool(db: Pool): { definition: Tool; executor
         );
       }
 
-      const document = await getDocument(parsed.doc_id);
-      if (!document) {
-        return createToolResponse(`Document ${parsed.doc_id} not found.`);
-      }
-
-      const client = await db.connect();
       try {
-        await client.query('BEGIN');
-        await deleteDocumentChunks(document.id, client);
-        await client.query('DELETE FROM documents WHERE id = $1', [document.id]);
-        await client.query('COMMIT');
-        await deleteFileIfExists(document.file_path);
-      } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
-      } finally {
-        client.release();
-      }
+        const result = await deleteDocumentById(db, {
+          docId: parsed.doc_id,
+        });
 
-      return createToolResponse(`Document ${document.title} deleted.`, {
-        doc_id: document.id,
-        title: document.title,
-      });
+        return createToolResponse(`Document ${result.title} deleted.`, {
+          doc_id: result.docId,
+          title: result.title,
+        });
+      } catch (error) {
+        return createToolResponse(
+          error instanceof Error ? error.message : 'Failed to delete document.'
+        );
+      }
     },
   };
 }
@@ -749,53 +601,6 @@ export function createSummarizeDocumentTool(_db: Pool): {
       });
     },
   };
-}
-
-function createTurndownService(): TurndownService {
-  return new TurndownService({
-    headingStyle: 'atx',
-    bulletListMarker: '-',
-    codeBlockStyle: 'fenced',
-  });
-}
-
-function convertHtmlToMarkdown(html: string | null | undefined, service: TurndownService): string {
-  const trimmed = (html ?? '').trim();
-  if (!trimmed) {
-    return '';
-  }
-
-  try {
-    return service.turndown(trimmed).trim();
-  } catch (error) {
-    console.warn('Failed to convert HTML to Markdown', error);
-    return '';
-  }
-}
-
-function normalizeUrl(url: string): string {
-  try {
-    const parsed = new URL(url);
-
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return url;
-    }
-
-    parsed.hash = '';
-    parsed.searchParams.sort();
-
-    if (parsed.pathname && parsed.pathname !== '/') {
-      parsed.pathname = parsed.pathname.replace(/\/+/g, '/');
-      parsed.pathname = parsed.pathname.replace(/\/+$/, '');
-      if (parsed.pathname === '') {
-        parsed.pathname = '/';
-      }
-    }
-
-    return parsed.toString();
-  } catch {
-    return url;
-  }
 }
 
 function extractTextContent(

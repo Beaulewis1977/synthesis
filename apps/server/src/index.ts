@@ -5,6 +5,7 @@
  * @module server
  */
 
+import 'dotenv/config';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import { closePool, getPool } from '@synthesis/db';
@@ -34,9 +35,14 @@ const fastify = Fastify({
 // Register plugins
 const isProduction = process.env.NODE_ENV === 'production';
 const corsOrigins = isProduction
-  ? process.env.CORS_ALLOWED_ORIGINS?.split(',')
-      .map((o) => o.trim())
-      .filter(Boolean) || false
+  ? process.env.CORS_ALLOWED_ORIGINS
+    ? (() => {
+        const origins = process.env.CORS_ALLOWED_ORIGINS.split(',')
+          .map((o) => o.trim())
+          .filter(Boolean);
+        return origins.length > 0 ? origins : false;
+      })()
+    : false
   : true;
 
 await fastify.register(cors, {

@@ -80,6 +80,15 @@ export function ChatPage() {
     },
   });
 
+  // Reset messages when collectionId changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally only run on collectionId change
+  useEffect(() => {
+    if (!collectionId) return;
+    setMessages([]);
+    setInputValue('');
+    chatMutation.reset();
+  }, [collectionId]);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (messages.length === 0) return;

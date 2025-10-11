@@ -83,6 +83,20 @@ export async function createCollection(name: string, description?: string): Prom
   return result.rows[0] as Collection;
 }
 
+/**
+ * Deletes a collection and all associated documents and chunks.
+ * This operation cascades to delete all documents in the collection and their chunks.
+ * @param id The UUID of the collection to delete.
+ * @param client Optional PoolClient for transaction support.
+ * @returns A promise that resolves when the collection has been deleted.
+ */
+export async function deleteCollection(id: string, client?: PoolClient): Promise<void> {
+  const queryFn = client ? client.query.bind(client) : query;
+  // The database schema should have CASCADE on foreign keys, so deleting the collection
+  // will automatically delete all associated documents and chunks
+  await queryFn('DELETE FROM collections WHERE id = $1', [id]);
+}
+
 // Document queries
 /**
  * Retrieves all documents within a specific collection, ordered by creation date.
@@ -208,9 +222,9 @@ export async function upsertChunk(
       chunk.doc_id,
       chunk.chunk_index,
       chunk.text,
-      chunk.token_count || null,
+      chunk.token_count ?? null,
       chunk.embedding ? `[${chunk.embedding.join(',')}]` : null,
-      chunk.embedding_model || null,
+      chunk.embedding_model ?? null,
       JSON.stringify(chunk.metadata || {}),
     ]
   );

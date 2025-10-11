@@ -17,6 +17,7 @@
     "@fastify/multipart": "^8.3.0",
     "@synthesis/db": "workspace:*",
     "@synthesis/shared": "workspace:*",
+    "dotenv": "^16.4.5",
     "fastify": "^4.28.1",
     "mammoth": "^1.6.0",
     "mdast-util-to-string": "^4.0.0",
@@ -33,8 +34,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.7.5",
-    "@types/turndown": "^5.0.4",
     "@types/pg": "^8.11.6",
+    "@types/turndown": "^5.0.4",
     "tsup": "^8.3.0",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2",
