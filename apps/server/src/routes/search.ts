@@ -6,11 +6,18 @@ import { searchCollection } from '../services/search.js';
 const SearchBodySchema = z
   .object({
     query: z.string().min(1, 'query must not be empty'),
-    collectionId: z.string().uuid(),
+    collection_id: z.string().uuid().optional(),
+    collectionId: z.string().uuid().optional(),
     top_k: z.number().int().min(1).max(50).optional(),
+    topK: z.number().int().min(1).max(50).optional(),
     min_similarity: z.number().min(0).max(1).optional(),
+    minSimilarity: z.number().min(0).max(1).optional(),
   })
-  .strict();
+  .strict()
+  .refine((data) => Boolean(data.collection_id ?? data.collectionId), {
+    message: 'collection_id is required',
+    path: ['collection_id'],
+  });
 
 export const searchRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/api/search', async (request, reply) => {
@@ -23,7 +30,19 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
 
-    const { query, collectionId, top_k: topK, min_similarity: minSimilarity } = validation.data;
+    const {
+      query,
+      collectionId: camelCollectionId,
+      collection_id: snakeCollectionId,
+      top_k: snakeTopK,
+      topK: camelTopK,
+      min_similarity: snakeMinSimilarity,
+      minSimilarity: camelMinSimilarity,
+    } = validation.data;
+
+    const collectionId = (camelCollectionId ?? snakeCollectionId) as string;
+    const topK = camelTopK ?? snakeTopK;
+    const minSimilarity = camelMinSimilarity ?? snakeMinSimilarity;
 
     try {
       const result = await searchCollection(getPool(), {

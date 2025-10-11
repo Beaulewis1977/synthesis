@@ -3,6 +3,7 @@ import { Layout } from './components/Layout';
 import { ChatPage } from './pages/ChatPage';
 import { CollectionView } from './pages/CollectionView';
 import { Dashboard } from './pages/Dashboard';
+import { UploadPage } from './pages/UploadPage';
 
 export function App() {
   return (
@@ -11,6 +12,7 @@ export function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="collections/:id" element={<CollectionView />} />
+          <Route path="upload/:id" element={<UploadPage />} />
           <Route path="chat/:collectionId" element={<ChatPage />} />
         </Route>
       </Routes>

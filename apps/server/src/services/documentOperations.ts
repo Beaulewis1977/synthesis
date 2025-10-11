@@ -1,5 +1,5 @@
-import { createDocument, deleteDocumentChunks, getDocument } from '@synthesis/db';
 import net from 'node:net';
+import { createDocument, deleteDocumentChunks, getDocument } from '@synthesis/db';
 import type { Pool } from 'pg';
 import { chromium } from 'playwright';
 import TurndownService from 'turndown';
@@ -32,6 +32,8 @@ export interface DeleteDocumentResult {
 }
 
 export class DocumentNotFoundError extends Error {
+  public readonly code = 'DOCUMENT_NOT_FOUND';
+
   constructor(docId: string) {
     super(`Document ${docId} not found`);
     this.name = 'DocumentNotFoundError';
@@ -315,32 +317,32 @@ function isPublicUrl(url: string): boolean {
     }
 
     let hostname = parsed.hostname;
-    
+
     // Special case: localhost by name
     if (hostname === 'localhost') {
       return false;
     }
-    
+
     // Strip brackets from IPv6 addresses
     if (hostname.startsWith('[') && hostname.endsWith(']')) {
       hostname = hostname.slice(1, -1);
     }
-    
+
     // Determine if this is an IP address (IPv4=4, IPv6=6, not IP=0)
     const ipType = net.isIP(hostname);
-    
+
     if (ipType === 0) {
       // It's a domain name, not an IP - allow it (public domains are fine)
       return true;
     }
-    
+
     if (ipType === 4) {
       // IPv4 address - check private ranges
       const parts = hostname.split('.');
       if (parts.length !== 4) {
         return false;
       }
-      
+
       // Parse octets and validate they're valid integers in 0-255 range
       const octets: number[] = [];
       for (const part of parts) {
@@ -351,80 +353,80 @@ function isPublicUrl(url: string): boolean {
         }
         octets.push(num);
       }
-      
+
       const [octet1, octet2] = octets;
-      
+
       // Loopback: 127.0.0.0/8
       if (octet1 === 127) {
         return false;
       }
-      
+
       // Private: 10.0.0.0/8
       if (octet1 === 10) {
         return false;
       }
-      
+
       // Private: 172.16.0.0/12 (172.16.0.0 - 172.31.255.255)
       if (octet1 === 172 && octet2 >= 16 && octet2 <= 31) {
         return false;
       }
-      
+
       // Private: 192.168.0.0/16
       if (octet1 === 192 && octet2 === 168) {
         return false;
       }
-      
+
       // Link-local: 169.254.0.0/16
       if (octet1 === 169 && octet2 === 254) {
         return false;
       }
-      
+
       return true;
     }
-    
+
     if (ipType === 6) {
       // IPv6 address - check private ranges
       const normalized = hostname.toLowerCase();
-      
+
       // Loopback: ::1
       if (normalized === '::1' || normalized === '0:0:0:0:0:0:0:1') {
         return false;
       }
-      
+
       // Extract first hextet for range checks
       const parts = normalized.split(':');
       if (parts.length === 0) {
         return false;
       }
-      
+
       // Handle compressed notation (::)
       let firstHextet = parts[0];
       if (firstHextet === '') {
         // Leading :: compression
         firstHextet = parts[1] || '0';
       }
-      
+
       // Parse first hextet as hex number
       const firstHextetNum = Number.parseInt(firstHextet || '0', 16);
       if (Number.isNaN(firstHextetNum)) {
         return false;
       }
-      
+
       // Link-local: fe80::/10 (fe80 - febf)
       // First hextet: 0xfe80 to 0xfebf
       if (firstHextetNum >= 0xfe80 && firstHextetNum <= 0xfebf) {
         return false;
       }
-      
+
       // Unique local: fc00::/7 (fc00 - fdff)
       // First hextet: 0xfc00 to 0xfdff
       if (firstHextetNum >= 0xfc00 && firstHextetNum <= 0xfdff) {
         return false;
       }
-      
+
       return true;
     }
-    
+
     // Unknown IP type
     return false;
   } catch {

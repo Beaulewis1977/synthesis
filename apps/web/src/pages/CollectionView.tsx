@@ -57,13 +57,10 @@ export function CollectionView() {
               <MessageSquare size={18} />
               Chat
             </button>
-            {/* TODO: Phase 5.4 - Implement upload functionality */}
             <button
               type="button"
+              onClick={() => navigate(`/upload/${id}`)}
               className="btn btn-secondary"
-              disabled
-              aria-disabled="true"
-              title="Upload coming in Phase 5.4"
             >
               Upload
             </button>
