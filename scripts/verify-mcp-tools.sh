@@ -78,7 +78,7 @@ call_mcp_tool() {
 EOF
 )
   
-  echo "$request" | $MCP_BIN 2>/dev/null | tail -1
+  echo "$request" | $MCP_BIN 2>/dev/null | jq -c --argjson id "$id" 'select(.id == $id)'
 }
 
 # Helper function to check if response is error

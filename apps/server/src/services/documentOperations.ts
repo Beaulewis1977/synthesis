@@ -54,7 +54,11 @@ export async function fetchWebContent(
   const visited = new Set<string>();
   const processed: Array<{ docId: string; url: string; title: string }> = [];
 
-  const browser = await chromium.launch({ headless: true, executablePath: '/home/kngpnn/.cache/ms-playwright/chromium_headless_shell-1193/chrome-linux/headless_shell' });
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath:
+      '/home/kngpnn/.cache/ms-playwright/chromium_headless_shell-1193/chrome-linux/headless_shell',
+  });
   try {
     const context = await browser.newContext({
       userAgent:
@@ -184,10 +188,10 @@ export async function fetchWebContent(
         );
 
         for (const link of discovered) {
-          const normalisedLink = normalizeUrl(link);
-          if (!visited.has(normalisedLink) && !pending.has(normalisedLink)) {
-            queue.push(normalisedLink);
-            pending.add(normalisedLink);
+          const normalizedLink = normalizeUrl(link);
+          if (!visited.has(normalizedLink) && !pending.has(normalizedLink)) {
+            queue.push(normalizedLink);
+            pending.add(normalizedLink);
           }
         }
       }
