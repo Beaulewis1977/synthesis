@@ -21,7 +21,16 @@ import { apiClient } from './api.js';
 // Load environment variables
 dotenv.config();
 
-const MCP_PORT = Number.parseInt(process.env.MCP_PORT || '3334', 10);
+const MCP_PORT = (() => {
+  const port = Number.parseInt(process.env.MCP_PORT || '3334', 10);
+  if (Number.isNaN(port) || port < 1 || port > 65535) {
+    console.error(
+      `Invalid MCP_PORT: ${process.env.MCP_PORT}. Must be 1-65535. Using default 3334.`
+    );
+    return 3334;
+  }
+  return port;
+})();
 const MCP_MODE = process.env.MCP_MODE || 'stdio'; // 'stdio' or 'http'
 
 // Initialize MCP Server
