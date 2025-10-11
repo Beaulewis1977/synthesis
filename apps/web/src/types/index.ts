@@ -74,3 +74,12 @@ export interface AgentChatResponse {
   tool_calls: ToolCall[];
   history: Array<{ role: string; content: string }>;
 }
+
+// Upload-related types
+export interface UploadResponse {
+  documents: {
+    doc_id: string;
+    title: string;
+    status: string;
+  }[];
+}

@@ -6,16 +6,25 @@ const fetchWebContentMock = vi.hoisted(() => vi.fn());
 const deleteDocumentByIdMock = vi.hoisted(() => vi.fn());
 const getPoolMock = vi.hoisted(() => vi.fn());
 
-vi.mock('../../services/documentOperations.js', () => ({
-  __esModule: true,
-  fetchWebContent: fetchWebContentMock,
-  deleteDocumentById: deleteDocumentByIdMock,
-}));
+vi.mock('../../services/documentOperations.js', async () => {
+  const actual = await vi.importActual<typeof import('../../services/documentOperations.js')>(
+    '../../services/documentOperations.js'
+  );
+
+  return {
+    __esModule: true,
+    ...actual,
+    fetchWebContent: fetchWebContentMock,
+    deleteDocumentById: deleteDocumentByIdMock,
+  };
+});
 
 vi.mock('@synthesis/db', () => ({
   __esModule: true,
   getPool: getPoolMock,
 }));
+
+const { DocumentNotFoundError } = await import('../../services/documentOperations.js');
 
 describe('agent routes', () => {
   let fastify: ReturnType<typeof Fastify>;
@@ -116,7 +125,7 @@ describe('agent routes', () => {
     const pool = {};
     getPoolMock.mockReturnValue(pool);
     deleteDocumentByIdMock.mockRejectedValue(
-      new Error('Document 11111111-2222-3333-4444-555555555555 not found')
+      new DocumentNotFoundError('11111111-2222-3333-4444-555555555555')
     );
 
     const response = await fastify.inject({
