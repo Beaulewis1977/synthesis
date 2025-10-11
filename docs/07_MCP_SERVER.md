@@ -14,12 +14,12 @@ Expose the full capabilities of the Synthesis RAG system to external AI agents v
 
 The MCP server is a lightweight wrapper that translates agent tool calls into standard HTTP requests to the main backend server. It does not contain any core business logic itself.
 
-```
+```mermaid
 External Agent (e.g., IDE Agent)
            ↓
 MCP Server (stdio or SSE transport)
            ↓
-Synthesis Backend API (e.g., http://localhost:3333)
+Synthesis Backend API (e.g., <http://localhost:3333>)
            ↓
 Core Services (Database, Ollama, etc.)
 ```
@@ -31,7 +31,7 @@ Core Services (Database, Ollama, etc.)
 The server exposes a comprehensive set of tools for reading, searching, and managing RAG collections and documents.
 
 ### Search & Read Tools
-- **`search_rag(query: string, collection_id: string)`**: Searches for information within a specific collection.
+- **`search_rag(query: string, collection_id: string, top_k?: number)`**: Searches for information within a specific collection.
 - **`list_collections()`**: Lists all available document collections.
 - **`list_documents(collection_id: string)`**: Lists all documents within a given collection.
 
@@ -73,30 +73,38 @@ const server = new McpServer({
 });
 
 // Register tools using server.registerTool()
-// Define Zod schema for runtime validation
+// Define Zod schema for runtime validation with descriptive metadata
 const searchRagSchema = z.object({
-  collection_id: z.string().uuid(),
-  query: z.string().min(1),
-  top_k: z.number().int().min(1).max(50).optional(),
+  collection_id: z.string().uuid().describe('The ID of the collection to search'),
+  query: z.string().min(1).describe('The search query'),
+  top_k: z
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .default(5)
+    .describe('Number of results to return (default: 5)'),
+  min_similarity: z
+    .number()
+    .min(0)
+    .max(1)
+    .default(0.5)
+    .describe('Minimum similarity threshold (default: 0.5)'),
 });
 
 server.registerTool(
   'search_rag',
   {
     description: 'Search the RAG knowledge base for relevant information and return matching chunks with citations.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        collection_id: { type: 'string', format: 'uuid', description: 'The ID of the collection to search' },
-        query: { type: 'string', minLength: 1, description: 'The search query' },
-        top_k: { type: 'integer', minimum: 1, maximum: 50, default: 5, description: 'Number of results to return (default: 5)' },
-      },
-      required: ['collection_id', 'query'],
-    },
+    inputSchema: searchRagSchema.shape,
   },
-  async (input) => {
-    const { collection_id, query, top_k } = searchRagSchema.parse(input);
-    const result = await apiClient.post('/api/search', { collection_id, query, top_k });
+  async ({ collection_id, query, top_k, min_similarity }) => {
+    const result = await apiClient.post('/api/search', {
+      collection_id,
+      query,
+      top_k,
+      min_similarity,
+    });
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
     };
@@ -192,21 +200,23 @@ export const apiClient = {
 
 ### Test from Command Line (stdio)
 ```bash
-$ echo '{"id": "1", "method": "tools/list"}' | pnpm --filter @synthesis/mcp dev
+echo '{"id": "1", "method": "tools/list"}' | pnpm --filter @synthesis/mcp dev
+Output: JSON-RPC response listing available tools
 ```
 
 ### Test from Command Line (HTTP/SSE)
 ```bash
-# Start the server
-$ MCP_MODE=http pnpm --filter @synthesis/mcp dev
+Start the server
+MCP_MODE=http pnpm --filter @synthesis/mcp dev
 
-# In another terminal, list tools via JSON-RPC
-$ curl -X POST -H "Content-Type: application/json" \
+In another terminal, list tools via JSON-RPC
+curl -X POST -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
   http://localhost:3334
 
-# Call a tool via JSON-RPC
-$ curl -X POST -H "Content-Type: application/json" \
+Call a tool via JSON-RPC
+curl -X POST -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_collections","arguments":{}}}' \
   http://localhost:3334
+Each command returns a JSON-RPC response printed to stdout
 ```

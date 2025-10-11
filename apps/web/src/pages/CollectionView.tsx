@@ -29,9 +29,6 @@ export function CollectionView() {
     onError: (error) => {
       console.error('Failed to delete document:', error);
       // TODO: Show user-facing notification/toast with error message
-      // For now, just invalidate queries to refresh UI state
-      queryClient.invalidateQueries({ queryKey: ['documents', id] });
-      queryClient.invalidateQueries({ queryKey: ['collections'] });
     },
   });
 
@@ -60,7 +57,7 @@ export function CollectionView() {
               <MessageSquare size={18} />
               Chat
             </button>
-            {/* TODO: Phase 5.4 - Implement upload functionality (PR #56) */}
+            {/* TODO: Phase 5.4 - Implement upload functionality */}
             <button
               type="button"
               className="btn btn-secondary"

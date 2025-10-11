@@ -56,7 +56,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@synthesis-db:5432/synthesis
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OLLAMA_BASE_URL=http://synthesis-ollama:11434
+      - OLLAMA_HOST=http://synthesis-ollama:11434
       - NODE_ENV=development
       - PORT=3333
       - STORAGE_PATH=/app/storage

@@ -230,7 +230,7 @@ DATABASE_URL=postgres://postgres:postgres@localhost:5432/synthesis
 ANTHROPIC_API_KEY=sk-ant-api03-xxx...
 
 # Ollama (local)
-OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_HOST=http://localhost:11434
 EMBEDDING_MODEL=nomic-embed-text
 
 # Voyage (optional cloud embeddings)
@@ -372,7 +372,7 @@ services:
     environment:
       - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@db:5432/synthesis
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_HOST=http://ollama:11434
       - NODE_ENV=production
     ports:
       - "3333:3333"

@@ -309,7 +309,7 @@ function extractChunkMetadata(
 
 ```typescript
 export async function embedText(text: string): Promise<number[]> {
-  const response = await fetch(`${process.env.OLLAMA_BASE_URL}/api/embeddings`, {
+  const response = await fetch(`${process.env.OLLAMA_HOST}/api/embeddings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

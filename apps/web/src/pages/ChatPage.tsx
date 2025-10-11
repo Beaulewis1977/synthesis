@@ -87,7 +87,6 @@ export function ChatPage() {
     setMessages([]);
     setInputValue('');
     chatMutation.reset();
-    refetchCollection();
   }, [collectionId]);
 
   // Auto-scroll to bottom when messages change

@@ -596,7 +596,7 @@ services:
       - "3333:3333"
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/synthesis
-      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_HOST=http://ollama:11434
   
   web:
     build: ./apps/web

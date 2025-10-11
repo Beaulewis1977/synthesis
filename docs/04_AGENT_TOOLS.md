@@ -74,7 +74,7 @@ export function createSearchRagTool(db: Pool, context: ToolContext) {
 }
 ```
 
-> **Environment:** Ensure `ANTHROPIC_API_KEY`, `DATABASE_URL`, `OLLAMA_BASE_URL`, and `STORAGE_PATH` are set (see `apps/server/.env.example`).
+> **Environment:** Ensure `ANTHROPIC_API_KEY`, `DATABASE_URL`, `OLLAMA_HOST`, and `STORAGE_PATH` are set (see `apps/server/.env.example`).
 
 ---
 

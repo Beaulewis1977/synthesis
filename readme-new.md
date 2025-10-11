@@ -257,7 +257,7 @@ docker-compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
 # Core Configuration
 ANTHROPIC_API_KEY=your_claude_api_key
 DATABASE_URL=postgresql://user:pass@localhost:5432/synthesis
-OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_HOST=http://localhost:11434
 
 # Optional Configuration
 EMBEDDING_MODEL=nomic-embed-text
