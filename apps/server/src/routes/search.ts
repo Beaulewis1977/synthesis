@@ -6,7 +6,7 @@ import { searchCollection } from '../services/search.js';
 const SearchBodySchema = z
   .object({
     query: z.string().min(1, 'query must not be empty'),
-    collection_id: z.string().uuid(),
+    collectionId: z.string().uuid(),
     top_k: z.number().int().min(1).max(50).optional(),
     min_similarity: z.number().min(0).max(1).optional(),
   })
@@ -25,7 +25,7 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
 
     const {
       query,
-      collection_id: collectionId,
+      collectionId,
       top_k: topK,
       min_similarity: minSimilarity,
     } = validation.data;

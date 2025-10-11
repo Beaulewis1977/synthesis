@@ -14,6 +14,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import dotenv from 'dotenv';
 import { z } from 'zod';
+
 import { apiClient } from './api.js';
 
 // Load environment variables
@@ -34,10 +35,21 @@ const server = new McpServer({
  */
 // Define Zod schema for runtime validation
 const searchRagSchema = z.object({
-  collection_id: z.string().uuid(),
-  query: z.string().min(1),
-  top_k: z.number().int().min(1).max(50).optional(),
-  min_similarity: z.number().min(0).max(1).optional(),
+  collectionId: z.string().uuid().describe('The ID of the collection to search'),
+  query: z.string().min(1).describe('The search query'),
+  top_k: z
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .default(5)
+    .describe('Number of results to return (default: 5)'),
+  min_similarity: z
+    .number()
+    .min(0)
+    .max(1)
+    .default(0.5)
+    .describe('Minimum similarity threshold (default: 0.5)'),
 });
 
 server.registerTool(
@@ -45,42 +57,13 @@ server.registerTool(
   {
     description:
       'Search the RAG knowledge base for relevant information and return matching chunks with citations.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        collection_id: {
-          type: 'string',
-          format: 'uuid',
-          description: 'The ID of the collection to search',
-        },
-        query: {
-          type: 'string',
-          minLength: 1,
-          description: 'The search query',
-        },
-        top_k: {
-          type: 'integer',
-          minimum: 1,
-          maximum: 50,
-          default: 5,
-          description: 'Number of results to return (default: 5)',
-        },
-        min_similarity: {
-          type: 'number',
-          minimum: 0,
-          maximum: 1,
-          description: 'Minimum similarity threshold (default: 0.5)',
-        },
-      },
-      required: ['collection_id', 'query'],
-    },
+    inputSchema: searchRagSchema.shape,
   },
   async (input) => {
-    // Validate input with Zod
-    const { collection_id, query, top_k, min_similarity } = searchRagSchema.parse(input);
+    const { collectionId, query, top_k, min_similarity } = searchRagSchema.parse(input);
     try {
       const result = await apiClient.post('/api/search', {
-        collection_id,
+        collectionId,
         query,
         top_k,
         min_similarity,
@@ -116,10 +99,6 @@ server.registerTool(
   'list_collections',
   {
     description: 'List all available document collections.',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
   },
   async () => {
     try {
@@ -152,29 +131,19 @@ server.registerTool(
  * Lists all documents in a specific collection.
  */
 const listDocumentsSchema = z.object({
-  collection_id: z.string().uuid(),
+  collectionId: z.string().uuid().describe('The ID of the collection'),
 });
 
 server.registerTool(
   'list_documents',
   {
     description: 'List all documents in a specific collection.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        collection_id: {
-          type: 'string',
-          format: 'uuid',
-          description: 'The ID of the collection',
-        },
-      },
-      required: ['collection_id'],
-    },
+    inputSchema: listDocumentsSchema.shape,
   },
   async (input) => {
-    const { collection_id } = listDocumentsSchema.parse(input);
+    const { collectionId } = listDocumentsSchema.parse(input);
     try {
-      const result = await apiClient.get(`/api/collections/${collection_id}/documents`);
+      const result = await apiClient.get(`/api/collections/${collectionId}/documents`);
 
       return {
         content: [
@@ -203,30 +172,19 @@ server.registerTool(
  * Creates a new document collection.
  */
 const createCollectionSchema = z.object({
-  name: z.string().min(1).max(255),
-  description: z.string().optional(),
+  name: z
+    .string()
+    .min(1)
+    .max(255)
+    .describe('The name of the collection'),
+  description: z.string().optional().describe('Optional description of the collection'),
 });
 
 server.registerTool(
   'create_collection',
   {
     description: 'Create a new document collection.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        name: {
-          type: 'string',
-          minLength: 1,
-          maxLength: 255,
-          description: 'The name of the collection',
-        },
-        description: {
-          type: 'string',
-          description: 'Optional description of the collection',
-        },
-      },
-      required: ['name'],
-    },
+    inputSchema: createCollectionSchema.shape,
   },
   async (input) => {
     const { name, description } = createCollectionSchema.parse(input);
@@ -263,59 +221,40 @@ server.registerTool(
  * Fetches content from a URL and adds it to a collection.
  */
 const fetchDocumentSchema = z.object({
-  url: z.string().url(),
-  collection_id: z.string().uuid(),
-  mode: z.enum(['single', 'crawl']).optional(),
-  max_pages: z.number().int().min(1).max(200).optional(),
-  title_prefix: z.string().optional(),
+  url: z.string().url().describe('The URL to fetch content from'),
+  collectionId: z
+    .string()
+    .uuid()
+    .describe('The ID of the collection to add the document to'),
+  mode: z
+    .enum(['single', 'crawl'])
+    .default('single')
+    .describe('Fetch mode: single page or crawl (default: single)'),
+  maxPages: z
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .default(25)
+    .describe('Maximum pages to crawl (default: 25)'),
+  titlePrefix: z.string().optional().describe('Optional prefix for document titles'),
 });
 
 server.registerTool(
   'fetch_and_add_document_from_url',
   {
     description: 'Fetch content from a public URL and ingest it as a new document.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        url: {
-          type: 'string',
-          format: 'uri',
-          description: 'The URL to fetch content from',
-        },
-        collection_id: {
-          type: 'string',
-          format: 'uuid',
-          description: 'The ID of the collection to add the document to',
-        },
-        mode: {
-          type: 'string',
-          enum: ['single', 'crawl'],
-          description: 'Fetch mode: single page or crawl (default: single)',
-        },
-        max_pages: {
-          type: 'integer',
-          minimum: 1,
-          maximum: 200,
-          default: 25,
-          description: 'Maximum pages to crawl (default: 25)',
-        },
-        title_prefix: {
-          type: 'string',
-          description: 'Optional prefix for document titles',
-        },
-      },
-      required: ['url', 'collection_id'],
-    },
+    inputSchema: fetchDocumentSchema.shape,
   },
   async (input) => {
-    const { url, collection_id, mode, max_pages, title_prefix } = fetchDocumentSchema.parse(input);
+    const { url, collectionId, mode, maxPages, titlePrefix } = fetchDocumentSchema.parse(input);
     try {
       const result = await apiClient.post('/api/agent/fetch-web-content', {
         url,
-        collectionId: collection_id,
-        mode: mode || 'single',
-        maxPages: max_pages || 25,
-        titlePrefix: title_prefix,
+        collectionId,
+        mode,
+        maxPages,
+        titlePrefix,
       });
 
       return {
@@ -345,35 +284,21 @@ server.registerTool(
  * Deletes a document and all associated chunks.
  */
 const deleteDocumentSchema = z.object({
-  doc_id: z.string().uuid(),
-  confirm: z.boolean(),
+  docId: z.string().uuid().describe('The ID of the document to delete'),
+  confirm: z.boolean().describe('Must be set to true to confirm deletion'),
 });
 
 server.registerTool(
   'delete_document',
   {
     description: 'Delete a document and all associated chunks.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        doc_id: {
-          type: 'string',
-          format: 'uuid',
-          description: 'The ID of the document to delete',
-        },
-        confirm: {
-          type: 'boolean',
-          description: 'Must be set to true to confirm deletion',
-        },
-      },
-      required: ['doc_id', 'confirm'],
-    },
+    inputSchema: deleteDocumentSchema.shape,
   },
   async (input) => {
-    const { doc_id, confirm } = deleteDocumentSchema.parse(input);
+    const { docId, confirm } = deleteDocumentSchema.parse(input);
     try {
       const result = await apiClient.post('/api/agent/delete-document', {
-        doc_id,
+        docId,
         confirm,
       });
 
@@ -404,32 +329,18 @@ server.registerTool(
  * Deletes an entire collection and all its documents.
  */
 const deleteCollectionSchema = z.object({
-  collection_id: z.string().uuid(),
-  confirm: z.boolean(),
+  collectionId: z.string().uuid().describe('The ID of the collection to delete'),
+  confirm: z.boolean().describe('Must be set to true to confirm deletion'),
 });
 
 server.registerTool(
   'delete_collection',
   {
     description: 'Delete an entire collection and all its documents. Use with caution.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        collection_id: {
-          type: 'string',
-          format: 'uuid',
-          description: 'The ID of the collection to delete',
-        },
-        confirm: {
-          type: 'boolean',
-          description: 'Must be set to true to confirm deletion',
-        },
-      },
-      required: ['collection_id', 'confirm'],
-    },
+    inputSchema: deleteCollectionSchema.shape,
   },
   async (input) => {
-    const { collection_id, confirm } = deleteCollectionSchema.parse(input);
+    const { collectionId, confirm } = deleteCollectionSchema.parse(input);
     try {
       if (!confirm) {
         return {
@@ -442,7 +353,7 @@ server.registerTool(
         };
       }
 
-      const result = await apiClient.delete(`/api/collections/${collection_id}`);
+      const result = await apiClient.delete(`/api/collections/${collectionId}`);
 
       return {
         content: [

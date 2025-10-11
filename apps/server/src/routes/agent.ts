@@ -2,7 +2,11 @@ import { getPool } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { runAgentChat } from '../agent/agent.js';
-import { deleteDocumentById, fetchWebContent } from '../services/documentOperations.js';
+import {
+  DocumentNotFoundError,
+  deleteDocumentById,
+  fetchWebContent,
+} from '../services/documentOperations.js';
 
 const ConversationMessageSchema = z
   .object({
@@ -24,16 +28,16 @@ type AgentChatBody = z.infer<typeof AgentChatBodySchema>;
 const FetchWebContentSchema = z
   .object({
     url: z.string().url(),
-    collection_id: z.string().uuid(),
+    collectionId: z.string().uuid(),
     mode: z.enum(['single', 'crawl']).optional(),
-    max_pages: z.number().int().min(1).max(200).optional(),
-    title_prefix: z.string().min(1).optional(),
+    maxPages: z.number().int().min(1).max(200).optional(),
+    titlePrefix: z.string().min(1).optional(),
   })
   .strict();
 
 const DeleteDocumentSchema = z
   .object({
-    doc_id: z.string().uuid(),
+    docId: z.string().uuid(),
     confirm: z.boolean(),
   })
   .strict();
@@ -81,6 +85,7 @@ export const agentRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   fastify.post('/api/agent/fetch-web-content', async (request, reply) => {
+    fastify.log.info(request.body, 'request body');
     const validation = FetchWebContentSchema.safeParse(request.body);
 
     if (!validation.success) {
@@ -95,10 +100,10 @@ export const agentRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const result = await fetchWebContent(getPool(), {
         url: body.url,
-        collectionId: body.collection_id,
+        collectionId: body.collectionId,
         mode: body.mode,
-        maxPages: body.max_pages,
-        titlePrefix: body.title_prefix,
+        maxPages: body.maxPages,
+        titlePrefix: body.titlePrefix,
       });
 
       return reply.send({
@@ -135,7 +140,7 @@ export const agentRoutes: FastifyPluginAsync = async (fastify) => {
 
     try {
       const result = await deleteDocumentById(getPool(), {
-        docId: body.doc_id,
+        docId: body.docId,
       });
 
       return reply.send({
@@ -145,7 +150,7 @@ export const agentRoutes: FastifyPluginAsync = async (fastify) => {
       });
     } catch (error) {
       fastify.log.error(error, 'Delete document failed');
-      if (error instanceof Error && error.message.includes('not found')) {
+      if (error instanceof DocumentNotFoundError) {
         return reply.code(404).send({
           error: 'DOCUMENT_NOT_FOUND',
           message: error.message,

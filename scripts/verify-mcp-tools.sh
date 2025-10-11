@@ -26,6 +26,11 @@ SERVER_PID=""
 TEMP_DIR=$(mktemp -d)
 COLLECTION_ID=""
 DOC_ID=""
+HAS_LSOF=false
+
+if command -v lsof >/dev/null 2>&1; then
+  HAS_LSOF=true
+fi
 
 # Cleanup function
 cleanup() {
@@ -38,9 +43,14 @@ cleanup() {
   fi
   
   # Clean up any remaining processes on the port
-  if lsof -ti:${BACKEND_PORT} >/dev/null 2>&1; then
+  if [ "$HAS_LSOF" = true ] && lsof -ti:${BACKEND_PORT} >/dev/null 2>&1; then
     echo "Cleaning up port ${BACKEND_PORT}"
-    lsof -ti:${BACKEND_PORT} | xargs kill -9 2>/dev/null || true
+    mapfile -t port_pids < <(lsof -ti:${BACKEND_PORT} 2>/dev/null || true)
+    if [ "${#port_pids[@]}" -gt 0 ]; then
+      printf '%s\n' "${port_pids[@]}" | xargs kill 2>/dev/null || true
+      sleep 1
+      printf '%s\n' "${port_pids[@]}" | xargs kill -9 2>/dev/null || true
+    fi
   fi
   
   rm -rf "$TEMP_DIR"
@@ -62,7 +72,8 @@ call_mcp_tool() {
   local arguments=$2
   local id=${3:-1}
   
-  local request=$(cat <<EOF
+  local request
+  request=$(cat <<EOF
 {"jsonrpc":"2.0","id":${id},"method":"tools/call","params":{"name":"${tool_name}","arguments":${arguments}}}
 EOF
 )
@@ -103,10 +114,15 @@ start_backend() {
   print_header "Starting Backend Server"
   
   # Check if port is already in use
-  if lsof -ti:${BACKEND_PORT} >/dev/null 2>&1; then
+  if [ "$HAS_LSOF" = true ] && lsof -ti:${BACKEND_PORT} >/dev/null 2>&1; then
     echo -e "${YELLOW}Port ${BACKEND_PORT} is already in use. Killing existing process...${NC}"
-    lsof -ti:${BACKEND_PORT} | xargs kill -9 2>/dev/null || true
-    sleep 2
+    mapfile -t existing_pids < <(lsof -ti:${BACKEND_PORT} 2>/dev/null || true)
+    if [ "${#existing_pids[@]}" -gt 0 ]; then
+      printf '%s\n' "${existing_pids[@]}" | xargs kill 2>/dev/null || true
+      sleep 1
+      printf '%s\n' "${existing_pids[@]}" | xargs kill -9 2>/dev/null || true
+    fi
+    sleep 1
   fi
   
   echo "Starting server on port ${BACKEND_PORT}..."
@@ -144,7 +160,8 @@ wait_for_backend() {
 test_list_collections() {
   print_header "Test 1: list_collections"
   
-  local response=$(call_mcp_tool "list_collections" "{}" 1)
+  local response
+  response=$(call_mcp_tool "list_collections" "{}" 1)
   
   if is_error_response "$response"; then
     echo -e "${RED}✗ FAILED${NC}"
@@ -163,12 +180,14 @@ test_list_collections() {
 test_create_collection() {
   print_header "Test 2: create_collection"
   
-  local args=$(cat <<EOF
+  local args
+  args=$(cat <<EOF
 {"name":"MCP E2E Test Collection","description":"Temporary collection for testing"}
 EOF
 )
   
-  local response=$(call_mcp_tool "create_collection" "$args" 2)
+  local response
+  response=$(call_mcp_tool "create_collection" "$args" 2)
   
   if is_error_response "$response"; then
     echo -e "${RED}✗ FAILED${NC}"
@@ -177,8 +196,9 @@ EOF
   fi
   
   # Extract collection ID
-  local text=$(extract_text "$response")
-  COLLECTION_ID=$(echo "$text" | jq -r '.collection.id')
+  local text
+  text=$(extract_text "$response")
+  COLLECTION_ID=$(echo "$text" | jq -r '.collection.id // empty' 2>/dev/null || true)
   
   if [ -z "$COLLECTION_ID" ] || [ "$COLLECTION_ID" == "null" ]; then
     echo -e "${RED}✗ FAILED - Could not extract collection ID${NC}"
@@ -196,12 +216,14 @@ EOF
 test_fetch_web_content() {
   print_header "Test 3: fetch_and_add_document_from_url"
   
-  local args=$(cat <<EOF
-{"url":"https://example.com","collection_id":"${COLLECTION_ID}","mode":"single"}
+  local args
+  args=$(cat <<EOF
+{"url":"https://example.com","collectionId":"${COLLECTION_ID}","mode":"single"}
 EOF
 )
   
-  local response=$(call_mcp_tool "fetch_and_add_document_from_url" "$args" 3)
+  local response
+  response=$(call_mcp_tool "fetch_and_add_document_from_url" "$args" 3)
   
   if is_error_response "$response"; then
     echo -e "${RED}✗ FAILED${NC}"
@@ -210,8 +232,9 @@ EOF
   fi
   
   # Extract document ID
-  local text=$(extract_text "$response")
-  DOC_ID=$(echo "$text" | jq -r '.processed[0].docId // empty')
+  local text
+  text=$(extract_text "$response")
+  DOC_ID=$(echo "$text" | jq -r '.processed[0].docId // empty' 2>/dev/null || true)
 
   if [ -z "$DOC_ID" ] || [ "$DOC_ID" = "null" ]; then
     echo -e "${RED}✗ FAILED - Could not extract document ID${NC}"
@@ -242,12 +265,13 @@ test_get_document_status() {
 test_search_rag() {
   print_header "Test 5: search_rag"
   
-  local args=$(cat <<EOF
-{"query":"example","collection_id":"${COLLECTION_ID}","top_k":5}
+  args=$(cat <<EOF
+{"query":"example","collectionId":"${COLLECTION_ID}","top_k":5}
 EOF
 )
   
-  local response=$(call_mcp_tool "search_rag" "$args" 5)
+  local response
+  response=$(call_mcp_tool "search_rag" "$args" 5)
   
   if is_error_response "$response"; then
     echo -e "${RED}✗ FAILED${NC}"
@@ -255,8 +279,10 @@ EOF
     return 1
   fi
   
-  local text=$(extract_text "$response")
-  local result_count=$(echo "$text" | jq -r '.total_results // 0')
+  local text
+  text=$(extract_text "$response")
+  local result_count=0
+  result_count=$(echo "$text" | jq -r 'fromjson | .total_results // 0' 2>/dev/null || true)
   
   echo -e "${GREEN}✓ PASSED${NC}"
   echo "Results found: ${result_count}"
@@ -268,12 +294,13 @@ EOF
 test_list_documents() {
   print_header "Test 6: list_documents"
   
-  local args=$(cat <<EOF
-{"collection_id":"${COLLECTION_ID}","limit":10}
+  args=$(cat <<EOF
+{"collectionId":"${COLLECTION_ID}","limit":10}
 EOF
 )
   
-  local response=$(call_mcp_tool "list_documents" "$args" 6)
+  local response
+  response=$(call_mcp_tool "list_documents" "$args" 6)
   
   if is_error_response "$response"; then
     echo -e "${RED}✗ FAILED${NC}"
@@ -281,8 +308,10 @@ EOF
     return 1
   fi
   
-  local text=$(extract_text "$response")
-  local doc_count=$(echo "$text" | jq -r '.documents | length')
+  local text
+  text=$(extract_text "$response")
+  local doc_count=0
+  doc_count=$(echo "$text" | jq -r 'fromjson | .documents | length' 2>/dev/null || true)
   
   echo -e "${GREEN}✓ PASSED${NC}"
   echo "Documents listed: ${doc_count}"
@@ -299,12 +328,13 @@ test_delete_document() {
     return 2  # Return 2 to indicate skipped test
   fi
   
-  local args=$(cat <<EOF
-{"doc_id":"${DOC_ID}","confirm":true}
+  args=$(cat <<EOF
+{"docId":"${DOC_ID}","confirm":true}
 EOF
 )
   
-  local response=$(call_mcp_tool "delete_document" "$args" 7)
+  local response
+  response=$(call_mcp_tool "delete_document" "$args" 7)
   
   if is_error_response "$response"; then
     echo -e "${RED}✗ FAILED${NC}"
@@ -313,8 +343,9 @@ EOF
   fi
   
   echo -e "${GREEN}✓ PASSED${NC}"
-  local text=$(extract_text "$response")
-  echo "$text" | jq -C '.title' 2>/dev/null || true
+  local text
+  text=$(extract_text "$response")
+  echo "$text" | jq -C 'fromjson | .title' 2>/dev/null || true
   
   return 0
 }
@@ -328,12 +359,13 @@ test_delete_collection() {
     return 2  # Return 2 to indicate skipped test
   fi
   
-  local args=$(cat <<EOF
-{"collection_id":"${COLLECTION_ID}","confirm":true}
+  args=$(cat <<EOF
+{"collectionId":"${COLLECTION_ID}","confirm":true}
 EOF
 )
   
-  local response=$(call_mcp_tool "delete_collection" "$args" 8)
+  local response
+  response=$(call_mcp_tool "delete_collection" "$args" 8)
   
   if is_error_response "$response"; then
     echo -e "${RED}✗ FAILED${NC}"
@@ -363,6 +395,10 @@ main() {
   if ! command -v curl &> /dev/null; then
     echo -e "${RED}Error: curl is required but not installed${NC}"
     exit 1
+  fi
+
+  if [ "$HAS_LSOF" != true ]; then
+    echo -e "${YELLOW}Warning: lsof not found; port cleanup will be skipped${NC}"
   fi
   
   if [ ! -f "apps/server/dist/index.js" ]; then
@@ -400,16 +436,16 @@ main() {
   echo -e "${RED}Failed: ${failed}${NC}"
   echo -e "${YELLOW}Skipped: ${skipped}${NC}"
   
-  if [ $failed -eq 0 ]; then
-    echo -e "\n${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║            ALL TESTS PASSED ✓                             ║${NC}"
-    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
-    exit 0
-  else
+  if [ $failed -gt 0 ]; then
     echo -e "\n${RED}╔═══════════════════════════════════════════════════════════╗${NC}"
     echo -e "${RED}║            SOME TESTS FAILED ✗                            ║${NC}"
     echo -e "${RED}╚═══════════════════════════════════════════════════════════╝${NC}"
     exit 1
+  else
+    echo -e "\n${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║            ALL TESTS PASSED ✓                             ║${NC}"
+    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
+    exit 0
   fi
 }
 

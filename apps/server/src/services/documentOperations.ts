@@ -30,6 +30,13 @@ export interface DeleteDocumentResult {
   title: string;
 }
 
+export class DocumentNotFoundError extends Error {
+  constructor(docId: string) {
+    super(`Document ${docId} not found`);
+    this.name = 'DocumentNotFoundError';
+  }
+}
+
 const DEFAULT_MAX_PAGES = 25;
 
 export async function fetchWebContent(
@@ -47,7 +54,7 @@ export async function fetchWebContent(
   const visited = new Set<string>();
   const processed: Array<{ docId: string; url: string; title: string }> = [];
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: true, executablePath: '/home/kngpnn/.cache/ms-playwright/chromium_headless_shell-1193/chrome-linux/headless_shell' });
   try {
     const context = await browser.newContext({
       userAgent:
@@ -198,7 +205,7 @@ export async function deleteDocumentById(
 ): Promise<DeleteDocumentResult> {
   const document = await getDocument(params.docId);
   if (!document) {
-    throw new Error(`Document ${params.docId} not found`);
+    throw new DocumentNotFoundError(params.docId);
   }
 
   // Store file path for deletion after transaction
