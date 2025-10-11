@@ -62,10 +62,9 @@ interface DocumentMetadata {
 
 **Additional chunk-level metadata:**
 ```typescript
-interface ChunkMetadata {
-  // Inherits from document metadata
-  ...DocumentMetadata;
-  
+interface ChunkMetadata extends DocumentMetadata {
+  // Inherits document-level metadata via the extends clause
+
   // === Chunk-Specific ===
   chunk_type?: 'text' | 'code' | 'heading' | 'list';
   heading?: string;                     // Section heading

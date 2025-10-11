@@ -18,7 +18,7 @@
 
 ## 📅 Timeline
 
-```
+```text
 NOW:
 ├─ Phase 5.4: Frontend (in progress)
 └─ Phase 7: Docker MVP (next up)
@@ -46,7 +46,7 @@ Total additional time: ~10-13 days
 ### What You Get:
 
 **Before (Phase 7):**
-```
+```text
 Query: "StatefulWidget lifecycle"
 → Misses exact class name sometimes
 → Only semantic understanding
@@ -54,7 +54,7 @@ Query: "StatefulWidget lifecycle"
 ```
 
 **After (Phase 8):**
-```
+```text
 Query: "StatefulWidget lifecycle"
 → Finds ALL StatefulWidget mentions (BM25)
 → PLUS semantic lifecycle concepts (vector)
@@ -110,7 +110,7 @@ ance criteria validation
 ### What You Get:
 
 **Your Use Case:**
-```
+```text
 You: "Compare authentication approaches from these docs"
 
 System:

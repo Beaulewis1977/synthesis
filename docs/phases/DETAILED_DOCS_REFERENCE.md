@@ -106,7 +106,7 @@ GET /api/collections/:id/stats
 **Purpose:** Cross-encoder re-ranking technical design
 
 **Architecture:**
-```
+```text
 Hybrid Search Results (Top 50)
   ↓
 Batch Preparation
@@ -333,7 +333,7 @@ export class CostTracker {
 **Chunking Strategy:**
 
 **Simple Text Chunking (Before):**
-```
+```text
 Split every 800 characters → Breaks mid-function
 ```
 
@@ -459,7 +459,7 @@ final user = User(id: '123');
 ```
 
 **Test Detection:**
-```
+```text
 lib/services/auth_service.dart
 test/services/auth_service_test.dart
 

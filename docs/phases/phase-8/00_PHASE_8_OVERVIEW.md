@@ -48,7 +48,7 @@ Enhance the Synthesis RAG system with hybrid search (semantic + lexical), multi-
 
 ### High-Level Flow
 
-```
+```text
 BEFORE (Phase 1-7):
 Query → Embed (Ollama) → Vector Search → Top 5
 
