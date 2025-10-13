@@ -97,8 +97,8 @@ describe('ChatMessage', () => {
     render(<ChatMessage message={message} />);
 
     expect(screen.getByText('📚 Sources:')).toBeInTheDocument();
-    expect(screen.getByText(/Getting Started Guide.*p\. 12.*Installation/i)).toBeInTheDocument();
-    expect(screen.getByText(/API Reference.*p\. 45/i)).toBeInTheDocument();
+    expect(screen.getByText(/Getting Started Guide.*p. 12.*Installation/i)).toBeInTheDocument();
+    expect(screen.getByText(/API Reference.*p. 45/i)).toBeInTheDocument();
   });
 
   it('does not render citations section when no citations', () => {
@@ -120,12 +120,10 @@ describe('ChatMessage', () => {
       content: 'Line 1\nLine 2\nLine 3',
     };
 
-    const { container } = render(<ChatMessage message={message} />);
+    render(<ChatMessage message={message} />);
 
-    // Check that the content div has the whitespace-pre-wrap class
-    const contentDiv = container.querySelector('.whitespace-pre-wrap');
-    expect(contentDiv).toBeInTheDocument();
-    expect(contentDiv).toHaveClass('whitespace-pre-wrap');
-    // The content is there, just checking the class is sufficient
+    const element = screen.getByText('Line 1\nLine 2\nLine 3');
+    expect(element).toBeInTheDocument();
+    expect(element).toHaveClass('whitespace-pre-wrap');
   });
 });
