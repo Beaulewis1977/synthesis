@@ -595,12 +595,12 @@ gh issue create \
 
 ---
 
-### Phase 8-9: Polish + Testing (Days 8-9)
+### Phase 11-12: Polish + Testing (Days 8-9)
 
 ```bash
 # Epic
 gh issue create \
-  --title "Phase 8-9: Polish and Final Testing" \
+  --title "Phase 11-12: Polish and Final Testing" \
   --label "phase-8,phase-9,epic,priority:medium" \
   --body "See docs/09_BUILD_PLAN.md#day-8-9"
 
