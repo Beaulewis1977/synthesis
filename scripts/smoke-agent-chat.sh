@@ -35,7 +35,8 @@ case "${status}" in
             echo "Agent chat smoke test passed."
             echo "${body}"
             exit 0
-            ;;  429)
+            ;;
+          429)
     echo "Agent chat responded with 429 rate limit; treating as warning." >&2
     echo "${body}"
     exit 0
