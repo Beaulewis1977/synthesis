@@ -12,7 +12,7 @@ import {
   createSummarizeDocumentTool,
 } from '../tools.js';
 
-const searchCollectionMock = vi.hoisted(() => vi.fn());
+const smartSearchMock = vi.hoisted(() => vi.fn());
 const createDocumentMock = vi.hoisted(() => vi.fn());
 const getDocumentMock = vi.hoisted(() => vi.fn());
 const getDocumentChunksMock = vi.hoisted(() => vi.fn());
@@ -30,7 +30,7 @@ const deleteDocumentByIdMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../services/search.js', () => ({
   __esModule: true,
-  searchCollection: searchCollectionMock,
+  smartSearch: smartSearchMock,
 }));
 
 vi.mock('@synthesis/db', () => ({
@@ -91,24 +91,32 @@ describe('agent tools', () => {
     vi.clearAllMocks();
   });
 
-  it('search tool proxies to searchCollection', async () => {
+  it('search tool proxies to smartSearch', async () => {
     const db = createDbMock();
-    searchCollectionMock.mockResolvedValue({
+    smartSearchMock.mockResolvedValue({
       query: 'Test',
       results: [],
       totalResults: 0,
       searchTimeMs: 5,
+      metadata: {
+        searchMode: 'vector',
+        vectorCount: 0,
+        fusedCount: 0,
+      },
     });
 
     const tool = createSearchRagTool(db, { collectionId: '11111111-1111-4111-8111-111111111111' });
     await tool.executor({ query: 'Test', collection_id: '11111111-1111-4111-8111-111111111111' });
 
-    expect(searchCollectionMock).toHaveBeenCalledWith(db, {
-      query: 'Test',
-      collectionId: '11111111-1111-4111-8111-111111111111',
-      topK: 5,
-      minSimilarity: 0.5,
-    });
+    expect(smartSearchMock).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({
+        query: 'Test',
+        collectionId: '11111111-1111-4111-8111-111111111111',
+        topK: 5,
+        minSimilarity: 0.5,
+      })
+    );
   });
 
   it('add_document tool downloads remote file and triggers ingestion', async () => {

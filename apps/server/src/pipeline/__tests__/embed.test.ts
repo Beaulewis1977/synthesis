@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __setOllamaClientForTesting, embedBatch, embedText } from '../embed.js';
+import { __setOllamaClientForTesting, embedBatch, embedText, embedTextToArray } from '../embed.js';
 
 describe('embed pipeline', () => {
   const mockEmbeddings = vi.fn();
@@ -18,10 +18,11 @@ describe('embed pipeline', () => {
   it('returns numeric vector from embedText', async () => {
     mockEmbeddings.mockResolvedValue({ embedding: Array(768).fill(0.25) });
 
-    const vector = await embedText('hello world');
+    const result = await embedText('hello world');
 
-    expect(vector).toHaveLength(768);
-    expect(vector.every((value) => typeof value === 'number')).toBe(true);
+    expect(result.embedding).toHaveLength(768);
+    expect(result.embedding.every((value) => typeof value === 'number')).toBe(true);
+    expect(result.provider).toBe('ollama');
     expect(mockEmbeddings).toHaveBeenCalledTimes(1);
     expect(mockEmbeddings).toHaveBeenCalledWith({
       model: 'nomic-embed-text',
@@ -35,13 +36,13 @@ describe('embed pipeline', () => {
       .mockRejectedValueOnce(new Error('still failing'))
       .mockResolvedValue({ embedding: Array(5).fill(1) });
 
-    const vector = await embedText('retry me', {
+    const result = await embedText('retry me', {
       model: 'custom-model',
       maxRetries: 3,
       retryDelayMs: 0,
     });
 
-    expect(vector).toEqual([1, 1, 1, 1, 1]);
+    expect(result.embedding).toEqual([1, 1, 1, 1, 1]);
     expect(mockEmbeddings).toHaveBeenCalledTimes(3);
   });
 
@@ -53,13 +54,13 @@ describe('embed pipeline', () => {
 
     expect(vectors).toHaveLength(3);
     expect(mockEmbeddings).toHaveBeenCalledTimes(3);
-    expect(vectors.every((vector) => vector.length === 3)).toBe(true);
+    expect(vectors.every((vector) => vector.embedding.length === 3)).toBe(true);
   });
 
   it('throws when Ollama response is missing embedding array', async () => {
     mockEmbeddings.mockResolvedValue({ embedding: undefined });
 
-    await expect(embedText('invalid response')).rejects.toThrow(/missing embedding array/);
+    await expect(embedTextToArray('invalid response')).rejects.toThrow(/missing embedding array/);
   });
 
   it('throws when batchSize is invalid', async () => {

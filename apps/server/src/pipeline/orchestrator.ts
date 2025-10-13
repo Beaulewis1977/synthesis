@@ -1,8 +1,13 @@
 import fs from 'node:fs/promises';
-import { type Document, getDocument, updateDocumentStatus } from '@synthesis/db';
-import type { ChunkOptions } from './chunk.js';
+import {
+  type Document,
+  getDocument,
+  updateDocumentMetadata,
+  updateDocumentStatus,
+} from '@synthesis/db';
+import type { Chunk, ChunkOptions } from './chunk.js';
 import { chunkText } from './chunk.js';
-import type { EmbedOptions } from './embed.js';
+import type { EmbedOptions, EmbedResult } from './embed.js';
 import { embedBatch } from './embed.js';
 import { extract } from './extract.js';
 import { storeChunks } from './store.js';
@@ -62,14 +67,30 @@ export async function ingestDocument(
     }
 
     await updateDocumentStatus(documentId, 'embedding');
-    const embeddings = await embedBatch(
+    const embedResults = await embedBatch(
       chunks.map((chunk) => chunk.text),
       options.embed
     );
 
-    await storeChunks(documentId, chunks, embeddings, {
-      embeddingModel: options.embed?.model,
-    });
+    const decoratedChunks = decorateChunksWithEmbeddingMetadata(chunks, embedResults);
+    const firstResult = embedResults[0];
+
+    await storeChunks(
+      documentId,
+      decoratedChunks,
+      embedResults.map((result) => result.embedding),
+      {
+        embeddingModel: firstResult?.model ?? options.embed?.model,
+      }
+    );
+
+    if (firstResult) {
+      await updateDocumentMetadata(documentId, {
+        embedding_provider: firstResult.provider,
+        embedding_model: firstResult.model,
+        embedding_dimensions: firstResult.dimensions,
+      });
+    }
 
     await updateDocumentStatus(documentId, 'complete');
   } catch (error) {
@@ -77,4 +98,24 @@ export async function ingestDocument(
     await updateDocumentStatus(documentId, 'error', message);
     throw error;
   }
+}
+
+function decorateChunksWithEmbeddingMetadata(chunks: Chunk[], results: EmbedResult[]): Chunk[] {
+  if (results.length === 0) {
+    return chunks;
+  }
+
+  return chunks.map((chunk, index) => {
+    const result = results[index] ?? results[0];
+
+    return {
+      ...chunk,
+      metadata: {
+        ...chunk.metadata,
+        embedding_provider: result.provider,
+        embedding_model: result.model,
+        embedding_dimensions: result.dimensions,
+      },
+    };
+  });
 }

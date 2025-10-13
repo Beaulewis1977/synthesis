@@ -173,6 +173,19 @@ export async function updateDocumentStatus(
   );
 }
 
+export async function updateDocumentMetadata(
+  id: string,
+  metadata: Record<string, unknown>
+): Promise<void> {
+  await query(
+    `UPDATE documents
+     SET metadata = COALESCE(metadata, '{}'::jsonb) || $2::jsonb,
+         updated_at = NOW()
+     WHERE id = $1`,
+    [id, JSON.stringify(metadata)]
+  );
+}
+
 // Chunk queries
 /**
  * Retrieves all chunks for a specific document, ordered by their index.
