@@ -6,6 +6,10 @@ const DEFAULT_MAX_CONCURRENT_UPSERTS = 10;
 export interface StoreChunksOptions {
   /** Embedding model name stored alongside vectors. */
   embeddingModel?: string;
+  /** Embedding provider identifier stored in chunk metadata. */
+  embeddingProvider?: string;
+  /** Dimensionality of the embedding vector. */
+  embeddingDimensions?: number;
   /** Optional cap on concurrent upsert operations; defaults to 10 when invalid or unspecified. */
   maxConcurrentUpserts?: number;
 }
@@ -34,6 +38,8 @@ export async function storeChunks(
 
     const embeddingModel =
       options.embeddingModel ?? process.env.EMBEDDING_MODEL ?? 'nomic-embed-text';
+    const embeddingProvider = options.embeddingProvider;
+    const embeddingDimensions = options.embeddingDimensions;
     const MAX_RETRIES = 3;
     const INITIAL_BACKOFF_MS = 100;
     const BACKOFF_FACTOR = 2;
@@ -79,6 +85,31 @@ export async function storeChunks(
 
         const chunk = chunks[currentIndex];
         const embedding = embeddings[currentIndex];
+        const metadata = { ...chunk.metadata };
+
+        if (embedding) {
+          const resolvedModel =
+            (typeof metadata.embedding_model === 'string' && metadata.embedding_model.length > 0
+              ? metadata.embedding_model
+              : embeddingModel) ?? 'nomic-embed-text';
+          const resolvedProvider =
+            typeof metadata.embedding_provider === 'string' &&
+            metadata.embedding_provider.length > 0
+              ? metadata.embedding_provider
+              : embeddingProvider;
+          const resolvedDimensions =
+            typeof metadata.embedding_dimensions === 'number'
+              ? metadata.embedding_dimensions
+              : embeddingDimensions;
+
+          metadata.embedding_model = resolvedModel;
+          if (resolvedProvider) {
+            metadata.embedding_provider = resolvedProvider;
+          }
+          if (typeof resolvedDimensions === 'number') {
+            metadata.embedding_dimensions = resolvedDimensions;
+          }
+        }
 
         await retryWithBackoff(() =>
           upsertChunk(
@@ -88,8 +119,11 @@ export async function storeChunks(
               text: chunk.text,
               token_count: estimateTokens(chunk.text),
               embedding,
-              embedding_model: embedding ? embeddingModel : undefined,
-              metadata: chunk.metadata,
+              embedding_model:
+                embedding && typeof metadata.embedding_model === 'string'
+                  ? metadata.embedding_model
+                  : undefined,
+              metadata,
             },
             client
           )

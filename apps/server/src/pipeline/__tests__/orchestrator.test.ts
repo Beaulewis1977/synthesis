@@ -118,6 +118,14 @@ describe('ingestDocument', () => {
     expect(embedBatchMock).toHaveBeenCalledWith(['chunk-1', 'chunk-2'], {
       model: 'custom-model',
       batchSize: 2,
+      context: expect.objectContaining({
+        type: 'docs',
+        collectionId: 'col-1',
+      }),
+      contexts: [
+        expect.objectContaining({ type: 'docs', collectionId: 'col-1' }),
+        expect.objectContaining({ type: 'docs', collectionId: 'col-1' }),
+      ],
     });
     expect(storeChunksMock).toHaveBeenCalledWith(
       'doc-123',
@@ -143,6 +151,8 @@ describe('ingestDocument', () => {
       ],
       {
         embeddingModel: 'nomic-embed-text',
+        embeddingProvider: 'ollama',
+        embeddingDimensions: 768,
       }
     );
 
@@ -150,11 +160,17 @@ describe('ingestDocument', () => {
     expect(updateDocumentStatusMock).toHaveBeenNthCalledWith(2, 'doc-123', 'chunking');
     expect(updateDocumentStatusMock).toHaveBeenNthCalledWith(3, 'doc-123', 'embedding');
     expect(updateDocumentStatusMock).toHaveBeenLastCalledWith('doc-123', 'complete');
-    expect(updateDocumentMetadataMock).toHaveBeenCalledWith('doc-123', {
-      embedding_provider: 'ollama',
-      embedding_model: 'nomic-embed-text',
-      embedding_dimensions: 768,
-    });
+    expect(updateDocumentMetadataMock).toHaveBeenCalledWith(
+      'doc-123',
+      expect.objectContaining({
+        doc_type: 'tutorial',
+        source_quality: 'community',
+        embedding_provider: 'ollama',
+        embedding_model: 'nomic-embed-text',
+        embedding_dimensions: 768,
+        file_path: '/tmp/doc-123.txt',
+      })
+    );
   });
 
   it('short-circuits embedding when no chunks are produced', async () => {

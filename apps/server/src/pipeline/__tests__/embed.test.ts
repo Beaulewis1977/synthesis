@@ -1,18 +1,44 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __setOllamaClientForTesting, embedBatch, embedText, embedTextToArray } from '../embed.js';
+import {
+  __setOllamaClientForTesting,
+  __setOpenAIClientForTesting,
+  __setVoyageClientForTesting,
+  embedBatch,
+  embedText,
+  embedTextToArray,
+} from '../embed.js';
 
 describe('embed pipeline', () => {
   const mockEmbeddings = vi.fn();
+  const openAiCreate = vi.fn();
+  const voyageEmbed = vi.fn();
 
   beforeEach(() => {
     mockEmbeddings.mockReset();
+    openAiCreate.mockReset();
+    voyageEmbed.mockReset();
+    process.env.OPENAI_API_KEY = 'test-openai-key';
+    process.env.VOYAGE_API_KEY = 'test-voyage-key';
+
     __setOllamaClientForTesting({
       embeddings: mockEmbeddings,
+    });
+    __setOpenAIClientForTesting({
+      embeddings: {
+        create: openAiCreate,
+      },
+    } as unknown as Parameters<typeof __setOpenAIClientForTesting>[0]);
+    __setVoyageClientForTesting({
+      embed: voyageEmbed,
     });
   });
 
   afterEach(() => {
     __setOllamaClientForTesting(null);
+    __setOpenAIClientForTesting(null);
+    __setVoyageClientForTesting(null);
+    process.env.OPENAI_API_KEY = undefined;
+    process.env.VOYAGE_API_KEY = undefined;
   });
 
   it('returns numeric vector from embedText', async () => {
@@ -23,6 +49,7 @@ describe('embed pipeline', () => {
     expect(result.embedding).toHaveLength(768);
     expect(result.embedding.every((value) => typeof value === 'number')).toBe(true);
     expect(result.provider).toBe('ollama');
+    expect(result.usedFallback).toBe(false);
     expect(mockEmbeddings).toHaveBeenCalledTimes(1);
     expect(mockEmbeddings).toHaveBeenCalledWith({
       model: 'nomic-embed-text',
@@ -55,6 +82,60 @@ describe('embed pipeline', () => {
     expect(vectors).toHaveLength(3);
     expect(mockEmbeddings).toHaveBeenCalledTimes(3);
     expect(vectors.every((vector) => vector.embedding.length === 3)).toBe(true);
+  });
+
+  it('routes to OpenAI when provider specified', async () => {
+    openAiCreate.mockResolvedValue({
+      data: [
+        {
+          embedding: Array(1536).fill(0.5),
+        },
+      ],
+    });
+
+    const result = await embedText('personal writing example', { provider: 'openai' });
+
+    expect(openAiCreate).toHaveBeenCalledWith({
+      model: 'text-embedding-3-large',
+      input: 'personal writing example',
+      dimensions: 1536,
+    });
+    expect(result.provider).toBe('openai');
+    expect(result.embedding).toHaveLength(1536);
+    expect(result.usedFallback).toBe(false);
+  });
+
+  it('routes to Voyage when provider specified', async () => {
+    voyageEmbed.mockResolvedValue({
+      data: [
+        {
+          embedding: Array(1024).fill(0.2),
+        },
+      ],
+    });
+
+    const result = await embedText('code example', { provider: 'voyage' });
+
+    expect(voyageEmbed).toHaveBeenCalledWith({
+      input: ['code example'],
+      model: 'voyage-code-2',
+    });
+    expect(result.provider).toBe('voyage');
+    expect(result.embedding).toHaveLength(1024);
+    expect(result.usedFallback).toBe(false);
+  });
+
+  it('falls back to Ollama when primary provider fails', async () => {
+    openAiCreate.mockRejectedValueOnce(new Error('openai unavailable'));
+    mockEmbeddings.mockResolvedValue({ embedding: Array(4).fill(0.4) });
+
+    const result = await embedText('fallback please', { provider: 'openai', retryDelayMs: 0 });
+
+    expect(openAiCreate).toHaveBeenCalledTimes(1);
+    expect(mockEmbeddings).toHaveBeenCalledTimes(1);
+    expect(result.usedFallback).toBe(true);
+    expect(result.provider).toBe('ollama');
+    expect(result.embedding).toEqual([0.4, 0.4, 0.4, 0.4]);
   });
 
   it('throws when Ollama response is missing embedding array', async () => {

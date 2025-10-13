@@ -1,34 +1,13 @@
-const REPO_VERIFIED_STARS = 1000;
+import type { DocumentMetadata } from '@synthesis/shared';
 
-export interface DocumentMetadata {
-  doc_type?: string;
-  source_url?: string;
-  source_quality?: 'official' | 'verified' | 'community';
-  source_author?: string;
-  framework?: string;
-  framework_version?: string;
-  sdk_constraints?: string;
-  language?: string;
-  content_category?: string;
-  file_path?: string;
-  repo_name?: string;
-  repo_stars?: number;
-  embedding_model?: string;
-  embedding_provider?: string;
-  embedding_dimensions?: number;
-  last_verified?: string;
-  published_date?: string;
-  tags?: string[];
-  notes?: string;
-  [key: string]: unknown;
-}
+const REPO_VERIFIED_STARS = 1000;
 
 export class MetadataBuilder {
   private readonly metadata: DocumentMetadata = {};
   private _inferredSourceQuality?: DocumentMetadata['source_quality'];
   private _explicitSourceQuality?: DocumentMetadata['source_quality'];
 
-  setDocType(type: string): this {
+  setDocType(type: NonNullable<DocumentMetadata['doc_type']>): this {
     this.metadata.doc_type = type;
     return this;
   }
@@ -36,12 +15,13 @@ export class MetadataBuilder {
   setSourceUrl(url: string): this {
     this.metadata.source_url = url;
     if (!this._inferredSourceQuality) {
-      const inferred = inferSourceQuality(url);
-      // Only cache non-community values to allow later upgrades
-      if (inferred !== 'community') {
-        this._inferredSourceQuality = inferred;
-      }
+      this._inferredSourceQuality = inferSourceQuality(url);
     }
+    return this;
+  }
+
+  setSourceAuthor(author: string): this {
+    this.metadata.source_author = author;
     return this;
   }
 
@@ -50,7 +30,7 @@ export class MetadataBuilder {
     return this;
   }
 
-  setFramework(framework: string, version?: string): this {
+  setFramework(framework: DocumentMetadata['framework'], version?: string): this {
     this.metadata.framework = framework;
     if (version) {
       this.metadata.framework_version = version;
@@ -58,8 +38,23 @@ export class MetadataBuilder {
     return this;
   }
 
-  setLanguage(language: string): this {
+  setSdkConstraints(constraints: string): this {
+    this.metadata.sdk_constraints = constraints;
+    return this;
+  }
+
+  setCompatibilityTested(values: string[]): this {
+    this.metadata.compatibility_tested = [...values];
+    return this;
+  }
+
+  setLanguage(language: DocumentMetadata['language']): this {
     this.metadata.language = language;
+    return this;
+  }
+
+  setContentCategory(category: DocumentMetadata['content_category']): this {
+    this.metadata.content_category = category;
     return this;
   }
 
@@ -79,7 +74,7 @@ export class MetadataBuilder {
       if (
         stars >= REPO_VERIFIED_STARS &&
         this._inferredSourceQuality !== 'official' &&
-        this._inferredSourceQuality !== 'verified'
+        this._explicitSourceQuality !== 'official'
       ) {
         this._inferredSourceQuality = 'verified';
       }
@@ -123,10 +118,31 @@ export class MetadataBuilder {
       defaults.source_quality ??
       'community';
 
-    return {
+    const embeddingModel =
+      this.metadata.embedding_model ?? defaults.embedding_model ?? 'nomic-embed-text';
+    const embeddingProvider =
+      this.metadata.embedding_provider ?? defaults.embedding_provider ?? 'ollama';
+    const embeddingDimensions =
+      this.metadata.embedding_dimensions ?? defaults.embedding_dimensions ?? 768;
+
+    const defaultTags = Array.isArray(defaults.tags) ? defaults.tags : [];
+    const explicitTags = Array.isArray(this.metadata.tags) ? this.metadata.tags : [];
+    const mergedTags =
+      defaultTags.length || explicitTags.length ? [...defaultTags, ...explicitTags] : undefined;
+
+    const combined = {
       ...defaults,
       ...this.metadata,
+    };
+
+    return {
+      ...combined,
       source_quality: finalSourceQuality,
+      embedding_model: embeddingModel,
+      embedding_provider: embeddingProvider,
+      embedding_dimensions: embeddingDimensions,
+      doc_type: this.metadata.doc_type ?? defaults.doc_type ?? 'tutorial',
+      ...(mergedTags ? { tags: mergedTags } : {}),
     };
   }
 }
@@ -140,14 +156,19 @@ function inferSourceQuality(url: string): DocumentMetadata['source_quality'] {
     return 'community';
   }
 
-  if (url.includes('flutter.dev') || url.includes('dart.dev')) {
+  const lower = url.toLowerCase();
+  if (lower.includes('flutter.dev') || lower.includes('dart.dev')) {
     return 'official';
+  }
+
+  if (lower.includes('github.com')) {
+    return 'verified';
   }
 
   return 'community';
 }
 
-function inferLanguageFromPath(path: string): string | undefined {
+function inferLanguageFromPath(path: string): DocumentMetadata['language'] | undefined {
   const lower = path.toLowerCase();
 
   if (lower.endsWith('.dart')) return 'dart';

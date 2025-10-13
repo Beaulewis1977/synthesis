@@ -1,3 +1,5 @@
+import type { DocumentMetadata } from '@synthesis/shared';
+
 export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage';
 
 export interface EmbeddingConfig {
@@ -40,34 +42,23 @@ export function getProviderConfig(
   return PROVIDER_CONFIGS[provider];
 }
 
-export interface ProviderSelection {
-  primary: EmbeddingConfig;
-  fallback: EmbeddingConfig;
-}
-
 export function selectEmbeddingProvider(
   content: string,
   context?: ContentContext
-): ProviderSelection {
-  // Explicit context type wins.
-  if (context?.type === 'code' || isCodeContent(content, context?.language)) {
-    return {
-      primary: getConfigFromEnv('CODE_EMBEDDING_PROVIDER', 'voyage'),
-      fallback: PROVIDER_CONFIGS.ollama,
-    };
+): EmbeddingConfig {
+  if (context?.type === 'code') {
+    return getConfigFromEnv('CODE_EMBEDDING_PROVIDER', 'voyage');
   }
 
   if (context?.type === 'personal' || context?.isPersonalCollection) {
-    return {
-      primary: getConfigFromEnv('WRITING_EMBEDDING_PROVIDER', 'openai'),
-      fallback: PROVIDER_CONFIGS.ollama,
-    };
+    return getConfigFromEnv('WRITING_EMBEDDING_PROVIDER', 'openai');
   }
 
-  return {
-    primary: getConfigFromEnv('DOC_EMBEDDING_PROVIDER', 'ollama'),
-    fallback: PROVIDER_CONFIGS.ollama,
-  };
+  if (isCodeContent(content, context?.language)) {
+    return getConfigFromEnv('CODE_EMBEDDING_PROVIDER', 'voyage');
+  }
+
+  return getConfigFromEnv('DOC_EMBEDDING_PROVIDER', 'ollama');
 }
 
 function getConfigFromEnv(envVar: string, defaultProvider: EmbeddingProvider): EmbeddingConfig {
@@ -83,7 +74,7 @@ const CODE_PATTERNS: RegExp[] = [
   /^\s*(import|export)\s+/m,
   /^\s*(class|interface|enum)\s+\w+/m,
   /^\s*(async\s+)?function\s+\w+/m,
-  /<\w+>\s*\(.*\)/, // generics/function calls
+  /<\w+>\s*\(.*\)/,
   /\bconst\s+\w+\s*=/,
   /\/\//,
   /#include\s+</,
@@ -105,7 +96,7 @@ function isCodeContent(text: string, languageHint?: string): boolean {
 }
 
 export function deriveContextFromMetadata(
-  metadata: Record<string, unknown> | null | undefined
+  metadata: Record<string, unknown> | DocumentMetadata | null | undefined
 ): ContentContext | undefined {
   if (!metadata) {
     return undefined;

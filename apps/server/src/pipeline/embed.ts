@@ -4,9 +4,14 @@ import type {
   ContentContext,
   EmbeddingConfig,
   EmbeddingProvider,
-  ProviderSelection,
 } from '../services/embedding-router.js';
 import { getProviderConfig, selectEmbeddingProvider } from '../services/embedding-router.js';
+
+type VoyageClient = {
+  embed: (request: { input: string | string[]; model: string }) => Promise<{
+    data?: Array<{ embedding?: number[] | null }>;
+  }>;
+};
 
 interface OllamaClient {
   embeddings: (input: { model: string; prompt: string }) => Promise<{ embedding: unknown }>;
@@ -14,6 +19,7 @@ interface OllamaClient {
 
 let cachedOllama: OllamaClient | null = null;
 let cachedOpenAI: OpenAI | null = null;
+let cachedVoyage: VoyageClient | null = null;
 
 const DEFAULT_BATCH_SIZE = 10;
 const DEFAULT_MAX_RETRIES = 3;
@@ -54,6 +60,10 @@ export function __setOpenAIClientForTesting(client: OpenAI | null): void {
   cachedOpenAI = client;
 }
 
+export function __setVoyageClientForTesting(client: VoyageClient | null): void {
+  cachedVoyage = client;
+}
+
 function getOllamaClient(): OllamaClient {
   if (cachedOllama) {
     return cachedOllama;
@@ -79,11 +89,9 @@ function getOpenAIClient(): OpenAI {
 }
 
 export async function embedText(text: string, options: EmbedOptions = {}): Promise<EmbedResult> {
-  const selection = resolveProviderSelection(text, options);
+  const resolved = resolveProviderConfig(text, options);
   const overrideModel = options.model?.trim();
-  const primaryConfig = overrideModel
-    ? { ...selection.primary, model: overrideModel }
-    : selection.primary;
+  const primaryConfig = overrideModel ? { ...resolved, model: overrideModel } : resolved;
 
   try {
     const embedding = await generateEmbedding(text, primaryConfig, options);
@@ -95,11 +103,11 @@ export async function embedText(text: string, options: EmbedOptions = {}): Promi
       usedFallback: false,
     };
   } catch (error) {
-    if (primaryConfig.provider === selection.fallback.provider) {
+    const fallbackConfig = getFallbackConfig(primaryConfig);
+    if (fallbackConfig.provider === primaryConfig.provider) {
       throw error;
     }
 
-    const fallbackConfig = selection.fallback;
     const embedding = await generateEmbedding(text, fallbackConfig, options);
     return {
       embedding,
@@ -155,16 +163,20 @@ export async function embedTextToArray(
   return result.embedding;
 }
 
-function resolveProviderSelection(text: string, options: EmbedOptions): ProviderSelection {
+function resolveProviderConfig(text: string, options: EmbedOptions): EmbeddingConfig {
   if (options.provider) {
-    const config = getProviderConfig(options.provider);
-    return {
-      primary: config,
-      fallback: getProviderConfig('ollama'),
-    };
+    return getProviderConfig(options.provider);
   }
 
   return selectEmbeddingProvider(text, options.context);
+}
+
+function getFallbackConfig(primary: EmbeddingConfig): EmbeddingConfig {
+  if (primary.provider === 'ollama') {
+    return primary;
+  }
+
+  return getProviderConfig('ollama');
 }
 
 async function generateEmbedding(
@@ -236,51 +248,18 @@ async function embedWithOpenAI(text: string, config: EmbeddingConfig): Promise<n
 }
 
 async function embedWithVoyage(text: string, config: EmbeddingConfig): Promise<number[]> {
-  const apiKey = process.env.VOYAGE_API_KEY;
-  if (!apiKey) {
-    throw new Error('VOYAGE_API_KEY environment variable is not set');
+  const client = await getVoyageClient();
+  const response = await client.embed({
+    input: [text],
+    model: config.model,
+  });
+
+  const embedding = response.data?.[0]?.embedding;
+  if (!embedding || !Array.isArray(embedding)) {
+    throw new Error('Voyage embedding response missing embedding array');
   }
 
-  const timeoutMs = Number.parseInt(process.env.VOYAGE_TIMEOUT_MS || '30000', 10);
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch('https://api.voyageai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        input: [text],
-        model: config.model,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Voyage API error: ${response.status} ${response.statusText}`);
-    }
-
-    const payload = (await response.json()) as {
-      data?: Array<{ embedding?: number[] | null }>;
-    };
-
-    const embedding = payload.data?.[0]?.embedding;
-    if (!embedding || !Array.isArray(embedding)) {
-      throw new Error('Voyage embedding response missing embedding array');
-    }
-
-    return embedding.map(validateEmbeddingValue);
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`Voyage API request timed out after ${timeoutMs}ms`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  return embedding.map(validateEmbeddingValue);
 }
 
 async function withRetry<T>(
@@ -328,4 +307,25 @@ function validateEmbeddingValue(value: unknown): number {
   }
 
   return value;
+}
+
+async function getVoyageClient(): Promise<VoyageClient> {
+  if (cachedVoyage) {
+    return cachedVoyage;
+  }
+
+  const apiKey = process.env.VOYAGE_API_KEY;
+  if (!apiKey) {
+    throw new Error('VOYAGE_API_KEY environment variable is not set');
+  }
+
+  const module = await loadVoyageModule();
+  cachedVoyage = new module.VoyageAIClient({ apiKey }) as VoyageClient;
+  return cachedVoyage;
+}
+
+async function loadVoyageModule(): Promise<{
+  VoyageAIClient: new (options: { apiKey?: string }) => VoyageClient;
+}> {
+  return import('@voyageai/voyageai');
 }
