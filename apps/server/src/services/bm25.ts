@@ -33,7 +33,7 @@ const DEFAULT_LANGUAGE = 'english';
 
 export async function bm25Search(db: Pool, params: BM25Params): Promise<BM25Result[]> {
   const topK = params.topK ?? DEFAULT_TOP_K;
-  const language = params.language ?? DEFAULT_LANGUAGE;
+  const language = params.language ?? process.env.FTS_LANGUAGE ?? DEFAULT_LANGUAGE;
   const trimmedQuery = params.query.trim();
 
   if (!trimmedQuery) {

@@ -122,10 +122,8 @@ describe('ChatMessage', () => {
 
     const { container } = render(<ChatMessage message={message} />);
 
-    // Check that the content div has the whitespace-pre-wrap class
-    const contentDiv = container.querySelector('.whitespace-pre-wrap');
-    expect(contentDiv).toBeInTheDocument();
-    expect(contentDiv).toHaveClass('whitespace-pre-wrap');
-    // The content is there, just checking the class is sufficient
+    const element = screen.getByText(/Line 1\s*Line 2\s*Line 3/i);
+    expect(element).toBeInTheDocument();
+    expect(element).toHaveClass('whitespace-pre-wrap');
   });
 });
