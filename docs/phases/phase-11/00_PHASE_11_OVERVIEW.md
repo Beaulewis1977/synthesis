@@ -1,4 +1,4 @@
-# Phase 8: Hybrid Search & Multi-Model Embeddings
+# Phase 11: Hybrid Search & Multi-Model Embeddings
 
 **Version:** 1.0  
 **Date:** 2025-10-11  
@@ -18,7 +18,7 @@ Enhance the Synthesis RAG system with hybrid search (semantic + lexical), multi-
 - 20,000+ files require both semantic AND keyword matching
 - Different content types need specialized embedding models
 
-**After Phase 8:** Hybrid intelligence + flexible embedding providers
+**After Phase 11:** Hybrid intelligence + flexible embedding providers
 - ✅ Find both concepts AND exact terms
 - ✅ Use free models for docs, paid models for code
 - ✅ Route queries intelligently based on content
@@ -52,7 +52,7 @@ Enhance the Synthesis RAG system with hybrid search (semantic + lexical), multi-
 BEFORE (Phase 1-7):
 Query → Embed (Ollama) → Vector Search → Top 5
 
-AFTER (Phase 8):
+AFTER (Phase 11):
 Query → {
   Auto-detect content type
     ↓
@@ -335,8 +335,8 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 - Phase 7: Docker deployment must be complete
 
 **Enables:**
-- Phase 9: Re-ranking (needs hybrid search output)
-- Phase 10: Code intelligence (needs multi-provider embeddings)
+- Phase 12: Re-ranking (needs hybrid search output)
+- Phase 13: Code intelligence (needs multi-provider embeddings)
 
 **Future Enhancements:**
 - Query expansion

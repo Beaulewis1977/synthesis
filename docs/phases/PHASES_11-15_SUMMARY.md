@@ -1,14 +1,14 @@
-# Phases 8-10: Advanced RAG Enhancement Summary
+# Phases 11-15: Advanced RAG Enhancement Summary
 
 
 ---
 
 ## 📚 Documentation Structure Created
 
-### Phase 8: Hybrid Search & Multi-Model Embeddings ✅ COMPLETE
+### Phase 11: Hybrid Search & Multi-Model Embeddings ✅ COMPLETE
 ```
-docs/phases/phase-8/
-├── 00_PHASE_8_OVERVIEW.md              ✅ COMPLETE (9.3K)
+docs/phases/phase-11/
+├── 00_PHASE_11_OVERVIEW.md              ✅ COMPLETE (9.3K)
 ├── 01_HYBRID_SEARCH_ARCHITECTURE.md    ✅ COMPLETE (16K)
 ├── 02_EMBEDDING_PROVIDERS.md           ✅ COMPLETE (14K)
 ├── 03_METADATA_SCHEMA.md               ✅ COMPLETE (14K)
@@ -21,10 +21,10 @@ docs/phases/phase-8/
 Total: 9 files, ~107K
 ```
 
-### Phase 9: Re-ranking & Document Synthesis ✅ COMPLETE
+### Phase 12: Re-ranking & Document Synthesis ✅ COMPLETE
 ```
-docs/phases/phase-9/
-├── 00_PHASE_9_OVERVIEW.md              ✅ COMPLETE
+docs/phases/phase-12/
+├── 00_PHASE_12_OVERVIEW.md              ✅ COMPLETE
 ├── 01_RERANKING_ARCHITECTURE.md        ✅ COMPLETE (17K)
 ├── 02_PROVIDER_COMPARISON.md           ✅ COMPLETE (14K)
 ├── 03_SYNTHESIS_ENGINE.md              ✅ COMPLETE (11K)
@@ -36,10 +36,10 @@ docs/phases/phase-9/
 Total: 7 files, ~104K
 ```
 
-### Phase 10: Code Intelligence ✅ COMPLETE
+### Phase 13: Code Intelligence ✅ COMPLETE
 ```
-docs/phases/phase-10/
-├── 00_PHASE_10_OVERVIEW.md             ✅ COMPLETE (10K)
+docs/phases/phase-13/
+├── 00_PHASE_13_OVERVIEW.md             ✅ COMPLETE (10K)
 ├── 01_CODE_CHUNKING_ARCHITECTURE.md    ✅ COMPLETE (14K)
 ├── 02_DART_AST_PARSING.md              ✅ COMPLETE (17K)
 ├── 03_FILE_RELATIONSHIPS.md            ✅ COMPLETE (14K)
@@ -48,7 +48,7 @@ docs/phases/phase-10/
 
 Total: 6 files, ~80K
 
-### Phase 8 (3-4 days)
+### Phase 11 (3-4 days)
 **Core Feature:** Hybrid Search + Multi-Provider Embeddings
 
 **Deliverables:**
@@ -70,7 +70,7 @@ Total: 6 files, ~80K
 
 ---
 
-### Phase 9 (3-4 days)
+### Phase 12 (3-4 days)
 **Core Feature:** Cross-Encoder Re-ranking + Document Synthesis
 
 **Deliverables:**
@@ -96,7 +96,7 @@ Query → Vector+BM25 → Top 50 → Re-rank → Top 15 → Group by approach
 
 ---
 
-### Phase 10 (4-5 days)
+### Phase 13 (4-5 days)
 **Core Feature:** Code-Aware Chunking for Dart/TypeScript
 
 **Deliverables:**
@@ -125,7 +125,7 @@ Query → Vector+BM25 → Top 50 → Re-rank → Top 15 → Group by approach
 
 ## 🔧 Implementation Summary
 
-### Phase 8: Hybrid Search
+### Phase 11: Hybrid Search
 
 **Database Changes:**
 ```sql
@@ -168,7 +168,7 @@ final_score = (vector_score × 0.7) + (bm25_score × 0.3)
 
 ---
 
-### Phase 9: Re-ranking
+### Phase 12: Re-ranking
 
 **Architecture:**
 ```
@@ -208,7 +208,7 @@ if (monthlyApiCost > BUDGET_LIMIT) {
 
 ---
 
-### Phase 10: Code Intelligence
+### Phase 13: Code Intelligence
 
 **Dart AST Chunking:**
 ```typescript
@@ -247,7 +247,7 @@ interface CodeChunkMetadata {
 
 ### Retrieval Accuracy
 
-| Metric | Before (Phase 7) | After (Phase 10) | Improvement |
+| Metric | Before (Phase 7) | After (Phase 13) | Improvement |
 |--------|------------------|------------------|-------------|
 | Exact match recall | 60% | 95% | +58% |
 | Semantic relevance | 75% | 85% | +13% |
@@ -277,19 +277,19 @@ interface CodeChunkMetadata {
 
 ## 🔄 Migration Path
 
-### From Phase 7 → Phase 8
+### From Phase 7 → Phase 11
 1. ✅ No code changes to existing collections
 2. ✅ Add database indexes (non-destructive)
 3. ✅ Set `SEARCH_MODE=vector` (default, same behavior)
 4. ✅ Gradually enable hybrid per collection
 5. ✅ Test with `SEARCH_MODE=hybrid` when ready
 
-### From Phase 8 → Phase 9
+### From Phase 11 → Phase 12
 1. ✅ Re-ranking is opt-in via API parameter
 2. ✅ Cost monitoring runs in background
 3. ✅ Synthesis API is new endpoint (no conflicts)
 
-### From Phase 9 → Phase 10
+### From Phase 12 → Phase 13
 1. ✅ Code chunking applies to new documents only
 2. ✅ Existing chunks continue to work
 3. ✅ Can re-process important collections
@@ -303,19 +303,19 @@ interface CodeChunkMetadata {
 ### Your Requirements Met:
 
 **1. Building Flutter SaaS app with 20k+ files** ✅
-- Phase 8: Hybrid search finds exact widget names
-- Phase 9: Compare multiple implementation approaches
-- Phase 10: Code context preserved, imports intact
+- Phase 11: Hybrid search finds exact widget names
+- Phase 12: Compare multiple implementation approaches
+- Phase 13: Code context preserved, imports intact
 
 **2. Documentation synthesis from multiple sources** ✅
-- Phase 8: Metadata tracks source quality
-- Phase 9: Contradiction detection, multi-source comparison
-- Phase 10: N/A (docs-focused)
+- Phase 11: Metadata tracks source quality
+- Phase 12: Contradiction detection, multi-source comparison
+- Phase 13: N/A (docs-focused)
 
 **3. Personal writing style preservation** ✅
-- Phase 8: Separate collection with OpenAI embeddings
-- Phase 9: Synthesis engine learns from your style
-- Phase 10: N/A (writing-focused)
+- Phase 11: Separate collection with OpenAI embeddings
+- Phase 12: Synthesis engine learns from your style
+- Phase 13: N/A (writing-focused)
 
 **4. Agent-driven development workflow** ✅
 - All phases: MCP tools continue to work perfectly
@@ -323,14 +323,14 @@ interface CodeChunkMetadata {
 - No changes to MCP interface needed
 
 **5. Version tracking (Flutter SDK)** ✅
-- Phase 8: Metadata schema supports version constraints
+- Phase 11: Metadata schema supports version constraints
 - Filter: "show me Flutter 3.24+ examples"
-- Phase 9: Compare approaches across versions
+- Phase 12: Compare approaches across versions
 
 **6. Cost control** ✅
 - Default to free Ollama
 - Selective use of paid APIs
-- Budget monitoring in Phase 9
+- Budget monitoring in Phase 12
 - Target: <$10/month ✅
 
 ---
@@ -339,8 +339,8 @@ interface CodeChunkMetadata {
 
 ### After Phase 7 Completes:
 
-**Step 1:** Review Phase 8 documentation
-- Read `docs/phases/phase-8/00_PHASE_8_OVERVIEW.md`
+**Step 1:** Review Phase 11 documentation
+- Read `docs/phases/phase-11/00_PHASE_11_OVERVIEW.md`
 - Understand architecture changes
 - Validate approach
 
@@ -353,8 +353,8 @@ export OPENAI_API_KEY=sk-...
 export VOYAGE_API_KEY=vo-...
 ```
 
-**Step 3:** Implement Phase 8
-- Follow `docs/phases/phase-8/06_BUILD_PLAN.md`
+**Step 3:** Implement Phase 11
+- Follow `docs/phases/phase-11/06_BUILD_PLAN.md`
 - Day 1: BM25 + Hybrid
 - Day 2: Multi-provider
 - Day 3: Metadata + Trust
@@ -365,25 +365,25 @@ export VOYAGE_API_KEY=vo-...
 - Test with real queries
 - Measure accuracy gains
 
-**Step 5:** Proceed to Phase 9 & 10
+**Step 5:** Proceed to Phase 12 & 13
 
 ---
 
 ## ✅ Complete Documentation Checklist
 
-### Phase 8 (created):
+### Phase 11 (created):
 - [x] Overview & architecture
 - [x] Hybrid search technical design
 - [x] Multi-provider embedding system
 - [x] Migration, trust scoring, API, build plan, acceptance docs
 
-### Phase 9 (planned):
+### Phase 12 (created):
 - [ ] Complete documentation suite
 - [ ] Re-ranking architecture
 - [ ] Cost monitoring design
 - [ ] Synthesis engine specs
 
-### Phase 10 (planned):
+### Phase 13 (created):
 - [ ] Complete documentation suite
 - [ ] Code chunking architecture
 - [ ] Dart AST parsing guide
@@ -393,18 +393,18 @@ export VOYAGE_API_KEY=vo-...
 
 ## 📝 Next Steps
 
-**Phase 8 documentation is now complete and aligned.**
+**Phase 11 documentation is now complete and aligned.**
 
 **What would you like me to do next?**
 
-1. **Create complete Phase 9 documentation** (re-ranking, synthesis, cost monitoring)
-2. **Create complete Phase 10 documentation** (code intelligence, Dart parsing)
+1. **Create complete Phase 12 documentation** (re-ranking, synthesis, cost monitoring)
+2. **Create complete Phase 13 documentation** (code intelligence, Dart parsing)
 3. **Hold off for now** and wait until preceding implementation phases are ready
 
-**My Recommendation:** Option 3 if you're still wrapping up earlier phases, otherwise pick Phase 9 when you're ready to start planning the re-ranking work.
+**My Recommendation:** Option 3 if you're still wrapping up earlier phases, otherwise pick Phase 12 when you're ready to start planning the re-ranking work.
 
 **Current coverage:**
 - ✅ Hybrid search architecture and implementation plan
 - ✅ Multi-provider embedding and metadata strategy
 - ✅ Migration, API, and trust scoring references
-- ✅ Acceptance criteria for Phase 8
+- ✅ Acceptance criteria for Phase 11

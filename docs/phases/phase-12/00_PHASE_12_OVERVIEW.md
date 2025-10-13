@@ -1,9 +1,9 @@
-# Phase 9: Re-ranking & Document Synthesis
+# Phase 12: Re-ranking & Document Synthesis
 
 **Version:** 1.0  
 **Date:** 2025-10-11  
 **Status:** Planning  
-**Prerequisites:** Phase 8 (Hybrid Search) Complete
+**Prerequisites:** Phase 11 (Hybrid Search) Complete
 
 ---
 
@@ -19,7 +19,7 @@ Enhance retrieval quality with cross-encoder re-ranking and add intelligent docu
 - No way to detect contradictions between docs
 - API costs not tracked
 
-**After Phase 9:** Intelligent re-ranking + synthesis
+**After Phase 12:** Intelligent re-ranking + synthesis
 - ✅ Cross-encoder re-ranks top results for better precision
 - ✅ Multi-source comparison shows different approaches
 - ✅ Contradiction detection highlights conflicts
@@ -51,7 +51,7 @@ Enhance retrieval quality with cross-encoder re-ranking and add intelligent docu
 ```
 Query
   ↓
-Hybrid Search (Phase 8) → Top 50 candidates
+Hybrid Search (Phase 11) → Top 50 candidates
   ↓
 Cross-Encoder Re-rank
   - Cohere Rerank API (if available)
@@ -274,10 +274,10 @@ CREATE TABLE api_usage (
 ## 📚 Related Phases
 
 **Prerequisites:**
-- Phase 8: Hybrid search provides candidates for re-ranking
+- Phase 11: Hybrid search provides candidates for re-ranking
 
 **Enables:**
-- Phase 10: Code intelligence benefits from better ranking
+- Phase 13: Code intelligence benefits from better ranking
 - Future: Multi-agent synthesis workflows
 
 ---
@@ -324,7 +324,7 @@ CREATE TABLE api_usage (
 - $3/1M input tokens
 - **Total: ~$0.15/month**
 
-**Total Phase 9 Cost: ~$1-2/month** (Cohere) or **$0.15/month** (free re-ranker)
+**Total Phase 12 Cost: ~$1-2/month** (Cohere) or **$0.15/month** (free re-ranker)
 
 ---
 

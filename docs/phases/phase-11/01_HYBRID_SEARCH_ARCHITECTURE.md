@@ -1,4 +1,4 @@
-# Phase 8: Hybrid Search Architecture
+# Phase 11: Hybrid Search Architecture
 
 **Technical Deep-Dive**
 
@@ -412,7 +412,7 @@ interface Collection {
 | Index Type | Size Multiplier | Notes |
 |------------|-----------------|-------|
 | HNSW (vector) | ~1.5x | Already exists |
-| GIN (full-text) | ~0.2x | New in Phase 8 |
+| GIN (full-text) | ~0.2x | New in Phase 11 |
 | **Total** | **~1.7x** | Of raw text size |
 
 ---

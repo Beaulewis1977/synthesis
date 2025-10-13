@@ -1,4 +1,4 @@
-# Phases 8-10 Documentation Index
+# Phases 11-15 Documentation Index
 
 **Complete planning documentation for advanced RAG enhancements**
 
@@ -9,24 +9,24 @@
 ```
 docs/phases/
 ├── README.md (this file)
-├── PHASES_8-10_SUMMARY.md          # Executive summary
+├── PHASES_11-15_SUMMARY.md          # Executive summary
 ├── IMPLEMENTATION_ROADMAP.md        # Your implementation guide
 ├── DETAILED_DOCS_REFERENCE.md       # Detailed specs summary
 │
-├── phase-8/                         # Hybrid Search & Multi-Provider
-│   ├── 00_PHASE_8_OVERVIEW.md      ✅ Executive summary
+├── phase-11/                         # Hybrid Search & Multi-Provider
+│   ├── 00_PHASE_11_OVERVIEW.md      ✅ Executive summary
 │   ├── 01_HYBRID_SEARCH_ARCHITECTURE.md  ✅ Technical design
 │   ├── 02_EMBEDDING_PROVIDERS.md   ✅ Multi-model setup
 │   ├── 03_METADATA_SCHEMA.md       ✅ Enhanced metadata
 │   ├── 06_BUILD_PLAN.md            ✅ 4-day implementation
 │   └── 08_ACCEPTANCE_CRITERIA.md   ✅ Validation checklist
 │
-├── phase-9/                         # Re-ranking & Synthesis
-│   └── 00_PHASE_9_OVERVIEW.md      ✅ Executive summary
+├── phase-12/                         # Re-ranking & Synthesis
+│   └── 00_PHASE_12_OVERVIEW.md      ✅ Executive summary
 │       [Additional detailed docs in DETAILED_DOCS_REFERENCE.md]
 │
-└── phase-10/                        # Code Intelligence
-    └── 00_PHASE_10_OVERVIEW.md     ✅ Executive summary
+└── phase-13/                        # Code Intelligence
+    └── 00_PHASE_13_OVERVIEW.md     ✅ Executive summary
         [Additional detailed docs in DETAILED_DOCS_REFERENCE.md]
 ```
 
@@ -36,32 +36,32 @@ docs/phases/
 
 ### 1. **Start Here:** Understand the Big Picture
 Read in this order:
-1. `PHASES_8-10_SUMMARY.md` - What you're building
+1. `PHASES_11-15_SUMMARY.md` - What you're building
 2. `IMPLEMENTATION_ROADMAP.md` - How to build it
 
-### 2. **Phase 8:** Hybrid Search (When Phase 7 Done)
+### 2. **Phase 11:** Hybrid Search (When Phase 7 Done)
 Read in this order:
-1. `phase-8/00_PHASE_8_OVERVIEW.md` - Goals & architecture
-2. `phase-8/01_HYBRID_SEARCH_ARCHITECTURE.md` - Technical deep-dive
-3. `phase-8/02_EMBEDDING_PROVIDERS.md` - Multi-provider setup
-4. `phase-8/06_BUILD_PLAN.md` - Day-by-day implementation
-5. `phase-8/08_ACCEPTANCE_CRITERIA.md` - How to validate
+1. `phase-11/00_PHASE_11_OVERVIEW.md` - Goals & architecture
+2. `phase-11/01_HYBRID_SEARCH_ARCHITECTURE.md` - Technical deep-dive
+3. `phase-11/02_EMBEDDING_PROVIDERS.md` - Multi-provider setup
+4. `phase-11/06_BUILD_PLAN.md` - Day-by-day implementation
+5. `phase-11/08_ACCEPTANCE_CRITERIA.md` - How to validate
 
-### 3. **Phase 9:** Re-ranking (After Phase 8)
+### 3. **Phase 12:** Re-ranking (After Phase 11)
 Read in this order:
-1. `phase-9/00_PHASE_9_OVERVIEW.md` - Goals & architecture
+1. `phase-12/00_PHASE_12_OVERVIEW.md` - Goals & architecture
 2. `DETAILED_DOCS_REFERENCE.md` - Implementation details
 
-### 4. **Phase 10:** Code Intelligence (After Phase 9)
+### 4. **Phase 13:** Code Intelligence (After Phase 12)
 Read in this order:
-1. `phase-10/00_PHASE_10_OVERVIEW.md` - Goals & architecture
+1. `phase-13/00_PHASE_13_OVERVIEW.md` - Goals & architecture
 2. `DETAILED_DOCS_REFERENCE.md` - Implementation details
 
 ---
 
 ## 📊 Documentation Coverage
 
-### Phase 8: Hybrid Search ✅ Ready to Implement
+### Phase 11: Hybrid Search ✅ Ready to Implement
 **Created:**
 - [x] Overview & goals
 - [x] Architecture & technical design
@@ -77,7 +77,7 @@ Read in this order:
 
 **Status:** ✅ **All essential documentation complete**
 
-### Phase 9: Re-ranking & Synthesis ✅ Ready to Implement
+### Phase 12: Re-ranking & Synthesis ✅ Ready to Implement
 **Created:**
 - [x] Overview & goals
 - [x] Architecture & technical design
@@ -91,9 +91,9 @@ Read in this order:
 
 **Summarized in DOCUMENTATION_COMPLETE.md:** Cohere + BGE architecture, provider benchmarks, synthesis engine plan, contradiction detection workflows, cost monitoring, build plan, acceptance criteria.
 
-**Status:** ✅ **All essential documentation complete — kick off after Phase 8**
+**Status:** ✅ **All essential documentation complete — kick off after Phase 11**
 
-### Phase 10: Code Intelligence ✅ Ready to Implement
+### Phase 13: Code Intelligence ✅ Ready to Implement
 **Created:**
 - [x] Overview & goals
 - [x] Architecture & technical design
@@ -105,7 +105,7 @@ Read in this order:
 
 **Summarized in DOCUMENTATION_COMPLETE.md:** Code chunking system, Dart AST parsing guide, file relationship strategy, build plan, acceptance criteria.
 
-**Status:** ✅ **All essential documentation complete — kick off after Phase 9**
+**Status:** ✅ **All essential documentation complete — kick off after Phase 12**
 
 ---
 
@@ -146,25 +146,25 @@ Read in this order:
 ## 🔍 Finding Information
 
 ### "How do I implement hybrid search?"
-→ Read `phase-8/01_HYBRID_SEARCH_ARCHITECTURE.md`
+→ Read `phase-11/01_HYBRID_SEARCH_ARCHITECTURE.md`
 
 ### "What embedding providers are supported?"
-→ Read `phase-8/02_EMBEDDING_PROVIDERS.md`
+→ Read `phase-11/02_EMBEDDING_PROVIDERS.md`
 
 ### "How do I add metadata to documents?"
-→ Read `phase-8/03_METADATA_SCHEMA.md`
+→ Read `phase-11/03_METADATA_SCHEMA.md`
 
-### "What's the step-by-step process for Phase 8?"
-→ Read `phase-8/06_BUILD_PLAN.md`
+### "What's the step-by-step process for Phase 11?"
+→ Read `phase-11/06_BUILD_PLAN.md`
 
-### "How do I know Phase 8 is done?"
-→ Read `phase-8/08_ACCEPTANCE_CRITERIA.md`
+### "How do I know Phase 11 is done?"
+→ Read `phase-11/08_ACCEPTANCE_CRITERIA.md`
 
 ### "What about re-ranking?"
-→ Read `phase-9/00_PHASE_9_OVERVIEW.md` then `DETAILED_DOCS_REFERENCE.md`
+→ Read `phase-12/00_PHASE_12_OVERVIEW.md` then `DETAILED_DOCS_REFERENCE.md`
 
 ### "How does code chunking work?"
-→ Read `phase-10/00_PHASE_10_OVERVIEW.md` then `DETAILED_DOCS_REFERENCE.md`
+→ Read `phase-13/00_PHASE_13_OVERVIEW.md` then `DETAILED_DOCS_REFERENCE.md`
 
 ### "What's the overall plan?"
 → Read `IMPLEMENTATION_ROADMAP.md`
@@ -175,22 +175,22 @@ Read in this order:
 
 ### Before Starting Any Phase:
 1. `IMPLEMENTATION_ROADMAP.md` - Understand the full journey
-2. `PHASES_8-10_SUMMARY.md` - See what each phase delivers
+2. `PHASES_11-15_SUMMARY.md` - See what each phase delivers
 
-### When Starting Phase 8:
-1. `phase-8/00_PHASE_8_OVERVIEW.md` - Goals
-2. `phase-8/01_HYBRID_SEARCH_ARCHITECTURE.md` - Design
-3. `phase-8/02_EMBEDDING_PROVIDERS.md` - Setup
-4. `phase-8/06_BUILD_PLAN.md` - Implement
-5. `phase-8/08_ACCEPTANCE_CRITERIA.md` - Validate
+### When Starting Phase 11:
+1. `phase-11/00_PHASE_11_OVERVIEW.md` - Goals
+2. `phase-11/01_HYBRID_SEARCH_ARCHITECTURE.md` - Design
+3. `phase-11/02_EMBEDDING_PROVIDERS.md` - Setup
+4. `phase-11/06_BUILD_PLAN.md` - Implement
+5. `phase-11/08_ACCEPTANCE_CRITERIA.md` - Validate
 
-### When Starting Phase 9:
-1. `phase-9/00_PHASE_9_OVERVIEW.md` - Goals
+### When Starting Phase 12:
+1. `phase-12/00_PHASE_12_OVERVIEW.md` - Goals
 2. `DETAILED_DOCS_REFERENCE.md` - Implementation specs
 3. Request detailed docs as needed during implementation
 
-### When Starting Phase 10:
-1. `phase-10/00_PHASE_10_OVERVIEW.md` - Goals
+### When Starting Phase 13:
+1. `phase-13/00_PHASE_13_OVERVIEW.md` - Goals
 2. `DETAILED_DOCS_REFERENCE.md` - Implementation specs
 3. Request detailed docs as needed during implementation
 
@@ -208,7 +208,7 @@ Read in this order:
 - **Why:** Backwards compatibility guarantee
 - **Impact:** Gradual rollout, no risk
 
-### Hybrid by Default (Phase 8)
+### Hybrid by Default (Phase 11)
 - **Decision:** Use RRF to combine vector + BM25
 - **Why:** 40% accuracy improvement with <600ms latency
 - **Impact:** Better results without changing API
@@ -218,12 +218,12 @@ Read in this order:
 - **Why:** Cost control (free default, paid for quality)
 - **Impact:** <$10/month typical usage
 
-### Re-ranking Optional (Phase 9)
+### Re-ranking Optional (Phase 12)
 - **Decision:** Local BGE default, Cohere optional
 - **Why:** Free by default, upgrade for better quality
 - **Impact:** +25% precision for ~$1/month
 
-### Code-Aware Chunking (Phase 10)
+### Code-Aware Chunking (Phase 13)
 - **Decision:** AST-based for Dart/TypeScript
 - **Why:** Preserve function boundaries, include imports
 - **Impact:** 20k files searchable with context
@@ -232,23 +232,23 @@ Read in this order:
 
 ## ✅ Documentation Completeness
 
-### Phase 8: ██████████ 100% Complete
+### Phase 11: ██████████ 100% Complete
 - Core architecture: ✅
 - Implementation guide: ✅
 - Full docs: See DOCUMENTATION_COMPLETE.md
 - **Ready to implement:** YES
 
-### Phase 9: ██████████ 100% Complete
+### Phase 12: ██████████ 100% Complete
 - Overview: ✅
 - Re-ranking playbook: ✅
 - Full docs: See DOCUMENTATION_COMPLETE.md
-- **Ready to implement:** YES (kick off after Phase 8)
+- **Ready to implement:** YES (kick off after Phase 11)
 
-### Phase 10: ██████████ 100% Complete
+### Phase 13: ██████████ 100% Complete
 - Overview: ✅
 - Code intelligence plan: ✅
 - Full docs: See DOCUMENTATION_COMPLETE.md
-- **Ready to implement:** YES (kick off after Phase 9)
+- **Ready to implement:** YES (kick off after Phase 12)
 
 ---
 
@@ -260,10 +260,10 @@ Read in this order:
 3. ✅ **Finish Phase 5.4 & 7** - Complete current work
 
 ### Then:
-4. ✅ **Review Phase 8 docs** - Validate approach
-5. ✅ **Implement Phase 8** - 3-4 days
+4. ✅ **Review Phase 11 docs** - Validate approach
+5. ✅ **Implement Phase 11** - 3-4 days
 6. ✅ **Validate results** - Check acceptance criteria
-7. ✅ **Decide on Phase 9 & 10** - Based on results
+7. ✅ **Decide on Phase 12 & 10** - Based on results
 
 ---
 
@@ -288,19 +288,19 @@ Read in this order:
 
 ## 📈 Success Metrics Summary
 
-### Phase 8: Hybrid Search
+### Phase 11: Hybrid Search
 - **Accuracy:** +40% improvement
 - **Latency:** <600ms
 - **Cost:** <$5/month
 - **Breaking Changes:** Zero
 
-### Phase 9: Re-ranking
+### Phase 12: Re-ranking
 - **Accuracy:** +25% precision
 - **Latency:** +300ms
 - **Cost:** ~$1-2/month
 - **Features:** Synthesis, cost monitoring
 
-### Phase 10: Code Intelligence
+### Phase 13: Code Intelligence
 - **Accuracy:** +50% for code
 - **Context:** 95%+ functions intact
 - **Latency:** <2x chunking time
@@ -316,7 +316,7 @@ Read in this order:
 
 **Documentation Status:** ✅ **COMPLETE AND READY**
 
-All essential planning documentation for Phases 8-10 is now available. You can start Phase 8 implementation as soon as Phase 7 is complete! 🎉
+All essential planning documentation for Phases 8-10 is now available. You can start Phase 11 implementation as soon as Phase 7 is complete! 🎉
 
 ---
 

@@ -1,4 +1,4 @@
-# Phase 10: Acceptance Criteria
+# Phase 13: Acceptance Criteria
 
 **Validation checklist before marking complete**
 
@@ -327,7 +327,7 @@
 
 ## ✋ Stop Conditions
 
-**Do NOT mark Phase 10 complete if:**
+**Do NOT mark Phase 13 complete if:**
 
 - ❌ Function preservation <90%
 - ❌ Parse errors crash service
@@ -420,7 +420,7 @@ const metrics = {
   test_coverage_percent: getTestCoverage(),
 };
 
-console.log('Phase 10 Metrics:', metrics);
+console.log('Phase 13 Metrics:', metrics);
 
 // Expected:
 // {
@@ -438,7 +438,7 @@ console.log('Phase 10 Metrics:', metrics);
 
 ## 📝 Completion Criteria Summary
 
-**Phase 10 is DONE when:**
+**Phase 13 is DONE when:**
 
 1. ✅ Dart code chunks by function/class (95%+ accuracy)
 2. ✅ TypeScript code chunks correctly (90%+ accuracy)
@@ -453,12 +453,12 @@ console.log('Phase 10 Metrics:', metrics);
 11. ✅ Demo successful
 12. ✅ Code reviewed
 
-**Tag as `v1.3.0-phase-10`** 🚀
+**Tag as `v1.3.0-phase-13`** 🚀
 
 **All Phases 8-10 Complete!** The Synthesis RAG system is now production-grade with:
 - Hybrid search (Phase 8)
 - Re-ranking & synthesis (Phase 9)  
-- Code intelligence (Phase 10)
+- Code intelligence (Phase 13)
 
 ---
 

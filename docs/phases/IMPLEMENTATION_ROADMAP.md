@@ -1,4 +1,4 @@
-# Implementation Roadmap: Phases 8-10
+# Implementation Roadmap: Phases 11-13
 
 **Your path from MVP to production-grade RAG system**
 
@@ -25,23 +25,23 @@ NOW:
     └─ Tag v1.0.0 ← MILESTONE
 
 THEN:
-├─ Phase 8: Hybrid Search (3-4 days)
-├─ Phase 9: Re-ranking & Synthesis (3-4 days)
-└─ Phase 10: Code Intelligence (4-5 days)
+├─ Phase 11: Hybrid Search (3-4 days)
+├─ Phase 12: Re-ranking & Synthesis (3-4 days)
+└─ Phase 13: Code Intelligence (4-5 days)
 
 Total additional time: ~10-13 days
 ```
 
 ---
 
-## 🏗️ Phase 8: Foundation (HIGHEST PRIORITY)
+## 🏗️ Phase 11: Foundation (HIGHEST PRIORITY)
 
 ### Why This First?
 - **40% accuracy improvement** with hybrid search
 - **Handles your 20k files** (exact + semantic matches)
 - **Version tracking** for Flutter SDK
 - **Multi-provider embeddings** (free + paid mix)
-- **Foundation for Phases 9 & 10**
+- **Foundation for Phases 12 & 13**
 
 ### What You Get:
 
@@ -53,7 +53,7 @@ Query: "StatefulWidget lifecycle"
 → Single embedding model
 ```
 
-**After (Phase 8):**
+**After (Phase 11):**
 ```text
 Query: "StatefulWidget lifecycle"
 → Finds ALL StatefulWidget mentions (BM25)
@@ -99,7 +99,7 @@ ance criteria validation
 
 ---
 
-## 🎯 Phase 9: Intelligence (MEDIUM PRIORITY)
+## 🎯 Phase 12: Intelligence (MEDIUM PRIORITY)
 
 ### Why This Matters:
 - **Multi-source synthesis** for doc rewriting
@@ -147,12 +147,12 @@ System:
 
 ---
 
-## 💻 Phase 10: Code Context (LOWER PRIORITY)
+## 💻 Phase 13: Code Context (LOWER PRIORITY)
 
 ### Why Later?
-- **Phases 8 & 9 handle most use cases**
+- **Phases 11 & 12 handle most use cases**
 - This is optimization, not foundation
-- Can skip if code search is "good enough" after Phase 8
+- Can skip if code search is "good enough" after Phase 11
 
 ### What You Get:
 
@@ -201,7 +201,7 @@ Chunk: {
 
 ### Recommended Setup:
 
-**.env.production** (after Phase 8)
+**.env.production** (after Phase 11)
 ```bash
 # Search
 SEARCH_MODE=hybrid
@@ -217,23 +217,23 @@ WRITING_EMBEDDING_PROVIDER=openai    # $1-2/month
 OPENAI_API_KEY=sk-...  # Only if you want high-quality personal writing embeds
 VOYAGE_API_KEY=vo-...  # Only for code-specific embeddings
 
-# Re-ranking (Phase 9)
+# Re-ranking (Phase 12)
 RERANKER_PROVIDER=local  # FREE (BGE), or 'cohere' for paid
 ENABLE_SYNTHESIS=true
 
-# Cost Control (Phase 9)
+# Cost Control (Phase 12)
 MONTHLY_BUDGET_USD=10
 FALLBACK_TO_LOCAL=true
 
-# Code Chunking (Phase 10)
+# Code Chunking (Phase 13)
 CODE_CHUNKING=true
 PRESERVE_IMPORTS=true
 ```
 
 **Cost Estimate:**
-- Phase 8 only: ~$2-3/month
-- Phase 8 + 9 (local reranking): ~$5/month
-- Phase 8 + 9 (Cohere reranking): ~$8-10/month
+- Phase 11 only: ~$2-3/month
+- Phase 11 + 12 (local reranking): ~$5/month
+- Phase 11 + 12 (Cohere reranking): ~$8-10/month
 - All phases: ~$10-15/month
 
 **Well under budget!** ✅
@@ -246,9 +246,9 @@ PRESERVE_IMPORTS=true
 
 | Phase | New Files | New LOC | Modified LOC | Ratio |
 |-------|-----------|---------|--------------|-------|
-| Phase 8 | 3 | ~750 | ~200 | 3.75:1 new:mod |
-| Phase 9 | 3 | ~600 | ~100 | 6:1 |
-| Phase 10 | 4 | ~650 | ~150 | 4.3:1 |
+| Phase 11 | 3 | ~750 | ~200 | 3.75:1 new:mod |
+| Phase 12 | 3 | ~600 | ~100 | 6:1 |
+| Phase 13 | 4 | ~650 | ~150 | 4.3:1 |
 | **Total** | **10** | **~2,000** | **~450** | **4.4:1** |
 
 **~2,450 lines total for all three phases = MINIMAL** ✅
@@ -262,7 +262,7 @@ Compare to current codebase:
 
 ## 🧪 Testing Strategy
 
-### Phase 8 Tests:
+### Phase 11 Tests:
 ```typescript
 // BM25 exact match
 expect(await bm25Search('StatefulWidget'))
@@ -280,7 +280,7 @@ expect(await searchCollection('old-query'))
   .toReturnResults(); // No errors
 ```
 
-### Phase 9 Tests:
+### Phase 12 Tests:
 ```typescript
 // Re-ranking improves order
 const before = await hybridSearch('auth');
@@ -292,7 +292,7 @@ const synthesis = await synthesize('auth methods');
 expect(synthesis.conflicts).toHaveLength(2);
 ```
 
-### Phase 10 Tests:
+### Phase 13 Tests:
 ```typescript
 // Code chunks preserve functions
 const chunks = await chunkCode(dartSource);
@@ -306,7 +306,7 @@ expect(chunks[0].imports).toContain('package:flutter/material.dart');
 
 ## ✅ Acceptance Criteria Summary
 
-### Phase 8: Done When...
+### Phase 11: Done When...
 - [ ] Hybrid search returns results combining vector + BM25
 - [ ] Can configure Ollama/OpenAI/Voyage per collection
 - [ ] Metadata includes: version, source_quality, embedding_model
@@ -315,14 +315,14 @@ expect(chunks[0].imports).toContain('package:flutter/material.dart');
 - [ ] Latency <600ms
 - [ ] MCP tools work perfectly
 
-### Phase 9: Done When...
+### Phase 12: Done When...
 - [ ] Re-ranking improves top-5 accuracy by 20%+
 - [ ] Can compare 3+ sources and detect conflicts
 - [ ] Cost tracking shows API usage in real-time
 - [ ] Budget alerts trigger before exceeding limit
 - [ ] Synthesis API returns structured comparisons
 
-### Phase 10: Done When...
+### Phase 13: Done When...
 - [ ] Dart functions chunk as complete units
 - [ ] Imports preserved with code snippets
 - [ ] Can search by function name exactly
@@ -338,7 +338,7 @@ expect(chunks[0].imports).toContain('package:flutter/material.dart');
 - Default to free Ollama
 - Budget limits in code
 - Auto-fallback on limit
-- Cost monitoring (Phase 9)
+- Cost monitoring (Phase 12)
 - **Likelihood:** Low ✅
 
 ### Risk: Latency Too High
@@ -352,7 +352,7 @@ expect(chunks[0].imports).toContain('package:flutter/material.dart');
 ### Risk: Over-Engineering
 **Mitigation:**
 - Minimal LOC target
-- Skip Phase 10 if unnecessary
+- Skip Phase 13 if unnecessary
 - Simple algorithms (RRF, not ML)
 - Proven patterns
 - **Likelihood:** Low ✅ (you're aware of this)
@@ -369,17 +369,17 @@ expect(chunks[0].imports).toContain('package:flutter/material.dart');
 
 ## 🎯 Decision Points
 
-### After Phase 8:
+### After Phase 11:
 **Question:** Is hybrid search good enough for your needs?
 
 **If YES:** Skip Phases 9-10 (save time)  
-**If NO:** Proceed to Phase 9
+**If NO:** Proceed to Phase 12
 
-### After Phase 9:
+### After Phase 12:
 **Question:** Is code search accurate enough?
 
-**If YES:** Skip Phase 10  
-**If NO:** Implement Phase 10
+**If YES:** Skip Phase 13  
+**If NO:** Implement Phase 13
 
 **Flexibility built in!**
 
@@ -388,16 +388,16 @@ expect(chunks[0].imports).toContain('package:flutter/material.dart');
 ## 📖 Documentation Status
 
 ### Created:
-- ✅ `docs/phases/phase-8/00_PHASE_8_OVERVIEW.md` - Executive summary
-- ✅ `docs/phases/phase-8/01_HYBRID_SEARCH_ARCHITECTURE.md` - Technical design
-- ✅ `docs/phases/phase-8/02_EMBEDDING_PROVIDERS.md` - Multi-provider setup
-- ✅ `docs/phases/PHASES_8-10_SUMMARY.md` - Complete overview
+- ✅ `docs/phases/phase-11/00_PHASE_11_OVERVIEW.md` - Executive summary
+- ✅ `docs/phases/phase-11/01_HYBRID_SEARCH_ARCHITECTURE.md` - Technical design
+- ✅ `docs/phases/phase-11/02_EMBEDDING_PROVIDERS.md` - Multi-provider setup
+- ✅ `docs/phases/PHASES_11-15_SUMMARY.md` - Complete overview
 - ✅ `docs/phases/IMPLEMENTATION_ROADMAP.md` - This document
 
 ### On Demand (create when needed):
-- Phase 8: Metadata schema, build plan, API changes
-- Phase 9: Complete documentation suite
-- Phase 10: Complete documentation suite
+- Phase 11: Metadata schema, build plan, API changes
+- Phase 12: Complete documentation suite
+- Phase 13: Complete documentation suite
 
 **Approach:** Document just-in-time to avoid stale docs
 
@@ -409,14 +409,14 @@ expect(chunks[0].imports).toContain('package:flutter/material.dart');
 1. **Finish Phase 5.4** (Frontend)
 2. **Complete Phase 7** (Docker MVP)
 3. **Tag v1.0.0** 🎉
-4. **Review Phase 8 docs** (validate approach)
-5. **Implement Phase 8** (3-4 days)
+4. **Review Phase 11 docs** (validate approach)
+5. **Implement Phase 11** (3-4 days)
 6. **Evaluate results** (do you need Phases 9-10?)
 
 ### For Me (when you're ready):
-1. **Create remaining Phase 8 docs** (on request)
-2. **Support Phase 8 implementation** (debug, clarify)
-3. **Create Phase 9-10 detailed docs** (when you reach them)
+1. **Create remaining Phase 11 docs** (on request)
+2. **Support Phase 11 implementation** (debug, clarify)
+3. **Create Phase 12-10 detailed docs** (when you reach them)
 
 ---
 
@@ -427,7 +427,7 @@ expect(chunks[0].imports).toContain('package:flutter/material.dart');
 1. **Additive Only** - Zero breaking changes guaranteed
 2. **Minimal Code** - ~2,000 LOC for massive improvements
 3. **Cost-Effective** - <$10/month with smart routing
-4. **Incremental** - Can stop after Phase 8 if satisfied
+4. **Incremental** - Can stop after Phase 11 if satisfied
 5. **Proven Algorithms** - RRF, BM25, cross-encoders (not experimental)
 6. **MCP Compatible** - Agents work perfectly throughout
 7. **Your Use Cases** - Directly addresses all 7 requirements
@@ -456,7 +456,7 @@ expect(chunks[0].imports).toContain('package:flutter/material.dart');
 
 I've documented the architecture and approach. When you're ready to implement:
 
-1. **Phase 8 implementation questions:** Reference the architecture docs
+1. **Phase 11 implementation questions:** Reference the architecture docs
 2. **Need more detailed specs:** Ask and I'll create specific docs
 3. **Debugging help:** I can assist with code issues
 4. **Alternative approaches:** Happy to discuss trade-offs
@@ -465,6 +465,6 @@ I've documented the architecture and approach. When you're ready to implement:
 
 ---
 
-**Status:** Phase 8-10 planning complete ✅  
-**Next Milestone:** Finish Phase 5.4 & 7, then implement Phase 8  
+**Status:** Phase 11-13 planning complete ✅  
+**Next Milestone:** Finish Phase 5.4 & 7, then implement Phase 11  
 **Documentation:** Available in `docs/phases/`

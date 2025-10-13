@@ -1,4 +1,4 @@
-# Phase 9: Acceptance Criteria
+# Phase 12: Acceptance Criteria
 
 **Validation checklist before marking complete**
 
@@ -310,7 +310,7 @@
 
 ## ✋ Stop Conditions
 
-**Do NOT mark Phase 9 complete if:**
+**Do NOT mark Phase 12 complete if:**
 
 - ❌ Precision improvement <15%
 - ❌ Reranking latency >500ms
@@ -394,7 +394,7 @@ const metrics = {
   test_coverage_percent: getTestCoverage(),
 };
 
-console.log('Phase 9 Metrics:', metrics);
+console.log('Phase 12 Metrics:', metrics);
 
 // Expected:
 // {
@@ -410,7 +410,7 @@ console.log('Phase 9 Metrics:', metrics);
 
 ## 📝 Completion Criteria Summary
 
-**Phase 9 is DONE when:**
+**Phase 12 is DONE when:**
 
 1. ✅ Reranking works with both Cohere and BGE
 2. ✅ Precision improves by 20%+ (measured)
@@ -424,7 +424,7 @@ console.log('Phase 9 Metrics:', metrics);
 10. ✅ Demo successful
 11. ✅ Code reviewed and approved
 
-**Tag as `v1.2.0-phase-9` and proceed to Phase 10** 🚀
+**Tag as `v1.2.0-phase-12` and proceed to Phase 10** 🚀
 
 ---
 
@@ -440,4 +440,4 @@ console.log('Phase 9 Metrics:', metrics);
 
 **Date Completed:** ___________  
 **Deployed to:** Production / Staging  
-**Tagged as:** v1.2.0-phase-9
+**Tagged as:** v1.2.0-phase-12
