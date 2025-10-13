@@ -160,6 +160,13 @@ export async function embedTextToArray(
   options: EmbedOptions = {}
 ): Promise<number[]> {
   const result = await embedText(text, options);
+
+  if (result.embedding.length !== result.dimensions) {
+    throw new Error(
+      `Embedding dimension mismatch: expected ${result.dimensions}, received ${result.embedding.length}`
+    );
+  }
+
   return result.embedding;
 }
 

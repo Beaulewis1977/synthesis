@@ -35,8 +35,18 @@ export interface SearchResult {
   id: number;
   text: string;
   similarity: number;
+  vector_score?: number | null;
+  bm25_score?: number | null;
+  fused_score?: number | null;
+  source?: 'vector' | 'bm25' | 'both';
+  doc_id: string;
   doc_title: string | null;
   source_url: string | null;
+  citation?: {
+    title: string | null;
+    page?: number | string | null;
+    section?: string | null;
+  } | null;
   metadata?: SearchResultMetadata | null;
 }
 

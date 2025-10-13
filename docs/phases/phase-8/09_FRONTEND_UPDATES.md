@@ -173,53 +173,39 @@ function SearchResults({ results }: { results: SearchResult[] }) {
 
 **File:** `apps/web/src/types/index.ts` (MODIFIED - added 3 interfaces)
 
-**Added Interfaces:**
+**Added Interfaces (mirrors `/api/search` payload):**
 
 ```typescript
-// Metadata structure from Phase 8 backend
 export interface SearchResultMetadata {
-  source_quality?: 'official' | 'verified' | 'community';
-  last_verified?: string;
-  doc_type?: string;
-  framework?: string;
-  framework_version?: string;
-  language?: string;
-  embedding_model?: string;
-  embedding_provider?: string;
-  embedding_dimensions?: number;
+  source_quality?: 'official' | 'verified' | 'community' | string | null;
+  last_verified?: string | Date | null;
   [key: string]: unknown;
 }
 
-// Individual search result
 export interface SearchResult {
-  id: string;
+  id: number;
   text: string;
   similarity: number;
-  vector_score?: number;
-  bm25_score?: number;
-  fused_score?: number;
-  source?: string;
+  vector_score?: number | null;
+  bm25_score?: number | null;
+  fused_score?: number | null;
+  source?: 'vector' | 'bm25' | 'both';
   doc_id: string;
-  doc_title: string;
+  doc_title: string | null;
   source_url: string | null;
-  citation: string | null;
-  metadata: SearchResultMetadata | null;
+  citation?: {
+    title: string | null;
+    page?: number | string | null;
+    section?: string | null;
+  } | null;
+  metadata?: SearchResultMetadata | null;
 }
 
-// Full API response
 export interface SearchResponse {
   query: string;
   results: SearchResult[];
   total_results: number;
   search_time_ms: number;
-  metadata?: {
-    search_mode?: string;
-    vector_count?: number;
-    bm25_count?: number;
-    fused_count?: number;
-    embedding_provider?: string | null;
-    trust_scoring_applied?: boolean;
-  };
 }
 ```
 
@@ -342,17 +328,21 @@ export function RecencyBadge({ date }: RecencyBadgeProps) {
   query: "flutter authentication",
   results: [
     {
-      id: "chunk-uuid",
+      id: 1234,
       text: "Authentication in Flutter uses...",
       similarity: 0.95,
       vector_score: 0.92,
       bm25_score: 8.5,
       fused_score: 0.95,
-      source: "vector+bm25",
+      source: "both",
       doc_id: "doc-uuid",
       doc_title: "Flutter Authentication Guide",
       source_url: "https://flutter.dev/docs/auth",
-      citation: "Flutter Official Docs",
+      citation: {
+        title: "Flutter Official Docs",
+        page: 12,
+        section: "Authentication"
+      },
       metadata: {
         source_quality: "official",      // ← For TrustBadge
         last_verified: "2024-10-01",     // ← For RecencyBadge
