@@ -1,3 +1,4 @@
+import type { DocumentMetadata } from '@synthesis/shared';
 import type { Pool } from 'pg';
 import type { ContentContext, EmbeddingProvider } from './embedding-router.js';
 import { deriveContextFromMetadata, isEmbeddingProvider } from './embedding-router.js';
@@ -22,6 +23,8 @@ export interface SmartSearchResult extends SearchResult {
   bm25Score?: number;
   fusedScore?: number;
   source?: HybridSearchResult['source'];
+  trustWeight?: number;
+  recencyWeight?: number;
 }
 
 export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
@@ -32,6 +35,7 @@ export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
     bm25Count?: number;
     fusedCount?: number;
     embeddingProvider?: EmbeddingProvider;
+    trustScoringApplied?: boolean;
   };
 }
 
@@ -48,31 +52,40 @@ export async function smartSearch(
   const context = params.context ?? hint?.context;
 
   if (mode === 'hybrid') {
+    const hybridWeights = resolveHybridWeights(params.weights);
     const { results, elapsedMs, vectorCount, bm25Count } = await hybridSearch(db, {
       query: params.query,
       collectionId: params.collectionId,
       topK: params.topK,
       minSimilarity: params.minSimilarity,
-      weights: params.weights,
+      weights: hybridWeights,
       rrfK: params.rrfK,
       provider,
       context,
     });
+    let fusedResults: SmartSearchResult[] = results.map((item) => ({
+      ...item,
+      similarity: item.fusedScore,
+    }));
+
+    const trustApplied = shouldApplyTrustScoring();
+    if (trustApplied) {
+      fusedResults = applyTrustScoring(fusedResults);
+      fusedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
+    }
 
     return {
       query: params.query,
-      results: results.map((item) => ({
-        ...item,
-        similarity: item.fusedScore,
-      })),
-      totalResults: results.length,
+      results: fusedResults,
+      totalResults: fusedResults.length,
       searchTimeMs: elapsedMs,
       metadata: {
         searchMode: 'hybrid',
         vectorCount,
         bm25Count,
-        fusedCount: results.length,
+        fusedCount: fusedResults.length,
         embeddingProvider: provider,
+        trustScoringApplied: trustApplied,
       },
     };
   }
@@ -86,13 +99,24 @@ export async function smartSearch(
     context,
   });
 
+  const trustApplied = shouldApplyTrustScoring();
+  let rankedResults: SmartSearchResult[] = vectorResult.results;
+
+  if (trustApplied) {
+    rankedResults = applyTrustScoring(vectorResult.results);
+    rankedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
+  }
+
   return {
     ...vectorResult,
+    results: rankedResults,
+    totalResults: rankedResults.length,
     metadata: {
       searchMode: 'vector',
-      vectorCount: vectorResult.totalResults,
-      fusedCount: vectorResult.totalResults,
+      vectorCount: rankedResults.length,
+      fusedCount: rankedResults.length,
       embeddingProvider: provider,
+      trustScoringApplied: trustApplied,
     },
   };
 }
@@ -143,4 +167,116 @@ async function inferCollectionEmbeddingHint(
     : undefined;
 
   return { provider, context };
+}
+
+const DEFAULT_VECTOR_WEIGHT = 0.7;
+const DEFAULT_BM25_WEIGHT = 0.3;
+
+function resolveHybridWeights(
+  weights: HybridSearchParams['weights']
+): NonNullable<HybridSearchParams['weights']> {
+  const envVector = Number.parseFloat(process.env.HYBRID_VECTOR_WEIGHT ?? '');
+  const envBm25 = Number.parseFloat(process.env.HYBRID_BM25_WEIGHT ?? '');
+
+  const baseVector = Number.isFinite(envVector) ? envVector : DEFAULT_VECTOR_WEIGHT;
+  const baseBm25 = Number.isFinite(envBm25) ? envBm25 : DEFAULT_BM25_WEIGHT;
+
+  const overrideVector = weights?.vector ?? baseVector;
+  const overrideBm25 = weights?.bm25 ?? baseBm25;
+
+  const sum = overrideVector + overrideBm25;
+  if (!Number.isFinite(sum) || sum <= 0) {
+    return { vector: DEFAULT_VECTOR_WEIGHT, bm25: DEFAULT_BM25_WEIGHT };
+  }
+
+  return {
+    vector: overrideVector / sum,
+    bm25: overrideBm25 / sum,
+  };
+}
+
+function shouldApplyTrustScoring(): boolean {
+  return (process.env.ENABLE_TRUST_SCORING ?? '').toLowerCase() === 'true';
+}
+
+function applyTrustScoring(results: SmartSearchResult[]): SmartSearchResult[] {
+  return results.map((result) => {
+    const metadata = toDocumentMetadata(result.metadata);
+    const trustWeight = computeTrustWeight(metadata);
+    const recencyWeight = computeRecencyWeight(metadata);
+    const trustMultiplier = trustWeight * recencyWeight;
+
+    const similarity = Number(result.similarity ?? 0) * trustMultiplier;
+    const fusedScore =
+      typeof result.fusedScore === 'number'
+        ? result.fusedScore * trustMultiplier
+        : result.fusedScore;
+
+    return {
+      ...result,
+      similarity,
+      fusedScore,
+      trustWeight,
+      recencyWeight,
+    };
+  });
+}
+
+function toDocumentMetadata(metadata: unknown): DocumentMetadata | undefined {
+  if (!metadata || typeof metadata !== 'object') {
+    return undefined;
+  }
+
+  return metadata as DocumentMetadata;
+}
+
+function computeTrustWeight(metadata: DocumentMetadata | undefined): number {
+  const quality = metadata?.source_quality;
+  switch (quality) {
+    case 'official':
+      return 1;
+    case 'verified':
+      return 0.85;
+    case 'community':
+      return 0.6;
+    default:
+      return 0.5;
+  }
+}
+
+function computeRecencyWeight(metadata: DocumentMetadata | undefined): number {
+  const lastVerified = parseTimestamp(metadata?.last_verified);
+  if (!lastVerified) {
+    return 0.7;
+  }
+
+  const now = new Date();
+  let months =
+    (now.getFullYear() - lastVerified.getFullYear()) * 12 +
+    (now.getMonth() - lastVerified.getMonth());
+
+  if (now.getDate() < lastVerified.getDate()) {
+    months -= 1;
+  }
+
+  if (months < 6) {
+    return 1;
+  }
+  if (months < 12) {
+    return 0.9;
+  }
+  return 0.7;
+}
+
+function parseTimestamp(value: string | Date | undefined): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }

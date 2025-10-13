@@ -1,8 +1,12 @@
 import type { Pool } from 'pg';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { bm25Search } from '../bm25.js';
 
 describe('bm25Search', () => {
+  afterEach(() => {
+    process.env.FTS_LANGUAGE = undefined;
+  });
+
   it('executes BM25 query and normalizes scores', async () => {
     const mockQuery = vi.fn().mockResolvedValue({
       rows: [
@@ -84,5 +88,20 @@ describe('bm25Search', () => {
     await expect(
       bm25Search(db as Pool, { query: 'flutter', collectionId: 'collection-1', topK: 0 })
     ).rejects.toThrow(/topK must be a positive number/);
+  });
+
+  it('uses FTS_LANGUAGE environment fallback when language omitted', async () => {
+    process.env.FTS_LANGUAGE = 'simple';
+    const mockQuery = vi.fn().mockResolvedValue({ rows: [] });
+    const db = { query: mockQuery } as unknown as Pick<Pool, 'query'>;
+
+    await bm25Search(db as Pool, { query: 'flutter', collectionId: 'collection-1' });
+
+    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [
+      'simple',
+      'flutter:*',
+      'collection-1',
+      30,
+    ]);
   });
 });
