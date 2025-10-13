@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { searchCollection } from '../search.js';
 
 vi.mock('../../pipeline/embed.js', () => ({
-  embedText: vi.fn(),
+  embedTextToArray: vi.fn(),
 }));
 
-const { embedText } = await import('../../pipeline/embed.js');
+const { embedTextToArray } = await import('../../pipeline/embed.js');
 
 describe('searchCollection', () => {
   let db: Pick<Pool, 'query'>;
@@ -26,7 +26,9 @@ describe('searchCollection', () => {
   });
 
   it('embeds the query and returns formatted results', async () => {
-    (embedText as vi.MockedFunction<typeof embedText>).mockResolvedValue([0.1, 0.2, 0.3]);
+    (embedTextToArray as vi.MockedFunction<typeof embedTextToArray>).mockResolvedValue([
+      0.1, 0.2, 0.3,
+    ]);
 
     const dbRows = [
       {
@@ -52,7 +54,10 @@ describe('searchCollection', () => {
       minSimilarity: 0.4,
     });
 
-    expect(embedText).toHaveBeenCalledWith('Test query');
+    expect(embedTextToArray).toHaveBeenCalledWith(
+      'Test query',
+      expect.objectContaining({ provider: undefined, context: undefined })
+    );
     expect(db.query).toHaveBeenCalledWith(expect.any(String), [
       '[0.1,0.2,0.3]',
       'collection-1',

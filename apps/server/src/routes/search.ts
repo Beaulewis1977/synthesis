@@ -1,7 +1,7 @@
 import { getPool } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { searchCollection } from '../services/search.js';
+import { smartSearch } from '../services/search.js';
 
 const SearchBodySchema = z
   .object({
@@ -12,6 +12,8 @@ const SearchBodySchema = z
     topK: z.number().int().min(1).max(50).optional(),
     min_similarity: z.number().min(0).max(1).optional(),
     minSimilarity: z.number().min(0).max(1).optional(),
+    search_mode: z.enum(['vector', 'hybrid']).optional(),
+    searchMode: z.enum(['vector', 'hybrid']).optional(),
   })
   .strict()
   .refine((data) => Boolean(data.collection_id ?? data.collectionId), {
@@ -38,18 +40,28 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       topK: camelTopK,
       min_similarity: snakeMinSimilarity,
       minSimilarity: camelMinSimilarity,
+      search_mode: snakeSearchMode,
+      searchMode: camelSearchMode,
     } = validation.data;
 
     const collectionId = (camelCollectionId ?? snakeCollectionId) as string;
     const topK = camelTopK ?? snakeTopK;
     const minSimilarity = camelMinSimilarity ?? snakeMinSimilarity;
 
+    // Validate and normalize SEARCH_MODE environment variable
+    const envSearchMode = process.env.SEARCH_MODE?.trim().toLowerCase();
+    const validatedEnvMode: 'vector' | 'hybrid' | undefined =
+      envSearchMode === 'vector' || envSearchMode === 'hybrid' ? envSearchMode : undefined;
+
+    const searchMode = camelSearchMode ?? snakeSearchMode ?? validatedEnvMode ?? 'vector';
+
     try {
-      const result = await searchCollection(getPool(), {
+      const result = await smartSearch(getPool(), {
         query,
         collectionId,
         topK,
         minSimilarity,
+        mode: searchMode,
       });
 
       return reply.send({
@@ -58,6 +70,10 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
           id: item.id,
           text: item.text,
           similarity: item.similarity,
+          vector_score: item.vectorScore,
+          bm25_score: item.bm25Score,
+          fused_score: item.fusedScore,
+          source: item.source,
           doc_id: item.docId,
           doc_title: item.docTitle,
           source_url: item.sourceUrl,
@@ -66,6 +82,13 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
         })),
         total_results: result.totalResults,
         search_time_ms: result.searchTimeMs,
+        metadata: {
+          search_mode: result.metadata.searchMode,
+          vector_count: result.metadata.vectorCount,
+          bm25_count: result.metadata.bm25Count,
+          fused_count: result.metadata.fusedCount,
+          embedding_provider: result.metadata.embeddingProvider ?? null,
+        },
       });
     } catch (error) {
       fastify.log.error({ error }, 'Vector search failed');

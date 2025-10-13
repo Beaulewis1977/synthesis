@@ -7,7 +7,9 @@ export interface ChunkOptions {
   paragraphSeparator?: RegExp;
 }
 
-export interface ChunkMetadata {
+import type { ChunkMetadata as SharedChunkMetadata } from '@synthesis/shared';
+
+export interface ChunkMetadata extends SharedChunkMetadata {
   /** Inclusive start offset within the source text. */
   startOffset: number;
   /** Exclusive end offset within the source text. */

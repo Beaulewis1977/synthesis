@@ -5,7 +5,7 @@ import type { Pool } from 'pg';
 import { z } from 'zod';
 import { ingestDocument } from '../pipeline/orchestrator.js';
 import { deleteDocumentById, fetchWebContent } from '../services/documentOperations.js';
-import { searchCollection } from '../services/search.js';
+import { smartSearch } from '../services/search.js';
 import {
   type RemoteDownloadResult,
   downloadRemoteFile,
@@ -104,6 +104,7 @@ export function createSearchRagTool(
     collection_id: z.string().uuid().optional().default(context.collectionId),
     top_k: z.number().int().min(1).max(50).optional().default(5),
     min_similarity: z.number().min(0).max(1).optional().default(0.5),
+    search_mode: z.enum(['vector', 'hybrid']).optional(),
   });
 
   return {
@@ -115,11 +116,12 @@ export function createSearchRagTool(
     },
     executor: async (args: unknown) => {
       const parsed = inputSchema.parse(args);
-      const searchResult = await searchCollection(db, {
+      const searchResult = await smartSearch(db, {
         query: parsed.query,
         collectionId: parsed.collection_id ?? context.collectionId,
         topK: parsed.top_k ?? 5,
         minSimilarity: parsed.min_similarity ?? 0.5,
+        mode: parsed.search_mode,
       });
 
       const payload = {
@@ -127,10 +129,11 @@ export function createSearchRagTool(
         results: searchResult.results,
         total_results: searchResult.totalResults,
         search_time_ms: searchResult.searchTimeMs,
+        metadata: searchResult.metadata,
       };
 
       return createToolResponse(
-        `Vector search completed for "${payload.query}". Returning ${payload.total_results} result(s).`,
+        `Search (${searchResult.metadata.searchMode}) completed for "${payload.query}". Returning ${payload.total_results} result(s).`,
         payload
       );
     },

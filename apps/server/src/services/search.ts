@@ -1,114 +1,282 @@
-import { performance } from 'node:perf_hooks';
+import type { DocumentMetadata } from '@synthesis/shared';
 import type { Pool } from 'pg';
-import { embedText } from '../pipeline/embed.js';
+import type { ContentContext, EmbeddingProvider } from './embedding-router.js';
+import { deriveContextFromMetadata, isEmbeddingProvider } from './embedding-router.js';
+import { type HybridSearchParams, type HybridSearchResult, hybridSearch } from './hybrid.js';
+import {
+  type SearchParams,
+  type SearchResponse,
+  type SearchResult,
+  searchCollection as vectorSearch,
+} from './vector.js';
 
-export interface SearchParams {
-  query: string;
-  collectionId: string;
-  topK?: number;
-  minSimilarity?: number;
+export type { SearchParams, SearchResponse, SearchResult } from './vector.js';
+
+export interface SmartSearchParams extends SearchParams {
+  mode?: 'vector' | 'hybrid';
+  weights?: HybridSearchParams['weights'];
+  rrfK?: number;
 }
 
-export interface SearchResult {
-  id: number;
-  text: string;
-  similarity: number;
-  docId: string;
-  docTitle: string | null;
-  sourceUrl: string | null;
-  metadata: Record<string, unknown> | null;
-  citation: {
-    title: string | null;
-    page?: string | number | null;
-    section?: string | null;
+export interface SmartSearchResult extends SearchResult {
+  vectorScore?: number;
+  bm25Score?: number;
+  fusedScore?: number;
+  source?: HybridSearchResult['source'];
+  trustWeight?: number;
+  recencyWeight?: number;
+}
+
+export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
+  results: SmartSearchResult[];
+  metadata: {
+    searchMode: 'vector' | 'hybrid';
+    vectorCount?: number;
+    bm25Count?: number;
+    fusedCount?: number;
+    embeddingProvider?: EmbeddingProvider;
+    trustScoringApplied?: boolean;
   };
 }
 
-export interface SearchResponse {
-  query: string;
-  results: SearchResult[];
-  totalResults: number;
-  searchTimeMs: number;
-}
+export async function smartSearch(
+  db: Pool,
+  params: SmartSearchParams
+): Promise<SmartSearchResponse> {
+  const mode = params.mode ?? (process.env.SEARCH_MODE === 'hybrid' ? 'hybrid' : 'vector');
+  const hint =
+    params.provider && params.context
+      ? undefined
+      : await inferCollectionEmbeddingHint(db, params.collectionId);
+  const provider = params.provider ?? hint?.provider;
+  const context = params.context ?? hint?.context;
 
-const DEFAULT_TOP_K = 5;
-const DEFAULT_MIN_SIMILARITY = 0.5;
+  if (mode === 'hybrid') {
+    const hybridWeights = resolveHybridWeights(params.weights);
+    const { results, elapsedMs, vectorCount, bm25Count } = await hybridSearch(db, {
+      query: params.query,
+      collectionId: params.collectionId,
+      topK: params.topK,
+      minSimilarity: params.minSimilarity,
+      weights: hybridWeights,
+      rrfK: params.rrfK,
+      provider,
+      context,
+    });
+    let fusedResults: SmartSearchResult[] = results.map((item) => ({
+      ...item,
+      similarity: item.fusedScore,
+    }));
 
-function toVectorLiteral(vector: number[]): string {
-  if (!Array.isArray(vector) || vector.length === 0) {
-    throw new Error('Embedding vector must contain at least one value');
-  }
-
-  return `[${vector.join(',')}]`;
-}
-
-export async function searchCollection(db: Pool, params: SearchParams): Promise<SearchResponse> {
-  const topK = params.topK ?? DEFAULT_TOP_K;
-  const minSimilarity = params.minSimilarity ?? DEFAULT_MIN_SIMILARITY;
-
-  if (!Number.isFinite(topK) || topK <= 0) {
-    throw new Error('topK must be a positive number');
-  }
-
-  const trimmedQuery = params.query.trim();
-  if (trimmedQuery.length === 0) {
-    throw new Error('Query must not be empty');
-  }
-
-  const start = performance.now();
-  const embedding = await embedText(trimmedQuery);
-  const vectorLiteral = toVectorLiteral(embedding);
-
-  const { rows } = await db.query(
-    `
-      SELECT
-        ch.id,
-        ch.text,
-        ch.metadata,
-        ch.doc_id,
-        d.title AS doc_title,
-        d.source_url,
-        (1 - (ch.embedding <=> $1::vector)) AS similarity
-      FROM chunks ch
-      JOIN documents d ON d.id = ch.doc_id
-      WHERE d.collection_id = $2
-        AND ch.embedding IS NOT NULL
-        AND (1 - (ch.embedding <=> $1::vector)) >= $3
-      ORDER BY ch.embedding <=> $1::vector
-      LIMIT $4
-    `,
-    [vectorLiteral, params.collectionId, minSimilarity, topK]
-  );
-
-  const end = performance.now();
-
-  const results: SearchResult[] = rows.map((row) => {
-    const metadata = (row.metadata ?? null) as Record<string, unknown> | null;
-    const rawPage = metadata?.page;
-    const page = typeof rawPage === 'number' || typeof rawPage === 'string' ? rawPage : null;
-    const rawSection = (metadata?.heading ?? metadata?.section) as unknown;
-    const section = typeof rawSection === 'string' ? rawSection : null;
+    const trustApplied = shouldApplyTrustScoring();
+    if (trustApplied) {
+      fusedResults = applyTrustScoring(fusedResults);
+      fusedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
+    }
 
     return {
-      id: row.id as number,
-      text: row.text as string,
-      similarity: Number(row.similarity) || 0,
-      docId: row.doc_id as string,
-      docTitle: (row.doc_title as string | null) ?? null,
-      sourceUrl: (row.source_url as string | null) ?? null,
-      metadata,
-      citation: {
-        title: (row.doc_title as string | null) ?? null,
-        page,
-        section,
+      query: params.query,
+      results: fusedResults,
+      totalResults: fusedResults.length,
+      searchTimeMs: elapsedMs,
+      metadata: {
+        searchMode: 'hybrid',
+        vectorCount,
+        bm25Count,
+        fusedCount: fusedResults.length,
+        embeddingProvider: provider,
+        trustScoringApplied: trustApplied,
       },
     };
+  }
+
+  const vectorResult = await vectorSearch(db, {
+    query: params.query,
+    collectionId: params.collectionId,
+    topK: params.topK,
+    minSimilarity: params.minSimilarity,
+    provider,
+    context,
   });
 
+  const trustApplied = shouldApplyTrustScoring();
+  let rankedResults: SmartSearchResult[] = vectorResult.results;
+
+  if (trustApplied) {
+    rankedResults = applyTrustScoring(vectorResult.results);
+    rankedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
+  }
+
   return {
-    query: trimmedQuery,
-    results,
-    totalResults: results.length,
-    searchTimeMs: Math.round(end - start),
+    ...vectorResult,
+    results: rankedResults,
+    totalResults: rankedResults.length,
+    metadata: {
+      searchMode: 'vector',
+      vectorCount: rankedResults.length,
+      fusedCount: rankedResults.length,
+      embeddingProvider: provider,
+      trustScoringApplied: trustApplied,
+    },
   };
+}
+
+export const searchCollection = vectorSearch;
+
+async function inferCollectionEmbeddingHint(
+  db: Pool,
+  collectionId: string
+): Promise<{ provider?: EmbeddingProvider; context?: ContentContext }> {
+  const { rows } = await db.query<{
+    provider: string | null;
+    doc_type: string | null;
+    language: string | null;
+  }>(
+    `
+      SELECT
+        d.metadata->>'embedding_provider' AS provider,
+        d.metadata->>'doc_type' AS doc_type,
+        d.metadata->>'language' AS language
+      FROM documents d
+      WHERE d.collection_id = $1
+      ORDER BY d.processed_at DESC NULLS LAST, d.created_at DESC
+      LIMIT 1
+    `,
+    [collectionId]
+  );
+
+  if (rows.length === 0) {
+    return {};
+  }
+
+  const row = rows[0];
+  const provider = isEmbeddingProvider(row.provider ?? undefined)
+    ? (row.provider as EmbeddingProvider)
+    : undefined;
+
+  const contextMetadata: Record<string, unknown> = {};
+  if (row.doc_type) {
+    contextMetadata.doc_type = row.doc_type;
+  }
+  if (row.language) {
+    contextMetadata.language = row.language;
+  }
+
+  const context = Object.keys(contextMetadata).length
+    ? deriveContextFromMetadata(contextMetadata)
+    : undefined;
+
+  return { provider, context };
+}
+
+const DEFAULT_VECTOR_WEIGHT = 0.7;
+const DEFAULT_BM25_WEIGHT = 0.3;
+
+function resolveHybridWeights(
+  weights: HybridSearchParams['weights']
+): NonNullable<HybridSearchParams['weights']> {
+  const envVector = Number.parseFloat(process.env.HYBRID_VECTOR_WEIGHT ?? '');
+  const envBm25 = Number.parseFloat(process.env.HYBRID_BM25_WEIGHT ?? '');
+
+  const baseVector = Number.isFinite(envVector) ? envVector : DEFAULT_VECTOR_WEIGHT;
+  const baseBm25 = Number.isFinite(envBm25) ? envBm25 : DEFAULT_BM25_WEIGHT;
+
+  const overrideVector = weights?.vector ?? baseVector;
+  const overrideBm25 = weights?.bm25 ?? baseBm25;
+
+  const sum = overrideVector + overrideBm25;
+  if (!Number.isFinite(sum) || sum <= 0) {
+    return { vector: DEFAULT_VECTOR_WEIGHT, bm25: DEFAULT_BM25_WEIGHT };
+  }
+
+  return {
+    vector: overrideVector / sum,
+    bm25: overrideBm25 / sum,
+  };
+}
+
+function shouldApplyTrustScoring(): boolean {
+  return (process.env.ENABLE_TRUST_SCORING ?? '').toLowerCase() === 'true';
+}
+
+function applyTrustScoring(results: SmartSearchResult[]): SmartSearchResult[] {
+  return results.map((result) => {
+    const metadata = toDocumentMetadata(result.metadata);
+    const trustWeight = computeTrustWeight(metadata);
+    const recencyWeight = computeRecencyWeight(metadata);
+    const trustMultiplier = trustWeight * recencyWeight;
+
+    const similarity = Number(result.similarity ?? 0) * trustMultiplier;
+    const fusedScore =
+      typeof result.fusedScore === 'number'
+        ? result.fusedScore * trustMultiplier
+        : result.fusedScore;
+
+    return {
+      ...result,
+      similarity,
+      fusedScore,
+      trustWeight,
+      recencyWeight,
+    };
+  });
+}
+
+function toDocumentMetadata(metadata: unknown): DocumentMetadata | undefined {
+  if (!metadata || typeof metadata !== 'object') {
+    return undefined;
+  }
+
+  return metadata as DocumentMetadata;
+}
+
+function computeTrustWeight(metadata: DocumentMetadata | undefined): number {
+  const quality = metadata?.source_quality;
+  switch (quality) {
+    case 'official':
+      return 1;
+    case 'verified':
+      return 0.85;
+    case 'community':
+      return 0.6;
+    default:
+      return 0.5;
+  }
+}
+
+function computeRecencyWeight(metadata: DocumentMetadata | undefined): number {
+  const lastVerified = parseTimestamp(metadata?.last_verified);
+  if (!lastVerified) {
+    return 0.7;
+  }
+
+  const now = new Date();
+  let months =
+    (now.getFullYear() - lastVerified.getFullYear()) * 12 +
+    (now.getMonth() - lastVerified.getMonth());
+
+  if (now.getDate() < lastVerified.getDate()) {
+    months -= 1;
+  }
+
+  if (months < 6) {
+    return 1;
+  }
+  if (months < 12) {
+    return 0.9;
+  }
+  return 0.7;
+}
+
+function parseTimestamp(value: string | Date | undefined): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
