@@ -35,8 +35,7 @@ function getOllamaClient(): EmbeddingsClient {
     return cachedClient;
   }
 
-  const host =
-    process.env.OLLAMA_HOST ?? process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
+  const host = process.env.OLLAMA_HOST ?? process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
   cachedClient = new Ollama({ host });
   return cachedClient;
 }

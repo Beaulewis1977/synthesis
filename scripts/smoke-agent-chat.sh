@@ -31,11 +31,11 @@ status="${response##*$'\n'}"
 body="${response%$'\n'*}"
 
 case "${status}" in
-  200)
-    echo "Agent chat smoke test passed."
-    exit 0
-    ;;
-  429)
+          200)
+            echo "Agent chat smoke test passed."
+            echo "${body}"
+            exit 0
+            ;;  429)
     echo "Agent chat responded with 429 rate limit; treating as warning." >&2
     echo "${body}"
     exit 0

@@ -32,7 +32,7 @@ Finished the containerization pass and ran end-to-end checks so the RAG stack, w
 | Build images | `docker compose --profile app build` | ✅ all images build cleanly (Node 22 alpine base cached) |
 | Launch stack | `docker compose --profile app up -d` | ✅ db, ollama, server, web, mcp all healthy |
 | Rebuild server only | `docker compose --profile app up -d --build --force-recreate synthesis-server` | ✅ rebuild picks up code changes |
-| DB migrate | `docker compose exec synthesis-server pnpm --filter @synthesis/db migrate` | ⚠️ tables already existed (expected on warm DB) |
+| DB migrate | `docker compose exec synthesis-server pnpm --filter @synthesis/db migrate` | ℹ️ tables already existed (expected on warm DB) |
 | Collection + ingest | `curl POST /api/collections` → `curl -F ... /api/ingest` | ✅ new collection + doc, pipeline finished (`status: "complete"`) |
 | Vector search | `curl POST /api/search` | ✅ returns ranked chunks + citations from ingested doc |
 | Web UI | `curl http://localhost:5173` | ✅ Vite dev shell served from container |

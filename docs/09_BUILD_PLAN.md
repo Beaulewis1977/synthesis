@@ -468,7 +468,7 @@ curl -X POST http://localhost:3333/api/agent/chat \
 - Security reviewed
 - Ready to use daily
 
---- 
+---
 ### Phase 10: CI/CD Pipeline
 
 **Goal:** Automate testing and deployment
@@ -573,6 +573,7 @@ Update after each phase:
 | 7 | Docker | ⬜ | | |
 | 8 | Polish | ⬜ | | |
 | 9 | Final Test | ⬜ | | |
+| 10 | CI/CD | ⬜ | | |
 
 Status: ⬜ Not Started | 🟡 In Progress | ✅ Done | ❌ Blocked
 
