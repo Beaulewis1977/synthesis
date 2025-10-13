@@ -1,4 +1,4 @@
-# Phase 9: Build Plan
+# Phase 12: Build Plan
 
 **4-day implementation schedule for re-ranking and synthesis**
 
@@ -515,7 +515,7 @@ touch apps/server/src/services/integration.test.ts
 ```
 
 ```typescript
-describe('Phase 9 Integration', () => {
+describe('Phase 12 Integration', () => {
   it('end-to-end: search → rerank → synthesize', async () => {
     // Insert test docs
     await insertTestDocuments([
@@ -651,7 +651,7 @@ pnpm build
 
 ## 🎯 Acceptance Criteria Validation
 
-Before marking Phase 9 complete, verify:
+Before marking Phase 12 complete, verify:
 
 **Functional:**
 - [ ] Reranking improves precision@5 by 20%+
@@ -737,10 +737,10 @@ curl http://localhost:3333/api/costs/summary
 
 **Tag release:**
 ```bash
-git tag v1.2.0-phase-9
+git tag v1.2.0-phase-12
 git push --tags
 ```
 
 ---
 
-**Phase 9 Complete!** Ready for Phase 10 (Code Intelligence) 🚀
+**Phase 12 Complete!** Ready for Phase 10 (Code Intelligence) 🚀

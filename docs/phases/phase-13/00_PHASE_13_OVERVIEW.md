@@ -1,9 +1,9 @@
-# Phase 10: Code Intelligence & AST-Based Chunking
+# Phase 13: Code Intelligence & AST-Based Chunking
 
 **Version:** 1.0  
 **Date:** 2025-10-11  
 **Status:** Planning  
-**Prerequisites:** Phase 8 & 9 Complete
+**Prerequisites:** Phases 11 & 12 Complete
 
 ---
 
@@ -19,7 +19,7 @@ Implement code-aware chunking using AST parsing to preserve code structure and c
 - Class definitions fragmented
 - No understanding of code relationships
 
-**After Phase 10:** Code-aware intelligent chunking
+**After Phase 13:** Code-aware intelligent chunking
 - ✅ Functions chunk as complete units
 - ✅ Imports preserved with code
 - ✅ Classes stay intact
@@ -324,8 +324,8 @@ interface CodeChunkMetadata extends ChunkMetadata {
 ## 📚 Related Phases
 
 **Prerequisites:**
-- Phase 8: Hybrid search finds code efficiently
-- Phase 9: Re-ranking improves code result quality
+- Phase 11: Hybrid search finds code efficiently
+- Phase 12: Re-ranking improves code result quality
 
 **Enables:**
 - Better code search for 20k+ file projects
@@ -373,7 +373,7 @@ interface CodeChunkMetadata extends ChunkMetadata {
 
 **Your 20,000 File Flutter App:**
 
-**Before Phase 10:**
+**Before Phase 13:**
 ```
 Query: "login authentication"
 → Returns text chunks that might split functions
@@ -381,7 +381,7 @@ Query: "login authentication"
 → Hard to use the code
 ```
 
-**After Phase 10:**
+**After Phase 13:**
 ```
 Query: "login authentication"
 → Returns complete login function

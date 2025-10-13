@@ -1,4 +1,4 @@
-# Phase 8: Frontend Updates
+# Phase 11: Frontend Updates
 
 **UI components for displaying trust scores and recency indicators**
 
@@ -6,7 +6,7 @@
 
 ## 🎯 Overview
 
-Phase 8 backend returns enhanced metadata (`source_quality`, `last_verified`) through `/api/search`. These frontend components display that metadata as visual trust indicators.
+Phase 11 backend returns enhanced metadata (`source_quality`, `last_verified`) through `/api/search`. These frontend components display that metadata as visual trust indicators.
 
 **Components Created:**
 - ✅ `TrustBadge.tsx` - Color-coded trust level badges
@@ -21,14 +21,14 @@ Phase 8 backend returns enhanced metadata (`source_quality`, `last_verified`) th
 
 ## 🎨 Visual Examples
 
-### Before Phase 8:
+### Before Phase 11:
 ```
 [Search Result]
 Title: Flutter State Management Guide
 Description: Learn about Provider and Riverpod...
 ```
 
-### After Phase 8:
+### After Phase 11:
 ```
 [Search Result Card]
 Title: Flutter State Management Guide              [95% match]
@@ -308,7 +308,7 @@ export function RecencyBadge({ date }: RecencyBadgeProps) {
 
 ## 🔌 API Integration
 
-**No new APIs needed!** Backend `/api/search` already returns enhanced metadata after Phase 8 backend implementation:
+**No new APIs needed!** Backend `/api/search` already returns enhanced metadata after Phase 11 backend implementation:
 
 **Endpoint:** `POST /api/search`
 
@@ -571,7 +571,7 @@ const resultNoMetadata = {
 
 **Files modified:**
 - ✅ `apps/web/src/types/index.ts` (Added 3 interfaces)
-- ✅ `docs/phases/phase-8/09_FRONTEND_UPDATES.md` (Comprehensive docs)
+- ✅ `docs/phases/phase-11/09_FRONTEND_UPDATES.md` (Comprehensive docs)
 
 **Testing:**
 - ✅ Trust badges show correct colors for official/verified/community
@@ -672,16 +672,16 @@ These components are ready for:
 
 ## 🔗 Related Documentation
 
-- **Backend Implementation:** `docs/phases/phase-8/00_PHASE_8_OVERVIEW.md`
-- **Metadata Schema:** `docs/phases/phase-8/03_METADATA_SCHEMA.md`
-- **Trust Scoring:** `docs/phases/phase-8/04_TRUST_SCORING.md`
-- **API Changes:** `docs/phases/phase-8/07_API_CHANGES.md`
+- **Backend Implementation:** `docs/phases/phase-11/00_PHASE_11_OVERVIEW.md`
+- **Metadata Schema:** `docs/phases/phase-11/03_METADATA_SCHEMA.md`
+- **Trust Scoring:** `docs/phases/phase-11/04_TRUST_SCORING.md`
+- **API Changes:** `docs/phases/phase-11/07_API_CHANGES.md`
 
 ---
 
 ## ✅ Completion Status
 
-**Phase 8 Frontend Updates: COMPLETE** ✅
+**Phase 11 Frontend Updates: COMPLETE** ✅
 
 All components created, documented, and ready for integration. Type checking passes. No breaking changes to existing code.
 

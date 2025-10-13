@@ -514,9 +514,9 @@ Questions?
 Questions?
 ```
 
-### Phase 8-9: Polish + Testing
+### Phase 11-12: Polish + Testing
 ```
-# Phase 8-9: Polish and Final Testing
+# Phase 11-12: Polish and Final Testing
 
 **Goal:** Production-ready MVP
 **Docs:** `docs/09_BUILD_PLAN.md#day-8-9`

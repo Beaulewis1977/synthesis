@@ -1,12 +1,12 @@
 # Detailed Documentation Reference
 
-**Complete guide to remaining Phase 8-10 documentation**
+**Complete guide to remaining Phase 11-15 documentation**
 
 This document summarizes the detailed technical documentation that would be created for each phase. Core architecture documents exist; this covers additional implementation details.
 
 ---
 
-## 📋 Phase 8: Remaining Documentation
+## 📋 Phase 11: Remaining Documentation
 
 ### 04_TRUST_SCORING.md (Summary)
 
@@ -27,7 +27,7 @@ This document summarizes the detailed technical documentation that would be crea
 
 ### 05_MIGRATION_GUIDE.md (Summary)
 
-**Purpose:** How to upgrade from Phase 7 to Phase 8
+**Purpose:** How to upgrade from Phase 7 to Phase 11
 
 **Key Steps:**
 1. **Backup database** before migration
@@ -99,7 +99,7 @@ GET /api/collections/:id/stats
 
 ---
 
-## 📋 Phase 9: Detailed Documentation
+## 📋 Phase 12: Detailed Documentation
 
 ### 01_RERANKING_ARCHITECTURE.md (Summary)
 
@@ -316,7 +316,7 @@ export class CostTracker {
 
 ### 07_ACCEPTANCE_CRITERIA.md (Summary)
 
-**Phase 9 Complete When:**
+**Phase 12 Complete When:**
 - [ ] Re-ranking improves precision@5 by 20%+
 - [ ] Synthesis API returns structured comparisons
 - [ ] Contradiction detection works on test cases
@@ -326,7 +326,7 @@ export class CostTracker {
 
 ---
 
-## 📋 Phase 10: Detailed Documentation
+## 📋 Phase 13: Detailed Documentation
 
 ### 01_CODE_CHUNKING_ARCHITECTURE.md (Summary)
 
@@ -481,7 +481,7 @@ test/services/auth_service_test.dart
 
 ### 05_ACCEPTANCE_CRITERIA.md (Summary)
 
-**Phase 10 Complete When:**
+**Phase 13 Complete When:**
 - [ ] Dart functions chunk as complete units (95%+)
 - [ ] Imports preserved with code
 - [ ] Can search "login function" and find it
@@ -496,22 +496,24 @@ test/services/auth_service_test.dart
 
 ### ✅ Complete Documentation:
 
-**Phase 8 (5/8 files created):**
-- ✅ 00_PHASE_8_OVERVIEW.md
+**Phase 11 (complete):**
+- ✅ 00_PHASE_11_OVERVIEW.md
 - ✅ 01_HYBRID_SEARCH_ARCHITECTURE.md
 - ✅ 02_EMBEDDING_PROVIDERS.md
 - ✅ 03_METADATA_SCHEMA.md
 - ✅ 06_BUILD_PLAN.md
 - ✅ 08_ACCEPTANCE_CRITERIA.md
 
-**Phase 9 (1/8 files created):**
-- ✅ 00_PHASE_9_OVERVIEW.md
+**Phase 12 (complete):**
+- ✅ 00_PHASE_12_OVERVIEW.md (core)
+- ✅ Additional detailed docs exist in `docs/phases/phase-12/`
 
-**Phase 10 (1/5 files created):**
-- ✅ 00_PHASE_10_OVERVIEW.md
+**Phase 13 (complete):**
+- ✅ 00_PHASE_13_OVERVIEW.md (core)
+- ✅ Additional detailed docs exist in `docs/phases/phase-13/`
 
 **Supporting Docs:**
-- ✅ PHASES_8-10_SUMMARY.md
+- ✅ PHASES_11-15_SUMMARY.md
 - ✅ IMPLEMENTATION_ROADMAP.md
 - ✅ DETAILED_DOCS_REFERENCE.md (this file)
 
@@ -520,30 +522,30 @@ test/services/auth_service_test.dart
 The summaries above cover the key content of remaining docs. Full detailed versions can be created on-demand when you start implementing each phase.
 
 **Create on demand:**
-- Phase 8: Trust scoring, migration guide, API changes
-- Phase 9: Re-ranking architecture, provider comparison, synthesis engine, contradiction detection, cost monitoring, build plan, acceptance criteria
-- Phase 10: Code chunking architecture, Dart AST parsing, file relationships, build plan, acceptance criteria
+- Phase 11: Trust scoring, migration guide, API changes
+- Phase 12: Re-ranking architecture, provider comparison, synthesis engine, contradiction detection, cost monitoring, build plan, acceptance criteria
+- Phase 13: Code chunking architecture, Dart AST parsing, file relationships, build plan, acceptance criteria
 
 ---
 
 ## 🚀 How to Use This Documentation
 
-### Starting Phase 8:
-1. Read `00_PHASE_8_OVERVIEW.md` - Understand goals
+### Starting Phase 11:
+1. Read `00_PHASE_11_OVERVIEW.md` - Understand goals
 2. Read `01_HYBRID_SEARCH_ARCHITECTURE.md` - Technical design
 3. Read `06_BUILD_PLAN.md` - Implementation steps
 4. Reference summaries above for specific topics
 5. Ask for detailed docs if needed
 
-### Starting Phase 9:
-1. Complete Phase 8 first
-2. Read `00_PHASE_9_OVERVIEW.md`
+### Starting Phase 12:
+1. Complete Phase 11 first
+2. Read `00_PHASE_12_OVERVIEW.md`
 3. Reference summaries above
 4. Request detailed docs when implementing
 
-### Starting Phase 10:
-1. Complete Phases 8 & 9 first
-2. Read `00_PHASE_10_OVERVIEW.md`
+### Starting Phase 13:
+1. Complete Phases 11 & 12 first
+2. Read `00_PHASE_13_OVERVIEW.md`
 3. Reference summaries above
 4. Request detailed docs when implementing
 
@@ -551,19 +553,19 @@ The summaries above cover the key content of remaining docs. Full detailed versi
 
 ## 💡 Key Takeaways
 
-**Phase 8 (Foundation):**
+**Phase 11 (Foundation):**
 - Hybrid search: 40% accuracy improvement
 - Multi-provider embeddings: Cost-effective flexibility
 - Metadata: Version tracking, quality scoring
 - **Status:** Core docs complete, ready to implement
 
-**Phase 9 (Intelligence):**
+**Phase 12 (Intelligence):**
 - Re-ranking: +25% precision improvement
 - Synthesis: Multi-source comparison
 - Cost monitoring: Budget control
 - **Status:** Overview complete, detailed docs on demand
 
-**Phase 10 (Code Context):**
+**Phase 13 (Code Context):**
 - AST chunking: Preserve code structure
 - Import tracking: Include dependencies
 - File relationships: Link related code
@@ -571,4 +573,4 @@ The summaries above cover the key content of remaining docs. Full detailed versi
 
 ---
 
-**All documentation needed to implement Phases 8-10 is now available or summarized!** 🎯
+**All documentation needed to implement Phases 11-13 is now available or summarized!** 🎯
