@@ -1,4 +1,4 @@
-# Phase 8: Acceptance Criteria
+# Phase 11: Acceptance Criteria
 
 **Validation checklist before marking complete**
 
@@ -241,7 +241,7 @@
 
 ## ✋ Stop Conditions
 
-**Do NOT mark Phase 8 complete if:**
+**Do NOT mark Phase 11 complete if:**
 
 - ❌ Any breaking changes to existing collections
 - ❌ MCP tools don't work
@@ -305,7 +305,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_rag
 
 ## 📝 Completion Criteria Summary
 
-**Phase 8 is DONE when:**
+**Phase 11 is DONE when:**
 
 1. ✅ Hybrid search works and is faster than 600ms
 2. ✅ Multi-provider embeddings work (Ollama + OpenAI + Voyage)
@@ -318,4 +318,4 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_rag
 9. ✅ Cost <$10/month
 10. ✅ Demo successful
 
-**Tag as `v1.1.0-phase-8` and proceed to Phase 9** 🚀
+**Tag as `v1.1.0-phase-11` and proceed to Phase 9** 🚀

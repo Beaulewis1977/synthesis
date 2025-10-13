@@ -1,4 +1,4 @@
-# Phase 9: Re-ranking Architecture
+# Phase 12: Re-ranking Architecture
 
 **Cross-encoder re-ranking for improved result precision**
 

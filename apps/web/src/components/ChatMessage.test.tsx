@@ -97,8 +97,8 @@ describe('ChatMessage', () => {
     render(<ChatMessage message={message} />);
 
     expect(screen.getByText('📚 Sources:')).toBeInTheDocument();
-    expect(screen.getByText(/Getting Started Guide.*p\. 12.*Installation/i)).toBeInTheDocument();
-    expect(screen.getByText(/API Reference.*p\. 45/i)).toBeInTheDocument();
+    expect(screen.getByText(/Getting Started Guide.*p. 12.*Installation/i)).toBeInTheDocument();
+    expect(screen.getByText(/API Reference.*p. 45/i)).toBeInTheDocument();
   });
 
   it('does not render citations section when no citations', () => {

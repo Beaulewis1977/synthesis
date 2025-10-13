@@ -1,4 +1,4 @@
-# Phase 8: Build Plan
+# Phase 11: Build Plan
 
 **4-day implementation schedule**
 
@@ -437,7 +437,7 @@ curl https://api.openai.com/v1/models \
 
 ## ✅ Sign-Off
 
-**Before marking Phase 8 complete:**
+**Before marking Phase 11 complete:**
 
 1. **Demo hybrid search:**
    ```bash
@@ -467,10 +467,10 @@ curl https://api.openai.com/v1/models \
 
 4. **Tag release:**
    ```bash
-   git tag v1.1.0-phase-8
+   git tag v1.1.0-phase-11
    git push --tags
    ```
 
 ---
 
-**Phase 8 Complete!** Ready for Phase 9 (Re-ranking) 🚀
+**Phase 11 Complete!** Ready for Phase 9 (Re-ranking) 🚀
