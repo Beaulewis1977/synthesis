@@ -266,7 +266,7 @@ grep -n "Phase 8-9" docs/15_AGENT_PROMPTS.md
 
 **Check existing milestones:**
 ```bash
-gh api repos/beaulewis1977/synthesis/milestones --jq '.[] | "\(.number): \(.title)''
+gh api repos/beaulewis1977/synthesis/milestones --jq '.[] | "\(.number): \(.title)"'
 ```
 
 **Expected existing milestones:**
