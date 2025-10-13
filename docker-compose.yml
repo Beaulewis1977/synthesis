@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # PostgreSQL with pgvector
   synthesis-db:
@@ -58,7 +56,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OLLAMA_HOST=http://synthesis-ollama:11434
       - NODE_ENV=development
-      - PORT=3333
+      - SERVER_PORT=3333
       - STORAGE_PATH=/app/storage
     ports:
       - "3333:3333"
@@ -87,7 +85,7 @@ services:
     container_name: synthesis-web
     restart: unless-stopped
     environment:
-      - VITE_API_URL=http://localhost:3333
+      - VITE_API_URL=http://synthesis-server:3333
     ports:
       - "5173:5173"
     volumes:
@@ -116,7 +114,7 @@ services:
     depends_on:
       - synthesis-server
     environment:
-      - API_URL=http://synthesis-server:3333
+      - BACKEND_API_URL=http://synthesis-server:3333
       - MCP_PORT=3334
       - MCP_MODE=${MCP_MODE:-stdio}
     ports:

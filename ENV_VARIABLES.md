@@ -53,6 +53,8 @@ This document lists all environment variables used in the Synthesis RAG applicat
 |----------|-------------|---------|---------|
 | `VITE_API_URL` | API proxy target | `http://localhost:3333` | Web (Vite) |
 
+> **Docker note:** `docker-compose.yml` overrides `BACKEND_API_URL` and `VITE_API_URL` to use the internal service name (`http://synthesis-server:3333`) so containers communicate on the bridge network while hosts continue to access the stack via `http://localhost`.
+
 ## File Locations
 
 Environment variables are read from:
@@ -80,7 +82,10 @@ apiKey: process.env.ANTHROPIC_API_KEY
 options.embeddingModel ?? process.env.EMBEDDING_MODEL ?? 'nomic-embed-text'
 
 // pipeline/embed.ts (line 38)
-const host = process.env.OLLAMA_HOST ?? 'http://localhost:11434'
+const host =
+  process.env.OLLAMA_HOST ??
+  process.env.OLLAMA_BASE_URL ??
+  'http://synthesis-ollama:11434'
 
 // agent/utils/storage.ts & routes/ingest.ts (lines 4, 9)
 const STORAGE_ROOT = process.env.STORAGE_PATH || './storage'
