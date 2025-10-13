@@ -24,6 +24,29 @@ export interface Document {
   updated_at: string;
 }
 
+// Search-related types for Phase 8
+export interface SearchResultMetadata {
+  source_quality?: 'official' | 'verified' | 'community' | string | null;
+  last_verified?: string | Date | null;
+  [key: string]: unknown;
+}
+
+export interface SearchResult {
+  id: number;
+  text: string;
+  similarity: number;
+  doc_title: string | null;
+  source_url: string | null;
+  metadata?: SearchResultMetadata | null;
+}
+
+export interface SearchResponse {
+  query: string;
+  results: SearchResult[];
+  total_results: number;
+  search_time_ms: number;
+}
+
 export interface CollectionsResponse {
   collections: Collection[];
 }
