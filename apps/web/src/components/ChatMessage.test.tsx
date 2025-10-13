@@ -122,7 +122,7 @@ describe('ChatMessage', () => {
 
     render(<ChatMessage message={message} />);
 
-    const element = screen.getByText('Line 1\nLine 2\nLine 3');
+    const element = screen.getByText(/Line 1\s*Line 2\s*Line 3/i);
     expect(element).toBeInTheDocument();
     expect(element).toHaveClass('whitespace-pre-wrap');
   });

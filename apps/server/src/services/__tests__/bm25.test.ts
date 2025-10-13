@@ -104,4 +104,19 @@ describe('bm25Search', () => {
       30,
     ]);
   });
+
+  it('falls back to default language when FTS_LANGUAGE is empty', async () => {
+    process.env.FTS_LANGUAGE = '   ';
+    const mockQuery = vi.fn().mockResolvedValue({ rows: [] });
+    const db = { query: mockQuery } as unknown as Pick<Pool, 'query'>;
+
+    await bm25Search(db as Pool, { query: 'flutter', collectionId: 'collection-1' });
+
+    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [
+      'english',
+      'flutter:*',
+      'collection-1',
+      30,
+    ]);
+  });
 });
