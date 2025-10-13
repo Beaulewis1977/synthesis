@@ -44,3 +44,6 @@ rovo-review.md
 .gemini/
 gha-creds-*.json
 .github/workflows/gemini-scheduled-triage.yml
+
+# Tool-specific directories
+.roo/

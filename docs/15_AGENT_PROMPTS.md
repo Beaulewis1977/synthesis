@@ -494,21 +494,22 @@ Questions?
 ```
 # Phase 7: Docker Integration
 
-**Goal:** Everything runs in Docker
-**Docs:** `docs/09_BUILD_PLAN.md#day-7`, `docs/10_ENV_SETUP.md`
+**Goal:** Everything runs in Docker, fully tested.
+**Docs:** `docs/09_BUILD_PLAN.md#phase-7-docker--testing`, `docs/10_ENV_SETUP.md`
 
 ## What to Build:
-1. Create Dockerfiles for server, web, mcp
-2. Create docker-compose.yml with clear container names
-3. Test `docker compose up`
-4. Verify all services healthy
-
-**Container names:**
-- synthesis-db
-- synthesis-ollama
-- synthesis-server
-- synthesis-web
-- synthesis-mcp
+1.  **Create Dockerfiles** for the `server`, `web`, and `mcp` applications.
+2.  **Complete `docker-compose.yml`** with services for all components.
+    *   Use the container names: `synthesis-db`, `synthesis-ollama`, `synthesis-server`, `synthesis-web`, `synthesis-mcp`.
+    *   Configure the `synthesis-ollama` service to use GPU acceleration if available on the host.
+3.  **Test the build and startup:** Run `docker compose build` and `docker compose up`.
+4.  **Perform End-to-End Testing:**
+    *   Verify all services are healthy and communicating.
+    *   Upload multiple documents through the web UI.
+    *   Initiate a chat and confirm the agent provides responses with correct citations.
+    *   Test the MCP server integration from both an IDE and another client.
+    *   Confirm that you can successfully toggle between the Claude and Ollama models for the agent's backend.
+5.  **Document any bugs** or issues found during testing.
 
 Questions?
 ```
