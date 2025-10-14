@@ -14,6 +14,7 @@ import { agentRoutes } from './routes/agent.js';
 import { collectionRoutes } from './routes/collections.js';
 import { ingestRoutes } from './routes/ingest.js';
 import { searchRoutes } from './routes/search.js';
+import { synthesisRoutes } from './routes/synthesis.js';
 
 const PORT = Number(process.env.SERVER_PORT) || 3333;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -58,6 +59,7 @@ await fastify.register(multipart, {
 // Register routes
 await fastify.register(collectionRoutes);
 await fastify.register(searchRoutes);
+await fastify.register(synthesisRoutes);
 await fastify.register(agentRoutes);
 await fastify.register(ingestRoutes);
 

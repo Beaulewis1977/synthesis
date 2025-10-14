@@ -37,8 +37,13 @@ let bgePipelinePromise: Promise<TextClassificationPipeline> | null = null;
 
 export function selectRerankerProvider(override?: RerankerProvider): RerankerProvider {
   const provider = normalizeProvider(override ?? configuredProvider);
+  const cohereKeyRaw = process.env.COHERE_API_KEY;
+  const cohereKey = cohereKeyRaw ? cohereKeyRaw.trim() : '';
 
-  if (provider === 'cohere' && !process.env.COHERE_API_KEY) {
+  if (
+    provider === 'cohere' &&
+    (!cohereKey || cohereKey.length === 0 || cohereKey.toLowerCase() === 'undefined')
+  ) {
     return FALLBACK_PROVIDER;
   }
 
