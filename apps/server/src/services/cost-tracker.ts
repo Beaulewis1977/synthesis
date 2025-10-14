@@ -188,6 +188,39 @@ export class CostTracker {
     }));
   }
 
+  async getRecentAlerts(limit = 10): Promise<
+    Array<{
+      id: number;
+      alert_type: string;
+      threshold_usd: number;
+      current_spend_usd: number;
+      period: string;
+      triggered_at: Date;
+      acknowledged: boolean;
+    }>
+  > {
+    const cappedLimit = Math.max(1, Math.min(limit, 50));
+    const result = await this.db.query(
+      `
+        SELECT id, alert_type, threshold_usd, current_spend_usd, period, triggered_at, acknowledged
+        FROM budget_alerts
+        ORDER BY triggered_at DESC
+        LIMIT $1
+      `,
+      [cappedLimit]
+    );
+
+    return result.rows.map((row) => ({
+      id: Number(row.id),
+      alert_type: row.alert_type,
+      threshold_usd: Number(row.threshold_usd ?? 0),
+      current_spend_usd: Number(row.current_spend_usd ?? 0),
+      period: row.period,
+      triggered_at: new Date(row.triggered_at),
+      acknowledged: Boolean(row.acknowledged),
+    }));
+  }
+
   /**
    * Send budget alert
    */

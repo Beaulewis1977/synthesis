@@ -1,27 +1,45 @@
 import { getPool } from '@synthesis/db';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
+import type { CostTracker } from '../services/cost-tracker.js';
 import { getCostTracker } from '../services/cost-tracker.js';
 
-export const costRoutes: FastifyPluginAsync = async (app) => {
-  const db = getPool();
-  const costTracker = getCostTracker(db);
+export async function registerCostRoutes(
+  app: FastifyInstance,
+  tracker?: CostTracker
+): Promise<void> {
+  const costTracker = tracker ?? getCostTracker(getPool());
 
   // Get current month summary
   app.get('/api/costs/summary', async (_request, _reply) => {
     const monthlySpend = await costTracker.getMonthlySpend();
     const breakdown = await costTracker.getCostBreakdown();
     const rawBudget = process.env.MONTHLY_BUDGET_USD;
-    let budget = Number.parseFloat(rawBudget ?? '');
+    const fallbackBudget = 10;
+    let budget = fallbackBudget;
+    let percentageUsed = 0;
 
-    if (!Number.isFinite(budget) || budget <= 0) {
-      app.log?.warn?.(
-        { rawBudget },
-        'Invalid MONTHLY_BUDGET_USD env value. Falling back to default budget of 10 USD.'
-      );
-      budget = 10;
+    const normalized = rawBudget?.trim();
+    const lowerNormalized = normalized?.toLowerCase();
+    const hasConfiguredBudget =
+      normalized &&
+      normalized !== '' &&
+      lowerNormalized !== 'undefined' &&
+      lowerNormalized !== 'null';
+    const parsedBudget = hasConfiguredBudget ? Number.parseFloat(normalized) : Number.NaN;
+
+    if (Number.isFinite(parsedBudget) && parsedBudget > 0) {
+      budget = parsedBudget;
+      percentageUsed = (monthlySpend / budget) * 100;
+    } else {
+      if (hasConfiguredBudget) {
+        app.log?.warn?.(
+          { rawBudget },
+          'Invalid MONTHLY_BUDGET_USD env value. Falling back to default budget of 10 USD.'
+        );
+      }
+      budget = fallbackBudget;
+      percentageUsed = 0;
     }
-
-    const percentageUsed = budget === 0 ? 0 : (monthlySpend / budget) * 100;
 
     return {
       current_spend: monthlySpend,
@@ -66,12 +84,17 @@ export const costRoutes: FastifyPluginAsync = async (app) => {
 
   // Get recent alerts
   app.get('/api/costs/alerts', async (_request, _reply) => {
-    const result = await db.query(`
-      SELECT * FROM budget_alerts
-      ORDER BY triggered_at DESC
-      LIMIT 10
-    `);
+    const alerts = await costTracker.getRecentAlerts(10);
+    for (const alert of alerts as Array<{ triggered_at: string | Date }>) {
+      if (alert.triggered_at instanceof Date) {
+        alert.triggered_at = alert.triggered_at.toISOString();
+      }
+    }
 
-    return { alerts: result.rows };
+    return { alerts };
   });
+}
+
+export const costRoutes: FastifyPluginAsync = async (app) => {
+  await registerCostRoutes(app);
 };
