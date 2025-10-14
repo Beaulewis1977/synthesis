@@ -1,5 +1,7 @@
+import { getPool } from '@synthesis/db';
 import type { TextClassificationPipeline } from '@xenova/transformers';
 import { CohereClient } from 'cohere-ai';
+import { getCostTracker } from './cost-tracker.js';
 
 export type RerankerProvider = 'cohere' | 'bge' | 'none';
 
@@ -114,6 +116,9 @@ async function rerankWithCohere<T extends RerankCandidate>(
     model: 'rerank-english-v3.0',
     returnDocuments: false,
   });
+
+  // Track cost (Cohere charges per request, not per token)
+  trackRerankCost().catch((err) => console.error('Cost tracking failed:', err));
 
   const scored = response.results
     .map((entry) => {
@@ -259,4 +264,24 @@ function clampPositiveInt(
   }
 
   return Math.min(parsed, max);
+}
+
+/**
+ * Track Cohere reranking cost (async, non-blocking)
+ * Cohere charges per request, not per token
+ */
+async function trackRerankCost(): Promise<void> {
+  try {
+    const db = getPool();
+    const costTracker = getCostTracker(db);
+
+    await costTracker.track({
+      provider: 'cohere',
+      operation: 'rerank',
+      tokens: 1, // Cohere charges per request
+      model: 'rerank-english-v3.0',
+    });
+  } catch (err) {
+    console.error('Cost tracking failed:', err);
+  }
 }

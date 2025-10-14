@@ -1,4 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { getPool } from '@synthesis/db';
+import { getCostTracker } from './cost-tracker.js';
 
 export interface ContradictionSource {
   title: string | null;
@@ -150,6 +152,9 @@ async function analyzePair(
       },
       signal ? { signal } : undefined
     );
+
+    // Track cost using actual token counts from Anthropic
+    trackContradictionCost(response).catch((err) => console.error('Cost tracking failed:', err));
 
     const content = extractTextContent(response);
     if (!content) {
@@ -345,4 +350,31 @@ function tokenize(text: string): Set<string> {
       .map((term) => term.trim())
       .filter(Boolean)
   );
+}
+
+/**
+ * Track Anthropic API cost (async, non-blocking)
+ * Uses actual token counts from Anthropic response.usage
+ */
+async function trackContradictionCost(response: Anthropic.Message): Promise<void> {
+  try {
+    const db = getPool();
+    const costTracker = getCostTracker(db);
+
+    const inputTokens = response.usage?.input_tokens ?? 0;
+    const outputTokens = response.usage?.output_tokens ?? 0;
+
+    await costTracker.track({
+      provider: 'anthropic',
+      operation: 'chat',
+      tokens: inputTokens + outputTokens,
+      model: DEFAULT_MODEL,
+      metadata: {
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+      },
+    });
+  } catch (err) {
+    console.error('Cost tracking failed:', err);
+  }
 }

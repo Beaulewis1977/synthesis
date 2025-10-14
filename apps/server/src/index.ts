@@ -12,6 +12,7 @@ import { closePool, getPool } from '@synthesis/db';
 import Fastify from 'fastify';
 import { agentRoutes } from './routes/agent.js';
 import { collectionRoutes } from './routes/collections.js';
+import { costRoutes } from './routes/costs.js';
 import { ingestRoutes } from './routes/ingest.js';
 import { searchRoutes } from './routes/search.js';
 import { synthesisRoutes } from './routes/synthesis.js';
@@ -60,6 +61,7 @@ await fastify.register(multipart, {
 await fastify.register(collectionRoutes);
 await fastify.register(searchRoutes);
 await fastify.register(synthesisRoutes);
+await fastify.register(costRoutes);
 await fastify.register(agentRoutes);
 await fastify.register(ingestRoutes);
 
