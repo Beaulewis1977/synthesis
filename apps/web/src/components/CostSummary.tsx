@@ -26,7 +26,7 @@ export function CostSummary({ current, budget, percentage, remaining }: CostSumm
           className={`h-2 rounded-full ${progressColor}`}
           style={{ width: `${Math.min(percentage, 100)}%` }}
           role="progressbar"
-          aria-valuenow={percentage}
+          aria-valuenow={Math.min(percentage, 100)}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-label={`${percentage.toFixed(1)}% of budget used`}

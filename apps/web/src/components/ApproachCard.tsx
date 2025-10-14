@@ -35,6 +35,8 @@ export function ApproachCard({ approach, isRecommended }: ApproachCardProps) {
         <div className="flex items-center gap-xs">
           <span
             className="text-lg"
+            role="img"
+            aria-label={`${stars} out of 5 stars, ${(approach.consensusScore * 100).toFixed(0)}% consensus`}
             title={`Consensus: ${(approach.consensusScore * 100).toFixed(0)}%`}
           >
             {fullStars}

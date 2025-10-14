@@ -31,7 +31,21 @@ export function BudgetAlerts() {
                 <Icon className={`flex-shrink-0 ${textColor}`} size={20} />
                 <div className="flex-1">
                   <p className={`font-medium ${textColor}`}>
-                    {isLimitReached ? '🚨 Budget Limit Reached' : '⚠️ 80% Budget Warning'}
+                    {isLimitReached ? (
+                      <>
+                        <span role="img" aria-label="Alert">
+                          🚨
+                        </span>{' '}
+                        Budget Limit Reached
+                      </>
+                    ) : (
+                      <>
+                        <span role="img" aria-label="Warning">
+                          ⚠️
+                        </span>{' '}
+                        80% Budget Warning
+                      </>
+                    )}
                   </p>
                   <p className="text-sm text-text-secondary mt-xs">
                     ${alert.current_spend_usd.toFixed(2)} of ${alert.threshold_usd.toFixed(2)} used

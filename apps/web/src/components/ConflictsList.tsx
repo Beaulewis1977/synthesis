@@ -12,7 +12,9 @@ export function ConflictsList({ conflicts }: ConflictsListProps) {
   return (
     <div className="card bg-yellow-50 border-2 border-warning">
       <h3 className="text-lg font-semibold text-text-primary mb-md flex items-center gap-sm">
-        <span className="text-xl">⚠️</span>
+        <span className="text-xl" role="img" aria-label="Warning icon">
+          ⚠️
+        </span>
         Contradictions Found ({conflicts.length})
       </h3>
 
@@ -39,7 +41,10 @@ export function ConflictsList({ conflicts }: ConflictsListProps) {
               {/* Topic and severity */}
               <div className="flex items-start justify-between mb-md">
                 <h4 className="font-semibold text-text-primary">{conflict.topic}</h4>
-                <span className="text-xs font-medium px-2 py-1 bg-white rounded">
+                <span
+                  className="text-xs font-medium px-2 py-1 bg-white rounded"
+                  aria-label={`Severity: ${conflict.severity}`}
+                >
                   {severityLabels[conflict.severity]}
                 </span>
               </div>
