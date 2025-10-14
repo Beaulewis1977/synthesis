@@ -191,22 +191,27 @@ export async function synthesizeResults(
   const groups = await clusterResults(results);
   
   // 2. Detect contradictions
-  const conflicts = await detectContradictions(groups);
+  const approaches = groups.map(g => ({
+    method: g.topic,
+    sources: g.results,
+    consensus_score: calculateConsensus(g),
+    summary: generateSummary(g),
+  }));
+  const conflicts = await detectContradictions(approaches);
   
   // 3. Generate synthesis
   return {
     query,
-    approaches: groups.map(g => ({
-      method: g.topic,
-      sources: g.results,
-      consensus_score: calculateConsensus(g),
-      summary: generateSummary(g),
-    })),
+    approaches,
     conflicts: conflicts,
-    recommended: selectBest(groups),
+    recommended: selectBest(approaches),
   };
 }
 ```
+
+API notes:
+- `POST /api/synthesis/compare` requires feature flag `ENABLE_SYNTHESIS=true`; otherwise returns 404 (disabled).
+- Accepts `top_k`; backend defaults to 50 when omitted. Frontend examples often use `top_k: 15` for responsiveness.
 
 **LLM Prompt for Contradictions:**
 ```typescript

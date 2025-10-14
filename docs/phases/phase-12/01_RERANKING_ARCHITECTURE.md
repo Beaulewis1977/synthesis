@@ -168,6 +168,8 @@ async function rerankWithProvider(
 }
 ```
 
+Note: `searchWithReranking(params)` is db-less at call sites for simplicity. The snippet's internal `hybridSearch(db, ...)` implies a module-level or injected `db` inside the service per your project's DI pattern.
+
 ---
 
 ### 2. Cohere Integration
@@ -379,7 +381,6 @@ export async function rerankWithBGEBatched(
 import { rerankResults } from './reranker.js';
 
 export async function searchWithReranking(
-  db: Pool,
   params: SearchParams & { rerank?: boolean; rerankTopK?: number }
 ): Promise<SearchResult[]> {
   // 1. Get hybrid search results (top 50)
@@ -412,7 +413,7 @@ export async function searchWithReranking(
 app.post('/api/search', async (request, reply) => {
   const body = SearchSchema.parse(request.body);
   
-  const results = await searchWithReranking(db, {
+  const results = await searchWithReranking({
     query: body.query,
     collectionId: body.collection_id,
     topK: body.top_k,
@@ -539,14 +540,14 @@ describe('Search with reranking', () => {
     ]);
     
     // Search without reranking
-    const withoutRerank = await searchWithReranking(db, {
+    const withoutRerank = await searchWithReranking({
       query: 'perfect match query',
       collectionId: 'test',
       rerank: false,
     });
     
     // Search with reranking
-    const withRerank = await searchWithReranking(db, {
+    const withRerank = await searchWithReranking({
       query: 'perfect match query',
       collectionId: 'test',
       rerank: true,

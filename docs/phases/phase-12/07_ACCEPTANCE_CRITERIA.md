@@ -124,6 +124,7 @@
   - Cohere reranking <200ms
   - BGE reranking <300ms
   - Synthesis <2 seconds
+    - Measured with `top_k=15` (frontend default). Higher `top_k` may increase latency.
   - Cost tracking non-blocking (<10ms async)
   
 - [ ] **Load**
@@ -206,12 +207,14 @@
 
 - [ ] **Safe Storage**
   - COHERE_API_KEY in .env only
+  - ANTHROPIC_API_KEY in .env only
   - No keys in code or logs
   - Error messages don't expose keys
   
 - [ ] **Graceful Degradation**
   - Works without Cohere key (uses BGE)
   - Works without OpenAI key (uses Ollama)
+  - Works without Anthropic key (skips contradiction detection or returns empty `conflicts`)
   - No crashes on missing keys
 
 ### Error Handling
