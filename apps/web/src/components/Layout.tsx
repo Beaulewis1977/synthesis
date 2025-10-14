@@ -10,12 +10,18 @@ export function Layout() {
             <Link to="/" className="text-xl font-bold text-text-primary">
               Synthesis RAG
             </Link>
-            <nav>
+            <nav className="flex gap-md">
               <Link
                 to="/"
                 className="text-text-secondary hover:text-text-primary transition-colors"
               >
                 Collections
+              </Link>
+              <Link
+                to="/costs"
+                className="text-text-secondary hover:text-text-primary transition-colors"
+              >
+                💰 Costs
               </Link>
             </nav>
           </div>
