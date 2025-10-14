@@ -5,6 +5,7 @@ import type {
   Collection,
   CollectionsResponse,
   DocumentsResponse,
+  SynthesisResponse,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3333';
@@ -115,6 +116,25 @@ class ApiClient {
     return this.request<AgentChatResponse>('/api/agent/chat', {
       method: 'POST',
       body: JSON.stringify(request),
+    });
+  }
+
+  /**
+   * Synthesize search results with multi-source comparison.
+   * Phase 12 feature - requires ENABLE_SYNTHESIS=true on backend.
+   */
+  async synthesizeResults(
+    query: string,
+    collectionId: string,
+    topK = 15
+  ): Promise<SynthesisResponse> {
+    return this.request<SynthesisResponse>('/api/synthesis/compare', {
+      method: 'POST',
+      body: JSON.stringify({
+        query,
+        collection_id: collectionId,
+        top_k: topK,
+      }),
     });
   }
 }

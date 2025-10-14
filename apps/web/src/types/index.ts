@@ -116,3 +116,50 @@ export interface UploadResponse {
     status: string;
   }[];
 }
+
+// Synthesis-related types (Phase 12)
+export interface SynthesisResponse {
+  query: string;
+  approaches: Approach[];
+  conflicts: Conflict[];
+  recommended: Approach | null;
+  metadata: SynthesisMetadata;
+}
+
+export interface Approach {
+  method: string;
+  topic: string;
+  summary: string;
+  consensusScore: number;
+  sources: SynthesizedSource[];
+}
+
+export interface SynthesizedSource {
+  docId: string;
+  docTitle: string | null;
+  sourceUrl: string | null;
+  snippet: string;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface Conflict {
+  topic: string;
+  source_a: ConflictSource;
+  source_b: ConflictSource;
+  severity: 'high' | 'medium' | 'low';
+  difference: string;
+  recommendation: string;
+}
+
+export interface ConflictSource {
+  title: string | null;
+  statement: string;
+  url: string | null;
+}
+
+export interface SynthesisMetadata {
+  total_sources: number;
+  approaches_found: number;
+  conflicts_found: number;
+  synthesis_time_ms: number;
+}

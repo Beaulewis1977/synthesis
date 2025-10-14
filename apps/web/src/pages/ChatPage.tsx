@@ -3,13 +3,18 @@ import { AlertCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChatMessage } from '../components/ChatMessage';
+import { SynthesisView } from '../components/SynthesisView';
 import { apiClient } from '../lib/api';
 import type { ChatMessage as ChatMessageType } from '../types';
+
+type ViewMode = 'chat' | 'synthesis';
 
 export function ChatPage() {
   const { collectionId } = useParams<{ collectionId: string }>();
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('chat');
+  const [lastUserQuery, setLastUserQuery] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const createMessageId = () => {
@@ -101,6 +106,9 @@ export function ChatPage() {
     const trimmedMessage = inputValue.trim();
     if (!trimmedMessage || chatMutation.isPending) return;
 
+    // Store last user query for synthesis view
+    setLastUserQuery(trimmedMessage);
+
     // Add user message to chat immediately
     const userMessage: ChatMessageType = {
       id: createMessageId(),
@@ -123,10 +131,42 @@ export function ChatPage() {
         <Link to="/" className="text-accent hover:underline mb-md inline-block">
           ← Back to Collections
         </Link>
-        <h1 className="text-2xl font-bold text-text-primary">
-          Chatting with: {isCollectionLoading ? '...' : (collection?.name ?? 'Unknown Collection')}
-        </h1>
-        <p className="text-text-secondary mt-sm text-sm">Ask questions about your documents</p>
+        <div className="flex items-start justify-between gap-md">
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-text-primary">
+              Chatting with:{' '}
+              {isCollectionLoading ? '...' : (collection?.name ?? 'Unknown Collection')}
+            </h1>
+            <p className="text-text-secondary mt-sm text-sm">Ask questions about your documents</p>
+          </div>
+          {/* View mode toggle */}
+          <div className="flex gap-sm">
+            <button
+              type="button"
+              onClick={() => setViewMode('chat')}
+              className={`px-md py-sm rounded text-sm font-medium transition-colors ${
+                viewMode === 'chat'
+                  ? 'bg-accent text-white'
+                  : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
+              }`}
+            >
+              Chat View
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('synthesis')}
+              className={`px-md py-sm rounded text-sm font-medium transition-colors ${
+                viewMode === 'synthesis'
+                  ? 'bg-accent text-white'
+                  : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
+              }`}
+              disabled={!lastUserQuery}
+              title={!lastUserQuery ? 'Send a message first to enable synthesis' : 'View synthesis'}
+            >
+              Synthesis View
+            </button>
+          </div>
+        </div>
       </div>
 
       {isCollectionError && (
@@ -152,62 +192,76 @@ export function ChatPage() {
         </div>
       )}
 
-      {/* Chat interface */}
-      <div className="flex-1 card flex flex-col overflow-hidden">
-        {/* Messages area */}
-        <div className="flex-1 overflow-y-auto mb-md px-2">
-          {messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-text-secondary text-center">
-                Start a conversation by typing a message below
-              </p>
-            </div>
-          ) : (
-            <>
-              {messages.map((msg) => (
-                <ChatMessage key={msg.id} message={msg} />
-              ))}
-              {/* Loading indicator */}
-              {isLoading && (
-                <div className="mb-md flex justify-start">
-                  <div className="max-w-[80%] rounded-lg px-4 py-3 bg-bg-secondary text-text-primary border border-border">
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-1">
-                        <span className="animate-bounce">.</span>
-                        <span className="animate-bounce [animation-delay:0.2s]">.</span>
-                        <span className="animate-bounce [animation-delay:0.4s]">.</span>
+      {/* Conditional view rendering */}
+      {viewMode === 'chat' ? (
+        /* Chat interface */
+        <div className="flex-1 card flex flex-col overflow-hidden">
+          {/* Messages area */}
+          <div className="flex-1 overflow-y-auto mb-md px-2">
+            {messages.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-text-secondary text-center">
+                  Start a conversation by typing a message below
+                </p>
+              </div>
+            ) : (
+              <>
+                {messages.map((msg) => (
+                  <ChatMessage key={msg.id} message={msg} />
+                ))}
+                {/* Loading indicator */}
+                {isLoading && (
+                  <div className="mb-md flex justify-start">
+                    <div className="max-w-[80%] rounded-lg px-4 py-3 bg-bg-secondary text-text-primary border border-border">
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1">
+                          <span className="animate-bounce">.</span>
+                          <span className="animate-bounce [animation-delay:0.2s]">.</span>
+                          <span className="animate-bounce [animation-delay:0.4s]">.</span>
+                        </div>
+                        <span className="text-sm text-text-secondary">Thinking</span>
                       </div>
-                      <span className="text-sm text-text-secondary">Thinking</span>
                     </div>
                   </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </>
+                )}
+                <div ref={messagesEndRef} />
+              </>
+            )}
+          </div>
+
+          {/* Input form */}
+          <div className="border-t border-border pt-md">
+            <form onSubmit={handleSubmit} className="flex gap-sm">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Type your message..."
+                className="input flex-1"
+                disabled={isLoading}
+              />
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={isLoading || !inputValue.trim()}
+              >
+                {isLoading ? 'Sending...' : 'Send →'}
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : (
+        /* Synthesis view */
+        <div className="flex-1 overflow-y-auto">
+          {lastUserQuery && collectionId ? (
+            <SynthesisView query={lastUserQuery} collectionId={collectionId} />
+          ) : (
+            <div className="card bg-bg-secondary text-center py-xl">
+              <p className="text-text-secondary">Send a message first to view synthesis results</p>
+            </div>
           )}
         </div>
-
-        {/* Input form */}
-        <div className="border-t border-border pt-md">
-          <form onSubmit={handleSubmit} className="flex gap-sm">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Type your message..."
-              className="input flex-1"
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={isLoading || !inputValue.trim()}
-            >
-              {isLoading ? 'Sending...' : 'Send →'}
-            </button>
-          </form>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
