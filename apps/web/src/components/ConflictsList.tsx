@@ -35,7 +35,7 @@ export function ConflictsList({ conflicts }: ConflictsListProps) {
 
           return (
             <div
-              key={`${conflict.topic}-${conflict.source_a.title}-${conflict.source_b.title}`}
+              key={conflict.id ?? `${conflict.topic}-${conflict.source_a.title}-${conflict.source_b.title}-${index}`}
               className={`border-2 rounded-lg p-md ${severityColors[conflict.severity]}`}
             >
               {/* Topic and severity */}
