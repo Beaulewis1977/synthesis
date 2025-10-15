@@ -41,7 +41,7 @@ export function CostBreakdown({ breakdown }: CostBreakdownProps) {
                 <div
                   tabIndex={0}
                   className="bg-blue-500 h-1.5 rounded-full"
-                  style={{ width: `${percentage}%` }}
+                  style={{ width: `${Math.min(percentage, 100)}%` }}
                   role="progressbar"
                   aria-valuenow={roundedPercentage}
                   aria-valuemin={0}

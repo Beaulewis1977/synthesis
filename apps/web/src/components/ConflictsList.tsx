@@ -28,9 +28,9 @@ export function ConflictsList({ conflicts }: ConflictsListProps) {
           };
 
           const severityLabels = {
-            high: '🚨 High',
-            medium: '⚠️ Medium',
-            low: 'ℹ️ Low',
+            high: 'High',
+            medium: 'Medium',
+            low: 'Low',
           };
 
           return (
