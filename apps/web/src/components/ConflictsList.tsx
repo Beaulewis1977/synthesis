@@ -1,5 +1,17 @@
 import type { Conflict } from '../types';
 
+const SEVERITY_COLORS = {
+  high: 'border-error bg-red-50',
+  medium: 'border-warning bg-yellow-50',
+  low: 'border-gray-400 bg-gray-50',
+} as const;
+
+const SEVERITY_LABELS = {
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
+} as const;
+
 interface ConflictsListProps {
   conflicts: Conflict[];
 }
@@ -19,24 +31,11 @@ export function ConflictsList({ conflicts }: ConflictsListProps) {
       </h3>
 
       <div className="space-y-md">
-        {conflicts.map((conflict) => {
-          // Map severity to visual styling
-          const severityColors = {
-            high: 'border-error bg-red-50',
-            medium: 'border-warning bg-yellow-50',
-            low: 'border-gray-400 bg-gray-50',
-          };
-
-          const severityLabels = {
-            high: 'High',
-            medium: 'Medium',
-            low: 'Low',
-          };
-
+        {conflicts.map((conflict, index) => {
           return (
             <div
               key={conflict.id ?? `${conflict.topic}-${conflict.source_a.title}-${conflict.source_b.title}-${index}`}
-              className={`border-2 rounded-lg p-md ${severityColors[conflict.severity]}`}
+              className={`border-2 rounded-lg p-md ${SEVERITY_COLORS[conflict.severity]}`}
             >
               {/* Topic and severity */}
               <div className="flex items-start justify-between mb-md">
@@ -45,7 +44,7 @@ export function ConflictsList({ conflicts }: ConflictsListProps) {
                   className="text-xs font-medium px-2 py-1 bg-white rounded"
                   aria-label={`Severity: ${conflict.severity}`}
                 >
-                  {severityLabels[conflict.severity]}
+                  {SEVERITY_LABELS[conflict.severity]}
                 </span>
               </div>
 
