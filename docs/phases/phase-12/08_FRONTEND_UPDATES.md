@@ -310,6 +310,8 @@ export default function SearchPage() {
 
 #### 2. `SynthesisView.tsx` (Main synthesis container - 60 lines)
 
+Note: The backend synthesis endpoint accepts `top_k` and defaults to 50 if omitted. The frontend sends `top_k: 15` explicitly for faster UI.
+
 ```tsx
 // apps/web/src/components/SynthesisView.tsx
 
@@ -329,16 +331,17 @@ export function SynthesisView({ query }: SynthesisViewProps) {
         body: JSON.stringify({ 
           query, 
           collection_id: currentCollectionId,
+          // Backend default is 50 when omitted; request 15 for UI responsiveness
+          // to reduce latency and improve user experience
           top_k: 15 
         }),
       }).then(r => r.json()),
-  });
+    });
   
   if (isLoading) return <div>Analyzing sources...</div>;
   if (!data) return null;
   
   return (
-    <div className="space-y-6">
       {/* Approaches */}
       <div className="space-y-4">
         {data.approaches.map((approach: any, i: number) => (

@@ -4,6 +4,13 @@ import type { ContentContext, EmbeddingProvider } from './embedding-router.js';
 import { deriveContextFromMetadata, isEmbeddingProvider } from './embedding-router.js';
 import { type HybridSearchParams, type HybridSearchResult, hybridSearch } from './hybrid.js';
 import {
+  type RerankedResult,
+  type RerankerProvider,
+  getRerankDefaultTopK,
+  getRerankMaxCandidates,
+  rerankResults,
+} from './reranker.js';
+import {
   type SearchParams,
   type SearchResponse,
   type SearchResult,
@@ -16,6 +23,10 @@ export interface SmartSearchParams extends SearchParams {
   mode?: 'vector' | 'hybrid';
   weights?: HybridSearchParams['weights'];
   rrfK?: number;
+  rerank?: boolean;
+  rerankProvider?: RerankerProvider;
+  rerankTopK?: number;
+  rerankMaxCandidates?: number;
 }
 
 export interface SmartSearchResult extends SearchResult {
@@ -25,6 +36,9 @@ export interface SmartSearchResult extends SearchResult {
   source?: HybridSearchResult['source'];
   trustWeight?: number;
   recencyWeight?: number;
+  rerankScore?: number;
+  rerankProvider?: RerankerProvider;
+  originalSimilarity?: number;
 }
 
 export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
@@ -36,6 +50,8 @@ export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
     fusedCount?: number;
     embeddingProvider?: EmbeddingProvider;
     trustScoringApplied?: boolean;
+    reranked?: boolean;
+    rerankProvider?: RerankerProvider;
   };
 }
 
@@ -43,7 +59,9 @@ export async function smartSearch(
   db: Pool,
   params: SmartSearchParams
 ): Promise<SmartSearchResponse> {
-  const mode = params.mode ?? (process.env.SEARCH_MODE === 'hybrid' ? 'hybrid' : 'vector');
+  const rerankRequested = params.rerank === true;
+  const requestedMode = params.mode ?? (process.env.SEARCH_MODE === 'hybrid' ? 'hybrid' : 'vector');
+  const mode = rerankRequested ? 'hybrid' : requestedMode;
   const hint =
     params.provider && params.context
       ? undefined
@@ -53,10 +71,22 @@ export async function smartSearch(
 
   if (mode === 'hybrid') {
     const hybridWeights = resolveHybridWeights(params.weights);
+    const baseTopK = params.topK ?? 10;
+    const candidateCap = rerankRequested
+      ? Math.max(
+          1,
+          Math.min(
+            params.rerankMaxCandidates ?? getRerankMaxCandidates(),
+            getRerankMaxCandidates(),
+            50
+          )
+        )
+      : baseTopK;
+    const hybridTopK = rerankRequested ? Math.max(candidateCap, baseTopK) : baseTopK;
     const { results, elapsedMs, vectorCount, bm25Count } = await hybridSearch(db, {
       query: params.query,
       collectionId: params.collectionId,
-      topK: params.topK,
+      topK: hybridTopK,
       minSimilarity: params.minSimilarity,
       weights: hybridWeights,
       rrfK: params.rrfK,
@@ -69,6 +99,44 @@ export async function smartSearch(
     }));
 
     const trustApplied = shouldApplyTrustScoring();
+
+    if (rerankRequested) {
+      const desiredTopK = Math.max(
+        1,
+        Math.min(params.rerankTopK ?? params.topK ?? getRerankDefaultTopK(), hybridTopK)
+      );
+      const reranked = await rerankResults<SmartSearchResult>(params.query, fusedResults, {
+        provider: params.rerankProvider,
+        topK: desiredTopK,
+        maxCandidates: candidateCap,
+      });
+
+      let rankedResults: SmartSearchResult[] = reranked.map(mapRerankedResult);
+
+      if (trustApplied) {
+        rankedResults = applyTrustScoring(rankedResults);
+      }
+
+      rankedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
+
+      return {
+        query: params.query,
+        results: rankedResults,
+        totalResults: rankedResults.length,
+        searchTimeMs: elapsedMs,
+        metadata: {
+          searchMode: 'hybrid',
+          vectorCount,
+          bm25Count,
+          fusedCount: rankedResults.length,
+          embeddingProvider: provider,
+          trustScoringApplied: trustApplied,
+          reranked: true,
+          rerankProvider: rankedResults[0]?.rerankProvider ?? params.rerankProvider ?? 'none',
+        },
+      };
+    }
+
     if (trustApplied) {
       fusedResults = applyTrustScoring(fusedResults);
       fusedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
@@ -86,6 +154,8 @@ export async function smartSearch(
         fusedCount: fusedResults.length,
         embeddingProvider: provider,
         trustScoringApplied: trustApplied,
+        reranked: false,
+        rerankProvider: params.rerankProvider ?? 'none',
       },
     };
   }
@@ -117,11 +187,21 @@ export async function smartSearch(
       fusedCount: rankedResults.length,
       embeddingProvider: provider,
       trustScoringApplied: trustApplied,
+      reranked: false,
+      rerankProvider: params.rerankProvider ?? 'none',
     },
   };
 }
 
 export const searchCollection = vectorSearch;
+
+function mapRerankedResult(result: RerankedResult<SmartSearchResult>): SmartSearchResult {
+  return {
+    ...result,
+    similarity: result.rerankScore,
+    fusedScore: result.rerankScore,
+  } as SmartSearchResult;
+}
 
 async function inferCollectionEmbeddingHint(
   db: Pool,

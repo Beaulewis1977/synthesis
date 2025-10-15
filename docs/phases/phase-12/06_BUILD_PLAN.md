@@ -26,6 +26,7 @@ Implement as per `01_RERANKING_ARCHITECTURE.md` (~250 lines):
 - Cohere integration
 - BGE integration
 - Error handling & fallbacks
+- Preserve `embedding` on each `SearchResult` (pass-through or reattach after rerank)
 
 ```bash
 # 3. Environment setup
@@ -131,14 +132,14 @@ touch apps/server/src/routes/synthesis.ts
 
 ```typescript
 app.post('/api/synthesis/compare', async (request, reply) => {
-  const { query, collection_id } = request.body;
+  const { query, collection_id, top_k } = request.body;
   
   // Get reranked results
-  const results = await searchWithReranking(db, {
+  const results = await searchWithReranking({
     query,
     collectionId: collection_id,
     rerank: true,
-    topK: 50,
+    topK: top_k ?? 50,
   });
   
   // Synthesize
@@ -151,78 +152,41 @@ app.post('/api/synthesis/compare', async (request, reply) => {
 **Afternoon (3 hours): Contradiction Detection**
 
 ```bash
-# 1. Implement contradiction detector
-# Part of synthesis.ts
+# 1. Use contradiction detection service
+# apps/server/src/services/contradiction-detection.ts (single source of truth)
 ```
 
-**LLM-based detection:**
+**LLM-based detection (via service):**
 ```typescript
-async function detectContradictions(
-  approaches: Approach[]
-): Promise<Conflict[]> {
-  const conflicts: Conflict[] = [];
-  
-  // Compare approaches pairwise
-  for (let i = 0; i < approaches.length; i++) {
-    for (let j = i + 1; j < approaches.length; j++) {
-      const conflict = await compareApproaches(
-        approaches[i],
-        approaches[j]
-      );
-      
-      if (conflict) {
-        conflicts.push(conflict);
-      }
-    }
-  }
-  
-  return conflicts;
-}
+import { detectContradictions } from '../services/contradiction-detection.js';
 
-async function compareApproaches(
-  a: Approach,
-  b: Approach
-): Promise<Conflict | null> {
-  // Use Claude to detect contradictions
-  const prompt = `
-Compare these two approaches and identify if they conflict:
-
-Approach A: ${a.summary}
-Source: ${a.sources[0].docTitle} (${a.sources[0].metadata?.source_quality})
-
-Approach B: ${b.summary}
-Source: ${b.sources[0].docTitle} (${b.sources[0].metadata?.source_quality})
-
-Are they contradictory? Respond in JSON:
-{
-  "contradictory": boolean,
-  "severity": "high" | "medium" | "low",
-  "difference": "explanation",
-  "recommendation": "which to prefer"
-}
-  `;
-  
-  const response = await claude.complete(prompt, { maxTokens: 200 });
-  const analysis = JSON.parse(response);
-  
-  if (analysis.contradictory) {
-    return {
-      topic: extractCommonTopic(a, b),
-      source_a: a.sources[0],
-      source_b: b.sources[0],
-      severity: analysis.severity,
-      difference: analysis.difference,
-      recommendation: analysis.recommendation,
-    };
-  }
-  
-  return null;
-}
+// ...after building approaches
+const conflicts = await detectContradictions(approaches);
 ```
 
 ```bash
 # 2. Test synthesis
 touch apps/server/src/services/synthesis.test.ts
+```
+
+### Feature Flag: ENABLE_SYNTHESIS
+
+Add to `.env.local` and `.env.example`:
+
+```bash
+# Synthesis feature flag (default OFF)
+ENABLE_SYNTHESIS=false
+```
+
+Guard the route in `apps/server/src/routes/synthesis.ts`:
+
+```typescript
+app.post('/api/synthesis/compare', async (request, reply) => {
+  if (process.env.ENABLE_SYNTHESIS !== 'true') {
+    return reply.code(404).send({ message: 'Synthesis disabled' });
+  }
+  // ...existing handler
+});
 ```
 
 **End of Day 2 Checklist:**
@@ -234,13 +198,15 @@ touch apps/server/src/services/synthesis.test.ts
 
 ---
 
-### Day 3: Cost Monitoring (5 hours)
+### Day 3: Cost Monitoring (7 hours)
+
+**NOTE:** See `docs/phases/phase-12/DAY_3_FIX_PLAN.md` for complete implementation guide with all integration points.
 
 **Morning (3 hours): Cost Tracking System**
 
 ```bash
-# 1. Create migration
-touch packages/db/migrations/005_cost_tracking.sql
+# 1. Create migration (BOTH tables required)
+touch packages/db/migrations/003_cost_tracking.sql
 ```
 
 ```sql
@@ -253,7 +219,8 @@ CREATE TABLE api_usage (
   cost_usd DECIMAL(10,4) NOT NULL,
   collection_id UUID REFERENCES collections(id),
   user_id TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  metadata JSONB DEFAULT '{}'       -- Additional context (e.g., model name, token split)
 );
 
 CREATE INDEX api_usage_provider_idx ON api_usage(provider);
@@ -266,9 +233,12 @@ CREATE TABLE budget_alerts (
   alert_type TEXT NOT NULL,  -- 'warning' | 'limit_reached'
   threshold_usd DECIMAL(10,2),
   current_spend_usd DECIMAL(10,4),
-  period TEXT,  -- 'daily' | 'monthly'
-  triggered_at TIMESTAMPTZ DEFAULT NOW()
+  period TEXT NOT NULL,  -- 'daily' | 'monthly'
+  triggered_at TIMESTAMPTZ DEFAULT NOW(),
+  acknowledged BOOLEAN DEFAULT FALSE
 );
+
+CREATE INDEX budget_alerts_triggered_idx ON budget_alerts(triggered_at DESC);
 ```
 
 ```bash
@@ -495,13 +465,77 @@ export async function registerCostRoutes(app: FastifyInstance) {
 
 Add: `await registerCostRoutes(app);`
 
+**Critical: Integration Work (2 hours)**
+
+⚠️ **MOST IMPORTANT PHASE - Without this, no costs will be tracked!**
+
+```bash
+# 1. Integrate into embedding pipeline
+# Modify: apps/server/src/pipeline/embed.ts
+```
+
+Add cost tracking after successful embedding:
+- Import `getPool` and `getCostTracker`
+- Create `trackEmbeddingCost()` helper function
+- Call after embedding in `embedText()` (both primary and fallback)
+- Skip tracking for Ollama (free)
+- Use token estimation (~0.75 tokens per word)
+
+```bash
+# 2. Integrate into Cohere reranking
+# Modify: apps/server/src/services/reranker.ts
+```
+
+Add cost tracking after rerank call:
+- Import `getPool` and `getCostTracker`
+- Create `trackRerankCost()` helper function
+- Call in `rerankWithCohere()` after API call
+- Fixed per-request cost ($0.001)
+
+```bash
+# 3. Integrate into Anthropic contradiction detection
+# Modify: apps/server/src/services/contradiction-detection.ts
+```
+
+Add cost tracking after LLM call:
+- Import `getPool` and `getCostTracker`
+- Create `trackContradictionCost()` helper function
+- Call in `analyzePair()` after API call
+- Use actual token counts from `response.usage`
+
+**Integration Pattern:**
+```typescript
+// After successful API call
+trackCost().catch(err => console.error('Cost tracking failed:', err));
+```
+
+**Verification Commands:**
+
+```bash
+# Run migration
+pnpm --filter @synthesis/db migrate
+
+# Run tests
+pnpm --filter @synthesis/server test cost-tracker
+
+# Manual verification
+curl http://localhost:3333/api/costs/summary
+
+# Check database
+psql $DATABASE_URL -c "SELECT * FROM api_usage ORDER BY created_at DESC LIMIT 5;"
+```
+
 **End of Day 3 Checklist:**
-- [ ] Cost tracking table created
-- [ ] CostTracker service implemented
-- [ ] Budget alerts working
+- [ ] Both cost tracking tables created (api_usage + budget_alerts)
+- [ ] CostTracker service implemented with factory pattern
+- [ ] Budget alerts working (80% warning, 100% limit)
 - [ ] Fallback mode activates on limit
 - [ ] Cost API endpoints working
-- [ ] Can query cost breakdown
+- [ ] **CRITICAL: Cost tracking integrated into embed.ts**
+- [ ] **CRITICAL: Cost tracking integrated into reranker.ts**
+- [ ] **CRITICAL: Cost tracking integrated into contradiction-detection.ts**
+- [ ] Tests passing (18+ tests)
+- [ ] Can query cost breakdown and see real costs
 
 ---
 
@@ -525,7 +559,7 @@ describe('Phase 12 Integration', () => {
     ]);
     
     // Search with reranking
-    const results = await searchWithReranking(db, {
+    const results = await searchWithReranking({
       query: 'authentication methods',
       collectionId: 'test',
       rerank: true,
@@ -579,7 +613,7 @@ describe('Phase 12 Integration', () => {
 
 ```bash
 # 2. Performance benchmarks
-touch scripts/benchmark-phase9.ts
+touch scripts/benchmark-phase12.ts
 ```
 
 ```typescript
@@ -593,13 +627,13 @@ const queries = [
 
 for (const query of queries) {
   // Without reranking
-  const withoutRerank = await searchWithReranking(db, {
+  const withoutRerank = await searchWithReranking({
     query,
     rerank: false,
   });
   
   // With reranking
-  const withRerank = await searchWithReranking(db, {
+  const withRerank = await searchWithReranking({
     query,
     rerank: true,
   });

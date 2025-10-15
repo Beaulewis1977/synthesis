@@ -4,7 +4,11 @@ import type {
   ApiError,
   Collection,
   CollectionsResponse,
+  CostAlertsResponse,
+  CostHistoryResponse,
+  CostSummaryResponse,
   DocumentsResponse,
+  SynthesisResponse,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3333';
@@ -116,6 +120,54 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(request),
     });
+  }
+
+  /**
+   * Synthesize search results with multi-source comparison.
+   * Phase 12 feature - requires ENABLE_SYNTHESIS=true on backend.
+   */
+  async synthesizeResults(
+    query: string,
+    collectionId: string,
+    topK = 15
+  ): Promise<SynthesisResponse> {
+    return this.request<SynthesisResponse>('/api/synthesis/compare', {
+      method: 'POST',
+      body: JSON.stringify({
+        query,
+        collection_id: collectionId,
+        top_k: topK,
+      }),
+    });
+  }
+
+  /**
+   * Get current month cost summary with budget information.
+   * Phase 12 feature - cost tracking dashboard.
+   */
+  async getCostSummary(): Promise<CostSummaryResponse> {
+    return this.request<CostSummaryResponse>('/api/costs/summary');
+  }
+
+  /**
+   * Get detailed cost history with optional date range filtering.
+   * Phase 12 feature - cost tracking dashboard.
+   */
+  async getCostHistory(startDate?: string, endDate?: string): Promise<CostHistoryResponse> {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    const query = params.toString();
+    const endpoint = query ? `/api/costs/history?${query}` : '/api/costs/history';
+    return this.request<CostHistoryResponse>(endpoint);
+  }
+
+  /**
+   * Get recent budget alerts.
+   * Phase 12 feature - cost tracking dashboard.
+   */
+  async getCostAlerts(): Promise<CostAlertsResponse> {
+    return this.request<CostAlertsResponse>('/api/costs/alerts');
   }
 }
 

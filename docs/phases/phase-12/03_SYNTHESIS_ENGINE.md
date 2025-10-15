@@ -20,7 +20,7 @@ The Synthesis Engine enables:
 ### High-Level Flow
 
 ```
-Search Results (Top 15 after re-ranking)
+Search Results (Top N after re-ranking; default 50)
   ↓
 Result Clustering
   - Group by topic/approach
@@ -226,7 +226,6 @@ function kMeans(
   return clusters;
 }
 ```
-
 ### Consensus Scoring
 
 ```typescript
@@ -329,14 +328,19 @@ import { synthesizeResults } from '../services/synthesis.js';
 
 export async function registerSynthesisRoutes(app: FastifyInstance) {
   app.post('/api/synthesis/compare', async (request, reply) => {
-    const { query, collection_id, top_k = 15 } = request.body as any;
+    const { query, collection_id, top_k } = request.body as any;
+    
+    // Feature flag guard (default OFF)
+    if (process.env.ENABLE_SYNTHESIS !== 'true') {
+      return reply.code(404).send({ message: 'Synthesis disabled' });
+    }
     
     // 1. Search with re-ranking
-    const results = await searchWithReranking(db, {
+    const results = await searchWithReranking({
       query,
       collectionId: collection_id,
       rerank: true,
-      topK: top_k,
+      topK: top_k ?? 50,
     });
     
     // 2. Synthesize

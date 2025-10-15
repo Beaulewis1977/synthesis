@@ -14,6 +14,13 @@ const SearchBodySchema = z
     minSimilarity: z.number().min(0).max(1).optional(),
     search_mode: z.enum(['vector', 'hybrid']).optional(),
     searchMode: z.enum(['vector', 'hybrid']).optional(),
+    rerank: z.boolean().optional(),
+    rerank_top_k: z.number().int().min(1).max(50).optional(),
+    rerankTopK: z.number().int().min(1).max(50).optional(),
+    rerank_max_candidates: z.number().int().min(1).max(50).optional(),
+    rerankMaxCandidates: z.number().int().min(1).max(50).optional(),
+    rerank_provider: z.enum(['cohere', 'bge', 'none']).optional(),
+    rerankProvider: z.enum(['cohere', 'bge', 'none']).optional(),
   })
   .strict()
   .refine((data) => Boolean(data.collection_id ?? data.collectionId), {
@@ -42,6 +49,13 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       minSimilarity: camelMinSimilarity,
       search_mode: snakeSearchMode,
       searchMode: camelSearchMode,
+      rerank,
+      rerank_top_k: snakeRerankTopK,
+      rerankTopK: camelRerankTopK,
+      rerank_max_candidates: snakeRerankMax,
+      rerankMaxCandidates: camelRerankMax,
+      rerank_provider: snakeRerankProvider,
+      rerankProvider: camelRerankProvider,
     } = validation.data;
 
     const collectionId = (camelCollectionId ?? snakeCollectionId) as string;
@@ -54,6 +68,9 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       envSearchMode === 'vector' || envSearchMode === 'hybrid' ? envSearchMode : undefined;
 
     const searchMode = camelSearchMode ?? snakeSearchMode ?? validatedEnvMode ?? 'vector';
+    const rerankTopK = camelRerankTopK ?? snakeRerankTopK;
+    const rerankMaxCandidates = camelRerankMax ?? snakeRerankMax;
+    const rerankProvider = camelRerankProvider ?? snakeRerankProvider;
 
     try {
       const result = await smartSearch(getPool(), {
@@ -62,6 +79,10 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
         topK,
         minSimilarity,
         mode: searchMode,
+        rerank: rerank ?? false,
+        rerankTopK,
+        rerankMaxCandidates,
+        rerankProvider,
       });
 
       return reply.send({
@@ -88,6 +109,8 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
           bm25_count: result.metadata.bm25Count,
           fused_count: result.metadata.fusedCount,
           embedding_provider: result.metadata.embeddingProvider ?? null,
+          reranked: result.metadata.reranked ?? false,
+          rerank_provider: result.metadata.rerankProvider ?? null,
         },
       });
     } catch (error) {

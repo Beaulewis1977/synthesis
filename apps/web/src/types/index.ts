@@ -116,3 +116,84 @@ export interface UploadResponse {
     status: string;
   }[];
 }
+
+// Synthesis-related types (Phase 12)
+export interface SynthesisResponse {
+  query: string;
+  approaches: Approach[];
+  conflicts: Conflict[];
+  recommended: Approach | null;
+  metadata: SynthesisMetadata;
+}
+
+export interface Approach {
+  method: string;
+  topic: string;
+  summary: string;
+  consensusScore: number;
+  sources: SynthesizedSource[];
+}
+
+export interface SynthesizedSource {
+  docId: string;
+  docTitle: string | null;
+  sourceUrl: string | null;
+  snippet: string;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface Conflict {
+  topic: string;
+  source_a: ConflictSource;
+  source_b: ConflictSource;
+  severity: 'high' | 'medium' | 'low';
+  difference: string;
+  recommendation: string;
+}
+
+export interface ConflictSource {
+  title: string | null;
+  statement: string;
+  url: string | null;
+}
+
+export interface SynthesisMetadata {
+  total_sources: number;
+  approaches_found: number;
+  conflicts_found: number;
+  synthesis_time_ms: number;
+}
+
+// Cost tracking types (Phase 12)
+export interface CostBreakdownItem {
+  provider: string;
+  operation: string;
+  total_cost: number;
+  request_count: number;
+}
+
+export interface CostSummaryResponse {
+  current_spend: number;
+  budget: number;
+  percentage_used: number;
+  remaining: number;
+  breakdown: CostBreakdownItem[];
+}
+
+export interface CostHistoryResponse {
+  history: CostBreakdownItem[];
+}
+
+export interface BudgetAlert {
+  id: number;
+  alert_type: 'warning' | 'limit_reached';
+  threshold_usd: number;
+  current_spend_usd: number;
+  period: string;
+  triggered_at: string;
+  acknowledged: boolean;
+}
+
+export interface CostAlertsResponse {
+  alerts: BudgetAlert[];
+}

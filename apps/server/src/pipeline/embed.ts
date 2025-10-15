@@ -1,5 +1,7 @@
+import { getPool } from '@synthesis/db';
 import { Ollama } from 'ollama';
 import OpenAI from 'openai';
+import { getCostTracker } from '../services/cost-tracker.js';
 import type {
   ContentContext,
   EmbeddingConfig,
@@ -95,6 +97,12 @@ export async function embedText(text: string, options: EmbedOptions = {}): Promi
 
   try {
     const embedding = await generateEmbedding(text, primaryConfig, options);
+
+    // Track cost (async, non-blocking)
+    trackEmbeddingCost(primaryConfig, text, options.context).catch((err) =>
+      console.error('Cost tracking failed:', err)
+    );
+
     return {
       embedding,
       provider: primaryConfig.provider,
@@ -109,6 +117,12 @@ export async function embedText(text: string, options: EmbedOptions = {}): Promi
     }
 
     const embedding = await generateEmbedding(text, fallbackConfig, options);
+
+    // Track fallback cost (async, non-blocking)
+    trackEmbeddingCost(fallbackConfig, text, options.context).catch((err) =>
+      console.error('Cost tracking failed:', err)
+    );
+
     return {
       embedding,
       provider: fallbackConfig.provider,
@@ -335,4 +349,37 @@ async function loadVoyageModule(): Promise<{
   VoyageAIClient: new (options: { apiKey?: string }) => VoyageClient;
 }> {
   return import('@voyageai/voyageai');
+}
+
+/**
+ * Track embedding cost (async, non-blocking)
+ * Skips tracking for free providers (Ollama)
+ */
+async function trackEmbeddingCost(
+  config: EmbeddingConfig,
+  text: string,
+  context?: ContentContext
+): Promise<void> {
+  // Skip tracking for free providers
+  if (config.provider === 'ollama') {
+    return;
+  }
+
+  try {
+    const db = getPool();
+    const costTracker = getCostTracker(db);
+
+    // Rough token estimate: ~0.75 tokens per word
+    const tokens = Math.ceil(text.split(/\s+/).length * 0.75);
+
+    await costTracker.track({
+      provider: config.provider,
+      operation: 'embed',
+      tokens,
+      model: config.model,
+      collectionId: context?.collectionId,
+    });
+  } catch (err) {
+    console.error('Cost tracking failed:', err);
+  }
 }
