@@ -38,7 +38,7 @@ export async function registerCostRoutes(
         );
       }
       budget = fallbackBudget;
-      percentageUsed = 0;
+      percentageUsed = (monthlySpend / budget) * 100;
     }
 
     return {

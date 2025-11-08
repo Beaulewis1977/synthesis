@@ -36,7 +36,7 @@ export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(404).send({ error: 'Collection not found' });
       }
 
-      return reply.send({ collection });
+      return reply.send(collection);
     } catch (error) {
       fastify.log.error(error, 'Failed to get collection');
       return reply.code(500).send({ error: 'Failed to get collection' });
