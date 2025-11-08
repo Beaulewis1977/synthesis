@@ -25,7 +25,6 @@ export type RerankedResult<T extends RerankCandidate> = T & {
 const FALLBACK_PROVIDER: RerankerProvider = 'bge';
 const MAX_SUPPORTED_CANDIDATES = 50;
 
-const configuredProvider = normalizeProvider(process.env.RERANKER_PROVIDER);
 const defaultMaxCandidates = clampPositiveInt(
   process.env.RERANK_MAX_CANDIDATES,
   MAX_SUPPORTED_CANDIDATES,
@@ -37,9 +36,13 @@ const defaultBgeBatchSize = clampPositiveInt(process.env.RERANK_BATCH_SIZE, 50, 
 let cohereClient: CohereClient | null = null;
 let bgePipelinePromise: Promise<TextClassificationPipeline> | null = null;
 
+function getConfiguredProvider(): RerankerProvider {
+  return parseProvider(process.env.RERANKER_PROVIDER) ?? 'none';
+}
+
 export function selectRerankerProvider(override?: RerankerProvider): RerankerProvider {
-  const envOverride = normalizeProvider(process.env.RERANKER_PROVIDER_OVERRIDE);
-  const provider = normalizeProvider(override ?? envOverride ?? configuredProvider);
+  const envOverride = parseProvider(process.env.RERANKER_PROVIDER_OVERRIDE);
+  const provider = override ?? envOverride ?? getConfiguredProvider();
   const cohereKeyRaw = process.env.COHERE_API_KEY;
   const cohereKey = cohereKeyRaw ? cohereKeyRaw.trim() : '';
 
@@ -233,6 +236,13 @@ function extractScore(value: unknown): number {
   }
 
   return 0;
+}
+
+function parseProvider(provider?: string | null): RerankerProvider | undefined {
+  if (!provider || provider.trim() === '') {
+    return undefined;
+  }
+  return normalizeProvider(provider);
 }
 
 function normalizeProvider(provider?: string | null): RerankerProvider {

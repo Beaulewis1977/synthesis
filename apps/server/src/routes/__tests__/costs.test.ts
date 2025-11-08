@@ -46,7 +46,7 @@ describe('Cost Routes - Edge Cases', () => {
       const body = JSON.parse(response.body);
       expect(body.budget).toBe(10);
       expect(body.current_spend).toBe(5.25);
-      expect(body.percentage_used).toBe(0);
+      expect(body.percentage_used).toBe(52.5);
       expect(body.remaining).toBe(4.75);
     });
 
@@ -61,7 +61,7 @@ describe('Cost Routes - Edge Cases', () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.budget).toBe(10);
-      expect(body.percentage_used).toBe(0);
+      expect(body.percentage_used).toBe(52.5);
     });
 
     it('uses default budget when MONTHLY_BUDGET_USD is zero', async () => {
@@ -75,7 +75,7 @@ describe('Cost Routes - Edge Cases', () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.budget).toBe(10);
-      expect(body.percentage_used).toBe(0);
+      expect(body.percentage_used).toBe(52.5);
     });
 
     it('uses default budget when MONTHLY_BUDGET_USD is negative', async () => {
@@ -89,7 +89,7 @@ describe('Cost Routes - Edge Cases', () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.budget).toBe(10);
-      expect(body.percentage_used).toBe(0);
+      expect(body.percentage_used).toBe(52.5);
     });
 
     it('handles valid budget correctly', async () => {
@@ -117,7 +117,7 @@ describe('Cost Routes - Edge Cases', () => {
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      expect(body.percentage_used).toBe(0);
+      expect(body.percentage_used).toBe(52.5);
       expect(Number.isFinite(body.percentage_used)).toBe(true);
     });
   });

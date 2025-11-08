@@ -1,0 +1,8 @@
+### Core Memory Operations
+
+- **Store** - Rich memories with metadata, importance, timestamps, embeddings
+- **Recall** - Hybrid search (vector + keyword + tags + time windows)
+- **Update** - Modify memories, auto-regenerate embeddings
+- **Delete** - Remove from both graph and vector stores
+- **Associate** - Create typed relationships between memories
+- **Filter** - Tag-based queries with prefix/exact matching

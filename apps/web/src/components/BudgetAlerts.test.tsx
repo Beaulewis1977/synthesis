@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import * as api from '../lib/api';
 import { BudgetAlerts } from './BudgetAlerts';
@@ -45,7 +45,8 @@ describe('BudgetAlerts', () => {
 
     render(<BudgetAlerts />, { wrapper: createWrapper() });
 
-    expect(await screen.findByText('⚠️ 80% Budget Warning')).toBeInTheDocument();
+    expect(await screen.findByText('80% Budget Warning')).toBeInTheDocument();
+    expect(screen.getByLabelText('Warning')).toBeInTheDocument();
     expect(screen.getByText(/\$8\.50 of \$10\.00 used/)).toBeInTheDocument();
   });
 
@@ -68,7 +69,8 @@ describe('BudgetAlerts', () => {
 
     render(<BudgetAlerts />, { wrapper: createWrapper() });
 
-    expect(await screen.findByText('🚨 Budget Limit Reached')).toBeInTheDocument();
+    expect(await screen.findByText('Budget Limit Reached')).toBeInTheDocument();
+    expect(screen.getByLabelText('Alert')).toBeInTheDocument();
     expect(screen.getByText(/\$10\.00 of \$10\.00 used/)).toBeInTheDocument();
   });
 
@@ -100,8 +102,8 @@ describe('BudgetAlerts', () => {
 
     render(<BudgetAlerts />, { wrapper: createWrapper() });
 
-    expect(await screen.findByText('⚠️ 80% Budget Warning')).toBeInTheDocument();
-    expect(screen.getByText('🚨 Budget Limit Reached')).toBeInTheDocument();
+    expect(await screen.findByText('80% Budget Warning')).toBeInTheDocument();
+    expect(screen.getByText('Budget Limit Reached')).toBeInTheDocument();
   });
 
   it('renders nothing when no alerts', async () => {
@@ -109,10 +111,9 @@ describe('BudgetAlerts', () => {
 
     const { container } = render(<BudgetAlerts />, { wrapper: createWrapper() });
 
-    // Wait a bit for loading to complete
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    expect(container.firstChild).toBeNull();
+    await waitFor(() => {
+      expect(container.firstChild).toBeNull();
+    });
   });
 
   it('renders nothing while loading', () => {

@@ -143,6 +143,7 @@ export interface SynthesizedSource {
 }
 
 export interface Conflict {
+  id?: string;
   topic: string;
   source_a: ConflictSource;
   source_b: ConflictSource;
