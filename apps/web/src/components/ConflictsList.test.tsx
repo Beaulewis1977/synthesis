@@ -66,8 +66,10 @@ describe('ConflictsList', () => {
   it('displays severity labels correctly', () => {
     render(<ConflictsList conflicts={mockConflicts} />);
 
-    expect(screen.getByText('🚨 High')).toBeInTheDocument();
-    expect(screen.getByText('ℹ️ Low')).toBeInTheDocument();
+    const severityBadges = screen.getAllByText(/^(High|Medium|Low)$/);
+    expect(severityBadges).toHaveLength(2);
+    expect(severityBadges[0]).toHaveTextContent('High');
+    expect(severityBadges[1]).toHaveTextContent('Low');
   });
 
   it('renders difference and recommendation sections', () => {
@@ -110,7 +112,7 @@ describe('ConflictsList', () => {
 
     render(<ConflictsList conflicts={mediumConflict} />);
 
-    expect(screen.getByText('⚠️ Medium')).toBeInTheDocument();
+    expect(screen.getByText(/^Medium$/)).toBeInTheDocument();
   });
 
   it('returns null when conflicts array is empty', () => {

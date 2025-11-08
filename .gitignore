@@ -47,3 +47,4 @@ gha-creds-*.json
 
 # Tool-specific directories
 .roo/
+.kilocode/

@@ -4,7 +4,7 @@
     "enabled": true
   },
   "files": {
-    "ignore": ["dist", ".turbo", "node_modules", ".roo"]
+    "ignore": ["dist", ".turbo", "node_modules", ".roo", ".kilocode", ".gemini"]
   },
   "linter": {
     "enabled": true,
