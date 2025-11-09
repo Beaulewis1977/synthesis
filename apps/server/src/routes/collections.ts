@@ -2,6 +2,7 @@ import {
   createCollection,
   deleteCollection,
   getCollection,
+  getDocumentFileInfo,
   getPool,
   listCollections,
   listDocuments,
@@ -110,18 +111,12 @@ export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       try {
         const db = getPool();
+        const doc = await getDocumentFileInfo(request.params.id);
 
-        // Get document
-        const { rows } = await db.query(
-          'SELECT file_path, collection_id FROM documents WHERE id = $1',
-          [request.params.id]
-        );
-
-        if (rows.length === 0) {
+        if (!doc) {
           return reply.code(404).send({ error: 'Document not found' });
         }
 
-        const doc = rows[0];
         const filePath = doc.file_path;
 
         if (!filePath) {

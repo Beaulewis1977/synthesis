@@ -244,17 +244,31 @@ async function findSiblingFiles(
   collectionId: string,
   filePath: string
 ): Promise<string[]> {
-  const directory = filePath.substring(0, filePath.lastIndexOf('/'));
+  const separatorIndex = filePath.lastIndexOf('/');
+
+  if (separatorIndex === -1) {
+    return [];
+  }
+
+  const directory = filePath.substring(0, separatorIndex);
+  const pattern = `${escapeForLike(directory)}/%`;
 
   // Query documents in same directory
   const { rows } = await db.query(
     `SELECT DISTINCT file_path
     FROM documents
     WHERE collection_id = $1
-      AND file_path LIKE $2
+      AND file_path LIKE $2 ESCAPE '\\'
       AND file_path != $3`,
-    [collectionId, `${directory}/%`, filePath]
+    [collectionId, pattern, filePath]
   );
 
   return rows.map((r) => r.file_path).filter(Boolean);
+}
+
+/**
+ * Escape %, _ and \ so they are treated literally in LIKE comparisons.
+ */
+function escapeForLike(value: string): string {
+  return value.replace(/([\\%_])/g, '\\$1');
 }

@@ -121,6 +121,18 @@ export async function getDocument(id: string): Promise<Document | null> {
   return (result.rows[0] as Document) || null;
 }
 
+export type DocumentFileInfo = Pick<Document, 'file_path' | 'collection_id'>;
+
+/**
+ * Retrieves the file path and collection id for a document without loading the full record.
+ * @param id The UUID of the document.
+ * @returns A promise that resolves to the file info or null if not found.
+ */
+export async function getDocumentFileInfo(id: string): Promise<DocumentFileInfo | null> {
+  const result = await query('SELECT file_path, collection_id FROM documents WHERE id = $1', [id]);
+  return (result.rows[0] as DocumentFileInfo) || null;
+}
+
 /**
  * Creates a new document record in the database.
  * @param doc An object containing the document's properties.
