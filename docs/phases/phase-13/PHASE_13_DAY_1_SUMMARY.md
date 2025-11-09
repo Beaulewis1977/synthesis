@@ -58,7 +58,7 @@ Successfully implemented a regex-based Dart AST parser that extracts imports, fu
 - New code coverage: 95%+ (all extraction functions tested)
 
 ### Test Results
-```
+```text
 ✓ All tests passing (32 passed, 0 failed)
 ✓ No TypeScript errors
 ✓ No linting errors
@@ -255,7 +255,7 @@ class AuthService extends BaseService {
 ```
 
 ### Feature 3: Test Results
-```
+```text
  ✓ src/pipeline/__tests__/dart-analyzer.test.ts (32 tests) 13ms
 
  Test Files  1 passed (1)

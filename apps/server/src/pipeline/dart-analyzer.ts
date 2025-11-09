@@ -63,8 +63,6 @@ function findMatchingBrace(content: string, startIndex: number): number {
   while (i < content.length) {
     const char = content[i];
     const nextChar = content[i + 1] || '';
-    const prevChar = i > 0 ? content[i - 1] : '';
-
     // Handle multi-line comments /* */
     if (!inSingleQuote && !inDoubleQuote) {
       if (char === '/' && nextChar === '*') {
@@ -92,9 +90,9 @@ function findMatchingBrace(content: string, startIndex: number): number {
 
     // Handle string literals (skip if in comment)
     if (!inMultiLineComment) {
-      if (char === "'" && prevChar !== '\\') {
+      if (char === "'" && !isEscaped(content, i)) {
         inSingleQuote = !inSingleQuote;
-      } else if (char === '"' && prevChar !== '\\') {
+      } else if (char === '"' && !isEscaped(content, i)) {
         inDoubleQuote = !inDoubleQuote;
       }
     }
@@ -131,10 +129,9 @@ function parseParameters(paramString: string): string[] {
 
   for (let i = 0; i < paramString.length; i++) {
     const char = paramString[i];
-    const prevChar = i > 0 ? paramString[i - 1] : '';
 
     // Track string state
-    if ((char === "'" || char === '"') && prevChar !== '\\') {
+    if ((char === "'" || char === '"') && !isEscaped(paramString, i)) {
       if (!inString) {
         inString = true;
         stringChar = char;
@@ -196,6 +193,15 @@ function getLineRange(content: string, start: number, end: number): [number, num
   const startLine = beforeStart.split('\n').length;
   const endLine = beforeEnd.split('\n').length;
   return [startLine, endLine];
+}
+
+// Helper: Determine whether the character at index is escaped by backslashes
+function isEscaped(source: string, index: number): boolean {
+  let backslashCount = 0;
+  for (let i = index - 1; i >= 0 && source[i] === '\\'; i--) {
+    backslashCount++;
+  }
+  return backslashCount % 2 === 1;
 }
 
 // Helper: Determine if the given index sits inside an open class declaration

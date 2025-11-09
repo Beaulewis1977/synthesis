@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../models/user.dart';
@@ -18,7 +20,8 @@ class AuthService extends BaseService {
     );
 
     if (response.statusCode == 200) {
-      return User.fromJson(response.body);
+      final Map<String, dynamic> payload = json.decode(response.body) as Map<String, dynamic>;
+      return User.fromJson(payload);
     } else {
       throw Exception('Login failed');
     }
