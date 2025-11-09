@@ -1,3 +1,5 @@
+import type { Pool } from 'pg';
+import { buildFileRelationships } from '../services/file-relationships.js';
 import type { Chunk, ChunkMetadata } from './chunk.js';
 import { parseDartFile } from './dart-analyzer.js';
 
@@ -11,6 +13,10 @@ export interface CodeChunkOptions {
   preserveImports?: boolean;
   /** Track file relationships for dependency graph (Day 3 feature, default: false). */
   trackRelationships?: boolean;
+  /** Database pool for relationship tracking. */
+  db?: Pool;
+  /** Collection ID for relationship tracking. */
+  collectionId?: string;
 }
 
 /**
@@ -199,6 +205,11 @@ async function chunkDartCode(
       index: chunkIndex++,
       metadata,
     });
+  }
+
+  // Track file relationships if enabled
+  if (options.trackRelationships && options.db && options.collectionId) {
+    await buildFileRelationships(options.db, options.collectionId, filePath, ast);
   }
 
   return chunks;

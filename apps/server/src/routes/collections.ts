@@ -2,11 +2,13 @@ import {
   createCollection,
   deleteCollection,
   getCollection,
+  getPool,
   listCollections,
   listDocuments,
 } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { getRelatedFiles } from '../services/file-relationships.js';
 
 const CreateCollectionSchema = z.object({
   name: z.string().min(1).max(255),
@@ -101,4 +103,45 @@ export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(500).send({ error: 'Failed to delete collection' });
     }
   });
+
+  // GET /api/documents/:id/related-files - Get related files for a document
+  fastify.get<{ Params: { id: string } }>(
+    '/api/documents/:id/related-files',
+    async (request, reply) => {
+      try {
+        const db = getPool();
+
+        // Get document
+        const { rows } = await db.query(
+          'SELECT file_path, collection_id FROM documents WHERE id = $1',
+          [request.params.id]
+        );
+
+        if (rows.length === 0) {
+          return reply.code(404).send({ error: 'Document not found' });
+        }
+
+        const doc = rows[0];
+        const filePath = doc.file_path;
+
+        if (!filePath) {
+          return reply.send({
+            file_path: null,
+            related_files: null,
+          });
+        }
+
+        // Get related files
+        const relatedFiles = await getRelatedFiles(db, filePath, doc.collection_id);
+
+        return reply.send({
+          file_path: filePath,
+          related_files: relatedFiles,
+        });
+      } catch (error) {
+        fastify.log.error(error, 'Failed to get related files');
+        return reply.code(500).send({ error: 'Failed to get related files' });
+      }
+    }
+  );
 };
