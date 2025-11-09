@@ -69,7 +69,7 @@ Successfully implemented a code-aware chunking service that uses AST parsing to 
 - New code coverage: 100% of critical paths
 
 ### Test Results
-```
+```console
 ✓ Unit tests: 18/18 passing
 ✓ Integration tests: 15/15 passing
 ✓ All server tests: 176/176 passing (no regressions)
@@ -312,7 +312,7 @@ class AuthService extends BaseService {
 ```
 
 ### Feature 3: Test Results
-```
+```console
  ✓ src/pipeline/__tests__/code-chunker.test.ts (18 tests) 11ms
    ✓ Code Chunker > Dart Code Chunking (9 tests)
    ✓ Code Chunker > File Type Routing (5 tests)

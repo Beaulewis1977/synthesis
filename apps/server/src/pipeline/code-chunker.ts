@@ -124,7 +124,10 @@ async function chunkDartCode(
       }
 
       // Flutter-specific metadata
-      const isWidget = cls.superclass?.includes('Widget') || cls.superclass?.includes('State');
+      const isWidget =
+        cls.superclass === 'StatelessWidget' ||
+        cls.superclass === 'StatefulWidget' ||
+        cls.superclass?.endsWith('Widget');
       const isStateful = cls.superclass === 'StatefulWidget';
       if (isWidget) {
         metadata.is_widget = true;
