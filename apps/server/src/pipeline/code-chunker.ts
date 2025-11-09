@@ -1,5 +1,8 @@
+import type { Pool } from 'pg';
+import { buildFileRelationships } from '../services/file-relationships.js';
 import type { Chunk, ChunkMetadata } from './chunk.js';
 import { parseDartFile } from './dart-analyzer.js';
+import { parseTypeScriptFile } from './ts-analyzer.js';
 
 /**
  * Configuration options for code-aware chunking.
@@ -11,6 +14,10 @@ export interface CodeChunkOptions {
   preserveImports?: boolean;
   /** Track file relationships for dependency graph (Day 3 feature, default: false). */
   trackRelationships?: boolean;
+  /** Database pool for relationship tracking. */
+  db?: Pool;
+  /** Collection ID for relationship tracking. */
+  collectionId?: string;
 }
 
 /**
@@ -201,33 +208,373 @@ async function chunkDartCode(
     });
   }
 
+  // Track file relationships if enabled
+  if (options.trackRelationships && options.db && options.collectionId) {
+    await buildFileRelationships(options.db, options.collectionId, filePath, ast);
+  }
+
   return chunks;
 }
 
 /**
- * Placeholder for TypeScript/TSX chunking (Day 4 implementation).
- * Currently falls back to simple chunking.
+ * Chunks TypeScript/TSX code using the AST parser.
+ * Extracts complete functions, classes, and interfaces with rich metadata.
  */
 async function chunkTypeScriptCode(
   filePath: string,
   content: string,
-  _options: CodeChunkOptions
+  options: CodeChunkOptions
 ): Promise<Chunk[]> {
-  console.warn(`TypeScript chunking not yet implemented for ${filePath}, using simple chunking`);
-  return simpleChunking(content);
+  const ast = await parseTypeScriptFile(content, filePath);
+  const chunks: Chunk[] = [];
+  let chunkIndex = 0;
+
+  // Extract import URIs for preservation
+  const imports = ast.imports.map((i) => i.uri);
+
+  // Chunk top-level functions
+  for (const func of ast.functions) {
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      function_name: func.name,
+      parameters: func.parameters,
+      return_type: func.returnType,
+      line_range: func.lineRange as [number, number],
+      file_path: filePath,
+      language: filePath.endsWith('.tsx') ? 'tsx' : 'typescript',
+      startOffset: func.startOffset,
+      endOffset: func.endOffset,
+    };
+
+    // Add optional fields
+    if (func.docComment) {
+      metadata.doc_comment = func.docComment;
+    }
+    if (options.preserveImports && imports.length > 0) {
+      metadata.imports = imports;
+    }
+
+    // React component detection for TSX files
+    if (filePath.endsWith('.tsx')) {
+      const isComponent =
+        /^[A-Z]/.test(func.name) ||
+        func.returnType?.includes('JSX.Element') ||
+        func.returnType?.includes('ReactElement') ||
+        func.code.includes('return <') ||
+        func.code.includes('return (');
+
+      if (isComponent) {
+        metadata.is_component = true;
+      }
+
+      // Extract hooks usage for all functions (components and custom hooks)
+      const hookPattern = /use[A-Z]\w+/g;
+      const hooks = [...new Set(func.code.match(hookPattern) || [])];
+      if (hooks.length > 0) {
+        metadata.hooks_used = hooks;
+      }
+    }
+
+    chunks.push({
+      text: func.code,
+      index: chunkIndex++,
+      metadata,
+    });
+  }
+
+  // Chunk classes
+  for (const cls of ast.classes) {
+    const lineCount = cls.code.split('\n').length;
+    const maxSize = options.maxChunkSize ?? 100;
+
+    if (lineCount < maxSize) {
+      // Small class: chunk as whole
+      const metadata: ChunkMetadata = {
+        chunk_type: 'code',
+        class_name: cls.name,
+        methods: cls.methods.map((m) => m.name),
+        properties: cls.properties.map((p) => p.name),
+        line_range: cls.lineRange as [number, number],
+        file_path: filePath,
+        language: filePath.endsWith('.tsx') ? 'tsx' : 'typescript',
+        startOffset: cls.startOffset,
+        endOffset: cls.endOffset,
+      };
+
+      // Add TypeScript-specific class metadata
+      if (cls.superclass) {
+        metadata.extends = cls.superclass;
+      }
+      if (cls.interfaces && cls.interfaces.length > 0) {
+        metadata.implements = cls.interfaces;
+      }
+      if (cls.isAbstract) {
+        metadata.is_abstract = cls.isAbstract;
+      }
+
+      // React component detection for class components
+      if (filePath.endsWith('.tsx')) {
+        const isComponent =
+          cls.superclass?.includes('Component') ||
+          cls.superclass?.includes('PureComponent') ||
+          cls.methods.some((m) => m.name === 'render');
+
+        if (isComponent) {
+          metadata.is_component = true;
+          metadata.is_class_component = true;
+        }
+      }
+
+      if (options.preserveImports && imports.length > 0) {
+        metadata.imports = imports;
+      }
+
+      chunks.push({
+        text: cls.code,
+        index: chunkIndex++,
+        metadata,
+      });
+    } else {
+      // Large class: chunk per method
+      for (const method of cls.methods) {
+        const metadata: ChunkMetadata = {
+          chunk_type: 'code',
+          function_name: method.name,
+          class_context: cls.name,
+          parameters: method.parameters,
+          return_type: method.returnType,
+          line_range: method.lineRange as [number, number],
+          file_path: filePath,
+          language: filePath.endsWith('.tsx') ? 'tsx' : 'typescript',
+          startOffset: method.startOffset,
+          endOffset: method.endOffset,
+        };
+
+        if (method.isStatic) {
+          metadata.is_static = method.isStatic;
+        }
+        if (options.preserveImports && imports.length > 0) {
+          metadata.imports = imports;
+        }
+
+        chunks.push({
+          text: method.code,
+          index: chunkIndex++,
+          metadata,
+        });
+      }
+    }
+  }
+
+  // Chunk constants and enums
+  for (const constant of ast.constants) {
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      constant_name: constant.name,
+      constant_type: constant.type,
+      line_range: constant.lineRange as [number, number],
+      file_path: filePath,
+      language: filePath.endsWith('.tsx') ? 'tsx' : 'typescript',
+      startOffset: constant.startOffset,
+      endOffset: constant.endOffset,
+    };
+
+    if (constant.type === 'enum') {
+      metadata.is_enum = true;
+    }
+
+    if (options.preserveImports && imports.length > 0) {
+      metadata.imports = imports;
+    }
+
+    chunks.push({
+      text: constant.code,
+      index: chunkIndex++,
+      metadata,
+    });
+  }
+
+  // Track file relationships if enabled
+  if (options.trackRelationships && options.db && options.collectionId) {
+    await buildFileRelationships(options.db, options.collectionId, filePath, ast);
+  }
+
+  return chunks;
 }
 
 /**
- * Placeholder for JavaScript/JSX chunking.
- * Currently falls back to simple chunking.
+ * Chunks JavaScript/JSX code using the TypeScript parser.
+ * JavaScript is parsed as TypeScript since JS is a subset of TS.
  */
 async function chunkJavaScriptCode(
   filePath: string,
   content: string,
-  _options: CodeChunkOptions
+  options: CodeChunkOptions
 ): Promise<Chunk[]> {
-  console.warn(`JavaScript chunking not yet implemented for ${filePath}, using simple chunking`);
-  return simpleChunking(content);
+  // Use TypeScript parser for JavaScript (JS is subset of TS)
+  const ast = await parseTypeScriptFile(content, filePath);
+  const chunks: Chunk[] = [];
+  let chunkIndex = 0;
+
+  // Extract import URIs for preservation
+  const imports = ast.imports.map((i) => i.uri);
+
+  // Chunk top-level functions
+  for (const func of ast.functions) {
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      function_name: func.name,
+      parameters: func.parameters,
+      return_type: func.returnType,
+      line_range: func.lineRange as [number, number],
+      file_path: filePath,
+      language: filePath.endsWith('.jsx') ? 'jsx' : 'javascript',
+      startOffset: func.startOffset,
+      endOffset: func.endOffset,
+    };
+
+    // Add optional fields
+    if (func.docComment) {
+      metadata.doc_comment = func.docComment;
+    }
+    if (options.preserveImports && imports.length > 0) {
+      metadata.imports = imports;
+    }
+
+    // React component detection for JSX files
+    if (filePath.endsWith('.jsx')) {
+      const isComponent =
+        /^[A-Z]/.test(func.name) ||
+        func.code.includes('return <') ||
+        func.code.includes('return (');
+
+      if (isComponent) {
+        metadata.is_component = true;
+
+        // Extract hooks usage
+        const hookPattern = /use[A-Z]\w+/g;
+        const hooks = [...new Set(func.code.match(hookPattern) || [])];
+        if (hooks.length > 0) {
+          metadata.hooks_used = hooks;
+        }
+      }
+    }
+
+    chunks.push({
+      text: func.code,
+      index: chunkIndex++,
+      metadata,
+    });
+  }
+
+  // Chunk classes
+  for (const cls of ast.classes) {
+    const lineCount = cls.code.split('\n').length;
+    const maxSize = options.maxChunkSize ?? 100;
+
+    if (lineCount < maxSize) {
+      // Small class: chunk as whole
+      const metadata: ChunkMetadata = {
+        chunk_type: 'code',
+        class_name: cls.name,
+        methods: cls.methods.map((m) => m.name),
+        properties: cls.properties.map((p) => p.name),
+        line_range: cls.lineRange as [number, number],
+        file_path: filePath,
+        language: filePath.endsWith('.jsx') ? 'jsx' : 'javascript',
+        startOffset: cls.startOffset,
+        endOffset: cls.endOffset,
+      };
+
+      // Add JavaScript-specific class metadata
+      if (cls.superclass) {
+        metadata.extends = cls.superclass;
+      }
+
+      // React component detection for class components
+      if (filePath.endsWith('.jsx')) {
+        const isComponent =
+          cls.superclass?.includes('Component') ||
+          cls.superclass?.includes('PureComponent') ||
+          cls.methods.some((m) => m.name === 'render');
+
+        if (isComponent) {
+          metadata.is_component = true;
+          metadata.is_class_component = true;
+        }
+      }
+
+      if (options.preserveImports && imports.length > 0) {
+        metadata.imports = imports;
+      }
+
+      chunks.push({
+        text: cls.code,
+        index: chunkIndex++,
+        metadata,
+      });
+    } else {
+      // Large class: chunk per method
+      for (const method of cls.methods) {
+        const metadata: ChunkMetadata = {
+          chunk_type: 'code',
+          function_name: method.name,
+          class_context: cls.name,
+          parameters: method.parameters,
+          return_type: method.returnType,
+          line_range: method.lineRange as [number, number],
+          file_path: filePath,
+          language: filePath.endsWith('.jsx') ? 'jsx' : 'javascript',
+          startOffset: method.startOffset,
+          endOffset: method.endOffset,
+        };
+
+        if (method.isStatic) {
+          metadata.is_static = method.isStatic;
+        }
+        if (options.preserveImports && imports.length > 0) {
+          metadata.imports = imports;
+        }
+
+        chunks.push({
+          text: method.code,
+          index: chunkIndex++,
+          metadata,
+        });
+      }
+    }
+  }
+
+  // Chunk constants
+  for (const constant of ast.constants) {
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      constant_name: constant.name,
+      constant_type: constant.type,
+      line_range: constant.lineRange as [number, number],
+      file_path: filePath,
+      language: filePath.endsWith('.jsx') ? 'jsx' : 'javascript',
+      startOffset: constant.startOffset,
+      endOffset: constant.endOffset,
+    };
+
+    if (options.preserveImports && imports.length > 0) {
+      metadata.imports = imports;
+    }
+
+    chunks.push({
+      text: constant.code,
+      index: chunkIndex++,
+      metadata,
+    });
+  }
+
+  // Track file relationships if enabled
+  if (options.trackRelationships && options.db && options.collectionId) {
+    await buildFileRelationships(options.db, options.collectionId, filePath, ast);
+  }
+
+  return chunks;
 }
 
 /**

@@ -1,5 +1,13 @@
 # Phase 13 Day 5 - Agent Prompt
 
+## OVERRIDE (read first)
+- Primary: `docs/phases/phase-13/PHASE_13_DAY_5_AUDIT_FIXES.md`
+- If anything below conflicts with the override, follow the override.
+- Use UUID `collection_id` (create a collection first); remove `title` field in ingests.
+- Run benchmarks only after TS parser/chunker is implemented; fix P90 calculation and ensure dependencies (e.g., `glob`) are present.
+- Use related-files route in `apps/server/src/routes/collections.ts`; implement `GET /api/documents/:id/chunks` or skip those calls.
+- Wire `CODE_MAX_CHUNK_LINES` in `orchestrator.ts` or omit it from docs.
+
 **Task:** Integration Testing, Performance Validation, Documentation & Polish
 
 **Status:** Days 1-4 complete (Dart parser, TS parser, chunker, relationships). Now validating everything works.

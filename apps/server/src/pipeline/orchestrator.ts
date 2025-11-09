@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import {
   type Document,
   getDocument,
+  getPool,
   updateDocumentMetadata,
   updateDocumentStatus,
 } from '@synthesis/db';
@@ -72,6 +73,8 @@ export async function ingestDocument(
       chunks = await chunkCodeFile(document.file_path, extraction.text, {
         preserveImports: process.env.PRESERVE_IMPORTS === 'true',
         trackRelationships: process.env.TRACK_RELATIONSHIPS === 'true',
+        db: getPool(),
+        collectionId: document.collection_id,
       });
     } else {
       // Use simple text chunking

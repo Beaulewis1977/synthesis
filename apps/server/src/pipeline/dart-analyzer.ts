@@ -18,6 +18,8 @@ export interface DartAST {
     docComment?: string;
     lineRange: [number, number];
     isAsync: boolean;
+    isGenerator: boolean;
+    isArrowFunction?: boolean;
     startOffset: number;
     endOffset: number;
   }>;
@@ -355,6 +357,7 @@ function extractFunctions(content: string): DartAST['functions'] {
       returnType,
       docComment,
       lineRange,
+      isGenerator: false, // Dart does not have generator functions
       isAsync,
       startOffset,
       endOffset,

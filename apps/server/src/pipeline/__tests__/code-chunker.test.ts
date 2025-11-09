@@ -190,31 +190,34 @@ final String apiKey = 'sk_test_123';
       expect(chunks[0].metadata.language).toBe('dart');
     });
 
-    it('routes .ts files to TypeScript chunker (placeholder)', async () => {
+    it('routes .ts files to TypeScript chunker', async () => {
       const code = 'function test() {}';
       const chunks = await chunkCodeFile('test.ts', code);
 
-      // Currently falls back to simple chunking
+      // Should use TypeScript chunker
       expect(chunks.length).toBeGreaterThan(0);
-      expect(chunks[0].metadata.chunk_type).toBe('text');
+      expect(chunks[0].metadata.chunk_type).toBe('code');
+      expect(chunks[0].metadata.language).toBe('typescript');
     });
 
-    it('routes .tsx files to TypeScript chunker (placeholder)', async () => {
-      const code = 'const Component = () => <div>test</div>';
+    it('routes .tsx files to TypeScript chunker', async () => {
+      const code = 'export const Component = () => <div>test</div>;';
       const chunks = await chunkCodeFile('Component.tsx', code);
 
-      // Currently falls back to simple chunking
+      // Should use TypeScript chunker for TSX
       expect(chunks.length).toBeGreaterThan(0);
-      expect(chunks[0].metadata.chunk_type).toBe('text');
+      expect(chunks[0].metadata.chunk_type).toBe('code');
+      expect(chunks[0].metadata.language).toBe('tsx');
     });
 
-    it('routes .js files to JavaScript chunker (placeholder)', async () => {
+    it('routes .js files to JavaScript chunker', async () => {
       const code = 'function test() {}';
       const chunks = await chunkCodeFile('test.js', code);
 
-      // Currently falls back to simple chunking
+      // Should use JavaScript chunker (via TypeScript parser)
       expect(chunks.length).toBeGreaterThan(0);
-      expect(chunks[0].metadata.chunk_type).toBe('text');
+      expect(chunks[0].metadata.chunk_type).toBe('code');
+      expect(chunks[0].metadata.language).toBe('javascript');
     });
 
     it('uses simple chunking for unsupported extensions', async () => {
@@ -311,6 +314,199 @@ void func3() {}
       if (firstChunk.metadata.imports) {
         expect(firstChunk.metadata.imports.some((imp) => imp.includes('flutter'))).toBe(true);
       }
+    });
+  });
+
+  describe('TypeScript Code Chunking', () => {
+    it('chunks TypeScript file into functions and methods', async () => {
+      const samplePath = join(__dirname, 'fixtures', 'sample.ts');
+      const content = readFileSync(samplePath, 'utf-8');
+
+      const chunks = await chunkCodeFile('sample.ts', content);
+
+      // Should have functions, classes, methods, and constants
+      expect(chunks.length).toBeGreaterThanOrEqual(5);
+
+      // Check function chunks
+      const initChunk = chunks.find((c) => c.metadata.function_name === 'initializeApp');
+      expect(initChunk).toBeDefined();
+      expect(initChunk?.metadata.chunk_type).toBe('code');
+      expect(initChunk?.metadata.language).toBe('typescript');
+      expect(initChunk?.metadata.return_type).toBe('Promise<void>');
+
+      // Check arrow function chunk
+      const setupChunk = chunks.find((c) => c.metadata.function_name === 'setupDatabase');
+      expect(setupChunk).toBeDefined();
+      expect(setupChunk?.text).toContain('=>');
+
+      // Check class chunk
+      const dbServiceChunk = chunks.find((c) => c.metadata.class_name === 'DatabaseService');
+      expect(dbServiceChunk).toBeDefined();
+      expect(dbServiceChunk?.metadata.extends).toBe('BaseService');
+      expect(dbServiceChunk?.metadata.implements).toContain('IService');
+
+      // Check enum chunk
+      const enumChunk = chunks.find((c) => c.metadata.constant_name === 'UserRole');
+      expect(enumChunk).toBeDefined();
+      expect(enumChunk?.metadata.is_enum).toBe(true);
+    });
+
+    it('detects React components in TSX files', async () => {
+      const samplePath = join(__dirname, 'fixtures', 'sample.tsx');
+      const content = readFileSync(samplePath, 'utf-8');
+
+      const chunks = await chunkCodeFile('sample.tsx', content);
+
+      // Check functional component
+      const appChunk = chunks.find((c) => c.metadata.function_name === 'App');
+      expect(appChunk).toBeDefined();
+      expect(appChunk?.metadata.language).toBe('tsx');
+      expect(appChunk?.metadata.is_component).toBe(true);
+      expect(appChunk?.metadata.hooks_used).toContain('useState');
+      expect(appChunk?.metadata.hooks_used).toContain('useEffect');
+      expect(appChunk?.metadata.hooks_used).toContain('useCallback');
+
+      // Check arrow component
+      const headerChunk = chunks.find((c) => c.metadata.function_name === 'Header');
+      expect(headerChunk).toBeDefined();
+      expect(headerChunk?.metadata.is_component).toBe(true);
+
+      // Check class component
+      const counterChunk = chunks.find((c) => c.metadata.class_name === 'Counter');
+      expect(counterChunk).toBeDefined();
+      expect(counterChunk?.metadata.is_component).toBe(true);
+      expect(counterChunk?.metadata.is_class_component).toBe(true);
+
+      // Check custom hook (should not be marked as component)
+      const hookChunk = chunks.find((c) => c.metadata.function_name === 'useCounter');
+      expect(hookChunk).toBeDefined();
+      expect(hookChunk?.metadata.is_component).toBeUndefined();
+      expect(hookChunk?.metadata.hooks_used).toContain('useState');
+      expect(hookChunk?.metadata.hooks_used).toContain('useCallback');
+
+      // Check non-component function
+      const formatChunk = chunks.find((c) => c.metadata.function_name === 'formatDate');
+      expect(formatChunk).toBeDefined();
+      expect(formatChunk?.metadata.is_component).toBeUndefined();
+    });
+
+    it('preserves TypeScript imports when enabled', async () => {
+      const code = `
+import { Request } from 'express';
+import * as fs from 'fs';
+const http = require('http');
+
+export function handleRequest(req: Request): void {
+  console.log('Handling request');
+}
+`;
+
+      const chunks = await chunkCodeFile('handler.ts', code, { preserveImports: true });
+
+      const handlerChunk = chunks.find((c) => c.metadata.function_name === 'handleRequest');
+      expect(handlerChunk).toBeDefined();
+      expect(handlerChunk?.metadata.imports).toBeDefined();
+      expect(handlerChunk?.metadata.imports).toContain('express');
+      expect(handlerChunk?.metadata.imports).toContain('fs');
+      expect(handlerChunk?.metadata.imports).toContain('http');
+    });
+
+    it('handles JavaScript files with TypeScript parser', async () => {
+      const jsCode = `
+const React = require('react');
+
+function Component(props) {
+  return React.createElement('div', null, props.children);
+}
+
+class Service {
+  constructor(name) {
+    this.name = name;
+  }
+  
+  start() {
+    console.log('Starting', this.name);
+  }
+}
+
+const API_URL = 'https://api.example.com';
+`;
+
+      const chunks = await chunkCodeFile('example.js', jsCode);
+
+      // Should process JS files correctly
+      const componentChunk = chunks.find((c) => c.metadata.function_name === 'Component');
+      expect(componentChunk).toBeDefined();
+      expect(componentChunk?.metadata.language).toBe('javascript');
+
+      const serviceChunk = chunks.find((c) => c.metadata.class_name === 'Service');
+      expect(serviceChunk).toBeDefined();
+      expect(serviceChunk?.metadata.methods).toContain('start');
+
+      const constantChunk = chunks.find((c) => c.metadata.constant_name === 'API_URL');
+      expect(constantChunk).toBeDefined();
+    });
+
+    it('handles JSX files with component detection', async () => {
+      const jsxCode = `
+import React from 'react';
+
+export function Button({ onClick, children }) {
+  return (
+    <button onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
+const Card = ({ title, content }) => (
+  <div className="card">
+    <h2>{title}</h2>
+    <p>{content}</p>
+  </div>
+);
+`;
+
+      const chunks = await chunkCodeFile('components.jsx', jsxCode);
+
+      const buttonChunk = chunks.find((c) => c.metadata.function_name === 'Button');
+      expect(buttonChunk).toBeDefined();
+      expect(buttonChunk?.metadata.language).toBe('jsx');
+      expect(buttonChunk?.metadata.is_component).toBe(true);
+
+      const cardChunk = chunks.find((c) => c.metadata.function_name === 'Card');
+      expect(cardChunk).toBeDefined();
+      expect(cardChunk?.metadata.is_component).toBe(true);
+    });
+
+    it('chunks large TypeScript class per method', async () => {
+      // Create a large TypeScript class
+      const methods = Array.from(
+        { length: 30 },
+        (_, i) => `
+  method${i}(): void {
+    console.log('Method ${i}');
+  }
+`
+      ).join('\n');
+
+      const code = `
+class LargeService {
+${methods}
+}
+`;
+
+      const chunks = await chunkCodeFile('large.ts', code, { maxChunkSize: 50 });
+
+      // Should have individual method chunks
+      const methodChunks = chunks.filter((c) => c.metadata.function_name?.startsWith('method'));
+      expect(methodChunks.length).toBeGreaterThan(0);
+
+      // Each method chunk should have class_context
+      const method0 = chunks.find((c) => c.metadata.function_name === 'method0');
+      expect(method0).toBeDefined();
+      expect(method0?.metadata.class_context).toBe('LargeService');
+      expect(method0?.metadata.language).toBe('typescript');
     });
   });
 });

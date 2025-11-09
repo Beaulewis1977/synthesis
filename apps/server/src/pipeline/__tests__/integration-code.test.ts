@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
+import { getRelatedFiles } from '../../services/file-relationships.js';
 import { chunkText } from '../chunk.js';
 import { chunkCodeFile } from '../code-chunker.js';
 
@@ -202,7 +204,7 @@ Line 5`;
   });
 
   describe('Multiple Language Support', () => {
-    it('routes TypeScript files to TS chunker (currently fallback)', async () => {
+    it('routes TypeScript files to TS chunker with code-aware chunking', async () => {
       const code = `
 function greet(name: string): string {
   return 'hello ' + name;
@@ -212,11 +214,13 @@ function greet(name: string): string {
       const chunks = await chunkCodeFile('app.ts', code);
 
       expect(chunks.length).toBeGreaterThan(0);
-      // Currently falls back to simple chunking
-      expect(chunks[0].metadata.chunk_type).toBe('text');
+      // Should use code-aware chunking
+      expect(chunks[0].metadata.chunk_type).toBe('code');
+      expect(chunks[0].metadata.language).toBe('typescript');
+      expect(chunks[0].metadata.function_name).toBe('greet');
     });
 
-    it('routes JavaScript files to JS chunker (currently fallback)', async () => {
+    it('routes JavaScript files to JS chunker with code-aware chunking', async () => {
       const code = `
 function greet(name) {
   return 'hello ' + name;
@@ -226,8 +230,64 @@ function greet(name) {
       const chunks = await chunkCodeFile('app.js', code);
 
       expect(chunks.length).toBeGreaterThan(0);
-      // Currently falls back to simple chunking
-      expect(chunks[0].metadata.chunk_type).toBe('text');
+      // Should use code-aware chunking (JS uses TS parser)
+      expect(chunks[0].metadata.chunk_type).toBe('code');
+      expect(chunks[0].metadata.language).toBe('javascript');
+      expect(chunks[0].metadata.function_name).toBe('greet');
+    });
+
+    it('parses .js file with classes and imports from fixture', async () => {
+      const samplePath = join(__dirname, 'fixtures', 'sample.js');
+      const content = readFileSync(samplePath, 'utf-8');
+
+      const chunks = await chunkCodeFile('sample.js', content);
+
+      expect(chunks.length).toBeGreaterThan(0);
+
+      // Should have class chunk
+      const dataStoreChunk = chunks.find((c) => c.metadata.class_name === 'DataStore');
+      expect(dataStoreChunk).toBeDefined();
+      expect(dataStoreChunk?.metadata.chunk_type).toBe('code');
+      expect(dataStoreChunk?.metadata.language).toBe('javascript');
+      expect(dataStoreChunk?.metadata.extends).toBe('EventEmitter');
+
+      // Should have function chunks
+      const processDataChunk = chunks.find((c) => c.metadata.function_name === 'processData');
+      expect(processDataChunk).toBeDefined();
+      expect(processDataChunk?.metadata.chunk_type).toBe('code');
+      expect(processDataChunk?.metadata.language).toBe('javascript');
+
+      // Should have arrow function
+      const formatPathChunk = chunks.find((c) => c.metadata.function_name === 'formatPath');
+      expect(formatPathChunk).toBeDefined();
+      expect(formatPathChunk?.metadata.language).toBe('javascript');
+    });
+
+    it('parses .jsx file with React components from fixture', async () => {
+      const samplePath = join(__dirname, 'fixtures', 'sample.jsx');
+      const content = readFileSync(samplePath, 'utf-8');
+
+      const chunks = await chunkCodeFile('sample.jsx', content);
+
+      expect(chunks.length).toBeGreaterThan(0);
+
+      // Should have UserCard component
+      const userCardChunk = chunks.find((c) => c.metadata.function_name === 'UserCard');
+      expect(userCardChunk).toBeDefined();
+      expect(userCardChunk?.metadata.chunk_type).toBe('code');
+      expect(userCardChunk?.metadata.language).toBe('jsx');
+      expect(userCardChunk?.text).toContain('useState');
+      expect(userCardChunk?.text).toContain('return (');
+
+      // Should have Avatar component (arrow function)
+      const avatarChunk = chunks.find((c) => c.metadata.function_name === 'Avatar');
+      expect(avatarChunk).toBeDefined();
+      expect(avatarChunk?.metadata.language).toBe('jsx');
+
+      // Should have helper function (not component)
+      const helperChunk = chunks.find((c) => c.metadata.function_name === 'formatUserName');
+      expect(helperChunk).toBeDefined();
+      expect(helperChunk?.metadata.language).toBe('jsx');
     });
 
     it('handles unsupported file types with simple chunking', async () => {
@@ -299,6 +359,270 @@ class User {
       expect(chunks.length).toBeGreaterThan(0);
       // Should process in under 500ms (accounts for CI environment variability)
       expect(elapsed).toBeLessThan(500);
+    });
+  });
+
+  describe('File Relationship Tracking (Day 3)', () => {
+    // Mock database for relationship tracking tests
+    const mockRelationships: Array<{
+      source_file: string;
+      target_file: string;
+      relationship_type: string;
+      metadata: Record<string, unknown>;
+    }> = [];
+
+    const mockDb = {
+      query: async (text: string, params?: unknown[]) => {
+        if (text.includes('INSERT INTO file_relationships')) {
+          // Store relationship
+          const [collectionId, sourceFile, targetFile, type, metadata] = params || [];
+          mockRelationships.push({
+            source_file: sourceFile,
+            target_file: targetFile,
+            relationship_type: type,
+            metadata: JSON.parse(metadata),
+          });
+          return { rows: [], rowCount: 1 };
+        }
+
+        if (text.includes('SELECT') && text.includes('file_relationships')) {
+          // Return stored relationships
+          const filePath = params?.[1];
+          const filtered = mockRelationships.filter(
+            (r) => r.source_file === filePath || r.target_file === filePath
+          );
+          return { rows: filtered };
+        }
+
+        if (text.includes('SELECT DISTINCT file_path FROM documents')) {
+          // Return mock sibling files
+          return {
+            rows: [{ file_path: 'lib/services/api.dart' }],
+          };
+        }
+
+        return { rows: [] };
+      },
+    } as unknown as Pool;
+
+    it('tracks import relationships when enabled', async () => {
+      mockRelationships.length = 0; // Clear
+
+      const code = `
+import 'package:flutter/material.dart';
+import '../models/user.dart';
+
+void test() {}
+`;
+
+      const chunks = await chunkCodeFile('lib/services/auth.dart', code, {
+        trackRelationships: true,
+        db: mockDb,
+        collectionId: 'test-collection',
+      });
+
+      expect(chunks.length).toBeGreaterThan(0);
+
+      // Verify imports were tracked
+      const importRelationships = mockRelationships.filter((r) => r.relationship_type === 'import');
+      expect(importRelationships.length).toBeGreaterThan(0);
+
+      // Check specific imports
+      const flutterImport = importRelationships.find((r) =>
+        r.target_file.includes('flutter/material')
+      );
+      expect(flutterImport).toBeDefined();
+
+      const userImport = importRelationships.find((r) => r.target_file.includes('models/user'));
+      expect(userImport).toBeDefined();
+    });
+
+    it('does not track relationships when flag is false', async () => {
+      mockRelationships.length = 0; // Clear
+
+      const code = `
+import 'package:flutter/material.dart';
+
+void test() {}
+`;
+
+      const chunks = await chunkCodeFile('lib/services/auth.dart', code, {
+        trackRelationships: false,
+        db: mockDb,
+        collectionId: 'test-collection',
+      });
+
+      expect(chunks.length).toBeGreaterThan(0);
+      expect(mockRelationships.length).toBe(0);
+    });
+
+    it('does not track relationships when db is not provided', async () => {
+      mockRelationships.length = 0; // Clear
+
+      const code = `
+import 'package:flutter/material.dart';
+
+void test() {}
+`;
+
+      const chunks = await chunkCodeFile('lib/services/auth.dart', code, {
+        trackRelationships: true,
+        collectionId: 'test-collection',
+        // db not provided
+      });
+
+      expect(chunks.length).toBeGreaterThan(0);
+      expect(mockRelationships.length).toBe(0);
+    });
+
+    it('continues chunking even if relationship tracking fails', async () => {
+      const errorDb = {
+        query: async () => {
+          throw new Error('Database error');
+        },
+      } as unknown as Pool;
+
+      const code = `
+import 'package:flutter/material.dart';
+
+void test() {}
+`;
+
+      // Should not throw, should return chunks
+      await expect(
+        chunkCodeFile('lib/services/auth.dart', code, {
+          trackRelationships: true,
+          db: errorDb,
+          collectionId: 'test-collection',
+        })
+      ).resolves.toBeDefined();
+
+      const chunks = await chunkCodeFile('lib/services/auth.dart', code, {
+        trackRelationships: true,
+        db: errorDb,
+        collectionId: 'test-collection',
+      });
+
+      expect(chunks.length).toBeGreaterThan(0);
+    });
+
+    it('can query tracked relationships', async () => {
+      mockRelationships.length = 0; // Clear
+
+      const code = `
+import 'package:flutter/material.dart';
+import '../models/user.dart';
+
+void login() {}
+`;
+
+      // Track relationships
+      await chunkCodeFile('lib/services/auth.dart', code, {
+        trackRelationships: true,
+        db: mockDb,
+        collectionId: 'test-collection',
+      });
+
+      // Query relationships
+      const related = await getRelatedFiles(mockDb, 'lib/services/auth.dart', 'test-collection');
+
+      expect(related.imports).toBeDefined();
+      expect(related.imports.length).toBeGreaterThan(0);
+      expect(related.imports.some((imp) => imp.includes('flutter'))).toBe(true);
+    });
+  });
+
+  describe('Embedding Input Sanity', () => {
+    it('embeddings use only chunk.text without metadata pollution', async () => {
+      const code = `
+import 'package:flutter/material.dart';
+
+class TestWidget extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Text('test');
+  }
+}
+
+void helperFunction() {
+  print('helper');
+}
+`;
+
+      const chunks = await chunkCodeFile('test_widget.dart', code, {
+        preserveImports: true,
+        trackRelationships: false,
+      });
+
+      expect(chunks.length).toBeGreaterThan(0);
+
+      // Verify each chunk has text and metadata separated
+      for (const chunk of chunks) {
+        // Text should be code only
+        expect(chunk.text).toBeTruthy();
+        expect(typeof chunk.text).toBe('string');
+
+        // Metadata should be separate object
+        expect(chunk.metadata).toBeTruthy();
+        expect(typeof chunk.metadata).toBe('object');
+
+        // Text should NOT contain metadata fields
+        expect(chunk.text).not.toContain('chunk_type');
+        expect(chunk.text).not.toContain('function_name');
+        expect(chunk.text).not.toContain('class_name');
+        expect(chunk.text).not.toContain('language');
+
+        // If imports are preserved, they're in metadata, not concatenated to text
+        if (chunk.metadata.imports) {
+          expect(Array.isArray(chunk.metadata.imports)).toBe(true);
+          // The import statements should be in the code text itself,
+          // not separately concatenated
+          if (chunk.text.includes('import')) {
+            // This is natural - the code contains import statements
+            expect(true).toBe(true);
+          }
+        }
+      }
+
+      // Simulate what embedBatch receives
+      const embeddingInputs = chunks.map((chunk) => chunk.text);
+
+      // Each input should be pure text from the chunk
+      for (const input of embeddingInputs) {
+        expect(typeof input).toBe('string');
+        expect(input.length).toBeGreaterThan(0);
+        // Should not contain stringified JSON metadata
+        expect(input).not.toMatch(/\{"chunk_type":/);
+        expect(input).not.toMatch(/\{"metadata":/);
+      }
+    });
+
+    it('embedding inputs are strictly chunk.text for TypeScript files', async () => {
+      const tsCode = `
+export async function fetchUser(id: number): Promise<User> {
+  const response = await fetch(\`/api/users/\${id}\`);
+  return response.json();
+}
+`;
+
+      const chunks = await chunkCodeFile('api.ts', tsCode, {
+        preserveImports: false,
+      });
+
+      expect(chunks.length).toBeGreaterThan(0);
+
+      const fetchUserChunk = chunks.find((c) => c.metadata.function_name === 'fetchUser');
+      expect(fetchUserChunk).toBeDefined();
+
+      // The embedding input should be exactly the text, nothing else
+      const embeddingInput = fetchUserChunk?.text;
+      expect(embeddingInput).toBeDefined();
+
+      expect(embeddingInput).toContain('export async function fetchUser');
+      expect(embeddingInput).toContain('Promise<User>');
+      expect(embeddingInput).not.toContain('"chunk_type"');
+      expect(embeddingInput).not.toContain('"function_name"');
+      expect(embeddingInput).not.toContain('"language":"typescript"');
     });
   });
 });

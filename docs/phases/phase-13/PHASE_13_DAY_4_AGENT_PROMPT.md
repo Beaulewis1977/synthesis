@@ -1,5 +1,11 @@
 # Phase 13 Day 4 - Agent Prompt
 
+## OVERRIDE (read first)
+- Primary: `docs/phases/phase-13/PHASE_13_DAY_4_AUDIT_FIXES.md`
+- If anything below conflicts with the override, follow the override.
+- Do not create `apps/server/src/pipeline/ingest.ts`; use `apps/server/src/pipeline/orchestrator.ts` for integration.
+- Do not call `POST /api/ingest/directory` or `GET /api/documents/:id/chunks` unless implemented; use the commands in the override doc.
+
 **Task:** TypeScript Parser Implementation
 
 **Status:** Days 1-3 complete (Dart parser, chunker, relationships ready). Now adding TypeScript support.
