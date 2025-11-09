@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
+import { getRelatedFiles } from '../../services/file-relationships.js';
 import { chunkText } from '../chunk.js';
 import { chunkCodeFile } from '../code-chunker.js';
 
@@ -299,6 +301,176 @@ class User {
       expect(chunks.length).toBeGreaterThan(0);
       // Should process in under 500ms (accounts for CI environment variability)
       expect(elapsed).toBeLessThan(500);
+    });
+  });
+
+  describe('File Relationship Tracking (Day 3)', () => {
+    // Mock database for relationship tracking tests
+    const mockRelationships: Array<{
+      source_file: string;
+      target_file: string;
+      relationship_type: string;
+      metadata: Record<string, unknown>;
+    }> = [];
+
+    const mockDb = {
+      query: async (text: string, params?: unknown[]) => {
+        if (text.includes('INSERT INTO file_relationships')) {
+          // Store relationship
+          const [collectionId, sourceFile, targetFile, type, metadata] = params || [];
+          mockRelationships.push({
+            source_file: sourceFile,
+            target_file: targetFile,
+            relationship_type: type,
+            metadata: JSON.parse(metadata),
+          });
+          return { rows: [], rowCount: 1 };
+        }
+
+        if (text.includes('SELECT') && text.includes('file_relationships')) {
+          // Return stored relationships
+          const filePath = params?.[1];
+          const filtered = mockRelationships.filter(
+            (r) => r.source_file === filePath || r.target_file === filePath
+          );
+          return { rows: filtered };
+        }
+
+        if (text.includes('SELECT DISTINCT file_path FROM documents')) {
+          // Return mock sibling files
+          return {
+            rows: [{ file_path: 'lib/services/api.dart' }],
+          };
+        }
+
+        return { rows: [] };
+      },
+    } as unknown as Pool;
+
+    it('tracks import relationships when enabled', async () => {
+      mockRelationships.length = 0; // Clear
+
+      const code = `
+import 'package:flutter/material.dart';
+import '../models/user.dart';
+
+void test() {}
+`;
+
+      const chunks = await chunkCodeFile('lib/services/auth.dart', code, {
+        trackRelationships: true,
+        db: mockDb,
+        collectionId: 'test-collection',
+      });
+
+      expect(chunks.length).toBeGreaterThan(0);
+
+      // Verify imports were tracked
+      const importRelationships = mockRelationships.filter((r) => r.relationship_type === 'import');
+      expect(importRelationships.length).toBeGreaterThan(0);
+
+      // Check specific imports
+      const flutterImport = importRelationships.find((r) =>
+        r.target_file.includes('flutter/material')
+      );
+      expect(flutterImport).toBeDefined();
+
+      const userImport = importRelationships.find((r) => r.target_file.includes('models/user'));
+      expect(userImport).toBeDefined();
+    });
+
+    it('does not track relationships when flag is false', async () => {
+      mockRelationships.length = 0; // Clear
+
+      const code = `
+import 'package:flutter/material.dart';
+
+void test() {}
+`;
+
+      const chunks = await chunkCodeFile('lib/services/auth.dart', code, {
+        trackRelationships: false,
+        db: mockDb,
+        collectionId: 'test-collection',
+      });
+
+      expect(chunks.length).toBeGreaterThan(0);
+      expect(mockRelationships.length).toBe(0);
+    });
+
+    it('does not track relationships when db is not provided', async () => {
+      mockRelationships.length = 0; // Clear
+
+      const code = `
+import 'package:flutter/material.dart';
+
+void test() {}
+`;
+
+      const chunks = await chunkCodeFile('lib/services/auth.dart', code, {
+        trackRelationships: true,
+        collectionId: 'test-collection',
+        // db not provided
+      });
+
+      expect(chunks.length).toBeGreaterThan(0);
+      expect(mockRelationships.length).toBe(0);
+    });
+
+    it('continues chunking even if relationship tracking fails', async () => {
+      const errorDb = {
+        query: async () => {
+          throw new Error('Database error');
+        },
+      } as unknown as Pool;
+
+      const code = `
+import 'package:flutter/material.dart';
+
+void test() {}
+`;
+
+      // Should not throw, should return chunks
+      await expect(
+        chunkCodeFile('lib/services/auth.dart', code, {
+          trackRelationships: true,
+          db: errorDb,
+          collectionId: 'test-collection',
+        })
+      ).resolves.toBeDefined();
+
+      const chunks = await chunkCodeFile('lib/services/auth.dart', code, {
+        trackRelationships: true,
+        db: errorDb,
+        collectionId: 'test-collection',
+      });
+
+      expect(chunks.length).toBeGreaterThan(0);
+    });
+
+    it('can query tracked relationships', async () => {
+      mockRelationships.length = 0; // Clear
+
+      const code = `
+import 'package:flutter/material.dart';
+import '../models/user.dart';
+
+void login() {}
+`;
+
+      // Track relationships
+      await chunkCodeFile('lib/services/auth.dart', code, {
+        trackRelationships: true,
+        db: mockDb,
+        collectionId: 'test-collection',
+      });
+
+      // Query relationships
+      const related = await getRelatedFiles(mockDb, 'lib/services/auth.dart', 'test-collection');
+
+      expect(related.imports).toBeDefined();
+      expect(related.imports.length).toBeGreaterThan(0);
+      expect(related.imports.some((imp) => imp.includes('flutter'))).toBe(true);
     });
   });
 });
