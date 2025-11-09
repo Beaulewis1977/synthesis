@@ -240,6 +240,20 @@ function simpleChunking(content: string): Chunk[] {
   const overlap = 10; // overlapping lines
   const chunks: Chunk[] = [];
   let chunkIndex = 0;
+  const lineStartOffsets: number[] = [];
+  const lineEndOffsets: number[] = [];
+
+  // Precompute original character offsets for each line so metadata stays roughly accurate.
+  let lineStart = 0;
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === '\n') {
+      lineStartOffsets.push(lineStart);
+      lineEndOffsets.push(i);
+      lineStart = i + 1;
+    }
+  }
+  lineStartOffsets.push(lineStart);
+  lineEndOffsets.push(content.length);
 
   for (let i = 0; i < lines.length; i += chunkSize - overlap) {
     const chunkLines = lines.slice(i, i + chunkSize);
@@ -255,8 +269,8 @@ function simpleChunking(content: string): Chunk[] {
       metadata: {
         chunk_type: 'text',
         line_range: [i + 1, i + chunkLines.length],
-        startOffset: 0, // Approximation
-        endOffset: text.length,
+        startOffset: lineStartOffsets[i] ?? 0,
+        endOffset: lineEndOffsets[i + chunkLines.length - 1] ?? lineStartOffsets[i] + text.length,
       },
     });
   }

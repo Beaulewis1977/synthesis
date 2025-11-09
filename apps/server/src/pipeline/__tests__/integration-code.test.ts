@@ -122,7 +122,7 @@ void test() {
       if (originalValue !== undefined) {
         process.env.CODE_CHUNKING = originalValue;
       } else {
-        process.env.CODE_CHUNKING = undefined;
+        Reflect.deleteProperty(process.env, 'CODE_CHUNKING');
       }
     });
 
