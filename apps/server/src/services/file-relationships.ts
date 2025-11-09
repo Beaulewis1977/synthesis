@@ -57,70 +57,78 @@ export async function getRelatedFiles(
   filePath: string,
   collectionId: string
 ): Promise<RelatedFiles> {
-  const { rows } = await db.query(
-    `SELECT 
-      source_file,
-      target_file,
-      relationship_type,
-      metadata
-    FROM file_relationships
-    WHERE collection_id = $1
-      AND (source_file = $2 OR target_file = $2)`,
-    [collectionId, filePath]
-  );
+  try {
+    const { rows } = await db.query(
+      `SELECT 
+        source_file,
+        target_file,
+        relationship_type,
+        metadata
+      FROM file_relationships
+      WHERE collection_id = $1
+        AND (source_file = $2 OR target_file = $2)`,
+      [collectionId, filePath]
+    );
 
-  const related: RelatedFiles = {
-    imports: [],
-    imported_by: [],
-    uses: [],
-    used_by: [],
-    tests: [],
-    tested_by: [],
-    siblings: [],
-    parent: null,
-  };
+    const related: RelatedFiles = {
+      imports: [],
+      imported_by: [],
+      uses: [],
+      used_by: [],
+      tests: [],
+      tested_by: [],
+      siblings: [],
+      parent: null,
+    };
 
-  for (const row of rows) {
-    const isSource = row.source_file === filePath;
+    for (const row of rows) {
+      const isSource = row.source_file === filePath;
 
-    switch (row.relationship_type) {
-      case 'import':
-        if (isSource) {
-          related.imports.push(row.target_file);
-        } else {
-          related.imported_by.push(row.source_file);
-        }
-        break;
+      switch (row.relationship_type) {
+        case 'import':
+          if (isSource) {
+            related.imports.push(row.target_file);
+          } else {
+            related.imported_by.push(row.source_file);
+          }
+          break;
 
-      case 'usage':
-        if (isSource) {
-          related.uses.push(row.target_file);
-        } else {
-          related.used_by.push(row.source_file);
-        }
-        break;
+        case 'usage':
+          if (isSource) {
+            related.uses.push(row.target_file);
+          } else {
+            related.used_by.push(row.source_file);
+          }
+          break;
 
-      case 'test':
-        if (isSource) {
-          related.tests.push(row.target_file);
-        } else {
-          related.tested_by.push(row.source_file);
-        }
-        break;
+        case 'test':
+          if (isSource) {
+            related.tests.push(row.target_file);
+          } else {
+            related.tested_by.push(row.source_file);
+          }
+          break;
 
-      case 'sibling':
-        related.siblings.push(isSource ? row.target_file : row.source_file);
-        break;
+        case 'sibling':
+          related.siblings.push(isSource ? row.target_file : row.source_file);
+          break;
 
-      case 'parent':
-        if (isSource) {
-          related.parent = row.target_file;
-        }
-        break;
+        case 'parent':
+          if (isSource) {
+            related.parent = row.target_file;
+          }
+          break;
+      }
     }
-  }
 
-  return related;
+    return related;
+  } catch (error) {
+    console.error(
+      `Failed to fetch related files for ${filePath} in collection ${collectionId}`,
+      error
+    );
+    throw error;
+  }
 }
 
 /**
@@ -254,16 +262,24 @@ async function findSiblingFiles(
   const pattern = `${escapeForLike(directory)}/%`;
 
   // Query documents in same directory
-  const { rows } = await db.query(
-    `SELECT DISTINCT file_path
-    FROM documents
-    WHERE collection_id = $1
-      AND file_path LIKE $2 ESCAPE '\\'
-      AND file_path != $3`,
-    [collectionId, pattern, filePath]
-  );
+  try {
+    const { rows } = await db.query(
+      `SELECT DISTINCT file_path
+      FROM documents
+      WHERE collection_id = $1
+        AND file_path LIKE $2 ESCAPE '\\'
+        AND file_path != $3`,
+      [collectionId, pattern, filePath]
+    );
 
-  return rows.map((r) => r.file_path).filter(Boolean);
+    return rows.map((r) => r.file_path).filter(Boolean);
+  } catch (error) {
+    console.error(
+      `Failed to find sibling files for ${filePath} in collection ${collectionId} with pattern ${pattern}`,
+      error
+    );
+    throw error;
+  }
 }
 
 /**
