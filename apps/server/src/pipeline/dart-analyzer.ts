@@ -18,6 +18,8 @@ export interface DartAST {
     docComment?: string;
     lineRange: [number, number];
     isAsync: boolean;
+    startOffset: number;
+    endOffset: number;
   }>;
   classes: Array<{
     name: string;
@@ -30,6 +32,8 @@ export interface DartAST {
       lineRange: [number, number];
       isStatic: boolean;
       isAsync: boolean;
+      startOffset: number;
+      endOffset: number;
     }>;
     properties: Array<{
       name: string;
@@ -42,6 +46,8 @@ export interface DartAST {
     mixins: string[];
     lineRange: [number, number];
     isAbstract: boolean;
+    startOffset: number;
+    endOffset: number;
   }>;
   constants: Array<{
     name: string;
@@ -49,6 +55,8 @@ export interface DartAST {
     type: string;
     value?: string;
     lineRange: [number, number];
+    startOffset: number;
+    endOffset: number;
   }>;
 }
 
@@ -195,6 +203,33 @@ function getLineRange(content: string, start: number, end: number): [number, num
   return [startLine, endLine];
 }
 
+function extractCodeSegment(
+  content: string,
+  rawStart: number,
+  rawEnd: number
+): { code: string; startOffset: number; endOffset: number } {
+  const slice = content.slice(rawStart, rawEnd);
+  const leadingWhitespaceMatch = slice.match(/^\s*/);
+  const trailingWhitespaceMatch = slice.match(/\s*$/);
+  const leadingWhitespace = leadingWhitespaceMatch ? leadingWhitespaceMatch[0].length : 0;
+  const trailingWhitespace = trailingWhitespaceMatch ? trailingWhitespaceMatch[0].length : 0;
+  let startOffset = rawStart + leadingWhitespace;
+  let endOffset = rawEnd - trailingWhitespace;
+  let code = slice.trim();
+
+  if (startOffset > endOffset) {
+    startOffset = rawStart;
+    endOffset = rawStart;
+    code = '';
+  }
+
+  return {
+    code,
+    startOffset,
+    endOffset,
+  };
+}
+
 // Helper: Determine whether the character at index is escaped by backslashes
 function isEscaped(source: string, index: number): boolean {
   let backslashCount = 0;
@@ -287,8 +322,12 @@ function extractFunctions(content: string): DartAST['functions'] {
       continue; // Malformed function, skip
     }
 
-    // Extract full function code
-    const funcCode = content.substring(matchStart, endBrace + 1).trim();
+    // Extract full function code and normalised offsets
+    const {
+      code: funcCode,
+      startOffset,
+      endOffset,
+    } = extractCodeSegment(content, matchStart, endBrace + 1);
 
     // Extract return type
     const returnTypeMatch = funcCode.match(
@@ -317,6 +356,8 @@ function extractFunctions(content: string): DartAST['functions'] {
       docComment,
       lineRange,
       isAsync,
+      startOffset,
+      endOffset,
     });
   }
 
@@ -347,7 +388,11 @@ function extractClasses(content: string): DartAST['classes'] {
       continue; // Malformed class, skip
     }
 
-    const classCode = content.substring(match.index, endBrace + 1).trim();
+    const {
+      code: classCode,
+      startOffset,
+      endOffset,
+    } = extractCodeSegment(content, match.index, endBrace + 1);
     const classBody = content.substring(braceIndex + 1, endBrace);
 
     // Parse mixins and interfaces
@@ -379,9 +424,13 @@ function extractClasses(content: string): DartAST['classes'] {
         continue;
       }
 
-      const methodCode = content
-        .substring(braceIndex + 1 + methodMatch.index, methodBraceEnd + 1)
-        .trim();
+      const methodStart = braceIndex + 1 + methodMatch.index;
+      const methodEnd = methodBraceEnd + 1;
+      const {
+        code: methodCode,
+        startOffset,
+        endOffset,
+      } = extractCodeSegment(content, methodStart, methodEnd);
       const returnTypeMatch = methodCode.match(
         /^(?:static\s+)?((?:Future<[^>]+>|Future|void|\w+(?:<[^>]+>)?))\s+\w+/
       );
@@ -401,6 +450,8 @@ function extractClasses(content: string): DartAST['classes'] {
         lineRange,
         isStatic,
         isAsync,
+        startOffset,
+        endOffset,
       });
     }
 
@@ -437,6 +488,8 @@ function extractClasses(content: string): DartAST['classes'] {
       mixins,
       lineRange,
       isAbstract,
+      startOffset,
+      endOffset,
     });
   }
 
@@ -462,7 +515,11 @@ function extractConstants(content: string): DartAST['constants'] {
       continue; // Inside a class, skip
     }
 
-    const code = match[0].trim();
+    const { code, startOffset, endOffset } = extractCodeSegment(
+      content,
+      matchStart,
+      match.index + match[0].length
+    );
     const lineRange = getLineRange(content, matchStart, match.index + match[0].length);
 
     constants.push({
@@ -471,6 +528,8 @@ function extractConstants(content: string): DartAST['constants'] {
       type,
       value,
       lineRange,
+      startOffset,
+      endOffset,
     });
   }
 

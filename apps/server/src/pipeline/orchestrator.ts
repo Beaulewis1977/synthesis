@@ -10,6 +10,7 @@ import { type ContentContext, deriveContextFromMetadata } from '../services/embe
 import { buildMetadata } from '../services/metadata-builder.js';
 import type { Chunk, ChunkOptions } from './chunk.js';
 import { chunkText } from './chunk.js';
+import { chunkCodeFile } from './code-chunker.js';
 import type { EmbedBatchOptions, EmbedOptions, EmbedResult } from './embed.js';
 import { embedBatch } from './embed.js';
 import { extract } from './extract.js';
@@ -57,11 +58,28 @@ export async function ingestDocument(
     await updateDocumentStatus(documentId, 'extracting');
     const extraction = await extract(buffer, document.content_type, document.title);
 
-    const chunks = chunkText(extraction.text, options.chunk, {
-      ...extraction.metadata,
-      documentId,
-    });
     await updateDocumentStatus(documentId, 'chunking');
+
+    // Check if this is a code file and code chunking is enabled
+    const codeFile = isCodeFile(document.file_path);
+    const codeChunkingEnabled = process.env.CODE_CHUNKING === 'true';
+
+    let chunks: Chunk[];
+
+    if (codeFile && codeChunkingEnabled) {
+      // Use code-aware chunking
+      console.log(`Using code-aware chunking for ${document.file_path}`);
+      chunks = await chunkCodeFile(document.file_path, extraction.text, {
+        preserveImports: process.env.PRESERVE_IMPORTS === 'true',
+        trackRelationships: process.env.TRACK_RELATIONSHIPS === 'true',
+      });
+    } else {
+      // Use simple text chunking
+      chunks = chunkText(extraction.text, options.chunk, {
+        ...extraction.metadata,
+        documentId,
+      });
+    }
 
     if (chunks.length === 0) {
       await storeChunks(documentId, [], []);
