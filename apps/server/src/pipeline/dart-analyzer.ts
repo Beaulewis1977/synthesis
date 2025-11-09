@@ -198,6 +198,30 @@ function getLineRange(content: string, start: number, end: number): [number, num
   return [startLine, endLine];
 }
 
+// Helper: Determine if the given index sits inside an open class declaration
+function isInsideClass(content: string, position: number): boolean {
+  const classRegex =
+    /(abstract\s+)?class\s+\w+(?:\s+extends\s+\w+)?(?:\s+with\s+[^\{]+)?(?:\s+implements\s+[^\{]+)?\s*\{/g;
+
+  let match: RegExpExecArray | null;
+  // biome-ignore lint/suspicious/noAssignInExpressions: regex iteration pattern
+  while ((match = classRegex.exec(content)) !== null) {
+    const openBraceIndex = match.index + match[0].length - 1;
+
+    if (openBraceIndex >= position) {
+      break; // later classes open after the position we care about
+    }
+
+    const closingBraceIndex = findMatchingBrace(content, openBraceIndex);
+
+    if (position > openBraceIndex && (closingBraceIndex === -1 || position < closingBraceIndex)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Extract imports from Dart source
 function extractImports(content: string): DartAST['imports'] {
   const imports: DartAST['imports'] = [];
@@ -275,16 +299,7 @@ function extractFunctions(content: string): DartAST['functions'] {
     // Calculate line range
     const lineRange = getLineRange(content, matchStart, endBrace + 1);
 
-    // Skip if inside a class (check if there's a class declaration before this that hasn't closed)
-    const beforeFunc = content.substring(0, matchStart);
-    const classMatches = beforeFunc.match(/\bclass\s+\w+/g);
-    const closingBraces = beforeFunc.match(/^\}/gm);
-
-    // Simple heuristic: if more class declarations than closing braces at column 0, we're inside a class
-    const classCount = classMatches?.length || 0;
-    const closingCount = closingBraces?.length || 0;
-
-    if (classCount > closingCount) {
+    if (isInsideClass(content, matchStart)) {
       continue; // Inside a class, skip (will be extracted as method)
     }
 
@@ -437,15 +452,7 @@ function extractConstants(content: string): DartAST['constants'] {
     const name = match[4];
     const value = match[5].trim();
 
-    // Check if inside a class (same heuristic as functions)
-    const beforeConst = content.substring(0, matchStart);
-    const classMatches = beforeConst.match(/\bclass\s+\w+/g);
-    const closingBraces = beforeConst.match(/^\}/gm);
-
-    const classCount = classMatches?.length || 0;
-    const closingCount = closingBraces?.length || 0;
-
-    if (classCount > closingCount) {
+    if (isInsideClass(content, matchStart)) {
       continue; // Inside a class, skip
     }
 

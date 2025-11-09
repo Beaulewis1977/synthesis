@@ -431,7 +431,7 @@ describe('Dart AST Parser', () => {
 
   // Performance Test
   describe('Performance', () => {
-    it('parses typical files in under 300ms', async () => {
+    it('parses typical files in under 50ms', async () => {
       const classes = Array.from(
         { length: 10 },
         (_, i) =>
@@ -463,7 +463,7 @@ describe('Dart AST Parser', () => {
       const ast = await parseDartFile(largeCode);
       const duration = Date.now() - startTime;
 
-      expect(duration).toBeLessThan(300);
+      expect(duration).toBeLessThan(50);
       expect(ast.classes).toHaveLength(10);
       expect(ast.functions).toHaveLength(20);
     });
