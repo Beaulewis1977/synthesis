@@ -8,6 +8,8 @@ import type {
   CostHistoryResponse,
   CostSummaryResponse,
   DocumentsResponse,
+  RelatedFilesResponse,
+  SearchResponse,
   SynthesisResponse,
 } from '../types';
 
@@ -168,6 +170,31 @@ class ApiClient {
    */
   async getCostAlerts(): Promise<CostAlertsResponse> {
     return this.request<CostAlertsResponse>('/api/costs/alerts');
+  }
+
+  /**
+   * Perform a search query on a collection.
+   * Phase 13 feature - search page functionality.
+   */
+  async performSearch(query: string, collectionId: string, topK = 10): Promise<SearchResponse> {
+    return this.request<SearchResponse>('/api/search', {
+      method: 'POST',
+      body: JSON.stringify({
+        query,
+        collection_id: collectionId,
+        top_k: topK,
+      }),
+    });
+  }
+
+  /**
+   * Get related files for a document (imports, tests, siblings, etc.).
+   * Phase 13 feature - code intelligence.
+   */
+  async getRelatedFiles(documentId: string): Promise<RelatedFilesResponse> {
+    return this.request<RelatedFilesResponse>(
+      `/api/documents/${encodeURIComponent(documentId)}/related-files`
+    );
   }
 }
 

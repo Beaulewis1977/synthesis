@@ -60,10 +60,27 @@ export interface ChunkMetadata extends DocumentMetadata {
   heading?: string;
   page?: number | string;
   line_range?: [number, number];
+
+  // Code intelligence fields (Phase 13)
   function_name?: string;
+  parameters?: string[];
+  return_type?: string;
   class_name?: string;
+  methods?: string[];
+  properties?: string[];
+  extends?: string;
+  implements?: string[];
   imports?: string[];
+  dependencies?: Record<string, string>;
+
+  // Code categorization flags (Phase 13)
+  is_widget?: boolean;
+  is_stateful?: boolean;
+  is_service?: boolean;
+  is_model?: boolean;
   is_example?: boolean;
+
+  // Legacy fields
   startOffset?: number;
   endOffset?: number;
   section?: string;

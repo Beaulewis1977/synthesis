@@ -630,6 +630,7 @@ pnpm build
 - Update `packages/shared/src/index.ts` with full `ChunkMetadata`.
 - Create all new frontend files (`SearchPage.tsx`, `RelatedFilesPanel.tsx`, etc.).
 - Scaffold the basic structure of the new components.
+- Add route `'/search/:collectionId'` and scaffold `SearchPage` to read `collectionId` from params and `q` from query string.
 
 **Afternoon (4 hours): Frontend Implementation & Testing**
 - Implement the logic for the new frontend components.
@@ -641,6 +642,7 @@ pnpm build
 - [ ] `ChunkMetadata` interface is complete.
 - [ ] All frontend components for issue #65 are implemented.
 - [ ] The search page and related files panel are functional.
+- [ ] Search route uses `/search/:collectionId` and passes `collection_id` to `POST /api/search`.
 - [ ] All new and existing tests are passing.
 - [ ] Phase 13 is fully complete.
 

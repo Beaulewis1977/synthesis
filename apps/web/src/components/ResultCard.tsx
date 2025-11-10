@@ -1,16 +1,22 @@
-import type { KeyboardEvent } from 'react';
+import { type KeyboardEvent, useState } from 'react';
 import type { SearchResult } from '../types';
 import { RecencyBadge } from './RecencyBadge';
+import { RelatedFilesPanel } from './RelatedFilesPanel';
 import { TrustBadge } from './TrustBadge';
 
 interface ResultCardProps {
   result: SearchResult;
+  collectionId?: string;
   onClick?: () => void;
 }
 
-export function ResultCard({ result, onClick }: ResultCardProps) {
+export function ResultCard({ result, collectionId, onClick }: ResultCardProps) {
+  const [showRelated, setShowRelated] = useState(false);
   const hasSimilarity = typeof result.similarity === 'number' && result.similarity > 0;
   const similarityPercent = hasSimilarity ? Math.round(result.similarity * 100) : null;
+  const isCodeFile = Boolean(
+    result.metadata?.file_path && typeof result.metadata.file_path === 'string'
+  );
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!onClick) return;
@@ -61,6 +67,28 @@ export function ResultCard({ result, onClick }: ResultCardProps) {
           >
             View source →
           </a>
+        </div>
+      )}
+
+      {isCodeFile && collectionId && typeof result.metadata?.file_path === 'string' && (
+        <div className="pt-sm border-t border-border">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowRelated(!showRelated);
+            }}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            {showRelated ? '▼' : '▶'} Related Files
+          </button>
+          {showRelated && (
+            <RelatedFilesPanel
+              collectionId={collectionId}
+              docId={result.doc_id}
+              filePath={result.metadata.file_path as string}
+            />
+          )}
         </div>
       )}
     </div>
