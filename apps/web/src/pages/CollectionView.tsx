@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Loader2, MessageSquare } from 'lucide-react';
+import { AlertCircle, Loader2, MessageSquare, Search } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DocumentList } from '../components/DocumentList';
 import { apiClient } from '../lib/api';
@@ -40,6 +40,13 @@ export function CollectionView() {
     navigate(`/chat/${id}`);
   };
 
+  const handleSearch = () => {
+    if (!id || id.trim().length === 0) {
+      return;
+    }
+    navigate(`/search/${id}`);
+  };
+
   return (
     <div>
       <div className="mb-lg">
@@ -49,6 +56,14 @@ export function CollectionView() {
         <div className="flex items-center justify-between mb-sm">
           <h1 className="text-2xl font-bold text-text-primary">Collection Documents</h1>
           <div className="flex gap-sm">
+            <button
+              type="button"
+              onClick={handleSearch}
+              className="btn btn-primary flex items-center gap-xs"
+            >
+              <Search size={18} />
+              Search
+            </button>
             <button
               type="button"
               onClick={handleChat}

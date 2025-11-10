@@ -55,7 +55,12 @@ Code: Future<User> login(String email, String password) { ... }
 ```tsx
 // apps/web/src/components/ResultCard.tsx
 
-export function ResultCard({ result }: ResultCardProps) {
+interface ResultCardProps {
+  result: ResultCard;
+  collectionId: string; // NEW: pass collection context from SearchPage
+}
+
+export function ResultCard({ result, collectionId }: ResultCardProps) {
   const [showRelated, setShowRelated] = useState(false);
   const isCodeFile = result.metadata?.file_path;
   
@@ -76,6 +81,7 @@ export function ResultCard({ result }: ResultCardProps) {
       {/* NEW: Related files panel */}
       {showRelated && isCodeFile && (
         <RelatedFilesPanel 
+          collectionId={collectionId}
           docId={result.id}
           filePath={result.metadata.file_path}
         />
@@ -93,11 +99,12 @@ export function ResultCard({ result }: ResultCardProps) {
 import { useQuery } from '@tanstack/react-query';
 
 interface RelatedFilesPanelProps {
+  collectionId: string; // NEW
   docId: string;
   filePath: string;
 }
 
-export function RelatedFilesPanel({ docId, filePath }: RelatedFilesPanelProps) {
+export function RelatedFilesPanel({ collectionId, docId, filePath }: RelatedFilesPanelProps) {
   const { data, isLoading } = useQuery({
     queryKey: ['related-files', docId],
     queryFn: () => 
@@ -120,6 +127,7 @@ export function RelatedFilesPanel({ docId, filePath }: RelatedFilesPanelProps) {
         {/* Import relationships */}
         {related_files.imports?.length > 0 && (
           <FileRelationshipSection
+            collectionId={collectionId}
             title="📦 Imports"
             files={related_files.imports}
             icon="→"
@@ -128,6 +136,7 @@ export function RelatedFilesPanel({ docId, filePath }: RelatedFilesPanelProps) {
 
         {related_files.imported_by?.length > 0 && (
           <FileRelationshipSection
+            collectionId={collectionId}
             title="🔗 Imported By"
             files={related_files.imported_by}
             icon="←"
@@ -137,6 +146,7 @@ export function RelatedFilesPanel({ docId, filePath }: RelatedFilesPanelProps) {
         {/* Usage relationships */}
         {related_files.uses?.length > 0 && (
           <FileRelationshipSection
+            collectionId={collectionId}
             title="⚙️ Uses"
             files={related_files.uses}
             icon="⇢"
@@ -145,6 +155,7 @@ export function RelatedFilesPanel({ docId, filePath }: RelatedFilesPanelProps) {
 
         {related_files.used_by?.length > 0 && (
           <FileRelationshipSection
+            collectionId={collectionId}
             title="🧭 Used By"
             files={related_files.used_by}
             icon="⇠"
@@ -154,6 +165,7 @@ export function RelatedFilesPanel({ docId, filePath }: RelatedFilesPanelProps) {
         {/* Other relationships */}
         {related_files.tests?.length > 0 && (
           <FileRelationshipSection
+            collectionId={collectionId}
             title="📝 Tests"
             files={related_files.tests}
             icon="✓"
@@ -162,6 +174,7 @@ export function RelatedFilesPanel({ docId, filePath }: RelatedFilesPanelProps) {
         
         {related_files.siblings?.length > 0 && (
           <FileRelationshipSection
+            collectionId={collectionId}
             title="👥 Sibling Files"
             files={related_files.siblings.slice(0, 5)} // Show max 5
             icon="•"
@@ -179,12 +192,14 @@ export function RelatedFilesPanel({ docId, filePath }: RelatedFilesPanelProps) {
 // apps/web/src/components/FileRelationshipSection.tsx
 
 interface FileRelationshipSectionProps {
+  collectionId: string; // NEW
   title: string;
   files: string[];
   icon: string;
 }
 
 export function FileRelationshipSection({ 
+  collectionId,
   title, 
   files, 
   icon 
@@ -202,6 +217,7 @@ export function FileRelationshipSection({
         {displayFiles.map((file, i) => (
           <FileLink 
             key={i}
+            collectionId={collectionId}
             filePath={file}
             icon={icon}
           />
@@ -228,18 +244,19 @@ export function FileRelationshipSection({
 // apps/web/src/components/FileLink.tsx
 
 interface FileLinkProps {
+  collectionId: string; // NEW
   filePath: string;
   icon: string;
 }
 
-export function FileLink({ filePath, icon }: FileLinkProps) {
+export function FileLink({ collectionId, filePath, icon }: FileLinkProps) {
   const fileName = filePath.split('/').pop() || filePath;
   const directory = filePath.substring(0, filePath.lastIndexOf('/'));
   
   const handleClick = () => {
     // Navigate to search for this file
     const query = `file:${fileName}`;
-    window.location.href = `/search?q=${encodeURIComponent(query)}`;
+    window.location.href = `/search/${encodeURIComponent(collectionId)}?q=${encodeURIComponent(query)}`;
   };
   
   return (
@@ -341,6 +358,24 @@ export function FilePathBreadcrumbs({ filePath }: FilePathBreadcrumbsProps) {
 
 ---
 
+## 🧭 Routing & Navigation (Standardized)
+
+- **Route:** `/search/:collectionId?q=...`
+  - Matches existing style (`/chat/:collectionId`)
+  - Keeps collection context explicit in the URL
+  - Uses `q` as the search query parameter
+- **SearchPage:**
+  - Reads `collectionId` from route params and `q` from query string
+  - Calls `POST /api/search` with `{ query: q, collection_id: collectionId }`
+- **Component data flow:**
+  - `SearchPage` → passes `collectionId` to `ResultCard`
+  - `ResultCard` → passes `collectionId` to `RelatedFilesPanel`
+  - `RelatedFilesPanel` → passes `collectionId` to `FileRelationshipSection`
+  - `FileRelationshipSection` → passes `collectionId` to `FileLink`
+  - `FileLink` navigates to `/search/:collectionId?q=file:<name>`
+
+This ensures the backend receives the required `collection_id` for search without additional global state.
+
 ## ✅ Implementation Checklist
 
 **Files to create:**
@@ -350,7 +385,10 @@ export function FilePathBreadcrumbs({ filePath }: FilePathBreadcrumbsProps) {
 - [ ] `apps/web/src/components/FilePathBreadcrumbs.tsx` (25 lines) - Optional
 
 **Files to modify:**
-- [ ] `apps/web/src/components/ResultCard.tsx` (~15 lines added)
+- [ ] `apps/web/src/components/ResultCard.tsx` (~15 lines added; pass `collectionId` to `RelatedFilesPanel`)
+- [ ] `apps/web/src/components/RelatedFilesPanel.tsx` (accept `collectionId`, pass downstream)
+- [ ] `apps/web/src/components/FileRelationshipSection.tsx` (accept `collectionId`, pass downstream)
+- [ ] `apps/web/src/components/FileLink.tsx` (accept `collectionId`, navigate to `/search/:collectionId?q=...`)
 
 **Testing:**
 - [ ] Related files panel opens/closes

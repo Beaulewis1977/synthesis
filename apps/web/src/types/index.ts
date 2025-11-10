@@ -198,3 +198,20 @@ export interface BudgetAlert {
 export interface CostAlertsResponse {
   alerts: BudgetAlert[];
 }
+
+// Phase 13: Code Intelligence - Related Files
+export interface RelatedFiles {
+  imports: string[];
+  imported_by: string[];
+  uses: string[];
+  used_by: string[];
+  tests: string[];
+  tested_by: string[];
+  siblings: string[];
+  parent: string | null;
+}
+
+export interface RelatedFilesResponse {
+  file_path: string;
+  related_files: RelatedFiles;
+}

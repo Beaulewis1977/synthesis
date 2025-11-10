@@ -39,6 +39,7 @@
     -   `apps/web/src/lib/api.ts`
     -   `apps/web/src/lib/utils.ts`
     -   `apps/web/src/types/index.ts`
+    -   Propagate `collectionId` through the related files components per `06_FRONTEND_UPDATES.md` (ResultCard → RelatedFilesPanel → FileRelationshipSection → FileLink).
 
 ---
 
@@ -61,6 +62,7 @@
 - [ ] Modify `CollectionView.tsx` to add a "Search" button.
 - [ ] Update `api.ts`, `utils.ts`, and `types/index.ts` with the necessary helper functions and types.
 - [ ] Write unit or integration tests for the new frontend components.
+- [ ] Ensure `collectionId` is passed from `SearchPage` → `ResultCard` → `RelatedFilesPanel` → `FileRelationshipSection` → `FileLink`, and that `FileLink` navigates to `/search/:collectionId?q=file:<name>`.
 
 ---
 
@@ -107,10 +109,11 @@ pnpm --filter @synthesis/web test
 1.  **Verify Backend Fix:** After updating `packages/shared/src/index.ts`, run a full build (`pnpm build`) and typecheck (`pnpm typecheck`) to ensure no regressions.
 2.  **Verify Frontend Implementation:**
     *   Navigate to a collection and click the new "Search" button.
+    *   Verify the app navigates to `/search/:collectionId?q=<query>`.
     *   Perform a search and see results.
     *   For a code result, toggle the "Related Files" panel.
     *   Verify that the panel loads and displays related files.
-    -   Click on a related file link and verify that it navigates to a new search for that file.
+    -   Click on a related file link and verify that it navigates to `/search/:collectionId?q=file:<name>` for that file.
 
 ---
 

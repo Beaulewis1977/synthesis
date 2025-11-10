@@ -249,6 +249,8 @@ interface CodeChunkMetadata extends ChunkMetadata {
 }
 ```
 
+Note: When integrating these fields into the shared `ChunkMetadata` in `packages/shared/src/index.ts`, make all newly added fields **optional** to maintain backward compatibility with existing data and code paths.
+
 ---
 
 ## 🎯 Deliverables
