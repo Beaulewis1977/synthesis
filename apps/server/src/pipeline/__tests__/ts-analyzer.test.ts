@@ -72,7 +72,8 @@ describe('TypeScript Analyzer', () => {
       // Generator function
       const fibFunc = ast.functions.find((f) => f.name === 'fibonacci');
       expect(fibFunc).toBeDefined();
-      expect(fibFunc?.isAsync).toBe(true); // Generators are treated as async
+      expect(fibFunc?.isGenerator).toBe(true);
+      expect(fibFunc?.isAsync).toBe(false); // Generator without async keyword
       expect(fibFunc?.returnType).toBe('Generator<number, void, unknown>');
     });
 
