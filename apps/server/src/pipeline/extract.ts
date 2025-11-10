@@ -174,5 +174,10 @@ export async function extract(
     return extractPlainText(buffer);
   }
 
+  // Fallback for code files (prevents "Unsupported content type" errors)
+  if (['dart', 'ts', 'tsx', 'js', 'jsx'].includes(ext || '')) {
+    return extractPlainText(buffer);
+  }
+
   throw new Error(`Unsupported content type: ${contentType} (file: ${filename})`);
 }

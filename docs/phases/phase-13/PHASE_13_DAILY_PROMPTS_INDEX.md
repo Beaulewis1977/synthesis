@@ -108,6 +108,22 @@ Each prompt is a complete, standalone guide that your AI agent can follow to com
 
 ---
 
+### [Day 6: Final Fixes & Frontend](./PHASE_13_DAY_6_AGENT_PROMPT.md)
+**Duration:** 8 hours
+**Focus:** Address backend gaps and implement frontend UI.
+
+**Deliverables:**
+- Updated `packages/shared/src/index.ts`
+- New frontend components (`SearchPage.tsx`, `RelatedFilesPanel.tsx`, etc.)
+- New and updated tests.
+
+**Key Tasks:**
+- Update `ChunkMetadata` interface.
+- Implement "Related Files Panel" and search functionality.
+- Test both backend and frontend changes.
+
+---
+
 ## 🎯 Quick Start
 
 To use these prompts with your AI agent:
@@ -142,7 +158,8 @@ Simply copy the daily prompt content and paste it into your AI conversation.
 | Day 3 | Relationships | 6 hours | Medium |
 | Day 4 | TypeScript | 4 hours | Low |
 | Day 5 | Testing | 6-8 hours | High |
-| **Total** | | **28-30 hours** | **~5 days** |
+| Day 6 | Final Fixes & Frontend | 8 hours | Medium |
+| **Total** | | **36-38 hours** | **~6 days** |
 
 ---
 
@@ -238,7 +255,7 @@ After each day, post a summary to Issue #62 using the template in each daily pro
 
 Phase 13 is complete when:
 
-- ✅ All 5 daily prompts executed
+- ✅ All 6 daily prompts executed
 - ✅ All deliverables created
 - ✅ All tests passing (100% of test suite)
 - ✅ Acceptance criteria validated

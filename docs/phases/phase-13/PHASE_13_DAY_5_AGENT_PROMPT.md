@@ -1,12 +1,27 @@
 # Phase 13 Day 5 - Agent Prompt
 
 ## OVERRIDE (read first)
-- Primary: `docs/phases/phase-13/PHASE_13_DAY_5_AUDIT_FIXES.md`
+- Primary: docs/phases/phase-13/PHASE_13_DAY_5_AUDIT_FIXES.md
 - If anything below conflicts with the override, follow the override.
-- Use UUID `collection_id` (create a collection first); remove `title` field in ingests.
-- Run benchmarks only after TS parser/chunker is implemented; fix P90 calculation and ensure dependencies (e.g., `glob`) are present.
-- Use related-files route in `apps/server/src/routes/collections.ts`; implement `GET /api/documents/:id/chunks` or skip those calls.
-- Wire `CODE_MAX_CHUNK_LINES` in `orchestrator.ts` or omit it from docs.
+- Decisions:
+  - Skip GET /api/documents/:id/chunks for Day 5 (verify via SQL + related-files API).
+  - Wire CODE_MAX_CHUNK_LINES in orchestrator and keep it in docs.
+  - Benchmark scope: 100 Dart + 50 TS files is sufficient.
+- Ingestion:
+  - Use UUID collection_id (create a collection first). Do NOT send title.
+  - Use text/* MIME so extractor accepts code:
+    - .ts → text/plain
+    - .js → text/javascript
+    - .jsx → text/jsx
+- Benchmarks:
+  - Fix P90: [...times].sort((a, b) => a - b)[Math.floor(times.length * 0.9)]
+  - Ensure file discovery is available (glob or Node fs traversal).
+- Search:
+  - Verify POST /api/search works and note the request/response used.
+- Feature flags:
+  - Exercise CODE_CHUNKING, PRESERVE_IMPORTS, TRACK_RELATIONSHIPS, CODE_MAX_CHUNK_LINES.
+- Recovery tip:
+  - If you see “current transaction is aborted”, restart the server and re‑run failed ingests.
 
 **Task:** Integration Testing, Performance Validation, Documentation & Polish
 

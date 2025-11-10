@@ -1,6 +1,6 @@
 # Phase 13: Build Plan
 
-**5-day implementation schedule for code intelligence**
+**6-day implementation schedule for code intelligence**
 
 ---
 
@@ -546,7 +546,7 @@ git clone https://github.com/flutter/samples.git test-samples
 
 # 2. Ingest entire directory
 curl -X POST http://localhost:3333/api/ingest/directory \
-  -d '{
+  -d '{ 
     "directory": "test-samples/lib",
     "collection_id": "flutter-samples"
   }'
@@ -617,6 +617,32 @@ pnpm build
 - [ ] Documentation complete
 - [ ] All tests passing
 - [ ] Ready for PR
+
+---
+
+### Day 6: Final Fixes & Frontend (8 hours)
+
+**Task:** Address remaining gaps in the backend and implement the frontend components for code intelligence.
+
+**See:** `docs/phases/phase-13/PHASE_13_DAY_6_AGENT_PROMPT.md` for the detailed plan.
+
+**Morning (4 hours): Backend & Frontend Scaffolding**
+- Update `packages/shared/src/index.ts` with full `ChunkMetadata`.
+- Create all new frontend files (`SearchPage.tsx`, `RelatedFilesPanel.tsx`, etc.).
+- Scaffold the basic structure of the new components.
+
+**Afternoon (4 hours): Frontend Implementation & Testing**
+- Implement the logic for the new frontend components.
+- Connect the frontend to the `/api/documents/:id/related-files` endpoint.
+- Write tests for the new components.
+- Perform end-to-end testing of the search and related files flow.
+
+**End of Day 6 Checklist:**
+- [ ] `ChunkMetadata` interface is complete.
+- [ ] All frontend components for issue #65 are implemented.
+- [ ] The search page and related files panel are functional.
+- [ ] All new and existing tests are passing.
+- [ ] Phase 13 is fully complete.
 
 ---
 
