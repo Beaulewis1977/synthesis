@@ -184,21 +184,23 @@ export async function buildFileRelationships(
 
 /**
  * Resolve import path to absolute file path
+ * Handles Dart package imports, relative imports, and bare specifiers (npm packages)
  */
 export function resolveImportPath(importUri: string, currentFile: string): string {
-  // Package imports (e.g., package:flutter/material.dart)
+  // Dart package imports (e.g., package:flutter/material.dart)
   if (importUri.startsWith('package:')) {
     return importUri;
   }
 
-  // Relative imports (e.g., ../models/user.dart)
+  // Relative imports (works for both Dart and TS/JS)
   if (importUri.startsWith('.')) {
     const currentDir = currentFile.substring(0, currentFile.lastIndexOf('/'));
     return resolvePath(currentDir, importUri);
   }
 
-  // Absolute imports from lib/
-  return `lib/${importUri}`;
+  // Bare/aliased specifiers (npm packages like 'react', '@org/pkg')
+  // Store as-is for dependency graph (don't try to resolve to node_modules)
+  return importUri;
 }
 
 /**
@@ -220,10 +222,17 @@ function resolvePath(base: string, relative: string): string {
 }
 
 /**
- * Check if file is a test file
+ * Check if file is a test file (supports Dart and TS/JS patterns)
  */
 export function isTestFile(filePath: string): boolean {
-  return filePath.includes('_test.dart') || filePath.startsWith('test/');
+  const lower = filePath.toLowerCase();
+  return (
+    lower.includes('_test.dart') ||
+    lower.startsWith('test/') ||
+    lower.includes('/tests/') ||
+    /\.(test|spec)\.(ts|tsx|js|jsx)$/.test(lower) ||
+    lower.includes('/__tests__/')
+  );
 }
 
 /**

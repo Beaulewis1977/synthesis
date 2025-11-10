@@ -13,7 +13,15 @@ export type DocumentFramework =
   | 'postgres'
   | 'supabase'
   | 'firebase';
-export type DocumentLanguage = 'dart' | 'typescript' | 'javascript' | 'yaml' | 'sql' | 'markdown';
+export type DocumentLanguage =
+  | 'dart'
+  | 'typescript'
+  | 'tsx'
+  | 'javascript'
+  | 'jsx'
+  | 'yaml'
+  | 'sql'
+  | 'markdown';
 export type DocumentContentCategory =
   | 'api_reference'
   | 'tutorial'

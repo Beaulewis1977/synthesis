@@ -168,9 +168,14 @@ describe('File Relationships', () => {
       expect(resolved).toBe('lib/services/api.dart');
     });
 
-    it('resolves absolute imports from lib/', () => {
+    it('returns bare imports as-is (npm packages, Dart libs without prefix)', () => {
+      // Bare specifiers like npm packages or Dart files without ./ or package:
       const resolved = resolveImportPath('models/user.dart', 'lib/services/auth.dart');
-      expect(resolved).toBe('lib/models/user.dart');
+      expect(resolved).toBe('models/user.dart');
+
+      // Also test npm packages
+      const npmResolved = resolveImportPath('react', 'src/App.tsx');
+      expect(npmResolved).toBe('react');
     });
   });
 
