@@ -26,6 +26,43 @@ See [docs/00_START_HERE.md](docs/00_START_HERE.md) to begin.
 - **AI:** Claude Agent SDK, Ollama
 - **Deployment:** Docker Compose
 
+## ✨ Key Features
+
+### Code Intelligence (Phase 13)
+
+**AST-based code chunking** that preserves code structure:
+- ✅ Functions stay intact (no mid-function breaks)
+- ✅ Imports preserved with code chunks
+- ✅ File relationships tracked
+- ✅ Supports Dart, TypeScript, JavaScript
+
+**Enable code intelligence:**
+```bash
+CODE_CHUNKING=true
+PRESERVE_IMPORTS=true
+TRACK_RELATIONSHIPS=true
+```
+
+**Result:** Search returns complete, usable code snippets instead of fragmented text.
+
+See [Code Chunking Guide](docs/CODE_CHUNKING_GUIDE.md) for full documentation.
+
+### Hybrid Search (Phase 8)
+
+**Smart search** with multiple modes:
+- Vector-only (fast, semantic)
+- Hybrid with RRF fusion (better recall)
+- Multi-provider embeddings (Ollama, OpenAI, Voyage)
+- Trust scoring for source quality
+
+### Re-ranking & Synthesis (Phase 12)
+
+**Post-processing** for better results:
+- Re-rank results with BGE or Cohere
+- Synthesize answers from multiple sources
+- Detect contradictions
+- Cost tracking and budget management
+
 ## 📖 Planning Docs
 
 All planning documentation is in the [docs/](docs/) directory.
