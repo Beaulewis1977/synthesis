@@ -616,21 +616,23 @@ async function chunkSQLCode(
 
   // Chunk tables
   for (const table of ast.tables) {
+    const tableStartOffset = table.startOffset ?? 0;
+    const tableEndOffset = table.endOffset ?? table.code?.length ?? 0;
     const metadata: ChunkMetadata = {
       chunk_type: 'code',
       language: 'sql',
       file_path: filePath,
-      line_range: table.lineRange as [number, number],
+      line_range: table.lineRange,
       table: table.name,
       schema: table.schema,
       columns: table.columns.map((col) => ({
         name: col.name,
         type: col.type,
-        constraints: col.constraints,
+        constraints: col.constraints ?? [],
       })),
       sql_type: 'table',
-      startOffset: table.startOffset,
-      endOffset: table.endOffset,
+      startOffset: tableStartOffset,
+      endOffset: tableEndOffset,
     };
 
     if (techStack && techStack.length > 0) {
@@ -665,7 +667,7 @@ async function chunkSQLCode(
     }
 
     chunks.push({
-      text: table.code,
+      text: table.code ?? '',
       index: chunkIndex++,
       metadata,
     });
@@ -680,12 +682,12 @@ async function chunkSQLCode(
       chunk_type: 'code',
       language: 'sql',
       file_path: filePath,
-      line_range: index.lineRange as [number, number],
+      line_range: index.lineRange,
       table: index.table,
       indexes: [index.name],
       sql_type: 'index',
-      startOffset: index.startOffset,
-      endOffset: index.endOffset,
+      startOffset: index.startOffset ?? 0,
+      endOffset: index.endOffset ?? indexText.length,
     };
 
     if (techStack && techStack.length > 0) {
@@ -706,12 +708,12 @@ async function chunkSQLCode(
       function_name: func.name,
       language: 'sql',
       file_path: filePath,
-      line_range: func.lineRange as [number, number],
-      return_type: func.returnType,
+      line_range: func.lineRange,
+      return_type: func.return_type,
       schema: func.schema,
       sql_type: 'function',
-      startOffset: func.startOffset,
-      endOffset: func.endOffset,
+      startOffset: func.startOffset ?? 0,
+      endOffset: func.endOffset ?? func.code?.length ?? 0,
     };
 
     if (techStack && techStack.length > 0) {
@@ -719,7 +721,7 @@ async function chunkSQLCode(
     }
 
     chunks.push({
-      text: func.code,
+      text: func.code ?? '',
       index: chunkIndex++,
       metadata,
     });
@@ -744,7 +746,8 @@ async function chunkConfigCode(
   const techStackEnabled = process.env.TECH_STACK_TAGS === 'true';
   const techStack = techStackEnabled ? detectTechStack(filePath, content) : undefined;
 
-  const format = filePath.endsWith('.json') ? 'json' : 'yaml';
+  const isJson = filePath.toLowerCase().endsWith('.json');
+  const format = isJson ? 'json' : 'yaml';
 
   // Chunk config sections (stored as "tables" in BackendAST)
   for (const section of ast.tables) {
@@ -756,7 +759,7 @@ async function chunkConfigCode(
 
     const metadata: ChunkMetadata = {
       chunk_type: 'code',
-      language: format === 'json' ? 'json' : 'yaml',
+      language: isJson ? 'json' : 'yaml',
       file_path: filePath,
       format,
       config_section: section.name,

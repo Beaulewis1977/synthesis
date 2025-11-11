@@ -121,6 +121,10 @@ export interface IndexDefinition {
   index_type?: 'btree' | 'hash' | 'gist' | 'gin' | 'brin' | 'spgist';
   where_clause?: string;
   comment?: string;
+  code?: string;
+  lineRange?: [number, number];
+  startOffset?: number;
+  endOffset?: number;
 }
 
 export interface ForeignKeyDefinition {
@@ -163,6 +167,10 @@ export interface FunctionDefinition {
   language?: string;
   body?: string;
   comment?: string;
+  code?: string;
+  lineRange?: [number, number];
+  startOffset?: number;
+  endOffset?: number;
 }
 
 export interface BackendAST {

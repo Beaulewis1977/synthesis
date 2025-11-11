@@ -1,85 +1,36 @@
+import type {
+  BackendAST,
+  ColumnDefinition,
+  ConstraintDefinition,
+  FunctionDefinition,
+  IndexDefinition,
+  TableDefinition,
+} from '@synthesis/shared';
+
 /**
  * PostgreSQL DDL Parser - Regex-based extraction for SQL schema files
  * Extracts tables, indexes, and constraints from PostgreSQL DDL statements
  */
 
-/**
- * Represents a column in a table with its type and constraints
- */
-interface Column {
-  name: string;
-  type: string;
-  constraints: string[];
-}
+type Column = ColumnDefinition & { constraints: string[] };
 
 /**
  * Represents a table-level constraint (PRIMARY KEY, UNIQUE, CHECK, FOREIGN KEY)
  */
-export interface TableConstraint {
-  type: 'PRIMARY KEY' | 'UNIQUE' | 'CHECK' | 'FOREIGN KEY';
-  name?: string;
-  columns?: string[];
-  definition: string;
+export interface TableConstraint extends ConstraintDefinition {
   referencedTable?: string;
   referencedColumns?: string[];
   onDelete?: string;
   onUpdate?: string;
 }
 
-/**
- * Represents an index definition
- */
-interface Index {
-  name: string;
-  table: string;
-  columns: string[];
-  unique: boolean;
-  method?: string;
-  where?: string;
-  lineRange: [number, number];
-  code: string;
-  startOffset: number;
-  endOffset: number;
-}
+const INDEX_METHODS = ['btree', 'hash', 'gist', 'gin', 'brin', 'spgist'] as const;
+type IndexMethod = (typeof INDEX_METHODS)[number];
 
-/**
- * Represents a table definition
- */
-interface Table {
-  name: string;
-  schema?: string;
-  columns: Column[];
-  constraints: TableConstraint[];
-  code: string;
-  lineRange: [number, number];
-  startOffset: number;
-  endOffset: number;
-}
-
-/**
- * Represents a function/procedure definition
- */
-interface SQLFunction {
-  name: string;
-  schema?: string;
-  returnType?: string;
-  language?: string;
-  code: string;
-  lineRange: [number, number];
-  startOffset: number;
-  endOffset: number;
-}
-
-/**
- * Backend AST structure compatible with DartAST for SQL files
- */
-export interface BackendAST {
-  imports: never[]; // SQL doesn't have imports
-  functions: SQLFunction[];
-  classes: never[]; // SQL doesn't have classes
-  constants: never[]; // We store tables separately
-  tables: Table[];
-  indexes: Index[];
+function normalizeIndexMethod(method?: string): IndexMethod | undefined {
+  if (!method) return undefined;
+  const lower = method.toLowerCase();
+  return (INDEX_METHODS as readonly string[]).includes(lower) ? (lower as IndexMethod) : undefined;
 }
 
 /**
@@ -92,12 +43,10 @@ export interface BackendAST {
  */
 export async function parseSQLFile(content: string, filePath?: string): Promise<BackendAST> {
   const ast: BackendAST = {
-    imports: [],
-    functions: [],
-    classes: [],
-    constants: [],
     tables: [],
     indexes: [],
+    functions: [],
+    constraints: [],
   };
 
   try {
@@ -115,6 +64,8 @@ export async function parseSQLFile(content: string, filePath?: string): Promise<
 
     // Process ALTER TABLE statements and attach to existing tables
     processAlterStatements(content, cleanedContent, ast.tables);
+
+    ast.constraints = ast.tables.flatMap((table) => table.constraints ?? []);
 
     return ast;
   } catch (error) {
@@ -360,8 +311,8 @@ function unquoteIdentifier(identifier: string): string {
  * @param cleanedContent - Content with comments removed (for parsing)
  * @returns Array of table definitions
  */
-function extractTables(originalContent: string, cleanedContent: string): Table[] {
-  const tables: Table[] = [];
+function extractTables(originalContent: string, cleanedContent: string): TableDefinition[] {
+  const tables: TableDefinition[] = [];
   const createTableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([^\s(]+)\s*\(/gi;
 
   let match: RegExpExecArray | null;
@@ -560,17 +511,42 @@ function splitByTopLevelComma(content: string): string[] {
   let depth = 0;
   let inSingleQuote = false;
   let inDoubleQuote = false;
+  let inDollarQuote = false;
+  let dollarTag = '';
 
   for (let i = 0; i < content.length; i++) {
     const char = content[i];
 
-    if (char === "'" && !isEscaped(content, i)) {
-      inSingleQuote = !inSingleQuote;
-    } else if (char === '"' && !isEscaped(content, i)) {
-      inDoubleQuote = !inDoubleQuote;
+    if (!inSingleQuote && !inDoubleQuote) {
+      const tagMatch = content.substring(i).match(/^(\$\w*\$)/);
+      if (tagMatch) {
+        const tag = tagMatch[1];
+        if (!inDollarQuote) {
+          inDollarQuote = true;
+          dollarTag = tag;
+          current += tag;
+          i += tag.length - 1;
+          continue;
+        }
+        if (tag === dollarTag) {
+          inDollarQuote = false;
+          dollarTag = '';
+          current += tag;
+          i += tag.length - 1;
+          continue;
+        }
+      }
     }
 
-    if (!inSingleQuote && !inDoubleQuote) {
+    if (!inDollarQuote) {
+      if (char === "'" && !isEscaped(content, i)) {
+        inSingleQuote = !inSingleQuote;
+      } else if (char === '"' && !isEscaped(content, i)) {
+        inDoubleQuote = !inDoubleQuote;
+      }
+    }
+
+    if (!inSingleQuote && !inDoubleQuote && !inDollarQuote) {
       if (char === '(') {
         depth++;
       } else if (char === ')') {
@@ -578,7 +554,7 @@ function splitByTopLevelComma(content: string): string[] {
       }
     }
 
-    if (char === ',' && depth === 0 && !inSingleQuote && !inDoubleQuote) {
+    if (char === ',' && depth === 0 && !inSingleQuote && !inDoubleQuote && !inDollarQuote) {
       items.push(current);
       current = '';
     } else {
@@ -659,8 +635,8 @@ function parseColumnDefinition(columnDef: string): Column | null {
  * @param cleanedContent - Cleaned content (for parsing)
  * @returns Array of index definitions
  */
-function extractIndexes(originalContent: string, cleanedContent: string): Index[] {
-  const indexes: Index[] = [];
+function extractIndexes(originalContent: string, cleanedContent: string): IndexDefinition[] {
+  const indexes: IndexDefinition[] = [];
   const createIndexRegex =
     /CREATE\s+(UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?([^\s]+)\s+ON\s+([^\s(]+)\s*(?:USING\s+(\w+)\s*)?\(([^)]+)\)(?:\s+WHERE\s+(.+?))?(?=;|$)/gi;
 
@@ -670,7 +646,7 @@ function extractIndexes(originalContent: string, cleanedContent: string): Index[
     const unique = !!match[1];
     const name = unquoteIdentifier(match[2]);
     const tableRef = parseTableReference(match[3]);
-    const method = match[4];
+    const method = normalizeIndexMethod(match[4]);
     const columnsStr = match[5];
     const whereClause = match[6];
 
@@ -689,8 +665,8 @@ function extractIndexes(originalContent: string, cleanedContent: string): Index[
       table: tableRef.table,
       columns,
       unique,
-      method,
-      where: whereClause?.trim(),
+      index_type: method,
+      where_clause: whereClause?.trim(),
       lineRange,
       code,
       startOffset: startIndex,
@@ -708,8 +684,8 @@ function extractIndexes(originalContent: string, cleanedContent: string): Index[
  * @param cleanedContent - Cleaned content (for parsing)
  * @returns Array of function definitions
  */
-function extractFunctions(originalContent: string, cleanedContent: string): SQLFunction[] {
-  const functions: SQLFunction[] = [];
+function extractFunctions(originalContent: string, cleanedContent: string): FunctionDefinition[] {
+  const functions: FunctionDefinition[] = [];
   const createFunctionRegex =
     /CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\s+([^\s(]+)\s*\(/gi;
 
@@ -738,7 +714,7 @@ function extractFunctions(originalContent: string, cleanedContent: string): SQLF
     functions.push({
       name,
       schema,
-      returnType,
+      return_type: returnType,
       language,
       code,
       lineRange,
@@ -760,7 +736,7 @@ function extractFunctions(originalContent: string, cleanedContent: string): SQLF
 function processAlterStatements(
   _originalContent: string,
   cleanedContent: string,
-  tables: Table[]
+  tables: TableDefinition[]
 ): void {
   const alterTableRegex =
     /ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?([^\s]+)\s+(ADD|DROP|ALTER)\s+(.+?)(?=;|$)/gi;
@@ -778,6 +754,9 @@ function processAlterStatements(
     );
 
     if (!table) continue; // Table not found, skip
+    if (!table.constraints) {
+      table.constraints = [];
+    }
 
     if (action === 'ADD') {
       // ADD CONSTRAINT
