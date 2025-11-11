@@ -1,4 +1,4 @@
-# Phases 11-15: Advanced RAG Enhancement Summary
+# Phases 11-16: Advanced RAG Enhancement Summary
 
 
 ---
@@ -47,6 +47,48 @@ docs/phases/phase-13/
 └── 05_ACCEPTANCE_CRITERIA.md           ✅ COMPLETE (10K)
 
 Total: 6 files, ~80K
+```
+
+### Phase 13.5: Backend Parsing & Tagging ✅ COMPLETE
+```
+docs/phases/phase-13-5/
+├── 00_PHASE_13_5_OVERVIEW.md           ✅ COMPLETE
+├── 04_BUILD_PLAN.md                    ✅ COMPLETE
+└── ROADMAP_PHASE_14_PLUS.md            ✅ COMPLETE
+
+Total: 3 files
+```
+
+### Phase 14: Tech Stack Filtering 🚧 IN PROGRESS
+```
+docs/phases/phase-14/
+├── 00_PHASE_14_OVERVIEW.md             ✅ COMPLETE
+├── 04_BUILD_PLAN.md                    ✅ COMPLETE
+├── 05_ACCEPTANCE_CRITERIA.md           ✅ COMPLETE
+├── 06_INTEGRATION_GUIDE.md             ✅ COMPLETE
+├── PHASE_14_AGENT_PROMPT.md            ✅ COMPLETE
+├── PHASE_14_ISSUE_PACK.md              ✅ COMPLETE
+├── PHASE_14_ISSUES.md                  ✅ COMPLETE
+└── phase-14-prompts.md                 ✅ COMPLETE
+
+Total: 8 files
+
+GitHub Issues: #96 (Backend), #97 (Frontend), #98 (DB/Docs), #73 (Closure)
+```
+
+### Phase 15: Integration & Polish 📋 PLANNED
+```
+GitHub Issues: #67 (Integration Testing), #68 (Performance), #69 (Frontend Polish), #70 (Documentation)
+Milestone: Phase 15: Integration & Polish
+```
+
+### Phase 16: Final Testing & v2.0 Release 📋 PLANNED
+```
+GitHub Issues: #71 (E2E Testing), #72 (Load Testing)
+Milestone: Phase 16: Final Testing & v2.0 Release
+```
+
+---
 
 ### Phase 11 (3-4 days)
 **Core Feature:** Hybrid Search + Multi-Provider Embeddings
