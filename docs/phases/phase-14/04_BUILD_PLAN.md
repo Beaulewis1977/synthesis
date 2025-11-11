@@ -1,12 +1,17 @@
 # Phase 14: Build Plan
 
-Duration: 1–2 days  
-Focus: Backend tech_stack filtering + optional frontend filter UI  
-Note: Keep consistent with Phase 13/13.5 docs and defer Phase 14+ items to roadmap
+**Duration:** 1–2 days  
+**Focus:** Backend tech_stack filtering + optional frontend filter UI  
+**Note:** Keep consistent with Phase 13/13.5 docs and defer Phase 14+ items to roadmap  
+**Issues:** [#96](https://github.com/Beaulewis1977/synthesis/issues/96), [#97](https://github.com/Beaulewis1977/synthesis/issues/97), [#98](https://github.com/Beaulewis1977/synthesis/issues/98), [#73](https://github.com/Beaulewis1977/synthesis/issues/73)
 
 ---
 
 ## Day 1 — Backend (Filtering & Tests)
+
+**GitHub Issue:** [#96 - Backend: Apply tech_stack filtering (vector + hybrid)](https://github.com/Beaulewis1977/synthesis/issues/96)  
+**Time:** 4-6 hours  
+**Priority:** HIGH
 
 1) Search API wiring  
 - File: `apps/server/src/routes/search.ts`  
@@ -35,7 +40,13 @@ Note: Keep consistent with Phase 13/13.5 docs and defer Phase 14+ items to roadm
 
 ## Day 2 — Frontend (Optional Filter UI) & Docs
 
-1) Frontend UI (optional but recommended)  
+### Morning: Frontend UI (Optional but Recommended)
+
+**GitHub Issue:** [#97 - Frontend: Optional tech_stack filter UI with URL persistence](https://github.com/Beaulewis1977/synthesis/issues/97)  
+**Time:** 2-3 hours  
+**Priority:** MEDIUM
+
+1) Frontend UI  
 - File: `apps/web/src/pages/SearchPage.tsx`  
 - Add minimal multi-select chips (e.g., postgres, supabase, redis).  
 - Persist selected tags to URL (`&tech_stack=postgres&tech_stack=redis`).  
@@ -45,10 +56,26 @@ Note: Keep consistent with Phase 13/13.5 docs and defer Phase 14+ items to roadm
 - Ensure request payload includes tags when selected.  
 - Verify URL state → UI state on reload.
 
+### Afternoon: Documentation & Closure
+
+**GitHub Issue:** [#98 - DB/Docs: JSONB index guidance for tech_stack](https://github.com/Beaulewis1977/synthesis/issues/98)  
+**Time:** 1 hour  
+**Priority:** LOW
+
 3) Documentation  
-- Update Integration Guide (this phase) with request examples.  
-- Update Acceptance Criteria.  
-- Add agent prompt for implementation order and verification steps.
+- Update Integration Guide (this phase) with JSONB index guidance.  
+- Add example SQL for GIN index creation.  
+- Document when to apply (>10k documents).  
+- Explain trade-offs (write performance vs read performance).
+
+**GitHub Issue:** [#73 - Docs & Closure: Update docs and close Epic](https://github.com/Beaulewis1977/synthesis/issues/73)  
+**Time:** <1 hour  
+**Priority:** HIGH
+
+4) Final Validation  
+- Verify all acceptance criteria met.  
+- Update any documentation deltas found during implementation.  
+- Close Phase 14 Epic after approval.
 
 ---
 
