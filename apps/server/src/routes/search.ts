@@ -73,6 +73,7 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
     const rerankProvider = camelRerankProvider ?? snakeRerankProvider;
 
     try {
+      // TODO(Phase14): accept tech_stack[] params and pass them through to smartSearch for filtering.
       const result = await smartSearch(getPool(), {
         query,
         collectionId,

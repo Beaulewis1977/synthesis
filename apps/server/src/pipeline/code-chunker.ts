@@ -1,7 +1,11 @@
 import type { Pool } from 'pg';
 import { buildFileRelationships } from '../services/file-relationships.js';
+import { detectTechStack } from '../services/tech-detector.js';
 import type { Chunk, ChunkMetadata } from './chunk.js';
+import { parseConfigFile } from './config-analyzer.js';
 import { parseDartFile } from './dart-analyzer.js';
+import { parseSQLFile } from './sql-analyzer.js';
+import type { TableConstraint } from './sql-analyzer.js';
 import { parseTypeScriptFile } from './ts-analyzer.js';
 
 /**
@@ -33,6 +37,9 @@ export async function chunkCodeFile(
   const extension = filePath.split('.').pop()?.toLowerCase();
 
   try {
+    // Check if backend parsing is enabled for SQL and config files
+    const backendParsingEnabled = process.env.BACKEND_PARSING === 'true';
+
     switch (extension) {
       case 'dart':
         return await chunkDartCode(filePath, content, options);
@@ -42,6 +49,20 @@ export async function chunkCodeFile(
       case 'js':
       case 'jsx':
         return await chunkJavaScriptCode(filePath, content, options);
+      case 'sql':
+        if (backendParsingEnabled) {
+          return await chunkSQLCode(filePath, content, options);
+        }
+        console.warn('BACKEND_PARSING=false, using simple chunking for SQL file');
+        return simpleChunking(content);
+      case 'yaml':
+      case 'yml':
+      case 'json':
+        if (backendParsingEnabled) {
+          return await chunkConfigCode(filePath, content, options);
+        }
+        console.warn('BACKEND_PARSING=false, using simple chunking for config file');
+        return simpleChunking(content);
       default:
         console.warn(`Unsupported file type: ${extension}, using simple chunking`);
         return simpleChunking(content);
@@ -572,6 +593,217 @@ async function chunkJavaScriptCode(
   // Track file relationships if enabled
   if (options.trackRelationships && options.db && options.collectionId) {
     await buildFileRelationships(options.db, options.collectionId, filePath, ast);
+  }
+
+  return chunks;
+}
+
+/**
+ * Chunks SQL code using the SQL parser (Phase 13.5).
+ * Extracts tables, indexes, and functions with rich metadata.
+ */
+async function chunkSQLCode(
+  filePath: string,
+  content: string,
+  _options: CodeChunkOptions
+): Promise<Chunk[]> {
+  const ast = await parseSQLFile(content, filePath);
+  const chunks: Chunk[] = [];
+  let chunkIndex = 0;
+
+  const techStackEnabled = process.env.TECH_STACK_TAGS === 'true';
+  const techStack = techStackEnabled ? detectTechStack(filePath, content) : undefined;
+
+  // Chunk tables
+  for (const table of ast.tables) {
+    const tableStartOffset = table.startOffset ?? 0;
+    const tableEndOffset = table.endOffset ?? table.code?.length ?? 0;
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      language: 'sql',
+      file_path: filePath,
+      line_range: table.lineRange,
+      table: table.name,
+      schema: table.schema,
+      columns: table.columns.map((col) => ({
+        name: col.name,
+        type: col.type,
+        constraints: col.constraints ?? [],
+      })),
+      sql_type: 'table',
+      startOffset: tableStartOffset,
+      endOffset: tableEndOffset,
+    };
+
+    if (techStack && techStack.length > 0) {
+      metadata.tech_stack = techStack;
+    }
+
+    // Add conservative cross-tech hint for table (Phase 13.5)
+    metadata.maps_to = {
+      type: 'table',
+      name: table.name,
+    };
+
+    // Add constraints info if present
+    if (table.constraints && table.constraints.length > 0) {
+      metadata.indexes = table.constraints
+        .filter((c) => c.type === 'PRIMARY KEY' || c.type === 'UNIQUE')
+        .map((c) => c.name || `${table.name}_${c.type.toLowerCase().replace(' ', '_')}`);
+
+      const fkConstraints: TableConstraint[] = table.constraints.filter(
+        (c) => c.type === 'FOREIGN KEY'
+      );
+      if (fkConstraints.length > 0) {
+        metadata.foreign_keys = fkConstraints
+          .filter((c) => c.referencedTable)
+          .map((c) => ({
+            column: c.columns?.[0] || '',
+            references_table: c.referencedTable || '',
+            references_column: c.referencedColumns?.[0] || '',
+          }))
+          .filter((fk) => fk.column && fk.references_table);
+      }
+    }
+
+    chunks.push({
+      text: table.code ?? '',
+      index: chunkIndex++,
+      metadata,
+    });
+  }
+
+  // Chunk indexes
+  for (const index of ast.indexes) {
+    const indexText =
+      index.code ||
+      `CREATE ${index.unique ? 'UNIQUE ' : ''}INDEX ${index.name} ON ${index.table} (${index.columns.join(', ')})`;
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      language: 'sql',
+      file_path: filePath,
+      line_range: index.lineRange,
+      table: index.table,
+      indexes: [index.name],
+      sql_type: 'index',
+      startOffset: index.startOffset ?? 0,
+      endOffset: index.endOffset ?? indexText.length,
+    };
+
+    if (techStack && techStack.length > 0) {
+      metadata.tech_stack = techStack;
+    }
+
+    chunks.push({
+      text: indexText,
+      index: chunkIndex++,
+      metadata,
+    });
+  }
+
+  // Chunk functions
+  for (const func of ast.functions) {
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      function_name: func.name,
+      language: 'sql',
+      file_path: filePath,
+      line_range: func.lineRange,
+      return_type: func.return_type,
+      schema: func.schema,
+      sql_type: 'function',
+      startOffset: func.startOffset ?? 0,
+      endOffset: func.endOffset ?? func.code?.length ?? 0,
+    };
+
+    if (techStack && techStack.length > 0) {
+      metadata.tech_stack = techStack;
+    }
+
+    chunks.push({
+      text: func.code ?? '',
+      index: chunkIndex++,
+      metadata,
+    });
+  }
+
+  return chunks;
+}
+
+/**
+ * Chunks config files (YAML/JSON) using the config parser (Phase 13.5).
+ * Extracts sections and nested key paths with metadata.
+ */
+async function chunkConfigCode(
+  filePath: string,
+  content: string,
+  _options: CodeChunkOptions
+): Promise<Chunk[]> {
+  const ast = await parseConfigFile(content, filePath);
+  const chunks: Chunk[] = [];
+  let chunkIndex = 0;
+
+  const techStackEnabled = process.env.TECH_STACK_TAGS === 'true';
+  const techStack = techStackEnabled ? detectTechStack(filePath, content) : undefined;
+
+  const isJson = filePath.toLowerCase().endsWith('.json');
+  const format = isJson ? 'json' : 'yaml';
+
+  // Chunk config sections (stored as "tables" in BackendAST)
+  for (const section of ast.tables) {
+    const sectionLineRange =
+      section.lineRange ?? (section as { line_range?: [number, number] }).line_range;
+    const sectionStartOffset =
+      section.startOffset ?? (section as { start_offset?: number }).start_offset;
+    const sectionEndOffset = section.endOffset ?? (section as { end_offset?: number }).end_offset;
+
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      language: isJson ? 'json' : 'yaml',
+      file_path: filePath,
+      format,
+      config_section: section.name,
+      keys: [section.name],
+      nested_paths: section.columns.map((col) => `${section.name}.${col.name}`),
+      line_range: sectionLineRange as [number, number] | undefined,
+      startOffset: sectionStartOffset ?? 0,
+      endOffset: sectionEndOffset ?? 0,
+    };
+
+    if (techStack && techStack.length > 0) {
+      metadata.tech_stack = techStack;
+    }
+
+    // Add conservative cross-tech hint for config sections that map to backend services
+    if (section.name === 'database' || section.name === 'redis' || section.name === 'cache') {
+      metadata.maps_to = {
+        type: 'endpoint',
+        name: section.name,
+      };
+    }
+
+    // Use JSON.stringify to render section content if code property doesn't exist
+    const sectionCode = section.code ?? (section as { code?: string }).code;
+    const placeholderColumns = section.columns.reduce<Record<string, string>>((acc, col) => {
+      acc[col.name] = '...';
+      return acc;
+    }, {});
+
+    const sectionText =
+      typeof sectionCode === 'string'
+        ? sectionCode
+        : JSON.stringify({ [section.name]: placeholderColumns }, null, 2);
+
+    if (metadata.endOffset === 0) {
+      const fallbackStart = metadata.startOffset ?? 0;
+      metadata.endOffset = fallbackStart + sectionText.length;
+    }
+
+    chunks.push({
+      text: sectionText,
+      index: chunkIndex++,
+      metadata,
+    });
   }
 
   return chunks;

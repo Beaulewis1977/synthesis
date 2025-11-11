@@ -259,7 +259,7 @@ function isPersonalCollection(metadata: DocumentMetadata): boolean {
 
 function isCodeFile(path: string): boolean {
   const lower = path.toLowerCase();
-  return /\.(dart|ts|tsx|js|jsx|py|java|kt|c|cpp|go|rs)$/.test(lower);
+  return /\.(dart|ts|tsx|js|jsx|py|java|kt|c|cpp|go|rs|sql|yaml|yml|json)$/.test(lower);
 }
 
 function isCodeMime(contentType: string): boolean {
@@ -275,6 +275,8 @@ function inferLanguageFromPath(path: string): string | undefined {
   if (lower.endsWith('.ts') || lower.endsWith('.tsx')) return 'typescript';
   if (lower.endsWith('.js') || lower.endsWith('.jsx')) return 'javascript';
   if (lower.endsWith('.yaml') || lower.endsWith('.yml')) return 'yaml';
+  if (lower.endsWith('.sql')) return 'sql';
+  if (lower.endsWith('.json')) return 'json';
   if (lower.endsWith('.md') || lower.endsWith('.markdown')) return 'markdown';
   return undefined;
 }
