@@ -175,20 +175,19 @@ function extractConfigStructure(
   for (const [sectionName, sectionValue] of Object.entries(obj)) {
     const columns = extractNestedKeys(sectionValue, sectionName, 0);
 
-    // Estimate line range for this section (approximate)
-    const lineRange = estimateLineRange(originalContent, sectionName);
+    const bounds = findSectionBounds(originalContent, sectionName);
+    const commentSuffix = bounds?.lineRange
+      ? ` (lines ${bounds.lineRange[0]}-${bounds.lineRange[1]})`
+      : '';
 
     ast.tables.push({
       name: sectionName,
       columns,
-      comment: `Config section from ${format} file`,
+      comment: `Config section from ${format} file${commentSuffix}`,
+      lineRange: bounds?.lineRange,
+      startOffset: bounds?.startOffset,
+      endOffset: bounds?.endOffset,
     });
-
-    // Add metadata comment with line range if available
-    if (lineRange) {
-      ast.tables[ast.tables.length - 1].comment =
-        `Config section from ${format} file (approx lines ${lineRange[0]}-${lineRange[1]})`;
-    }
   }
 }
 
@@ -333,52 +332,78 @@ function getConfigValueType(value: unknown): string {
  * @param sectionName - Top-level section name to find
  * @returns Line range tuple [startLine, endLine] or undefined if not found
  */
-function estimateLineRange(content: string, sectionName: string): [number, number] | undefined {
-  const lines = content.split('\n');
+interface SectionBounds {
+  lineRange?: [number, number];
+  startOffset: number;
+  endOffset: number;
+}
 
-  // Find first line containing the section name at the start
-  let startLine: number | undefined;
+function findSectionBounds(content: string, sectionName: string): SectionBounds | undefined {
+  const lines = content.split('\n');
+  const lineOffsets = getLineStartOffsets(content);
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    // Match section name at start of line (YAML) or as JSON key
-    if (
-      line
-        .trim()
-        .startsWith(`${sectionName}:`) || // YAML
-      line.trim().startsWith(`"${sectionName}":`) // JSON
-    ) {
-      startLine = i + 1; // 1-indexed
-      break;
-    }
-  }
-
-  if (!startLine) {
-    return undefined;
-  }
-
-  // Try to find end of section (next top-level key or end of file)
-  let endLine = lines.length;
-  const indentLevel = getIndentLevel(lines[startLine - 1]);
-
-  for (let i = startLine; i < lines.length; i++) {
-    const line = lines[i];
     const trimmed = line.trim();
+    const isYamlKey = trimmed.startsWith(`${sectionName}:`);
+    const isJsonKey = trimmed.startsWith(`"${sectionName}":`);
 
-    // Skip empty lines and comments
-    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) {
+    if (!isYamlKey && !isJsonKey) {
       continue;
     }
 
-    // Check if we hit another top-level key (same or less indentation)
-    const currentIndent = getIndentLevel(line);
-    if (currentIndent <= indentLevel && currentIndent >= 0) {
-      // Found another top-level key
-      endLine = i; // 0-indexed, will be converted to 1-indexed
-      break;
+    const indentLevel = Math.max(getIndentLevel(line), 0);
+    let endLineExclusive = lines.length;
+
+    for (let j = i + 1; j < lines.length; j++) {
+      const candidate = lines[j];
+      const candidateTrimmed = candidate.trim();
+
+      if (
+        !candidateTrimmed ||
+        candidateTrimmed.startsWith('#') ||
+        candidateTrimmed.startsWith('//')
+      ) {
+        continue;
+      }
+
+      const candidateIndent = Math.max(getIndentLevel(candidate), 0);
+
+      if (candidateIndent <= indentLevel && isLikelyTopLevelKey(candidateTrimmed)) {
+        endLineExclusive = j;
+        break;
+      }
     }
+
+    const startOffset = lineOffsets[i] ?? 0;
+    const endOffset =
+      endLineExclusive < lineOffsets.length ? lineOffsets[endLineExclusive] : content.length;
+    const lastLineIndex = Math.min(Math.max(endLineExclusive - 1, i), lines.length - 1);
+    const lineRange: [number, number] = [i + 1, lastLineIndex + 1];
+
+    return {
+      lineRange,
+      startOffset,
+      endOffset,
+    };
   }
 
-  return [startLine, endLine];
+  return undefined;
+}
+
+function getLineStartOffsets(content: string): number[] {
+  const offsets: number[] = [0];
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === '\n') {
+      offsets.push(i + 1);
+    }
+  }
+  offsets.push(content.length);
+  return offsets;
+}
+
+function isLikelyTopLevelKey(trimmedLine: string): boolean {
+  return /^["']?[\w.-]+["']?\s*:/.test(trimmedLine);
 }
 
 /**

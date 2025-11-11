@@ -266,9 +266,9 @@ describe('redactSecrets', () => {
         port: 5432,
         password: 'db_secret',
       },
-      anthropic_api_key: 'sk-ant-xyz123',
-      openai_api_key: 'sk-proj-abc456',
-      voyage_api_key: 'pa-voyage-def789',
+      anthropic_api_key: 'anthropic_api_key_value',
+      openai_api_key: 'openai_api_key_value',
+      voyage_api_key: 'voyage_api_key_value',
       ollama: {
         base_url: 'http://localhost:11434',
         model: 'nomic-embed-text',

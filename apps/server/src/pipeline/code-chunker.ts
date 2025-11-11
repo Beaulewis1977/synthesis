@@ -629,8 +629,8 @@ async function chunkSQLCode(
         constraints: col.constraints,
       })),
       sql_type: 'table',
-      startOffset: 0,
-      endOffset: table.code.length,
+      startOffset: table.startOffset,
+      endOffset: table.endOffset,
     };
 
     if (techStack && techStack.length > 0) {
@@ -673,7 +673,9 @@ async function chunkSQLCode(
 
   // Chunk indexes
   for (const index of ast.indexes) {
-    const indexText = `CREATE ${index.unique ? 'UNIQUE ' : ''}INDEX ${index.name} ON ${index.table} (${index.columns.join(', ')})`;
+    const indexText =
+      index.code ||
+      `CREATE ${index.unique ? 'UNIQUE ' : ''}INDEX ${index.name} ON ${index.table} (${index.columns.join(', ')})`;
     const metadata: ChunkMetadata = {
       chunk_type: 'code',
       language: 'sql',
@@ -682,8 +684,8 @@ async function chunkSQLCode(
       table: index.table,
       indexes: [index.name],
       sql_type: 'index',
-      startOffset: 0,
-      endOffset: indexText.length,
+      startOffset: index.startOffset,
+      endOffset: index.endOffset,
     };
 
     if (techStack && techStack.length > 0) {
@@ -708,8 +710,8 @@ async function chunkSQLCode(
       return_type: func.returnType,
       schema: func.schema,
       sql_type: 'function',
-      startOffset: 0,
-      endOffset: func.code.length,
+      startOffset: func.startOffset,
+      endOffset: func.endOffset,
     };
 
     if (techStack && techStack.length > 0) {
@@ -746,6 +748,12 @@ async function chunkConfigCode(
 
   // Chunk config sections (stored as "tables" in BackendAST)
   for (const section of ast.tables) {
+    const sectionLineRange =
+      section.lineRange ?? (section as { line_range?: [number, number] }).line_range;
+    const sectionStartOffset =
+      section.startOffset ?? (section as { start_offset?: number }).start_offset;
+    const sectionEndOffset = section.endOffset ?? (section as { end_offset?: number }).end_offset;
+
     const metadata: ChunkMetadata = {
       chunk_type: 'code',
       language: format === 'json' ? 'json' : 'yaml',
@@ -754,8 +762,9 @@ async function chunkConfigCode(
       config_section: section.name,
       keys: [section.name],
       nested_paths: section.columns.map((col) => `${section.name}.${col.name}`),
-      startOffset: 0,
-      endOffset: 0,
+      line_range: sectionLineRange as [number, number] | undefined,
+      startOffset: sectionStartOffset ?? 0,
+      endOffset: sectionEndOffset ?? 0,
     };
 
     if (techStack && techStack.length > 0) {
@@ -771,7 +780,7 @@ async function chunkConfigCode(
     }
 
     // Use JSON.stringify to render section content if code property doesn't exist
-    const sectionCode = (section as { code?: string }).code;
+    const sectionCode = section.code ?? (section as { code?: string }).code;
     const placeholderColumns = section.columns.reduce<Record<string, string>>((acc, col) => {
       acc[col.name] = '...';
       return acc;
@@ -781,6 +790,11 @@ async function chunkConfigCode(
       typeof sectionCode === 'string'
         ? sectionCode
         : JSON.stringify({ [section.name]: placeholderColumns }, null, 2);
+
+    if (metadata.endOffset === 0) {
+      const fallbackStart = metadata.startOffset ?? 0;
+      metadata.endOffset = fallbackStart + sectionText.length;
+    }
 
     chunks.push({
       text: sectionText,

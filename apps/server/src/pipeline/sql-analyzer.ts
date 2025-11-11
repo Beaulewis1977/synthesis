@@ -37,6 +37,9 @@ interface Index {
   method?: string;
   where?: string;
   lineRange: [number, number];
+  code: string;
+  startOffset: number;
+  endOffset: number;
 }
 
 /**
@@ -49,6 +52,8 @@ interface Table {
   constraints: TableConstraint[];
   code: string;
   lineRange: [number, number];
+  startOffset: number;
+  endOffset: number;
 }
 
 /**
@@ -61,6 +66,8 @@ interface SQLFunction {
   language?: string;
   code: string;
   lineRange: [number, number];
+  startOffset: number;
+  endOffset: number;
 }
 
 /**
@@ -393,6 +400,8 @@ function extractTables(originalContent: string, cleanedContent: string): Table[]
       constraints,
       code,
       lineRange,
+      startOffset: startIndex,
+      endOffset: endIndex,
     });
   }
 
@@ -669,6 +678,7 @@ function extractIndexes(originalContent: string, cleanedContent: string): Index[
     const semicolonIndex = findStatementEnd(cleanedContent, startIndex);
     const endIndex = semicolonIndex !== -1 ? semicolonIndex + 1 : match.index + match[0].length;
 
+    const code = originalContent.substring(startIndex, endIndex).trim();
     const lineRange = getLineRange(originalContent, startIndex, endIndex);
 
     // Parse columns (can be expressions, not just column names)
@@ -682,6 +692,9 @@ function extractIndexes(originalContent: string, cleanedContent: string): Index[
       method,
       where: whereClause?.trim(),
       lineRange,
+      code,
+      startOffset: startIndex,
+      endOffset: endIndex,
     });
   }
 
@@ -707,16 +720,9 @@ function extractFunctions(originalContent: string, cleanedContent: string): SQLF
     const funcRef = match[1];
     const { schema, table: name } = parseTableReference(funcRef);
 
-    // Find the end of the function (look for $$ or semicolon)
-    const functionBody = cleanedContent.substring(startIndex);
-
-    // Functions typically end with $$ LANGUAGE ... ; or just ;
-    const endMatch =
-      functionBody.match(/\$\$\s*LANGUAGE\s+\w+\s*;/i) || functionBody.match(/END\s*;/i);
-
-    if (!endMatch) continue;
-
-    const endIndex = startIndex + (endMatch.index || 0) + endMatch[0].length;
+    const statementEnd = findStatementEnd(cleanedContent, startIndex);
+    const endIndex = statementEnd !== -1 ? statementEnd + 1 : startIndex + match[0].length;
+    const functionBody = cleanedContent.substring(startIndex, endIndex);
 
     // Extract return type
     const returnTypeMatch = functionBody.match(/RETURNS\s+([^\s]+)/i);
@@ -736,6 +742,8 @@ function extractFunctions(originalContent: string, cleanedContent: string): SQLF
       language,
       code,
       lineRange,
+      startOffset: startIndex,
+      endOffset: endIndex,
     });
   }
 

@@ -200,6 +200,29 @@ config:
       expect(jsonAst.tables).toHaveLength(1);
     });
 
+    it('should capture line ranges and offsets for sections', async () => {
+      const yamlContent = `
+database:
+  host: localhost
+  port: 5432
+
+cache:
+  host: redis
+`;
+
+      const ast = await parseConfigFile(yamlContent, 'stack.yml');
+      const databaseSection = ast.tables.find((table) => table.name === 'database');
+      if (!databaseSection) {
+        throw new Error('database section not found');
+      }
+
+      expect(databaseSection.lineRange).toBeDefined();
+      expect(databaseSection.lineRange?.[0]).toBe(2);
+      expect(databaseSection.startOffset).toBeGreaterThanOrEqual(0);
+      expect(databaseSection.endOffset).toBeGreaterThan(databaseSection.startOffset);
+      expect(databaseSection.code).toBeUndefined();
+    });
+
     it('should handle unsupported format gracefully', async () => {
       const content = 'key: value';
       const ast = await parseConfigFile(content, 'file.txt');

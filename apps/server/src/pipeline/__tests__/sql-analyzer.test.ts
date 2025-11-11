@@ -319,6 +319,58 @@ CREATE TABLE comments (
       // Future enhancement: capture FK constraints with ON DELETE/UPDATE actions
     });
 
+    it('should include character offsets for tables, indexes, and functions', async () => {
+      const sql = `
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY
+);
+
+CREATE INDEX users_email_idx ON users (id);
+
+CREATE FUNCTION public.handle_new_user()
+RETURNS trigger AS $body$
+BEGIN
+  RETURN NEW;
+END;
+$body$ LANGUAGE plpgsql;
+`;
+
+      const ast = await parseSQLFile(sql, 'schema.sql');
+
+      expect(ast.tables[0].startOffset).toBeGreaterThanOrEqual(0);
+      expect(ast.tables[0].endOffset).toBeGreaterThan(ast.tables[0].startOffset);
+      expect(ast.indexes[0].startOffset).toBeGreaterThanOrEqual(0);
+      expect(ast.indexes[0].endOffset).toBeGreaterThan(ast.indexes[0].startOffset);
+      expect(ast.functions[0].startOffset).toBeGreaterThanOrEqual(0);
+      expect(ast.functions[0].endOffset).toBeGreaterThan(ast.functions[0].startOffset);
+    });
+
+    it('should parse functions with named dollar quotes without truncation', async () => {
+      const sql = `
+CREATE OR REPLACE FUNCTION auth.handle_new_user()
+RETURNS trigger AS $func$
+BEGIN
+  -- statements with inner END; should not truncate
+  IF NEW.id IS NULL THEN
+    RAISE EXCEPTION 'missing id';
+  END IF;
+  RETURN NEW;
+END;
+$func$ LANGUAGE plpgsql;
+`;
+
+      const ast = await parseSQLFile(sql, 'functions.sql');
+
+      expect(ast.functions).toHaveLength(1);
+      const func = ast.functions[0];
+      expect(func.code).toContain('$func$');
+      expect(func.code).toMatch(/RETURN NEW;/);
+      expect(func.code.trim().toUpperCase()).toContain('LANGUAGE PLPGSQL;');
+      const tagMatches = func.code.match(/\$func\$/g) ?? [];
+      expect(tagMatches.length).toBe(2);
+      expect(func.endOffset).toBeGreaterThan(func.startOffset);
+    });
+
     it('should parse empty file without errors', async () => {
       const sql = '';
 

@@ -149,6 +149,10 @@ export interface TableDefinition {
   constraints?: ConstraintDefinition[];
   indexes?: IndexDefinition[];
   comment?: string;
+  code?: string;
+  lineRange?: [number, number];
+  startOffset?: number;
+  endOffset?: number;
 }
 
 export interface FunctionDefinition {
