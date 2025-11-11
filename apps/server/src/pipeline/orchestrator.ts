@@ -259,7 +259,7 @@ function isPersonalCollection(metadata: DocumentMetadata): boolean {
 
 function isCodeFile(path: string): boolean {
   const lower = path.toLowerCase();
-  return /\.(dart|ts|tsx|js|jsx|py|java|kt|c|cpp|go|rs)$/.test(lower);
+  return /\.(dart|ts|tsx|js|jsx|py|java|kt|c|cpp|go|rs|sql|yaml|yml|json)$/.test(lower);
 }
 
 function isCodeMime(contentType: string): boolean {

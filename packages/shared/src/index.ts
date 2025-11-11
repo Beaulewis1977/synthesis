@@ -21,6 +21,7 @@ export type DocumentLanguage =
   | 'jsx'
   | 'yaml'
   | 'sql'
+  | 'json'
   | 'markdown';
 export type DocumentContentCategory =
   | 'api_reference'
@@ -80,9 +81,89 @@ export interface ChunkMetadata extends DocumentMetadata {
   is_model?: boolean;
   is_example?: boolean;
 
+  // Backend intelligence fields (Phase 13.5)
+  tech_stack?: string[];
+  table?: string;
+  schema?: string;
+  columns?: Array<{ name: string; type: string; constraints?: string[] }>;
+  indexes?: string[];
+  foreign_keys?: Array<{ column: string; references_table: string; references_column: string }>;
+  sql_type?: 'table' | 'index' | 'function' | 'view' | 'migration';
+  format?: 'yaml' | 'json';
+  keys?: string[];
+  nested_paths?: string[];
+  config_section?: string;
+  maps_to?: { type: 'table' | 'model' | 'endpoint'; name: string };
+
   // Legacy fields
   startOffset?: number;
   endOffset?: number;
   section?: string;
   pageNumber?: number;
+}
+
+// Backend AST Types (Phase 13.5)
+
+export interface ColumnDefinition {
+  name: string;
+  type: string;
+  constraints?: string[];
+  nullable?: boolean;
+  default_value?: string;
+  comment?: string;
+}
+
+export interface IndexDefinition {
+  name: string;
+  table: string;
+  columns: string[];
+  unique?: boolean;
+  index_type?: 'btree' | 'hash' | 'gist' | 'gin' | 'brin' | 'spgist';
+  where_clause?: string;
+  comment?: string;
+}
+
+export interface ForeignKeyDefinition {
+  name?: string;
+  column: string;
+  references_table: string;
+  references_column: string;
+  on_delete?: 'CASCADE' | 'SET NULL' | 'RESTRICT' | 'NO ACTION';
+  on_update?: 'CASCADE' | 'SET NULL' | 'RESTRICT' | 'NO ACTION';
+}
+
+export interface ConstraintDefinition {
+  name?: string;
+  type: 'PRIMARY KEY' | 'FOREIGN KEY' | 'UNIQUE' | 'CHECK' | 'NOT NULL';
+  columns?: string[];
+  definition?: string;
+  foreign_key?: ForeignKeyDefinition;
+}
+
+export interface TableDefinition {
+  name: string;
+  schema?: string;
+  columns: ColumnDefinition[];
+  primary_key?: string[];
+  foreign_keys?: ForeignKeyDefinition[];
+  constraints?: ConstraintDefinition[];
+  indexes?: IndexDefinition[];
+  comment?: string;
+}
+
+export interface FunctionDefinition {
+  name: string;
+  schema?: string;
+  parameters?: Array<{ name: string; type: string; mode?: 'IN' | 'OUT' | 'INOUT' }>;
+  return_type?: string;
+  language?: string;
+  body?: string;
+  comment?: string;
+}
+
+export interface BackendAST {
+  tables: TableDefinition[];
+  indexes: IndexDefinition[];
+  functions: FunctionDefinition[];
+  constraints: ConstraintDefinition[];
 }

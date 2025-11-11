@@ -175,7 +175,7 @@ export async function extract(
   }
 
   // Fallback for code files (prevents "Unsupported content type" errors)
-  if (['dart', 'ts', 'tsx', 'js', 'jsx'].includes(ext || '')) {
+  if (['dart', 'ts', 'tsx', 'js', 'jsx', 'sql', 'yaml', 'yml', 'json'].includes(ext || '')) {
     return extractPlainText(buffer);
   }
 
