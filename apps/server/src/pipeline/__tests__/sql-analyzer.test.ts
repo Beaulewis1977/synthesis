@@ -85,6 +85,34 @@ CREATE TABLE posts (
       expect(ast.tables[1].columns).toHaveLength(4);
     });
 
+    it('should parse multi-word data types without truncation', async () => {
+      const sql = `
+CREATE TABLE metrics (
+  id SERIAL PRIMARY KEY,
+  extra character varying(255) NOT NULL,
+  total double precision DEFAULT 0,
+  logged_at timestamp with time zone DEFAULT now()
+);
+`;
+
+      const ast = await parseSQLFile(sql, 'metrics.sql');
+      const columns = ast.tables[0].columns;
+      expect(columns[1]).toMatchObject({
+        name: 'extra',
+        type: 'character varying(255)',
+      });
+      expect(columns[1].constraints).toContain('NOT NULL');
+      expect(columns[2]).toMatchObject({
+        name: 'total',
+        type: 'double precision',
+      });
+      expect(columns[2].constraints.some((c) => c.startsWith('DEFAULT'))).toBe(true);
+      expect(columns[3]).toMatchObject({
+        name: 'logged_at',
+        type: 'timestamp with time zone',
+      });
+    });
+
     it('should parse CREATE INDEX statements', async () => {
       const sql = `
 CREATE TABLE users (

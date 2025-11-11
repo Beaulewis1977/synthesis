@@ -576,13 +576,18 @@ function splitByTopLevelComma(content: string): string[] {
  * @returns Column object or null if invalid
  */
 function parseColumnDefinition(columnDef: string): Column | null {
-  // Match: column_name data_type [constraints...]
-  const match = columnDef.match(/^([^\s]+)\s+([^\s]+)(.*)$/i);
+  const match = columnDef.match(/^(\S+)\s+(.+)$/i);
   if (!match) return null;
 
   const name = unquoteIdentifier(match[1]);
-  const type = match[2].trim();
-  const constraintsStr = match[3].trim();
+  const remainder = match[2].trim();
+  const constraintStart = findConstraintStart(remainder);
+  const type = (constraintStart === -1 ? remainder : remainder.slice(0, constraintStart)).trim();
+  const constraintsStr = constraintStart === -1 ? '' : remainder.slice(constraintStart).trim();
+
+  if (!type) {
+    return null;
+  }
 
   const constraints: string[] = [];
 
@@ -626,6 +631,108 @@ function parseColumnDefinition(columnDef: string): Column | null {
   }
 
   return { name, type, constraints };
+}
+
+const CONSTRAINT_KEYWORDS = [
+  'primary key',
+  'not null',
+  'unique',
+  'default',
+  'check',
+  'references',
+  'constraint',
+  'collate',
+  'generated',
+  'comment',
+] as const;
+
+function findConstraintStart(definition: string): number {
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inDollarQuote = false;
+  let dollarTag = '';
+  let depth = 0;
+
+  for (let i = 0; i < definition.length; i++) {
+    const char = definition[i];
+
+    if (!inSingleQuote && !inDoubleQuote) {
+      const tagMatch = definition.substring(i).match(/^(\$\w*\$)/);
+      if (tagMatch) {
+        const tag = tagMatch[1];
+        if (!inDollarQuote) {
+          inDollarQuote = true;
+          dollarTag = tag;
+          i += tag.length - 1;
+          continue;
+        }
+
+        if (tag === dollarTag) {
+          inDollarQuote = false;
+          dollarTag = '';
+          i += tag.length - 1;
+          continue;
+        }
+      }
+    }
+
+    if (!inDollarQuote) {
+      if (char === "'" && !isEscaped(definition, i)) {
+        inSingleQuote = !inSingleQuote;
+        continue;
+      }
+
+      if (char === '"' && !isEscaped(definition, i)) {
+        inDoubleQuote = !inDoubleQuote;
+        continue;
+      }
+    }
+
+    if (inSingleQuote || inDoubleQuote || inDollarQuote) {
+      continue;
+    }
+
+    if (char === '(') {
+      depth++;
+      continue;
+    }
+    if (char === ')') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+
+    if (depth === 0) {
+      const keywordIndex = matchConstraintKeyword(definition, i);
+      if (keywordIndex !== undefined) {
+        return keywordIndex;
+      }
+    }
+  }
+
+  return -1;
+}
+
+function matchConstraintKeyword(source: string, index: number): number | undefined {
+  let i = index;
+  while (i < source.length && /\s/.test(source[i])) {
+    i++;
+  }
+
+  for (const keyword of CONSTRAINT_KEYWORDS) {
+    if (source.slice(i, i + keyword.length).toLowerCase() === keyword) {
+      const beforeIdx = i - 1;
+      if (beforeIdx >= 0 && /[a-z0-9_$]/i.test(source[beforeIdx])) {
+        continue;
+      }
+      const afterIdx = i + keyword.length;
+      if (afterIdx < source.length && /[a-z0-9_$]/i.test(source[afterIdx])) {
+        continue;
+      }
+      return i;
+    }
+  }
+
+  return undefined;
 }
 
 /**
