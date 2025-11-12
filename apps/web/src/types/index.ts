@@ -39,25 +39,9 @@ export interface SearchResultMetadata extends ChunkMetadata {
   // Inherits all properties from ChunkMetadata
 }
 
-export interface SearchMetadata {
-  search_mode: 'vector' | 'hybrid';
-  vector_count?: number | null;
-  bm25_count?: number | null;
-  fused_count?: number | null;
-  embedding_provider?: string | null;
-  reranked: boolean;
-  rerank_provider: string | null;
-  pagination?: {
-    page: number;
-    page_size: number;
-    total_results: number;
-    total_pages: number;
-  };
-}
-
 export interface SearchResult {
   id: number;
-  snippet: string;
+  text: string;
   similarity: number;
   vector_score?: number | null;
   bm25_score?: number | null;
@@ -80,7 +64,6 @@ export interface SearchResponse {
   results: SearchResult[];
   total_results: number;
   search_time_ms: number;
-  metadata?: SearchMetadata;
 }
 
 /**
@@ -98,9 +81,6 @@ export interface SearchRequest {
   rerank_max_candidates?: number;
   rerank_provider?: 'cohere' | 'bge' | 'none';
   tech_stack?: string[];
-  page?: number;
-  page_size?: number;
-  include_related_files?: boolean;
 }
 
 export interface CollectionsResponse {

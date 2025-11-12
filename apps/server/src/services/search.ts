@@ -2,8 +2,8 @@ import type { DocumentMetadata } from '@synthesis/shared';
 import type { Pool } from 'pg';
 import type { ContentContext, EmbeddingProvider } from './embedding-router.js';
 import { deriveContextFromMetadata, isEmbeddingProvider } from './embedding-router.js';
-import { type RelatedFiles, getRelatedFiles } from './file-relationships.js';
 import { type HybridSearchParams, type HybridSearchResult, hybridSearch } from './hybrid.js';
+import { getRelatedFiles, type RelatedFiles } from './file-relationships.js';
 import {
   type RerankedResult,
   type RerankerProvider,
@@ -28,7 +28,6 @@ export interface SmartSearchParams extends SearchParams {
   rerankProvider?: RerankerProvider;
   rerankTopK?: number;
   rerankMaxCandidates?: number;
-  includeRelatedFiles?: boolean;
 }
 
 export interface SmartSearchResult extends SearchResult {
@@ -123,9 +122,7 @@ export async function smartSearch(
 
       rankedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
 
-      const enrichedResults = params.includeRelatedFiles
-        ? await attachRelatedFiles(db, params.collectionId, rankedResults)
-        : rankedResults;
+      const enrichedResults = await attachRelatedFiles(db, params.collectionId, rankedResults);
 
       return {
         query: params.query,
@@ -150,9 +147,7 @@ export async function smartSearch(
       fusedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
     }
 
-    const enrichedResults = params.includeRelatedFiles
-      ? await attachRelatedFiles(db, params.collectionId, fusedResults)
-      : fusedResults;
+    const enrichedResults = await attachRelatedFiles(db, params.collectionId, fusedResults);
 
     return {
       query: params.query,
@@ -190,9 +185,7 @@ export async function smartSearch(
     rankedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
   }
 
-  const enrichedResults = params.includeRelatedFiles
-    ? await attachRelatedFiles(db, params.collectionId, rankedResults)
-    : rankedResults;
+  const enrichedResults = await attachRelatedFiles(db, params.collectionId, rankedResults);
 
   return {
     ...vectorResult,
@@ -221,7 +214,9 @@ async function attachRelatedFiles(
     return results;
   }
 
-  const requiresRelationships = results.some((result) => Boolean(extractFilePath(result.metadata)));
+  const requiresRelationships = results.some((result) =>
+    Boolean(extractFilePath(result.metadata))
+  );
 
   if (!requiresRelationships) {
     return results;
@@ -249,15 +244,7 @@ async function attachRelatedFiles(
         );
       }
 
-      const relatedFilesPromise = cache.get(filePath);
-      if (!relatedFilesPromise) {
-        // This should theoretically not happen due to the cache.has check above,
-        // but this handles the edge case and satisfies the linter.
-        console.warn(`Cache miss for ${filePath} despite prior set`);
-        return { ...result, relatedFiles: null };
-      }
-
-      const relatedFiles = await relatedFilesPromise;
+      const relatedFiles = await cache.get(filePath)!;
 
       return {
         ...result,

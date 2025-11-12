@@ -1,20 +1,13 @@
-import { performance } from 'node:perf_hooks';
 import { getPool } from '@synthesis/db';
 import { Ollama } from 'ollama';
 import OpenAI from 'openai';
 import { getCostTracker } from '../services/cost-tracker.js';
-import {
-  buildEmbeddingCacheKey,
-  getCachedEmbedding,
-  setCachedEmbedding,
-} from '../services/embedding-cache.js';
 import type {
   ContentContext,
   EmbeddingConfig,
   EmbeddingProvider,
 } from '../services/embedding-router.js';
 import { getProviderConfig, selectEmbeddingProvider } from '../services/embedding-router.js';
-import { observeEmbeddingLatency, trackEmbeddingRequest } from '../services/metrics.js';
 
 type VoyageClient = {
   embed: (request: { input: string | string[]; model: string }) => Promise<{
@@ -101,44 +94,14 @@ export async function embedText(text: string, options: EmbedOptions = {}): Promi
   const resolved = resolveProviderConfig(text, options);
   const overrideModel = options.model?.trim();
   const primaryConfig = overrideModel ? { ...resolved, model: overrideModel } : resolved;
-  const cacheKey = buildEmbeddingCacheKey(
-    text,
-    primaryConfig.provider,
-    primaryConfig.model,
-    options.context
-  );
-
-  const cached = getCachedEmbedding(cacheKey);
-  if (cached) {
-    trackEmbeddingRequest(cached.provider, true);
-    return {
-      embedding: cached.embedding,
-      provider: cached.provider,
-      model: cached.model,
-      dimensions: cached.dimensions,
-      usedFallback: false,
-    };
-  }
 
   try {
-    const start = performance.now();
     const embedding = await generateEmbedding(text, primaryConfig, options);
-    const duration = Math.round(performance.now() - start);
-
-    trackEmbeddingRequest(primaryConfig.provider, false);
-    observeEmbeddingLatency(primaryConfig.provider, duration);
 
     // Track cost (async, non-blocking)
     trackEmbeddingCost(primaryConfig, text, options.context).catch((err) =>
       console.error('Cost tracking failed:', err)
     );
-
-    setCachedEmbedding(cacheKey, {
-      embedding,
-      provider: primaryConfig.provider,
-      model: primaryConfig.model,
-      dimensions: primaryConfig.dimensions,
-    });
 
     return {
       embedding,
@@ -153,43 +116,12 @@ export async function embedText(text: string, options: EmbedOptions = {}): Promi
       throw error;
     }
 
-    const fallbackKey = buildEmbeddingCacheKey(
-      text,
-      fallbackConfig.provider,
-      fallbackConfig.model,
-      options.context
-    );
-
-    const cachedFallback = getCachedEmbedding(fallbackKey);
-    if (cachedFallback) {
-      trackEmbeddingRequest(cachedFallback.provider, true);
-      return {
-        embedding: cachedFallback.embedding,
-        provider: cachedFallback.provider,
-        model: cachedFallback.model,
-        dimensions: cachedFallback.dimensions,
-        usedFallback: true,
-      };
-    }
-
-    const fallbackStart = performance.now();
     const embedding = await generateEmbedding(text, fallbackConfig, options);
-    const duration = Math.round(performance.now() - fallbackStart);
-
-    trackEmbeddingRequest(fallbackConfig.provider, false);
-    observeEmbeddingLatency(fallbackConfig.provider, duration);
 
     // Track fallback cost (async, non-blocking)
     trackEmbeddingCost(fallbackConfig, text, options.context).catch((err) =>
       console.error('Cost tracking failed:', err)
     );
-
-    setCachedEmbedding(fallbackKey, {
-      embedding,
-      provider: fallbackConfig.provider,
-      model: fallbackConfig.model,
-      dimensions: fallbackConfig.dimensions,
-    });
 
     return {
       embedding,

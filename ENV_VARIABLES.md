@@ -19,29 +19,12 @@ This document lists all environment variables used in the Synthesis RAG applicat
 | `HOST` | Server host address | `0.0.0.0` | Server |
 | `NODE_ENV` | Environment mode | `development` | Server |
 | `LOG_LEVEL` | Pino log level | `info` | Server |
-| `REDIS_URL` | Redis connection string for caching | `redis://localhost:6379` | Server |
 
 ### Storage
 
 | Variable | Description | Default | Used In |
 |----------|-------------|---------|---------|
 | `STORAGE_PATH` | Document storage directory | `./storage` | Server |
-
-### Performance & Caching
-
-| Variable | Description | Default | Used In |
-|----------|-------------|---------|---------|
-| `SEARCH_CACHE_TTL_SECONDS` | TTL for Redis search cache | `1800` | Server |
-| `SEARCH_CACHE_MAX_ITEMS` | Max in-memory cached responses | `500` | Server |
-| `EMBEDDING_CACHE_TTL_MS` | TTL for in-memory embedding cache | `900000` | Server |
-| `EMBEDDING_CACHE_MAX_ITEMS` | Max embeddings stored in memory | `1000` | Server |
-| `SEARCH_SNIPPET_LENGTH` | Max characters returned per result | `320` | Server |
-| `SEARCH_PAGE_SIZE` | Default page size for search responses | `10` | Server |
-| `RERANK_CACHE_TTL_SECONDS` | TTL for cached reranker responses | `300` | Server |
-| `RERANK_CACHE_MAX_ITEMS` | Max rerank responses stored in memory | `500` | Server |
-| `RERANK_TEXT_LIMIT` | Characters sent per document to reranker | `200` | Server |
-| `RELATED_FILES_CACHE_TTL_SECONDS` | TTL for related files cache | `1800` | Server |
-| `RELATED_FILES_CACHE_MAX_ITEMS` | Max related files cached in memory | `1000` | Server |
 
 ### AI Services
 

@@ -51,13 +51,10 @@ services:
         condition: service_healthy
       synthesis-ollama:
         condition: service_started
-      synthesis-redis:
-        condition: service_started
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@synthesis-db:5432/synthesis
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OLLAMA_HOST=http://synthesis-ollama:11434
-      - REDIS_URL=redis://synthesis-redis:6379
       - NODE_ENV=development
       - SERVER_PORT=3333
       - STORAGE_PATH=/app/storage
@@ -137,18 +134,6 @@ services:
       - app  # Only start with --profile app
     stdin_open: true
     tty: true
-
-  # Redis (caching layer)
-  synthesis-redis:
-    image: redis:7-alpine
-    container_name: synthesis-redis
-    restart: unless-stopped
-    ports:
-      - '6379:6379'
-    command: >
-      sh -c "redis-server --save '' --appendonly no"
-    networks:
-      - synthesis-network
 
 volumes:
   postgres_data:

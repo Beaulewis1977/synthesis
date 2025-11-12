@@ -632,7 +632,6 @@ describe('Phase 11-14 integration: Feature combinations', () => {
         collectionId: 'flutter-project',
         mode: 'hybrid',
         topK: 5,
-        includeRelatedFiles: true,
       });
 
       // File relationships should be requested for code results
@@ -930,7 +929,6 @@ describe('Phase 11-14 integration: Feature combinations', () => {
         mode: 'hybrid',
         techStack: ['flutter'],
         topK: 5,
-        includeRelatedFiles: true,
       });
 
       // Relationships should still be fetched for filtered results
@@ -1318,7 +1316,6 @@ describe('Phase 11-14 integration: Feature combinations', () => {
         rerank: true,
         techStack: ['flutter'],
         topK: 15,
-        includeRelatedFiles: true,
       });
 
       // Verify all features working
