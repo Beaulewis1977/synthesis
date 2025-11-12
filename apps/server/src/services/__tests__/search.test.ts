@@ -70,6 +70,7 @@ describe('searchCollection', () => {
     expect(result.results[0]).toMatchObject({
       id: 42,
       text: 'Example chunk text',
+      snippet: 'Example chunk text',
       similarity: 0.87,
       docId: 'doc-123',
       docTitle: 'Sample Document',
@@ -133,6 +134,6 @@ describe('searchCollection', () => {
     ]);
 
     expect(result.totalResults).toBe(1);
-    expect(result.results[0].text).toBe('PostgreSQL content');
+    expect(result.results[0].snippet).toBe('PostgreSQL content');
   });
 });

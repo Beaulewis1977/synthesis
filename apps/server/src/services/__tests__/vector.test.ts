@@ -64,6 +64,7 @@ describe('vectorSearch with tech_stack filtering', () => {
     // Verify results are returned
     expect(results.results.length).toBe(1);
     expect(results.results[0].text).toBe('PostgreSQL query example');
+    expect(results.results[0].snippet).toBe('PostgreSQL query example');
     expect(results.results[0].metadata?.tech_stack).toEqual(['postgres', 'sql']);
   });
 
@@ -114,6 +115,7 @@ describe('vectorSearch with tech_stack filtering', () => {
 
     // Verify results include both postgres and redis chunks
     expect(results.results.length).toBe(2);
+    expect(results.results[0].snippet.length).toBeGreaterThan(0);
   });
 
   it('should return all results when tech_stack is undefined', async () => {

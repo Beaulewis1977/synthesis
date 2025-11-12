@@ -8,6 +8,7 @@ import {
   getCachedRerankResults,
   setCachedRerankResults,
 } from './cache/rerank-cache.js';
+import { createSnippet } from './snippet.js';
 import { getCostTracker } from './cost-tracker.js';
 import { observeRerankLatency } from './metrics.js';
 
@@ -21,6 +22,7 @@ export interface RerankOptions {
 
 export interface RerankCandidate {
   text: string;
+  snippet?: string;
   similarity?: number;
 }
 
@@ -274,8 +276,8 @@ function buildRerankDocument(candidate: RerankCandidate): string {
     (candidate as { doc_title?: string | null }).doc_title ??
     '';
   const rawText = (candidate.text ?? '').replace(/\s+/g, ' ').trim();
-  const snippet =
-    rawText.length > RERANK_TEXT_LIMIT ? `${rawText.slice(0, RERANK_TEXT_LIMIT)}` : rawText;
+  const baseSnippet = candidate.snippet ?? createSnippet(rawText, RERANK_TEXT_LIMIT);
+  const snippet = (baseSnippet.length > 0 ? baseSnippet : rawText).slice(0, RERANK_TEXT_LIMIT);
 
   if (title && snippet) {
     return `${title} — ${snippet}`;

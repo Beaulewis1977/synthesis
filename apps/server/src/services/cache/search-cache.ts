@@ -23,6 +23,7 @@ export interface SearchCacheKeyInput {
   rerankTopK?: number;
   rerankMaxCandidates?: number;
   topK?: number;
+  minSimilarity?: number | null;
   techStack?: string[] | null;
   weights?: { vector?: number; bm25?: number };
   page?: number;
@@ -41,6 +42,7 @@ export function createSearchCacheKey(input: SearchCacheKeyInput): string {
     rerankTopK: input.rerankTopK ?? null,
     rerankMaxCandidates: input.rerankMaxCandidates ?? null,
     topK: input.topK ?? null,
+    minSimilarity: input.minSimilarity ?? null,
     techStack: sortableStack,
     weights: input.weights ?? null,
     page: input.page ?? 1,
@@ -100,6 +102,10 @@ export async function setCachedSearchResponse<T>(key: string, payload: T): Promi
 }
 
 export async function invalidateSearchCache(pattern: string): Promise<void> {
+  // Clearing the in-memory cache is intentional: we currently only support
+  // pattern-based invalidation for Redis. Keeping the memory cache in sync
+  // requires either key indexing or duplicate pattern matching, which we defer
+  // until we have concrete invalidation use cases.
   memoryCache.clear();
 
   const redis = getRedisClient();
@@ -107,9 +113,8 @@ export async function invalidateSearchCache(pattern: string): Promise<void> {
     return;
   }
 
-  const cursor = 0;
   try {
-    let scanCursor = cursor;
+    let scanCursor = 0;
     do {
       const [nextCursor, keys] = await redis.scan(scanCursor, 'MATCH', pattern, 'COUNT', 100);
       scanCursor = Number.parseInt(nextCursor, 10);

@@ -7,6 +7,7 @@ import {
   detectContradictions,
 } from './contradiction-detection.js';
 import type { SmartSearchResult } from './search.js';
+import { createSnippet } from './snippet.js';
 
 export interface SynthesisOptions {
   maxResults?: number;
@@ -204,7 +205,7 @@ function buildApproach(
 }
 
 function buildSource(result: SmartSearchResult): SynthesizedSource {
-  const snippet = result.text.replace(/\s+/g, ' ').trim() || result.docTitle || result.docId;
+  const snippet = resolveSnippet(result);
   return {
     docId: result.docId,
     docTitle: result.docTitle ?? null,
@@ -331,12 +332,16 @@ function deriveMethod(indices: number[], results: SmartSearchResult[], topic: st
 
 function buildSummary(indices: number[], results: SmartSearchResult[]): string {
   const snippets = indices
-    .map((index) => results[index].text.replace(/\s+/g, ' ').trim())
-    .filter(Boolean)
+    .map((index) => resolveSnippet(results[index]))
+    .filter((text) => text.length > 0)
     .slice(0, 2);
 
   const summary = snippets.join(' ').slice(0, MAX_SUMMARY_LENGTH).trim();
-  return summary.length > 0 ? summary : results[indices[0]].text.slice(0, MAX_SUMMARY_LENGTH);
+  if (summary.length > 0) {
+    return summary;
+  }
+
+  return resolveSnippet(results[indices[0]]).slice(0, MAX_SUMMARY_LENGTH);
 }
 
 function selectRecommendedApproach(approaches: Approach[], conflicts: Conflict[]): Approach | null {
@@ -375,6 +380,15 @@ function computePenalty(approach: Approach, conflicts: Conflict[]): number {
   }
 
   return 0;
+}
+
+function resolveSnippet(result: SmartSearchResult): string {
+  const snippet = (result.snippet ?? createSnippet(result.text)).trim();
+  if (snippet.length > 0) {
+    return snippet;
+  }
+
+  return result.docTitle ?? result.docId ?? '';
 }
 
 function initializeCentroids(vectors: number[][], k: number): number[][] {

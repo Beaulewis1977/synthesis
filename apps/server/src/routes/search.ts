@@ -8,6 +8,7 @@ import {
   setCachedSearchResponse,
 } from '../services/cache/search-cache.js';
 import { observeSearchLatency } from '../services/metrics.js';
+import { createSnippet } from '../services/snippet.js';
 import { type SmartSearchResponse, smartSearch } from '../services/search.js';
 
 interface SearchRouteResponse {
@@ -50,7 +51,6 @@ interface SearchRouteResponse {
   };
 }
 
-const MAX_SNIPPET_LENGTH = Number.parseInt(process.env.SEARCH_SNIPPET_LENGTH ?? '', 10) || 320;
 const MIN_PAGE_SIZE = 1;
 const MAX_PAGE_SIZE = 50;
 const DEFAULT_PAGE_SIZE = (() => {
@@ -148,6 +148,8 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
     const rerankMaxCandidates = camelRerankMax ?? snakeRerankMax;
     const rerankProvider = camelRerankProvider ?? snakeRerankProvider;
 
+    const normalizedMinSimilarity = normalizeMinSimilarity(minSimilarity);
+
     const cacheKey = createSearchCacheKey({
       query,
       collectionId,
@@ -157,6 +159,7 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       rerankTopK,
       rerankMaxCandidates,
       topK,
+      minSimilarity: normalizedMinSimilarity,
       techStack,
       weights: undefined,
       page,
@@ -226,7 +229,7 @@ function mapToRouteResponse(result: SmartSearchResponse): SearchRouteResponse {
     query: result.query,
     results: result.results.map((item) => ({
       id: item.id,
-      snippet: buildSnippet(item.text),
+      snippet: item.snippet ?? createSnippet(item.text),
       similarity: item.similarity,
       vector_score: item.vectorScore,
       bm25_score: item.bm25Score,
@@ -253,19 +256,6 @@ function mapToRouteResponse(result: SmartSearchResponse): SearchRouteResponse {
       rerank_provider: result.metadata.rerankProvider ?? 'none',
     },
   };
-}
-
-function buildSnippet(text: string | undefined): string {
-  if (!text) {
-    return '';
-  }
-
-  const normalized = text.replace(/\s+/g, ' ').trim();
-  if (normalized.length <= MAX_SNIPPET_LENGTH) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, MAX_SNIPPET_LENGTH - 1)}…`;
 }
 
 function applyPagination(
@@ -310,4 +300,14 @@ function normalizePageSize(value: number | undefined): number {
 
   const numeric = Math.trunc(value as number);
   return Math.max(MIN_PAGE_SIZE, Math.min(MAX_PAGE_SIZE, numeric));
+}
+
+function normalizeMinSimilarity(value: number | undefined): number | null {
+  if (!Number.isFinite(value ?? Number.NaN)) {
+    return null;
+  }
+
+  const numeric = Number(value);
+  const clamped = Math.max(0, Math.min(1, numeric));
+  return Number(clamped.toFixed(3));
 }
