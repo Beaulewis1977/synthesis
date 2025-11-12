@@ -43,6 +43,7 @@ describe('bm25Search', () => {
       'StatefulWidget:* & lifecycle:*',
       'collection-1',
       30,
+      null, // techStack parameter
     ]);
 
     expect(results).toHaveLength(2);
@@ -102,6 +103,7 @@ describe('bm25Search', () => {
       'flutter:*',
       'collection-1',
       30,
+      null, // techStack parameter
     ]);
   });
 
@@ -117,6 +119,7 @@ describe('bm25Search', () => {
       'flutter:*',
       'collection-1',
       30,
+      null, // techStack parameter
     ]);
   });
 });

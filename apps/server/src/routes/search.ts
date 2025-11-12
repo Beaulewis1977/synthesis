@@ -21,6 +21,7 @@ const SearchBodySchema = z
     rerankMaxCandidates: z.number().int().min(1).max(50).optional(),
     rerank_provider: z.enum(['cohere', 'bge', 'none']).optional(),
     rerankProvider: z.enum(['cohere', 'bge', 'none']).optional(),
+    tech_stack: z.array(z.string()).optional(),
   })
   .strict()
   .refine((data) => Boolean(data.collection_id ?? data.collectionId), {
@@ -56,11 +57,15 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       rerankMaxCandidates: camelRerankMax,
       rerank_provider: snakeRerankProvider,
       rerankProvider: camelRerankProvider,
+      tech_stack,
     } = validation.data;
 
     const collectionId = (camelCollectionId ?? snakeCollectionId) as string;
     const topK = camelTopK ?? snakeTopK;
     const minSimilarity = camelMinSimilarity ?? snakeMinSimilarity;
+
+    // Normalize tech_stack to lowercase for case-insensitive matching
+    const techStack = tech_stack?.map((tag) => tag.toLowerCase());
 
     // Validate and normalize SEARCH_MODE environment variable
     const envSearchMode = process.env.SEARCH_MODE?.trim().toLowerCase();
@@ -73,7 +78,6 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
     const rerankProvider = camelRerankProvider ?? snakeRerankProvider;
 
     try {
-      // TODO(Phase14): accept tech_stack[] params and pass them through to smartSearch for filtering.
       const result = await smartSearch(getPool(), {
         query,
         collectionId,
@@ -84,6 +88,7 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
         rerankTopK,
         rerankMaxCandidates,
         rerankProvider,
+        techStack,
       });
 
       return reply.send({

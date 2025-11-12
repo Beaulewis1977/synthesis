@@ -50,11 +50,13 @@ export async function hybridSearch(
       minSimilarity: params.minSimilarity,
       provider: params.provider,
       context: params.context,
+      techStack: params.techStack,
     }),
     bm25Search(db, {
       query: params.query,
       collectionId: params.collectionId,
       topK: expandedTopK,
+      techStack: params.techStack,
     }),
   ]);
 

@@ -63,6 +63,7 @@ describe('searchCollection', () => {
       'collection-1',
       0.4,
       7,
+      null, // techStack parameter
     ]);
     expect(result.totalResults).toBe(1);
     expect(result.searchTimeMs).toBe(60);
@@ -91,5 +92,47 @@ describe('searchCollection', () => {
     await expect(
       searchCollection(db as Pool, { query: 'hello', collectionId: 'collection', topK: 0 })
     ).rejects.toThrow(/topK must be a positive number/);
+  });
+
+  it('passes techStack filter to database query', async () => {
+    (embedTextToArray as vi.MockedFunction<typeof embedTextToArray>).mockResolvedValue([
+      0.1, 0.2, 0.3,
+    ]);
+
+    const dbRows = [
+      {
+        id: 1,
+        text: 'PostgreSQL content',
+        metadata: { tech_stack: ['postgres'] },
+        doc_id: 'doc-1',
+        doc_title: 'DB Doc',
+        source_url: null,
+        similarity: 0.9,
+      },
+    ];
+
+    type SearchRow = (typeof dbRows)[number];
+    const queryResult = { rows: dbRows } as unknown as QueryResult<SearchRow>;
+
+    (db.query as vi.MockedFunction<Pool['query']>).mockResolvedValue(queryResult);
+
+    const result = await searchCollection(db as Pool, {
+      query: 'database',
+      collectionId: 'collection-1',
+      topK: 5,
+      techStack: ['postgres', 'supabase'],
+    });
+
+    // Verify techStack was passed to query
+    expect(db.query).toHaveBeenCalledWith(expect.any(String), [
+      '[0.1,0.2,0.3]',
+      'collection-1',
+      0.5, // default minSimilarity
+      5,
+      ['postgres', 'supabase'], // techStack filter
+    ]);
+
+    expect(result.totalResults).toBe(1);
+    expect(result.results[0].text).toBe('PostgreSQL content');
   });
 });
