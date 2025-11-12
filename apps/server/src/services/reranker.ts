@@ -8,9 +8,9 @@ import {
   getCachedRerankResults,
   setCachedRerankResults,
 } from './cache/rerank-cache.js';
-import { createSnippet } from './snippet.js';
 import { getCostTracker } from './cost-tracker.js';
 import { observeRerankLatency } from './metrics.js';
+import { createSnippet } from './snippet.js';
 
 export type RerankerProvider = 'cohere' | 'bge' | 'none';
 
@@ -49,7 +49,7 @@ const defaultMaxCandidates = clampPositiveInt(
 const defaultTopK = clampPositiveInt(process.env.RERANK_DEFAULT_TOP_K, 50, 10);
 const defaultBgeBatchSize = clampPositiveInt(process.env.RERANK_BATCH_SIZE, 50, 8);
 const HARD_RERANK_CAP = 10;
-const RERANK_TEXT_LIMIT = Number.parseInt(process.env.RERANK_TEXT_LIMIT ?? '', 10) || 200;
+const RERANK_TEXT_LIMIT = readPositiveInt(process.env.RERANK_TEXT_LIMIT, 200);
 
 let cohereClient: CohereClient | null = null;
 let bgePipelinePromise: Promise<TextClassificationPipeline> | null = null;
@@ -371,6 +371,15 @@ function clampPositiveInt(
   }
 
   return Math.min(parsed, max);
+}
+
+function readPositiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? '', 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return Math.floor(parsed);
 }
 
 /**
