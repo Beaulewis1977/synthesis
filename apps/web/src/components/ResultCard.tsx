@@ -53,7 +53,7 @@ export function ResultCard({ result, collectionId, onClick }: ResultCardProps) {
       )}
 
       <p className="text-text-secondary text-sm mb-md line-clamp-3 whitespace-pre-wrap">
-        {result.text}
+        {result.snippet}
       </p>
 
       {result.source_url && (

@@ -1,7 +1,15 @@
+import { createHash } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 import { getPool } from '@synthesis/db';
 import type { TextClassificationPipeline } from '@xenova/transformers';
 import { CohereClient } from 'cohere-ai';
+import {
+  createRerankCacheKey,
+  getCachedRerankResults,
+  setCachedRerankResults,
+} from './cache/rerank-cache.js';
 import { getCostTracker } from './cost-tracker.js';
+import { observeRerankLatency } from './metrics.js';
 
 export type RerankerProvider = 'cohere' | 'bge' | 'none';
 
@@ -22,6 +30,12 @@ export type RerankedResult<T extends RerankCandidate> = T & {
   originalSimilarity?: number;
 };
 
+interface PreparedCandidate<T extends RerankCandidate> {
+  original: T;
+  documentText: string;
+  signature: string;
+}
+
 const FALLBACK_PROVIDER: RerankerProvider = 'bge';
 const MAX_SUPPORTED_CANDIDATES = 50;
 
@@ -30,8 +44,10 @@ const defaultMaxCandidates = clampPositiveInt(
   MAX_SUPPORTED_CANDIDATES,
   MAX_SUPPORTED_CANDIDATES
 );
-const defaultTopK = clampPositiveInt(process.env.RERANK_DEFAULT_TOP_K, 50, 15);
+const defaultTopK = clampPositiveInt(process.env.RERANK_DEFAULT_TOP_K, 50, 10);
 const defaultBgeBatchSize = clampPositiveInt(process.env.RERANK_BATCH_SIZE, 50, 8);
+const HARD_RERANK_CAP = 10;
+const RERANK_TEXT_LIMIT = Number.parseInt(process.env.RERANK_TEXT_LIMIT ?? '', 10) || 200;
 
 let cohereClient: CohereClient | null = null;
 let bgePipelinePromise: Promise<TextClassificationPipeline> | null = null;
@@ -74,52 +90,83 @@ export async function rerankResults<T extends RerankCandidate>(
   }
 
   const provider = selectRerankerProvider(options.provider);
-  const topK = clampPositiveInt(options.topK, results.length, defaultTopK);
+  const topK = Math.min(
+    clampPositiveInt(options.topK, results.length, defaultTopK),
+    HARD_RERANK_CAP
+  );
   const maxCandidates = Math.min(
     clampPositiveInt(options.maxCandidates, results.length, defaultMaxCandidates),
     MAX_SUPPORTED_CANDIDATES,
-    results.length
+    results.length,
+    HARD_RERANK_CAP
   );
 
   if (provider === 'none') {
     return passthrough(results.slice(0, topK), provider);
   }
 
-  const candidates = results.slice(0, maxCandidates);
+  const preparedCandidates = prepareCandidates(results, maxCandidates);
+
+  let cacheKey: string | null = null;
+  cacheKey = createRerankCacheKey({
+    query,
+    provider,
+    documents: preparedCandidates.map((item) => item.documentText),
+    signatures: preparedCandidates.map((item) => item.signature),
+  });
+
+  if (cacheKey) {
+    const cached = await getCachedRerankResults<RerankedResult<T>[]>(cacheKey);
+    if (cached) {
+      return cached.slice(0, topK);
+    }
+  }
 
   try {
     const reranked =
       provider === 'cohere'
-        ? await rerankWithCohere(query, candidates)
-        : await rerankWithBGE(query, candidates);
+        ? await rerankWithCohere(query, preparedCandidates)
+        : await rerankWithBGE(query, preparedCandidates);
+
+    if (cacheKey) {
+      await setCachedRerankResults(cacheKey, reranked);
+    }
 
     return reranked.slice(0, topK);
   } catch (error) {
     if (provider === 'cohere') {
       try {
-        const fallback = await rerankWithBGE(query, candidates);
+        const fallback = await rerankWithBGE(query, preparedCandidates);
         return fallback.slice(0, topK);
       } catch {
-        return passthrough(candidates.slice(0, topK), 'none');
+        return passthrough(
+          preparedCandidates.slice(0, topK).map((entry) => entry.original),
+          'none'
+        );
       }
     }
 
-    return passthrough(candidates.slice(0, topK), 'none');
+    return passthrough(
+      preparedCandidates.slice(0, topK).map((entry) => entry.original),
+      'none'
+    );
   }
 }
 
 async function rerankWithCohere<T extends RerankCandidate>(
   query: string,
-  results: T[]
+  candidates: PreparedCandidate<T>[]
 ): Promise<RerankedResult<T>[]> {
   const client = await getCohereClient();
+  const start = performance.now();
   const response = await client.rerank({
     query,
-    documents: results.map((item) => item.text ?? ''),
-    topN: results.length,
+    documents: candidates.map((item) => item.documentText),
+    topN: candidates.length,
     model: 'rerank-english-v3.0',
     returnDocuments: false,
   });
+  observeRerankLatency('cohere', Math.round(performance.now() - start));
 
   // Track cost (Cohere charges per request, not per token)
   trackRerankCost().catch((err) => console.error('Cost tracking failed:', err));
@@ -130,12 +177,12 @@ async function rerankWithCohere<T extends RerankCandidate>(
         return null;
       }
 
-      const base = results[entry.index];
+      const base = candidates[entry.index];
       if (!base) {
         return null;
       }
 
-      return withRerankData(base, entry.relevanceScore ?? 0, 'cohere');
+      return withRerankData(base.original, entry.relevanceScore ?? 0, 'cohere');
     })
     .filter((item): item is RerankedResult<T> => Boolean(item));
 
@@ -144,24 +191,27 @@ async function rerankWithCohere<T extends RerankCandidate>(
 
 async function rerankWithBGE<T extends RerankCandidate>(
   query: string,
-  results: T[]
+  candidates: PreparedCandidate<T>[]
 ): Promise<RerankedResult<T>[]> {
   const reranker = await loadBGEReranker();
+  const start = performance.now();
   const batchSize = Math.max(1, defaultBgeBatchSize);
   const scored: RerankedResult<T>[] = [];
 
-  for (let i = 0; i < results.length; i += batchSize) {
-    const batch = results.slice(i, i + batchSize);
+  for (let i = 0; i < candidates.length; i += batchSize) {
+    const batch = candidates.slice(i, i + batchSize);
 
     for (const candidate of batch) {
-      const output = await reranker(`${query} [SEP] ${candidate.text}`);
+      const output = await reranker(`${query} [SEP] ${candidate.documentText}`);
       const primary = Array.isArray(output) ? output[0] : output;
       const score = extractScore(primary);
-      scored.push(withRerankData(candidate, score, 'bge'));
+      scored.push(withRerankData(candidate.original, score, 'bge'));
     }
   }
 
-  return scored.sort((a, b) => b.rerankScore - a.rerankScore);
+  const ordered = scored.sort((a, b) => b.rerankScore - a.rerankScore);
+  observeRerankLatency('bge', Math.round(performance.now() - start));
+  return ordered;
 }
 
 async function getCohereClient(): Promise<CohereClient> {
@@ -202,6 +252,50 @@ function withRerankData<T extends RerankCandidate>(
     rerankProvider: provider,
     originalSimilarity: item.similarity,
   };
+}
+
+function prepareCandidates<T extends RerankCandidate>(
+  candidates: T[],
+  cap: number
+): PreparedCandidate<T>[] {
+  return candidates.slice(0, cap).map((candidate, index) => {
+    const documentText = buildRerankDocument(candidate);
+    return {
+      original: candidate,
+      documentText,
+      signature: buildCandidateSignature(candidate, documentText, index),
+    };
+  });
+}
+
+function buildRerankDocument(candidate: RerankCandidate): string {
+  const title =
+    (candidate as { docTitle?: string | null }).docTitle ??
+    (candidate as { doc_title?: string | null }).doc_title ??
+    '';
+  const rawText = (candidate.text ?? '').replace(/\s+/g, ' ').trim();
+  const snippet =
+    rawText.length > RERANK_TEXT_LIMIT ? `${rawText.slice(0, RERANK_TEXT_LIMIT)}` : rawText;
+
+  if (title && snippet) {
+    return `${title} — ${snippet}`;
+  }
+
+  return title || snippet || '';
+}
+
+function buildCandidateSignature(
+  candidate: RerankCandidate,
+  documentText: string,
+  index: number
+): string {
+  const identifier =
+    (candidate as { id?: string | number }).id ??
+    (candidate as { docId?: string }).docId ??
+    (candidate as { doc_id?: string }).doc_id ??
+    `idx-${index}`;
+  const hash = createHash('sha1').update(documentText).digest('hex');
+  return `${identifier}:${hash}`;
 }
 
 function passthrough<T extends RerankCandidate>(
