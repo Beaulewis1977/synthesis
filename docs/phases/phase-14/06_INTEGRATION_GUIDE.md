@@ -18,11 +18,13 @@ Behavior:
 
 Performance (optional DBA task):
 - Create a JSONB GIN index to optimize filters on `metadata.tech_stack`.
-- Suggested migration file name: `packages/db/migrations/007_tech_stack_index.sql`
+- Suggested migration file name: `packages/db/migrations/007_tech_stack_index.sql` (this is a suggested filename for a future migration you would create if needed)
 - Example approach: GIN index on `chunks(metadata)` (or a computed path index if preferred by DBA).
 
 ### Frontend (Optional)
 - Add simple multi-select chips (postgres, supabase, redis…).
+- **Implementation:** See `apps/web/src/pages/SearchPage.tsx` for filter chips UI
+- **API client:** Updated in `apps/web/src/lib/api.ts` to accept `techStack` parameter
 - Persist selected tags as repeated query params, e.g. `?q=...&tech_stack=postgres&tech_stack=redis`.
 - Include `tech_stack` array in the POST body.
 
@@ -64,7 +66,7 @@ CREATE INDEX IF NOT EXISTS idx_chunks_metadata_gin
   ON chunks USING gin (metadata);
 ```
 
-**Suggested migration file:** `packages/db/migrations/007_tech_stack_index.sql`
+**Suggested migration file:** `packages/db/migrations/007_tech_stack_index.sql` (create this file if/when you decide to add the index)
 
 ### Trade-offs
 
