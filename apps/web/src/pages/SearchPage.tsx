@@ -11,54 +11,55 @@ const TECH_STACKS = ['postgres', 'supabase', 'redis', 'flutter', 'typescript'];
 export function SearchPage() {
   const { collectionId } = useParams<{ collectionId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialQuery = searchParams.get('q') || '';
-  const initialTags = searchParams.getAll('tech_stack');
-  const [query, setQuery] = useState(initialQuery);
-  const [selectedTags, setSelectedTags] = useState<string[]>(initialTags);
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['search', collectionId, initialQuery, selectedTags.join(',')],
+  // Derive state directly from URL search params, making it the single source of truth.
+  const currentQuery = searchParams.get('q') || '';
+  const selectedTags = searchParams.getAll('tech_stack');
+
+  // Local state for the controlled search input field.
+  const [inputQuery, setInputQuery] = useState(currentQuery);
+
+  const { data, isLoading, isError, error } = useQuery({
+    // The queryKey now directly depends on the URL params, ensuring React Query
+    // refetches whenever the URL changes (e.g., on back/forward navigation).
+    queryKey: ['search', collectionId, currentQuery, selectedTags.join(',')],
     queryFn: () => {
-      if (!collectionId || !initialQuery) {
+      if (!collectionId || !currentQuery) {
         throw new Error('Collection ID and query are required');
       }
       return apiClient.performSearch(
-        initialQuery,
+        currentQuery,
         collectionId,
         10,
         selectedTags.length > 0 ? selectedTags : undefined
       );
     },
-    enabled: !!collectionId && !!initialQuery,
+    // The query is enabled only when there's a query in the URL.
+    enabled: !!collectionId && !!currentQuery,
   });
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (query.trim()) {
-      const params = new URLSearchParams();
-      params.set('q', query.trim());
-      for (const tag of selectedTags) {
-        params.append('tech_stack', tag);
-      }
+    if (inputQuery.trim()) {
+      const params = new URLSearchParams(searchParams);
+      params.set('q', inputQuery.trim());
       setSearchParams(params);
-      refetch();
+      // No manual refetch() needed; the change in queryKey triggers it.
     }
   };
 
   const toggleTag = (tag: string) => {
-    setSelectedTags((prev) => {
-      const newTags = prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag];
+    const newTags = selectedTags.includes(tag)
+      ? selectedTags.filter((t) => t !== tag)
+      : [...selectedTags, tag];
 
-      // Update URL with new tags
-      const params = new URLSearchParams(searchParams);
-      params.delete('tech_stack');
-      for (const t of newTags) {
-        params.append('tech_stack', t);
-      }
-      setSearchParams(params, { replace: true });
-
-      return newTags;
-    });
+    // Update URL with new tags, which will trigger a re-render and refetch.
+    const params = new URLSearchParams(searchParams);
+    params.delete('tech_stack');
+    for (const t of newTags) {
+      params.append('tech_stack', t);
+    }
+    setSearchParams(params, { replace: true });
   };
 
   if (!collectionId) {
@@ -91,8 +92,8 @@ export function SearchPage() {
           <div className="flex-1">
             <input
               type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={inputQuery}
+              onChange={(e) => setInputQuery(e.target.value)}
               placeholder="Search for code, functions, or documentation..."
               className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
             />
@@ -100,7 +101,7 @@ export function SearchPage() {
           <button
             type="submit"
             className="btn btn-primary flex items-center gap-xs"
-            disabled={!query.trim()}
+            disabled={!inputQuery.trim()}
           >
             <Search size={18} />
             Search
