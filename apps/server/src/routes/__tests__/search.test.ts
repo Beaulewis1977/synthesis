@@ -6,6 +6,16 @@ vi.mock('../../services/search.js', () => ({
   smartSearch: vi.fn(),
 }));
 
+vi.mock('../../services/cache/search-cache.js', () => ({
+  createSearchCacheKey: () => 'cache-key',
+  getCachedSearchResponse: vi.fn(async () => null),
+  setCachedSearchResponse: vi.fn(async () => undefined),
+}));
+
+vi.mock('../../services/metrics.js', () => ({
+  observeSearchLatency: vi.fn(),
+}));
+
 vi.mock('@synthesis/db', () => ({
   getPool: vi.fn(() => ({})),
 }));
@@ -80,7 +90,7 @@ describe('POST /api/search route', () => {
       results: [
         expect.objectContaining({
           id: 1,
-          text: 'Example chunk',
+          snippet: 'Example chunk',
           doc_id: 'doc-1',
           related_files: expect.objectContaining({
             imports: ['auth.dart'],
@@ -90,7 +100,16 @@ describe('POST /api/search route', () => {
       ],
     });
     expect(body.metadata.embedding_provider).toBe('ollama');
-    expect(smartSearch).toHaveBeenCalled();
+    expect(body.metadata.pagination).toEqual({
+      page: 1,
+      page_size: 10,
+      total_pages: 1,
+      total_results: 1,
+    });
+    expect(smartSearch).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ includeRelatedFiles: false })
+    );
   });
 
   it('returns 400 when payload is invalid', async () => {
