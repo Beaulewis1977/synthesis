@@ -400,6 +400,9 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       'ENABLE_HYBRID_SEARCH',
       'TECH_STACK_TAGS',
       'CODE_CHUNKING',
+      'EMBEDDING_PROVIDER_OVERRIDE',
+      'RERANKER_PROVIDER_OVERRIDE',
+      'DISABLE_CONTRADICTION_DETECTION',
     ]) {
       Reflect.deleteProperty(process.env, key);
     }
@@ -631,13 +634,12 @@ describe('Phase 11-14 integration: Feature combinations', () => {
         topK: 5,
       });
 
-      // File relationships should be queryable
-      const relationships = await getRelatedFilesMock(
+      // File relationships should be requested for code results
+      expect(getRelatedFilesMock).toHaveBeenCalledWith(
+        expect.anything(),
         'lib/services/auth_service.dart',
         'flutter-project'
       );
-      expect(relationships.imports).toContain('auth_provider.dart');
-      expect(relationships.tests).toContain('auth_service_test.dart');
     });
 
     it('maintains performance with code chunking', async () => {
@@ -929,12 +931,12 @@ describe('Phase 11-14 integration: Feature combinations', () => {
         topK: 5,
       });
 
-      // Relationships should still be available for filtered results
-      const relationships = await getRelatedFilesMock(
+      // Relationships should still be fetched for filtered results
+      expect(getRelatedFilesMock).toHaveBeenCalledWith(
+        expect.anything(),
         'lib/services/auth_service.dart',
         'flutter-project'
       );
-      expect(relationships.imports.length).toBeGreaterThan(0);
     });
   });
 
@@ -1325,13 +1327,12 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       expect(response.metadata.reranked).toBe(true);
       expect(response.searchTimeMs).toBeLessThan(600);
 
-      // Verify file relationships accessible
-      const relationships = await getRelatedFilesMock(
+      // Verify file relationships service was invoked for pipeline results
+      expect(getRelatedFilesMock).toHaveBeenCalledWith(
+        expect.anything(),
         'lib/services/auth_service.dart',
         'flutter-docs'
       );
-      expect(relationships.imports).toContain('auth_provider.dart');
-      expect(relationships.tests).toContain('auth_service_test.dart');
     });
 
     it('Scenario 2: Multi-source synthesis (state management approaches)', async () => {

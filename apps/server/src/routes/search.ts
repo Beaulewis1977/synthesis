@@ -106,6 +106,7 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
           source_url: item.sourceUrl,
           citation: item.citation,
           metadata: item.metadata,
+          related_files: item.relatedFiles ?? null,
         })),
         total_results: result.totalResults,
         search_time_ms: result.searchTimeMs,
