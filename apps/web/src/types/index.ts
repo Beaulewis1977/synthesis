@@ -25,10 +25,18 @@ export interface Document {
 }
 
 // Search-related types for Phase 8
-export interface SearchResultMetadata {
+// Phase 14: Updated to include tech_stack support
+export interface ChunkMetadata {
+  file_path?: string;
+  language?: string;
+  tech_stack?: string[];
   source_quality?: 'official' | 'verified' | 'community' | string | null;
   last_verified?: string | Date | null;
   [key: string]: unknown;
+}
+
+export interface SearchResultMetadata extends ChunkMetadata {
+  // Inherits all properties from ChunkMetadata
 }
 
 export interface SearchResult {
@@ -55,6 +63,23 @@ export interface SearchResponse {
   results: SearchResult[];
   total_results: number;
   search_time_ms: number;
+}
+
+/**
+ * Search request body for POST /api/search
+ * Phase 14: Added tech_stack filtering support
+ */
+export interface SearchRequest {
+  query: string;
+  collection_id: string;
+  top_k?: number;
+  min_similarity?: number;
+  search_mode?: 'vector' | 'hybrid';
+  rerank?: boolean;
+  rerank_top_k?: number;
+  rerank_max_candidates?: number;
+  rerank_provider?: 'cohere' | 'bge' | 'none';
+  tech_stack?: string[];
 }
 
 export interface CollectionsResponse {
