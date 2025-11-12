@@ -5,19 +5,29 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ResultCard } from '../components/ResultCard';
 import { apiClient } from '../lib/api';
 
+// Phase 14: Static tech stack list for filtering
+const TECH_STACKS = ['postgres', 'supabase', 'redis', 'flutter', 'typescript'];
+
 export function SearchPage() {
   const { collectionId } = useParams<{ collectionId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
+  const initialTags = searchParams.getAll('tech_stack');
   const [query, setQuery] = useState(initialQuery);
+  const [selectedTags, setSelectedTags] = useState<string[]>(initialTags);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['search', collectionId, initialQuery],
+    queryKey: ['search', collectionId, initialQuery, selectedTags.join(',')],
     queryFn: () => {
       if (!collectionId || !initialQuery) {
         throw new Error('Collection ID and query are required');
       }
-      return apiClient.performSearch(initialQuery, collectionId);
+      return apiClient.performSearch(
+        initialQuery,
+        collectionId,
+        10,
+        selectedTags.length > 0 ? selectedTags : undefined
+      );
     },
     enabled: !!collectionId && !!initialQuery,
   });
@@ -25,9 +35,30 @@ export function SearchPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
-      setSearchParams({ q: query.trim() });
+      const params = new URLSearchParams();
+      params.set('q', query.trim());
+      for (const tag of selectedTags) {
+        params.append('tech_stack', tag);
+      }
+      setSearchParams(params);
       refetch();
     }
+  };
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) => {
+      const newTags = prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag];
+
+      // Update URL with new tags
+      const params = new URLSearchParams(searchParams);
+      params.delete('tech_stack');
+      for (const t of newTags) {
+        params.append('tech_stack', t);
+      }
+      setSearchParams(params, { replace: true });
+
+      return newTags;
+    });
   };
 
   if (!collectionId) {
@@ -76,10 +107,32 @@ export function SearchPage() {
           </button>
         </form>
 
+        {/* Phase 14: Tech Stack Filter Chips */}
+        <div className="flex gap-sm mb-md items-center flex-wrap">
+          <span className="text-sm text-text-secondary">Filter by tech stack:</span>
+          {TECH_STACKS.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => toggleTag(tag)}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                selectedTags.includes(tag)
+                  ? 'bg-accent text-white'
+                  : 'bg-bg-secondary text-text-primary hover:bg-bg-hover'
+              }`}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+
         {data && (
           <p className="text-text-secondary text-sm">
             Found {data.total_results} result{data.total_results !== 1 ? 's' : ''} in{' '}
             {data.search_time_ms}ms
+            {selectedTags.length > 0 && (
+              <span className="ml-xs">(filtered by: {selectedTags.join(', ')})</span>
+            )}
           </p>
         )}
       </div>

@@ -175,15 +175,28 @@ class ApiClient {
   /**
    * Perform a search query on a collection.
    * Phase 13 feature - search page functionality.
+   * Phase 14 update - added tech_stack filtering support.
    */
-  async performSearch(query: string, collectionId: string, topK = 10): Promise<SearchResponse> {
+  async performSearch(
+    query: string,
+    collectionId: string,
+    topK = 10,
+    techStack?: string[]
+  ): Promise<SearchResponse> {
+    const body: Record<string, unknown> = {
+      query,
+      collection_id: collectionId,
+      top_k: topK,
+    };
+
+    // Only include tech_stack if provided and non-empty
+    if (techStack && techStack.length > 0) {
+      body.tech_stack = techStack;
+    }
+
     return this.request<SearchResponse>('/api/search', {
       method: 'POST',
-      body: JSON.stringify({
-        query,
-        collection_id: collectionId,
-        top_k: topK,
-      }),
+      body: JSON.stringify(body),
     });
   }
 
