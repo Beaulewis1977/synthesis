@@ -19,12 +19,10 @@ export function SearchPage() {
   // Local state for the controlled search input field.
   const [inputQuery, setInputQuery] = useState(currentQuery);
 
-  // Phase 14 Bug Fix (Coderabbit): Sync input field with URL on navigation.
+  // Sync input field with URL on navigation (browser back/forward).
   useEffect(() => {
-    if (inputQuery !== currentQuery) {
-      setInputQuery(currentQuery);
-    }
-  }, [currentQuery, inputQuery]);
+    setInputQuery(currentQuery);
+  }, [currentQuery]);
 
   const { data, isLoading, isError, error } = useQuery({
     // The queryKey now directly depends on the URL params, ensuring React Query
