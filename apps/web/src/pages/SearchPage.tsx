@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, Loader2, Search } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ResultCard } from '../components/ResultCard';
 import { apiClient } from '../lib/api';
@@ -18,6 +18,13 @@ export function SearchPage() {
 
   // Local state for the controlled search input field.
   const [inputQuery, setInputQuery] = useState(currentQuery);
+
+  // Phase 14 Bug Fix (Coderabbit): Sync input field with URL on navigation.
+  useEffect(() => {
+    if (inputQuery !== currentQuery) {
+      setInputQuery(currentQuery);
+    }
+  }, [currentQuery, inputQuery]);
 
   const { data, isLoading, isError, error } = useQuery({
     // The queryKey now directly depends on the URL params, ensuring React Query
