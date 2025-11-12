@@ -56,6 +56,7 @@ export interface SearchResult {
     section?: string | null;
   } | null;
   metadata?: SearchResultMetadata | null;
+  related_files?: RelatedFiles | null;
 }
 
 export interface SearchResponse {

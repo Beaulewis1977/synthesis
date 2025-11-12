@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import type { ContentContext, EmbeddingProvider } from './embedding-router.js';
 import { deriveContextFromMetadata, isEmbeddingProvider } from './embedding-router.js';
 import { type HybridSearchParams, type HybridSearchResult, hybridSearch } from './hybrid.js';
+import { getRelatedFiles, type RelatedFiles } from './file-relationships.js';
 import {
   type RerankedResult,
   type RerankerProvider,
@@ -39,6 +40,7 @@ export interface SmartSearchResult extends SearchResult {
   rerankScore?: number;
   rerankProvider?: RerankerProvider;
   originalSimilarity?: number;
+  relatedFiles?: RelatedFiles | null;
 }
 
 export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
@@ -120,16 +122,18 @@ export async function smartSearch(
 
       rankedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
 
+      const enrichedResults = await attachRelatedFiles(db, params.collectionId, rankedResults);
+
       return {
         query: params.query,
-        results: rankedResults,
-        totalResults: rankedResults.length,
+        results: enrichedResults,
+        totalResults: enrichedResults.length,
         searchTimeMs: elapsedMs,
         metadata: {
           searchMode: 'hybrid',
           vectorCount,
           bm25Count,
-          fusedCount: rankedResults.length,
+          fusedCount: enrichedResults.length,
           embeddingProvider: provider,
           trustScoringApplied: trustApplied,
           reranked: true,
@@ -143,16 +147,18 @@ export async function smartSearch(
       fusedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
     }
 
+    const enrichedResults = await attachRelatedFiles(db, params.collectionId, fusedResults);
+
     return {
       query: params.query,
-      results: fusedResults,
-      totalResults: fusedResults.length,
+      results: enrichedResults,
+      totalResults: enrichedResults.length,
       searchTimeMs: elapsedMs,
       metadata: {
         searchMode: 'hybrid',
         vectorCount,
         bm25Count,
-        fusedCount: fusedResults.length,
+        fusedCount: enrichedResults.length,
         embeddingProvider: provider,
         trustScoringApplied: trustApplied,
         reranked: false,
@@ -179,14 +185,16 @@ export async function smartSearch(
     rankedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
   }
 
+  const enrichedResults = await attachRelatedFiles(db, params.collectionId, rankedResults);
+
   return {
     ...vectorResult,
-    results: rankedResults,
-    totalResults: rankedResults.length,
+    results: enrichedResults,
+    totalResults: enrichedResults.length,
     metadata: {
       searchMode: 'vector',
-      vectorCount: rankedResults.length,
-      fusedCount: rankedResults.length,
+      vectorCount: enrichedResults.length,
+      fusedCount: enrichedResults.length,
       embeddingProvider: provider,
       trustScoringApplied: trustApplied,
       reranked: false,
@@ -196,6 +204,66 @@ export async function smartSearch(
 }
 
 export const searchCollection = vectorSearch;
+
+async function attachRelatedFiles(
+  db: Pool,
+  collectionId: string,
+  results: SmartSearchResult[]
+): Promise<SmartSearchResult[]> {
+  if (!collectionId || results.length === 0) {
+    return results;
+  }
+
+  const requiresRelationships = results.some((result) =>
+    Boolean(extractFilePath(result.metadata))
+  );
+
+  if (!requiresRelationships) {
+    return results;
+  }
+
+  const cache = new Map<string, Promise<RelatedFiles | null>>();
+
+  const enrichedResults = await Promise.all(
+    results.map(async (result) => {
+      const filePath = extractFilePath(result.metadata);
+      if (!filePath) {
+        return result;
+      }
+
+      if (!cache.has(filePath)) {
+        cache.set(
+          filePath,
+          getRelatedFiles(db, filePath, collectionId).catch((error) => {
+            console.warn(
+              `Failed to load related files for ${filePath} in collection ${collectionId}`,
+              error
+            );
+            return null;
+          })
+        );
+      }
+
+      const relatedFiles = await cache.get(filePath)!;
+
+      return {
+        ...result,
+        relatedFiles,
+      };
+    })
+  );
+
+  return enrichedResults;
+}
+
+function extractFilePath(metadata: Record<string, unknown> | null | undefined): string | undefined {
+  if (!metadata || typeof metadata !== 'object') {
+    return undefined;
+  }
+
+  const maybePath = (metadata as Record<string, unknown>).file_path;
+  return typeof maybePath === 'string' && maybePath.length > 0 ? maybePath : undefined;
+}
 
 function mapRerankedResult(result: RerankedResult<SmartSearchResult>): SmartSearchResult {
   return {
