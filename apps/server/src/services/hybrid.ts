@@ -2,6 +2,7 @@ import { performance } from 'node:perf_hooks';
 import type { Pool } from 'pg';
 import { type BM25Result, bm25Search } from './bm25.js';
 import { type SearchParams, type SearchResult, searchCollection } from './vector.js';
+import { createSnippet } from './snippet.js';
 
 export interface HybridSearchParams extends Omit<SearchParams, 'topK'> {
   topK?: number;
@@ -102,6 +103,7 @@ export function fuseResults(
       scoreMap.set(result.chunkId, {
         id: result.chunkId,
         text: result.text,
+        snippet: createSnippet(result.text),
         similarity: 0,
         docId: result.docId,
         docTitle: result.docTitle,

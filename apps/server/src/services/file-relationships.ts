@@ -1,5 +1,11 @@
 import type { Pool } from 'pg';
 import type { DartAST } from '../pipeline/dart-analyzer.js';
+import {
+  getCachedRelatedFiles,
+  invalidateRelatedFilesCache,
+  setCachedRelatedFiles,
+  toRelatedFilesCacheKey,
+} from './cache/related-files-cache.js';
 
 export type RelationshipType = 'import' | 'usage' | 'test' | 'sibling' | 'parent';
 
@@ -47,6 +53,16 @@ export async function trackFileRelationship(
       JSON.stringify(relationship.metadata || {}),
     ]
   );
+
+  const sourceKey = toRelatedFilesCacheKey(collectionId, relationship.sourceFile);
+  const invalidateTasks = [invalidateRelatedFilesCache(sourceKey)];
+
+  if (relationship.targetFile) {
+    const targetKey = toRelatedFilesCacheKey(collectionId, relationship.targetFile);
+    invalidateTasks.push(invalidateRelatedFilesCache(targetKey));
+  }
+
+  await Promise.all(invalidateTasks);
 }
 
 /**
@@ -58,6 +74,12 @@ export async function getRelatedFiles(
   collectionId: string
 ): Promise<RelatedFiles> {
   try {
+    const cacheKey = toRelatedFilesCacheKey(collectionId, filePath);
+    const cached = await getCachedRelatedFiles<RelatedFiles>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const { rows } = await db.query(
       `SELECT 
         source_file,
@@ -121,6 +143,7 @@ export async function getRelatedFiles(
       }
     }
 
+    await setCachedRelatedFiles(cacheKey, related);
     return related;
   } catch (error) {
     console.error(

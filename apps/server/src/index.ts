@@ -6,6 +6,7 @@
  */
 
 import 'dotenv/config';
+import compress from '@fastify/compress';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import { closePool, getPool } from '@synthesis/db';
@@ -16,6 +17,8 @@ import { costRoutes } from './routes/costs.js';
 import { ingestRoutes } from './routes/ingest.js';
 import { searchRoutes } from './routes/search.js';
 import { synthesisRoutes } from './routes/synthesis.js';
+import { initializeMetrics, registerMetricsRoute } from './services/metrics.js';
+import { disconnectRedis } from './services/redis.js';
 
 const PORT = Number(process.env.SERVER_PORT) || 3333;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -33,6 +36,8 @@ const fastify = Fastify({
     level: process.env.LOG_LEVEL || 'info',
   },
 });
+
+initializeMetrics();
 
 // Register plugins
 const isProduction = process.env.NODE_ENV === 'production';
@@ -57,6 +62,11 @@ await fastify.register(multipart, {
   },
 });
 
+await fastify.register(compress, {
+  global: true,
+  encodings: ['gzip', 'deflate'],
+});
+
 // Register routes
 await fastify.register(collectionRoutes);
 await fastify.register(searchRoutes);
@@ -64,6 +74,7 @@ await fastify.register(synthesisRoutes);
 await fastify.register(costRoutes);
 await fastify.register(agentRoutes);
 await fastify.register(ingestRoutes);
+await registerMetricsRoute(fastify);
 
 /**
  * Health check endpoint to verify the server is running.
@@ -93,6 +104,7 @@ const shutdown = async (signal: string) => {
   console.log(`\n${signal} received, shutting down gracefully...`);
   await fastify.close();
   await closePool();
+  await disconnectRedis();
   process.exit(0);
 };
 

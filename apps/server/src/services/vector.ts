@@ -2,6 +2,7 @@ import { performance } from 'node:perf_hooks';
 import type { Pool } from 'pg';
 import { embedTextToArray } from '../pipeline/embed.js';
 import type { ContentContext, EmbeddingProvider } from './embedding-router.js';
+import { createSnippet } from './snippet.js';
 
 export interface SearchParams {
   query: string;
@@ -16,6 +17,7 @@ export interface SearchParams {
 export interface SearchResult {
   id: number;
   text: string;
+  snippet: string;
   similarity: number;
   docId: string;
   docTitle: string | null;
@@ -106,6 +108,7 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
     return {
       id: row.id as number,
       text: row.text as string,
+      snippet: createSnippet(row.text as string),
       similarity: Number(row.similarity) || 0,
       docId: row.doc_id as string,
       docTitle: (row.doc_title as string | null) ?? null,
