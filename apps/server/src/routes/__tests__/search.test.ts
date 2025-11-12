@@ -143,4 +143,142 @@ describe('POST /api/search route', () => {
     expect(body.metadata.embedding_provider).toBe('voyage');
     expect(smartSearch).toHaveBeenCalled();
   });
+
+  it('accepts tech_stack parameter and passes it to smartSearch', async () => {
+    (smartSearch as vi.Mock).mockResolvedValue({
+      query: 'database query',
+      results: [
+        {
+          id: 1,
+          text: 'PostgreSQL content',
+          similarity: 0.9,
+          docId: 'doc-1',
+          docTitle: 'DB Doc',
+          sourceUrl: null,
+          metadata: { tech_stack: ['postgres'] },
+          citation: { title: 'DB Doc' },
+        },
+      ],
+      totalResults: 1,
+      searchTimeMs: 42,
+      metadata: {
+        searchMode: 'vector',
+        vectorCount: 1,
+        fusedCount: 1,
+        embeddingProvider: 'ollama',
+      },
+    });
+
+    const response = await fastify.inject({
+      method: 'POST',
+      url: '/api/search',
+      payload: {
+        query: 'database connection',
+        collection_id: '11111111-1111-4111-8111-111111111111',
+        tech_stack: ['postgres', 'supabase'],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.payload);
+    expect(body.results).toBeDefined();
+    expect(body.results.length).toBe(1);
+
+    // Verify smartSearch was called with normalized (lowercase) tech_stack
+    expect(smartSearch).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        query: 'database connection',
+        techStack: ['postgres', 'supabase'],
+      })
+    );
+  });
+
+  it('normalizes tech_stack to lowercase for case-insensitive matching', async () => {
+    (smartSearch as vi.Mock).mockResolvedValue({
+      query: 'test',
+      results: [],
+      totalResults: 0,
+      searchTimeMs: 10,
+      metadata: {
+        searchMode: 'vector',
+        vectorCount: 0,
+        fusedCount: 0,
+        embeddingProvider: 'ollama',
+      },
+    });
+
+    const response = await fastify.inject({
+      method: 'POST',
+      url: '/api/search',
+      payload: {
+        query: 'test',
+        collection_id: '11111111-1111-4111-8111-111111111111',
+        tech_stack: ['PostgreSQL', 'Supabase', 'REDIS'],
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    // Verify tech_stack was normalized to lowercase
+    expect(smartSearch).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        techStack: ['postgresql', 'supabase', 'redis'],
+      })
+    );
+  });
+
+  it('works without tech_stack parameter (backward compatibility)', async () => {
+    (smartSearch as vi.Mock).mockResolvedValue({
+      query: 'test',
+      results: [],
+      totalResults: 0,
+      searchTimeMs: 10,
+      metadata: {
+        searchMode: 'vector',
+        vectorCount: 0,
+        fusedCount: 0,
+        embeddingProvider: 'ollama',
+      },
+    });
+
+    const response = await fastify.inject({
+      method: 'POST',
+      url: '/api/search',
+      payload: {
+        query: 'test',
+        collection_id: '11111111-1111-4111-8111-111111111111',
+        // No tech_stack parameter
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    // Verify smartSearch was called without techStack
+    expect(smartSearch).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        query: 'test',
+        techStack: undefined,
+      })
+    );
+  });
+
+  it('returns 400 when tech_stack is not an array', async () => {
+    const response = await fastify.inject({
+      method: 'POST',
+      url: '/api/search',
+      payload: {
+        query: 'test',
+        collection_id: '11111111-1111-4111-8111-111111111111',
+        tech_stack: 'not-an-array',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = JSON.parse(response.payload);
+    expect(body.error).toBe('INVALID_INPUT');
+    expect(body.details).toBeDefined();
+  });
 });

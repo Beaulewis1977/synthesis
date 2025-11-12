@@ -92,6 +92,7 @@ export async function smartSearch(
       rrfK: params.rrfK,
       provider,
       context,
+      techStack: params.techStack,
     });
     let fusedResults: SmartSearchResult[] = results.map((item) => ({
       ...item,
@@ -167,6 +168,7 @@ export async function smartSearch(
     minSimilarity: params.minSimilarity,
     provider,
     context,
+    techStack: params.techStack,
   });
 
   const trustApplied = shouldApplyTrustScoring();

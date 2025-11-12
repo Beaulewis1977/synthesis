@@ -10,6 +10,7 @@ export interface SearchParams {
   minSimilarity?: number;
   provider?: EmbeddingProvider;
   context?: ContentContext;
+  techStack?: string[];
 }
 
 export interface SearchResult {
@@ -65,6 +66,9 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
   });
   const vectorLiteral = toVectorLiteral(embedding);
 
+  // Handle tech_stack filtering: empty array means no filter
+  const techStackFilter = params.techStack && params.techStack.length > 0 ? params.techStack : null;
+
   const { rows } = await db.query(
     `
       SELECT
@@ -80,10 +84,14 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
       WHERE d.collection_id = $2
         AND ch.embedding IS NOT NULL
         AND (1 - (ch.embedding <=> $1::vector)) >= $3
+        AND (
+          $5::text[] IS NULL
+          OR ch.metadata->'tech_stack' ?| $5::text[]
+        )
       ORDER BY ch.embedding <=> $1::vector
       LIMIT $4
     `,
-    [vectorLiteral, params.collectionId, minSimilarity, topK]
+    [vectorLiteral, params.collectionId, minSimilarity, topK, techStackFilter]
   );
 
   const end = performance.now();

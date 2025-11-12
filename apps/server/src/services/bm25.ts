@@ -5,6 +5,7 @@ export interface BM25Params {
   collectionId: string;
   topK?: number;
   language?: string;
+  techStack?: string[];
 }
 
 export interface BM25Result {
@@ -50,6 +51,9 @@ export async function bm25Search(db: Pool, params: BM25Params): Promise<BM25Resu
     throw new Error('Query must contain alphanumeric characters');
   }
 
+  // Handle tech_stack filtering: empty array means no filter
+  const techStackFilter = params.techStack && params.techStack.length > 0 ? params.techStack : null;
+
   const { rows } = await db.query<BM25Row>(
     `
       SELECT
@@ -67,10 +71,14 @@ export async function bm25Search(db: Pool, params: BM25Params): Promise<BM25Resu
       JOIN documents d ON d.id = ch.doc_id
       WHERE d.collection_id = $3
         AND to_tsvector($1::regconfig, ch.text) @@ to_tsquery($1::regconfig, $2)
+        AND (
+          $5::text[] IS NULL
+          OR ch.metadata->'tech_stack' ?| $5::text[]
+        )
       ORDER BY rank DESC
       LIMIT $4
     `,
-    [language, tsQuery, params.collectionId, topK]
+    [language, tsQuery, params.collectionId, topK, techStackFilter]
   );
   if (rows.length === 0) {
     return [];
