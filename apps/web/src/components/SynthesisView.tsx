@@ -20,8 +20,11 @@ export function SynthesisView({ query, collectionId }: SynthesisViewProps) {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-xl">
-        <div className="flex gap-sm mb-md">
+      <output
+        className="flex flex-col items-center justify-center py-xl"
+        aria-live="polite"
+      >
+        <div className="flex gap-sm mb-md text-2xl" aria-hidden="true">
           <div className="animate-bounce">.</div>
           <div className="animate-bounce [animation-delay:0.2s]">.</div>
           <div className="animate-bounce [animation-delay:0.4s]">.</div>
@@ -37,20 +40,25 @@ export function SynthesisView({ query, collectionId }: SynthesisViewProps) {
     const is404 = errorMessage.includes('404') || errorMessage.includes('disabled');
 
     return (
-      <div className="card bg-red-50 border-error">
+      <div className="card bg-red-50 border-error animate-fade-in" role="alert">
         <div className="flex items-start gap-md">
-          <AlertCircle className="text-error flex-shrink-0" size={24} />
-          <div className="flex-1">
+          <AlertCircle className="text-error flex-shrink-0" size={24} aria-hidden="true" />
+          <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-error mb-sm">
               {is404 ? 'Synthesis Feature Disabled' : 'Synthesis Failed'}
             </h3>
-            <p className="text-sm text-text-secondary mb-md">
+            <p className="text-sm text-text-secondary mb-md break-words">
               {is404
                 ? 'The synthesis feature is not enabled on the backend. Set ENABLE_SYNTHESIS=true in your environment.'
                 : errorMessage}
             </p>
             {!is404 && (
-              <button type="button" onClick={() => refetch()} className="btn btn-secondary text-sm">
+              <button
+                type="button"
+                onClick={() => refetch()}
+                className="btn btn-secondary text-sm"
+                aria-label="Retry synthesis"
+              >
                 Retry
               </button>
             )}
@@ -63,7 +71,7 @@ export function SynthesisView({ query, collectionId }: SynthesisViewProps) {
   // Empty state
   if (!data || data.approaches.length === 0) {
     return (
-      <div className="card bg-bg-secondary text-center py-xl">
+      <div className="card bg-bg-secondary text-center py-xl animate-fade-in">
         <p className="text-lg text-text-secondary mb-sm">No approaches found</p>
         <p className="text-sm text-text-secondary">
           Try refining your query or adding more documents to the collection.
@@ -75,29 +83,29 @@ export function SynthesisView({ query, collectionId }: SynthesisViewProps) {
   const recommendedApproach = data.recommended;
 
   return (
-    <div className="space-y-lg">
+    <section className="space-y-lg" aria-label="Synthesis results">
       {/* Metadata summary */}
-      <div className="card bg-bg-secondary">
-        <div className="flex flex-wrap gap-md text-sm text-text-secondary">
+      <div className="card bg-bg-secondary animate-fade-in">
+        <div className="flex flex-wrap gap-x-md gap-y-2 text-sm text-text-secondary">
           <span>
             <strong className="text-text-primary">{data.metadata.total_sources}</strong> sources
             analyzed
           </span>
-          <span>•</span>
+          <span aria-hidden="true">•</span>
           <span>
             <strong className="text-text-primary">{data.metadata.approaches_found}</strong>{' '}
             {data.metadata.approaches_found === 1 ? 'approach' : 'approaches'} found
           </span>
           {data.metadata.conflicts_found > 0 && (
             <>
-              <span>•</span>
+              <span aria-hidden="true">•</span>
               <span className="text-warning">
                 <strong>{data.metadata.conflicts_found}</strong>{' '}
                 {data.metadata.conflicts_found === 1 ? 'conflict' : 'conflicts'} detected
               </span>
             </>
           )}
-          <span>•</span>
+          <span aria-hidden="true">•</span>
           <span>{data.metadata.synthesis_time_ms}ms</span>
         </div>
       </div>

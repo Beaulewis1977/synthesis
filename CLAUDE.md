@@ -418,13 +418,30 @@ The project has been developed in phases (see `docs/phases/`):
 - **Phase 6**: MCP server
 - **Phase 7**: Docker integration
 - **Phase 8**: Hybrid search + multi-model embeddings (COMPLETED)
-- **Phase 9**: Reranking + synthesis engine (planned)
-- **Phase 10**: Code chunking (planned)
+- **Phase 9**: Reranking + synthesis engine (COMPLETED - Oct 2025)
+- **Phase 10**: Code chunking (COMPLETED - Oct 2025)
+- **Phase 11**: Trust & Recency Badges (COMPLETED - Nov 2025)
+- **Phase 12**: Cost Dashboard & Synthesis View (COMPLETED - Nov 2025)
+- **Phase 13**: Code Intelligence & File Relationships (COMPLETED - Nov 2025)
+- **Phase 14**: Tech Stack Filtering (COMPLETED - Nov 2025)
+- **Phase 15**: Integration & Polish (IN PROGRESS - Nov 2025)
+  - **Day 1**: Integration Testing (COMPLETED - 23 tests, 345 total passing)
+  - **Day 2**: Performance Optimization (COMPLETED - Caching, instrumentation, Prometheus metrics)
+  - **Day 3**: Frontend Polish (IN PROGRESS - Testing complete, UI fixes pending)
+  - **Day 4**: Documentation Updates (PLANNED)
 
 ### Current Branch Strategy
-- Feature branches: `feature/phase-X-description`
-- Main development on `feature/phase-8-hybrid-search-multi-model`
+- Feature branches: `feature/phase-X-description` or `feat/phase-X-description`
+- Main branch: `develop`
 - No explicit main branch configured (local development focused)
+
+### Current Development Status (Phase 15)
+- **Active Branch**: `feat/phase-15-day-3-frontend-polish`
+- **Latest Merged**: Phase 15 Day 2 (PR #105 - Performance Optimization)
+- **In Progress**: Phase 15 Day 3 - Frontend Polish & Accessibility
+  - Testing infrastructure: 15 Playwright E2E tests passing (mobile, keyboard, accessibility)
+  - Issues identified: 8 color contrast failures, 4 touch target issues, Lighthouse performance 56
+  - Remaining work: Color adjustments, touch target sizing, bundle optimization, manual testing
 
 ### Performance Considerations
 - Ollama embeddings: ~50 chunks/sec with GPU

@@ -15,11 +15,19 @@ export function RelatedFilesPanel({ collectionId, docId }: RelatedFilesPanelProp
   });
 
   if (isLoading) {
-    return <div className="text-sm text-gray-500 mt-2">Loading related files...</div>;
+    return (
+      <output className="text-sm text-gray-500 mt-2 animate-pulse" aria-live="polite">
+        Loading related files...
+      </div>
+    );
   }
 
   if (isError || !data?.related_files) {
-    return <div className="text-sm text-gray-500 mt-2">No related files found</div>;
+    return (
+      <div className="text-sm text-gray-500 mt-2 text-center py-2">
+        <p>No related files found</p>
+      </div>
+    );
   }
 
   const { related_files } = data;
@@ -32,18 +40,26 @@ export function RelatedFilesPanel({ collectionId, docId }: RelatedFilesPanelProp
     related_files.siblings?.length > 0;
 
   if (!hasAnyRelationships) {
-    return <div className="text-sm text-gray-500 mt-2">No related files found</div>;
+    return (
+      <div className="text-sm text-gray-500 mt-2 text-center py-2">
+        <p>No related files found</p>
+      </div>
+    );
   }
 
   return (
-    <div className="mt-3 p-3 bg-gray-50 rounded border border-gray-200 text-sm">
-      <div className="space-y-3">
+    <nav
+      className="mt-sm p-sm bg-gray-50 rounded border border-gray-200 text-sm animate-slide-down"
+      aria-label="Related files"
+    >
+      <div className="space-y-sm">
         {related_files.imports && related_files.imports.length > 0 && (
           <FileRelationshipSection
             collectionId={collectionId}
             title="📦 Imports"
             files={related_files.imports}
             icon="→"
+            ariaLabel="Files imported by this file"
           />
         )}
 
@@ -53,6 +69,7 @@ export function RelatedFilesPanel({ collectionId, docId }: RelatedFilesPanelProp
             title="🔗 Imported By"
             files={related_files.imported_by}
             icon="←"
+            ariaLabel="Files that import this file"
           />
         )}
 
@@ -62,6 +79,7 @@ export function RelatedFilesPanel({ collectionId, docId }: RelatedFilesPanelProp
             title="⚙️ Uses"
             files={related_files.uses}
             icon="⇢"
+            ariaLabel="Dependencies used by this file"
           />
         )}
 
@@ -71,6 +89,7 @@ export function RelatedFilesPanel({ collectionId, docId }: RelatedFilesPanelProp
             title="🧭 Used By"
             files={related_files.used_by}
             icon="⇠"
+            ariaLabel="Files that depend on this file"
           />
         )}
 
@@ -80,6 +99,7 @@ export function RelatedFilesPanel({ collectionId, docId }: RelatedFilesPanelProp
             title="📝 Tests"
             files={related_files.tests}
             icon="✓"
+            ariaLabel="Test files for this file"
           />
         )}
 
@@ -89,9 +109,10 @@ export function RelatedFilesPanel({ collectionId, docId }: RelatedFilesPanelProp
             title="👥 Sibling Files"
             files={related_files.siblings.slice(0, 5)}
             icon="•"
+            ariaLabel="Related files in the same directory"
           />
         )}
       </div>
-    </div>
+    </nav>
   );
 }

@@ -1,8 +1,8 @@
 import { performance } from 'node:perf_hooks';
 import type { Pool } from 'pg';
 import { type BM25Result, bm25Search } from './bm25.js';
-import { type SearchParams, type SearchResult, searchCollection } from './vector.js';
 import { createSnippet } from './snippet.js';
+import { type SearchParams, type SearchResult, searchCollection } from './vector.js';
 
 export interface HybridSearchParams extends Omit<SearchParams, 'topK'> {
   topK?: number;

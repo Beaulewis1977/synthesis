@@ -11,19 +11,19 @@ export function CostSummary({ current, budget, percentage, remaining }: CostSumm
   const progressColor = isWarning ? 'bg-red-500' : 'bg-green-500';
 
   return (
-    <div className="card mb-md">
+    <div className="card mb-md animate-fade-in">
       <h2 className="text-lg font-semibold text-text-primary mb-md">Current Month</h2>
 
-      <div className="text-3xl font-bold mb-sm">
+      <div className="text-2xl sm:text-3xl font-bold mb-sm">
         <span className={color}>${current.toFixed(2)}</span>
-        <span className="text-text-secondary"> / ${budget.toFixed(2)}</span>
+        <span className="text-text-secondary text-xl sm:text-2xl"> / ${budget.toFixed(2)}</span>
       </div>
 
       {/* Progress bar */}
-      <div className="w-full bg-gray-200 rounded-full h-2 mb-sm">
+      <div className="w-full bg-gray-200 rounded-full h-2 mb-sm" role="presentation">
         <div
           tabIndex={0}
-          className={`h-2 rounded-full ${progressColor}`}
+          className={`h-2 rounded-full ${progressColor} transition-all duration-500 ease-out`}
           style={{ width: `${Math.min(percentage, 100)}%` }}
           role="progressbar"
           aria-valuenow={Math.min(percentage, 100)}
@@ -38,8 +38,14 @@ export function CostSummary({ current, budget, percentage, remaining }: CostSumm
       </p>
 
       {isWarning && (
-        <div className="mt-md p-sm bg-red-50 border border-error rounded text-sm text-error">
-          ⚠️ Warning: You've reached {percentage.toFixed(0)}% of your monthly budget
+        <output
+          className="mt-md p-sm bg-red-50 border border-error rounded text-sm text-error animate-slide-down"
+          aria-live="polite"
+        >
+          <span role="img" aria-label="Warning">
+            ⚠️
+          </span>{' '}
+          Warning: You've reached {percentage.toFixed(0)}% of your monthly budget
         </div>
       )}
     </div>

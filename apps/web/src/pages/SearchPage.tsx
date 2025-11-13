@@ -114,22 +114,54 @@ export function SearchPage() {
         </form>
 
         {/* Phase 14: Tech Stack Filter Chips */}
-        <div className="flex gap-sm mb-md items-center flex-wrap">
-          <span className="text-sm text-text-secondary">Filter by tech stack:</span>
-          {TECH_STACKS.map((tag) => (
+        <fieldset className="flex gap-2 mb-md items-center flex-wrap">
+          <legend className="text-sm text-text-secondary">
+            Filter by tech stack
+            {selectedTags.length > 0 && (
+              <span className="ml-1 font-medium text-accent">({selectedTags.length} active)</span>
+            )}
+          </legend>
+          {TECH_STACKS.map((tag) => {
+            const isSelected = selectedTags.includes(tag);
+            return (
+              <label
+                key={tag}
+                className={`px-4 py-2 min-h-[44px] rounded-full text-sm font-medium transition-all duration-200 cursor-pointer ${
+                  isSelected
+                    ? 'bg-accent text-white shadow-sm scale-100 hover:scale-105'
+                    : 'bg-bg-secondary text-text-primary hover:bg-bg-hover active:scale-95'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => toggleTag(tag)}
+                  className="sr-only"
+                  aria-label={`${isSelected ? 'Remove' : 'Add'} ${tag} filter`}
+                />
+                {tag}
+                {isSelected && (
+                  <span className="ml-1" aria-hidden="true">
+                    ✓
+                  </span>
+                )}
+              </label>
+            );
+          })}
+          {selectedTags.length > 0 && (
             <button
-              key={tag}
               type="button"
-              onClick={() => toggleTag(tag)}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                selectedTags.includes(tag)
-                  ? 'bg-accent text-white'
-                  : 'bg-bg-secondary text-text-primary hover:bg-bg-hover'
-              }`}
+              onClick={() => {
+                const params = new URLSearchParams(searchParams);
+                params.delete('tech_stack');
+                setSearchParams(params, { replace: true });
+              }}
+              className="px-3 py-2 min-h-[44px] text-sm text-error hover:underline focus:outline-none focus:ring-2 focus:ring-error rounded"
+              aria-label="Clear all tech stack filters"
             >
-              {tag}
+              Clear all
             </button>
-          ))}
+          )}
         </div>
 
         {data && (

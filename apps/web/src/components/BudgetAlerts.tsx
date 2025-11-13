@@ -13,11 +13,11 @@ export function BudgetAlerts() {
   if (!data?.alerts?.length) return null;
 
   return (
-    <div className="card">
+    <section className="card animate-fade-in" aria-label="Budget alerts">
       <h2 className="text-lg font-semibold text-text-primary mb-md">Budget Alerts</h2>
 
-      <div className="space-y-sm">
-        {data.alerts.map((alert) => {
+      <div className="space-y-sm" aria-live="polite" aria-atomic="false">
+        {data.alerts.map((alert, index) => {
           const isLimitReached = alert.alert_type === 'limit_reached';
           const bgColor = isLimitReached
             ? 'bg-red-50 border-error'
@@ -26,10 +26,14 @@ export function BudgetAlerts() {
           const Icon = isLimitReached ? AlertCircle : AlertTriangle;
 
           return (
-            <div key={alert.id} className={`p-md rounded border ${bgColor}`}>
+            <div
+              key={alert.id}
+              className={`p-md rounded border ${bgColor} animate-slide-down`}
+              style={{ animationDelay: `${index * 100}ms` }}
+            >
               <div className="flex items-start gap-sm">
-                <Icon className={`flex-shrink-0 ${textColor}`} size={20} />
-                <div className="flex-1">
+                <Icon className={`flex-shrink-0 ${textColor}`} size={20} aria-hidden="true" />
+                <div className="flex-1 min-w-0">
                   <p className={`font-medium ${textColor}`}>
                     {isLimitReached ? (
                       <>
@@ -47,7 +51,7 @@ export function BudgetAlerts() {
                       </>
                     )}
                   </p>
-                  <p className="text-sm text-text-secondary mt-xs">
+                  <p className="text-sm text-text-secondary mt-xs break-words">
                     ${alert.current_spend_usd.toFixed(2)} of ${alert.threshold_usd.toFixed(2)} used
                   </p>
                   <p className="text-xs text-text-secondary mt-xs">

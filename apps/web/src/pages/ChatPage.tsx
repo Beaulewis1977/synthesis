@@ -140,32 +140,45 @@ export function ChatPage() {
             <p className="text-text-secondary mt-sm text-sm">Ask questions about your documents</p>
           </div>
           {/* View mode toggle */}
-          <div className="flex gap-sm">
-            <button
-              type="button"
-              onClick={() => setViewMode('chat')}
-              className={`px-md py-sm rounded text-sm font-medium transition-colors ${
+          <fieldset className="flex flex-wrap gap-sm" aria-label="View mode">
+            <label
+              className={`px-md py-sm min-h-[44px] rounded text-sm font-medium transition-all duration-200 cursor-pointer ${
                 viewMode === 'chat'
-                  ? 'bg-accent text-white'
+                  ? 'bg-accent text-white shadow-sm'
                   : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
               }`}
             >
+              <input
+                type="radio"
+                name="viewMode"
+                value="chat"
+                checked={viewMode === 'chat'}
+                onChange={() => setViewMode('chat')}
+                className="sr-only"
+              />
               Chat View
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('synthesis')}
-              className={`px-md py-sm rounded text-sm font-medium transition-colors ${
+            </label>
+            <label
+              className={`px-md py-sm min-h-[44px] rounded text-sm font-medium transition-all duration-200 cursor-pointer ${
                 viewMode === 'synthesis'
-                  ? 'bg-accent text-white'
+                  ? 'bg-accent text-white shadow-sm'
                   : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
-              }`}
-              disabled={!lastUserQuery}
-              title={!lastUserQuery ? 'Send a message first to enable synthesis' : 'View synthesis'}
+              } ${!lastUserQuery ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
+              <input
+                type="radio"
+                name="viewMode"
+                value="synthesis"
+                checked={viewMode === 'synthesis'}
+                onChange={() => setViewMode('synthesis')}
+                className="sr-only"
+                disabled={!lastUserQuery}
+                aria-disabled={!lastUserQuery}
+                title={!lastUserQuery ? 'Send a message first to enable synthesis' : 'View synthesis'}
+              />
               Synthesis View
-            </button>
-          </div>
+            </label>
+          </fieldset>
         </div>
       </div>
 
