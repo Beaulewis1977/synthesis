@@ -4,17 +4,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Light mode colors per UI spec
+        // Light mode colors per UI spec (WCAG AA compliant)
         'bg-primary': '#ffffff',
         'bg-secondary': '#f5f5f5',
         'bg-hover': '#e8e8e8',
         'text-primary': '#1a1a1a',
         'text-secondary': '#666666',
         border: '#e0e0e0',
-        accent: '#3b82f6',
-        success: '#10b981',
-        warning: '#f59e0b',
-        error: '#ef4444',
+        accent: '#1d4ed8', // blue-700 (darker for ≥4.5:1 contrast)
+        success: '#15803d', // green-700 (darker for ≥4.5:1 contrast)
+        warning: '#b45309', // amber-700 (darker for ≥4.5:1 contrast)
+        error: '#dc2626', // red-600 (was #ef4444 red-500) - ~4.83:1 contrast
       },
       fontFamily: {
         sans: ['system-ui', '-apple-system', 'sans-serif'],

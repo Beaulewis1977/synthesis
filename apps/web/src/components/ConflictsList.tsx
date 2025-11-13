@@ -22,7 +22,10 @@ export function ConflictsList({ conflicts }: ConflictsListProps) {
   }
 
   return (
-    <div className="card bg-yellow-50 border-2 border-warning">
+    <section
+      className="card bg-yellow-50 border-2 border-warning animate-fade-in"
+      aria-label="Contradictions"
+    >
       <h3 className="text-lg font-semibold text-text-primary mb-md flex items-center gap-sm">
         <span className="text-xl" role="img" aria-label="Warning icon">
           ⚠️
@@ -33,18 +36,21 @@ export function ConflictsList({ conflicts }: ConflictsListProps) {
       <div className="space-y-md">
         {conflicts.map((conflict, index) => {
           return (
-            <div
+            <article
               key={
                 conflict.id ??
                 `${conflict.topic}-${conflict.source_a.title}-${conflict.source_b.title}-${index}`
               }
-              className={`border-2 rounded-lg p-md ${SEVERITY_COLORS[conflict.severity]}`}
+              className={`border-2 rounded-lg p-md ${SEVERITY_COLORS[conflict.severity]} animate-slide-down`}
+              style={{ animationDelay: `${index * 100}ms` }}
             >
               {/* Topic and severity */}
-              <div className="flex items-start justify-between mb-md">
-                <h4 className="font-semibold text-text-primary">{conflict.topic}</h4>
+              <div className="flex flex-wrap items-start justify-between gap-2 mb-md">
+                <h4 className="font-semibold text-text-primary flex-1 min-w-0 break-words">
+                  {conflict.topic}
+                </h4>
                 <span
-                  className="text-xs font-medium px-2 py-1 bg-white rounded"
+                  className="text-xs font-medium px-2 py-1 bg-white rounded flex-shrink-0"
                   aria-label={`Severity: ${conflict.severity}`}
                 >
                   {SEVERITY_LABELS[conflict.severity]}
@@ -61,12 +67,12 @@ export function ConflictsList({ conflicts }: ConflictsListProps) {
                     href={conflict.source_a.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-accent hover:underline block mb-xs"
+                    className="text-xs text-accent hover:underline block mb-xs break-all"
                   >
                     {conflict.source_a.url}
                   </a>
                 )}
-                <p className="text-sm text-text-secondary italic ml-md pl-md border-l-2 border-gray-300">
+                <p className="text-sm text-text-secondary italic ml-0 sm:ml-md pl-md border-l-2 border-gray-300">
                   "{conflict.source_a.statement}"
                 </p>
               </div>
@@ -81,12 +87,12 @@ export function ConflictsList({ conflicts }: ConflictsListProps) {
                     href={conflict.source_b.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-accent hover:underline block mb-xs"
+                    className="text-xs text-accent hover:underline block mb-xs break-all"
                   >
                     {conflict.source_b.url}
                   </a>
                 )}
-                <p className="text-sm text-text-secondary italic ml-md pl-md border-l-2 border-gray-300">
+                <p className="text-sm text-text-secondary italic ml-0 sm:ml-md pl-md border-l-2 border-gray-300">
                   "{conflict.source_b.statement}"
                 </p>
               </div>
@@ -99,13 +105,15 @@ export function ConflictsList({ conflicts }: ConflictsListProps) {
 
               {/* Recommendation */}
               <div className="bg-success/10 border border-success rounded p-sm">
-                <div className="text-xs font-semibold text-success mb-xs">→ Recommendation:</div>
+                <div className="text-xs font-semibold text-success mb-xs">
+                  <span aria-hidden="true">→</span> Recommendation:
+                </div>
                 <p className="text-sm text-text-primary">{conflict.recommendation}</p>
               </div>
-            </div>
+            </article>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

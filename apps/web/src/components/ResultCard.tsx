@@ -78,16 +78,19 @@ export function ResultCard({ result, collectionId, onClick }: ResultCardProps) {
               e.stopPropagation();
               setShowRelated(!showRelated);
             }}
-            className="text-sm text-blue-600 hover:underline"
+            className="text-sm text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded px-1 -mx-1"
+            aria-expanded={showRelated}
+            aria-controls={`related-files-${result.doc_id}`}
           >
-            {showRelated ? '▼' : '▶'} Related Files
+            <span className="inline-block transition-transform" aria-hidden="true">
+              {showRelated ? '▼' : '▶'}
+            </span>{' '}
+            Related Files
           </button>
           {showRelated && (
-            <RelatedFilesPanel
-              collectionId={collectionId}
-              docId={result.doc_id}
-              filePath={result.metadata.file_path as string}
-            />
+            <div id={`related-files-${result.doc_id}`}>
+              <RelatedFilesPanel collectionId={collectionId} docId={result.doc_id} />
+            </div>
           )}
         </div>
       )}

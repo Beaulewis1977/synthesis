@@ -15,6 +15,12 @@ const TRUST_LABELS: Record<'official' | 'verified' | 'community', string> = {
   community: '👥 Community',
 };
 
+const TRUST_TOOLTIPS: Record<'official' | 'verified' | 'community', string> = {
+  official: 'Official documentation from the source maintainers',
+  verified: 'Verified by trusted community members or organizations',
+  community: 'Community-contributed content',
+};
+
 export function TrustBadge({ sourceQuality, className }: TrustBadgeProps) {
   if (!sourceQuality) {
     return null;
@@ -30,7 +36,9 @@ export function TrustBadge({ sourceQuality, className }: TrustBadgeProps) {
 
   return (
     <span
-      className={`inline-flex items-center text-xs font-medium px-2 py-1 rounded border ${TRUST_STYLES[variant]} ${className ?? ''}`.trim()}
+      className={`inline-flex items-center text-xs font-medium px-2 py-1 rounded border ${TRUST_STYLES[variant]} ${className ?? ''} animate-fade-in`.trim()}
+      aria-label={`Source quality: ${variant}`}
+      title={TRUST_TOOLTIPS[variant]}
     >
       {TRUST_LABELS[variant]}
     </span>
