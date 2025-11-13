@@ -174,7 +174,9 @@ export function ChatPage() {
                 className="sr-only"
                 disabled={!lastUserQuery}
                 aria-disabled={!lastUserQuery}
-                title={!lastUserQuery ? 'Send a message first to enable synthesis' : 'View synthesis'}
+                title={
+                  !lastUserQuery ? 'Send a message first to enable synthesis' : 'View synthesis'
+                }
               />
               Synthesis View
             </label>

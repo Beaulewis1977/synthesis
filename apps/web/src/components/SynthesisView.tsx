@@ -20,17 +20,14 @@ export function SynthesisView({ query, collectionId }: SynthesisViewProps) {
   // Loading state
   if (isLoading) {
     return (
-      <output
-        className="flex flex-col items-center justify-center py-xl"
-        aria-live="polite"
-      >
+      <output className="flex flex-col items-center justify-center py-xl" aria-live="polite">
         <div className="flex gap-sm mb-md text-2xl" aria-hidden="true">
           <div className="animate-bounce">.</div>
           <div className="animate-bounce [animation-delay:0.2s]">.</div>
           <div className="animate-bounce [animation-delay:0.4s]">.</div>
         </div>
         <p className="text-text-secondary">Analyzing sources and detecting contradictions...</p>
-      </div>
+      </output>
     );
   }
 
@@ -130,6 +127,6 @@ export function SynthesisView({ query, collectionId }: SynthesisViewProps) {
           <ConflictsList conflicts={data.conflicts} />
         </div>
       )}
-    </div>
+    </section>
   );
 }

@@ -5,7 +5,6 @@ import { FileRelationshipSection } from './FileRelationshipSection';
 interface RelatedFilesPanelProps {
   collectionId: string;
   docId: string;
-  filePath: string;
 }
 
 export function RelatedFilesPanel({ collectionId, docId }: RelatedFilesPanelProps) {
@@ -18,7 +17,7 @@ export function RelatedFilesPanel({ collectionId, docId }: RelatedFilesPanelProp
     return (
       <output className="text-sm text-gray-500 mt-2 animate-pulse" aria-live="polite">
         Loading related files...
-      </div>
+      </output>
     );
   }
 

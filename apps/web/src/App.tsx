@@ -23,7 +23,11 @@ function AppRoutes() {
   return (
     <ErrorBoundary onReset={() => navigate('/')}>
       <Suspense
-        fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}
+        fallback={
+          <output className="flex items-center justify-center min-h-screen" aria-live="polite">
+            Loading...
+          </output>
+        }
       >
         <Routes>
           <Route path="/" element={<Layout />}>

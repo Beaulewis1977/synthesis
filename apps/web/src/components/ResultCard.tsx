@@ -89,11 +89,7 @@ export function ResultCard({ result, collectionId, onClick }: ResultCardProps) {
           </button>
           {showRelated && (
             <div id={`related-files-${result.doc_id}`}>
-              <RelatedFilesPanel
-                collectionId={collectionId}
-                docId={result.doc_id}
-                filePath={result.metadata.file_path as string}
-              />
+              <RelatedFilesPanel collectionId={collectionId} docId={result.doc_id} />
             </div>
           )}
         </div>

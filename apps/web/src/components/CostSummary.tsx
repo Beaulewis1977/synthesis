@@ -46,7 +46,7 @@ export function CostSummary({ current, budget, percentage, remaining }: CostSumm
             ⚠️
           </span>{' '}
           Warning: You've reached {percentage.toFixed(0)}% of your monthly budget
-        </div>
+        </output>
       )}
     </div>
   );

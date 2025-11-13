@@ -63,6 +63,6 @@ export function BudgetAlerts() {
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

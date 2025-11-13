@@ -6,7 +6,7 @@ import { CostSummary } from '../components/CostSummary';
 import { apiClient } from '../lib/api';
 
 export function CostDashboard() {
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['cost-summary'],
     queryFn: () => apiClient.getCostSummary(),
     // Optional: auto-refresh every 30 seconds
@@ -61,7 +61,7 @@ export function CostDashboard() {
               </p>
               <button
                 type="button"
-                onClick={() => window.location.reload()}
+                onClick={() => refetch()}
                 className="mt-md btn btn-secondary text-sm"
                 aria-label="Retry loading cost data"
               >

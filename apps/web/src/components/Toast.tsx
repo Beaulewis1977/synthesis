@@ -105,7 +105,7 @@ function ToastContainer({ toasts, removeToast }: ToastContainerProps) {
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
       ))}
-    </div>
+    </section>
   );
 }
 

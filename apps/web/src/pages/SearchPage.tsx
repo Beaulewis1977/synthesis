@@ -162,7 +162,7 @@ export function SearchPage() {
               Clear all
             </button>
           )}
-        </div>
+        </fieldset>
 
         {data && (
           <p className="text-text-secondary text-sm">
