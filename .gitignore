@@ -61,7 +61,7 @@ lighthouse*.json
 # Malformed WSL paths (Lighthouse/Chrome artifacts)
 undefined:/
 **/\\wsl.localhost/**
-**/undefined*/
-**/lighthouse.*/
+**/undefined/
+**/lighthouse-temp/
 
 test-results/
