@@ -8,8 +8,8 @@ import {
   setCachedSearchResponse,
 } from '../services/cache/search-cache.js';
 import { observeSearchLatency } from '../services/metrics.js';
-import { createSnippet } from '../services/snippet.js';
 import { type SmartSearchResponse, smartSearch } from '../services/search.js';
+import { createSnippet } from '../services/snippet.js';
 
 interface SearchRouteResponse {
   query: string;

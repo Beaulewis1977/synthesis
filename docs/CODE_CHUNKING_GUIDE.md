@@ -1,6 +1,10 @@
 # Code Chunking Guide
 
-**Phase 13 Feature**: AST-based code chunking that preserves code structure
+**Last Updated:** 2025-11-13
+**Version:** v2.0.0
+**Phase:** 13
+
+AST-based code chunking that preserves code structure and tracks file relationships.
 
 ---
 

@@ -1,5 +1,4 @@
-const DEFAULT_SNIPPET_LENGTH =
-  Number.parseInt(process.env.SEARCH_SNIPPET_LENGTH ?? '', 10) || 320;
+const DEFAULT_SNIPPET_LENGTH = Number.parseInt(process.env.SEARCH_SNIPPET_LENGTH ?? '', 10) || 320;
 
 export function createSnippet(
   text: string | null | undefined,

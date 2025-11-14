@@ -1,6 +1,20 @@
 # Environment Setup & Docker Guide
-**Version:** 1.0  
-**Last Updated:** October 6, 2025
+**Version:** 2.0
+**Last Updated:** November 13, 2025
+
+---
+
+## 📖 v2.0 Configuration
+
+**For comprehensive configuration reference, see [CONFIGURATION.md](./CONFIGURATION.md)** which documents all 70+ environment variables for:
+- Hybrid search settings (Phase 11)
+- Multi-provider embeddings (Phase 11) - Voyage, OpenAI, Ollama
+- Re-ranking & synthesis (Phase 12) - Cohere, cost tracking
+- Code intelligence (Phase 13) - AST parsing, relationships
+- Tech stack filtering (Phase 14)
+- Performance & caching (Phase 15)
+
+This guide focuses on initial setup. For detailed configuration options, see [CONFIGURATION.md](./CONFIGURATION.md).
 
 ---
 
@@ -9,7 +23,7 @@
 ### Prerequisites
 - Windows 11 + WSL2 (Ubuntu 24.04) OR Linux/macOS
 - 16GB+ RAM
-- NVIDIA GPU with 16GB VRAM (for Ollama)
+- NVIDIA GPU with 16GB VRAM (for Ollama, optional for v2.0 with cloud providers)
 - 50GB free disk space
 
 ### 5-Minute Setup

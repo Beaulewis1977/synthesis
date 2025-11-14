@@ -49,3 +49,4 @@ gha-creds-*.json
 .roo/
 .kilocode/
 .factory/
+test-results/
