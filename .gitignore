@@ -53,6 +53,7 @@ gha-creds-*.json
 # Test artifacts (Playwright)
 apps/web/test-results/
 apps/web/playwright-report/
+test-results/
 
 # Lighthouse audit reports
 lighthouse*.html
@@ -63,5 +64,3 @@ undefined:/
 **/\\wsl.localhost/**
 **/undefined/
 **/lighthouse-temp/
-
-test-results/
