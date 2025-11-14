@@ -142,7 +142,7 @@ This section translates the earlier suggestions into concrete workstreams. Each 
   - Extend metadata schema to capture:
     - `language`, `framework`, `layer` (UI, domain, data, infra), `platform` (mobile/web/backend).
 
-- **Project-structure aware chunking**
+- **Project-structure-aware chunking**
   - Kotlin/Java (Android): detect modules, Gradle root/module structure, and group tests with their sources.
   - Swift (iOS): detect modules from Xcode project, map view controllers/SwiftUI views and services.
   - React/Next.js: chunk by component/route boundaries, keep associated hooks and CSS/Styled components together.

@@ -120,7 +120,7 @@ For you / contributors:
 3. For desktop development:
    - Run `pnpm install`.
    - Run `pnpm --filter @synthesis/desktop dev` (and ensure server/web/DB are running via Docker or direct commands).
-4. For full stack testing:
+4. For full-stack testing:
    - Use existing commands for server/web/MCP.
    - Use desktop app to orchestrate stack as a sanity check.
 

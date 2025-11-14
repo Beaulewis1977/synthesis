@@ -151,4 +151,4 @@ This folder will contain the following docs (high-level, no code):
 - `03_AGENT_SDK_GITHUB_ISSUES.md`: proposed GitHub issues with titles, labels, and acceptance criteria.
 - `04_AGENT_SDK_PHASE_PROMPTS.md`: suggested agent prompts for each phase so an implementation agent knows how to operate.
 
-These docs are intentionally **high level** and meant to be turned into implementation steps later by an agent, without over-complicating the design.
+These docs are intentionally **high-level** and meant to be turned into implementation steps later by an agent, without over-complicating the design.

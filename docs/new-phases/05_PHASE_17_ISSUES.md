@@ -4,6 +4,8 @@ This document outlines the GitHub issues that should be created to track the wor
 
 ---
 
+## Proposed Issues
+
 ### Epic
 
 -   **Title:** `Epic: Phase 17 - Autonomous Ingestion & Batch Processing`

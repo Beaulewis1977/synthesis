@@ -29,7 +29,7 @@ The plan is organized into phases to keep the work incremental and avoid over-en
 
 **Goal:** Understand the current implementation deeply and introduce minimal abstractions without behaviour changes.
 
-**A1. Audit current agent & tools implementation**
+### A1. Audit current agent & tools implementation
 
 - Files:
   - `apps/server/src/agent/agent.ts` — current agent loop using `@anthropic-ai/sdk`.
@@ -44,14 +44,14 @@ The plan is organized into phases to keep the work incremental and avoid over-en
   - The set of tools provided by `buildAgentTools` (names, inputs, outputs).
   - Error handling patterns in `runAgentChat` and `agentRoutes`.
 
-**A2. Introduce AgentRunner interface (conceptual)**
+### A2. Introduce AgentRunner interface (conceptual)
 
 - Design `AgentRunner` interface (see `01_AGENT_SDK_ARCHITECTURE_IMPACT.md`).
 - Plan how to:
   - Wrap current `runAgentChat` inside a `MessagesApiAgentRunner`.
   - Create a placeholder `AgentSdkAgentRunner` with `TODO` sections.
 
-**A3. Configuration planning**
+### A3. Configuration planning
 
 - Decide env variables for switching implementations:
   - `AGENT_IMPLEMENTATION=messages | agent-sdk`.
@@ -69,24 +69,24 @@ The plan is organized into phases to keep the work incremental and avoid over-en
 
 **Goal:** Define a single, neutral representation of tools that can be consumed by both agent implementations and MCP.
 
-**B1. Tool definition format**
+### B1. Tool definition format
 
 - Define `AgentToolDefinition` and `ToolContext` (see architecture doc).
 - Identify all existing tools in `buildAgentTools` and map them into:
   - `name`, `description`, `inputSchema` (zod/JSON-schema), `executor`.
 
-**B2. Adapter for Messages API**
+### B2. Adapter for Messages API
 
 - Plan an adapter that:
   - Takes an array of `AgentToolDefinition` and produces `Tool[]` for `messages.create`.
   - Provides `toolExecutors` lookup by name.
 
-**B3. Adapter for Agent SDK**
+### B3. Adapter for Agent SDK
 
 - Plan how to register the same `AgentToolDefinition` set with the Agent SDK.
 - Consider how to pass context (db, collectionId, MCP clients) into executors.
 
-**B4. MCP alignment**
+### B4. MCP alignment
 
 - Ensure MCP tools (in `apps/mcp/src/index.ts`) can reuse the same definitions or at least the same business logic.
 
@@ -103,7 +103,7 @@ The plan is organized into phases to keep the work incremental and avoid over-en
 
 > Note: This phase is design-only; a future agent will fill in actual imports and code once the Agent SDK WSL issue is resolved.
 
-**C1. Agent SDK client & agent config design**
+### C1. Agent SDK client & agent config design
 
 - Define how to instantiate the Agent SDK client (equivalent to current `new Anthropic(...)`).
 - Decide on an `Agent` configuration:
@@ -112,7 +112,7 @@ The plan is organized into phases to keep the work incremental and avoid over-en
   - Tools (from unified registry).
   - Limits: max turns, token budgets.
 
-**C2. AgentSdkAgentRunner.runChat behaviour**
+### C2. AgentSdkAgentRunner.runChat behaviour
 
 - Map `/api/agent/chat` request fields to Agent SDK calls:
   - `message` → initial/user message.
@@ -123,14 +123,14 @@ The plan is organized into phases to keep the work incremental and avoid over-en
   - Run a single logical “turn” (call) that may internally perform multiple tool uses.
   - Extract the final assistant message and tool call information for the response.
 
-**C3. Tool execution & context**
+### C3. Tool execution & context
 
 - Plan how the Agent SDK will call tools and how executors receive:
   - `db` connection.
   - `collectionId`.
   - MCP clients (if needed).
 
-**C4. Usage & logging**
+### C4. Usage & logging
 
 - Decide how to aggregate usage (tokens) from the Agent SDK responses into `usage` fields that match current `AgentChatResult`.
 
@@ -145,37 +145,37 @@ The plan is organized into phases to keep the work incremental and avoid over-en
 
 **Goal:** Expand the set of tools to cover all key operations Synthesis and your coding agents need, including new-phase features and external MCP servers.
 
-**D1. Core RAG tools**
+### D1. Core RAG tools
 
 - `search_rag` — existing.
 - `search_hybrid`, `search_code`, `search_docs` — optional specialized variants.
 - `get_document_chunks`, `get_related_files` — for direct context retrieval.
 
-**D2. Collection & document management tools**
+### D2. Collection & document management tools
 
 - `list_collections`, `create_collection`, `delete_collection`.
 - `list_documents`, `get_document`, `delete_document`.
 - `add_document_from_file`, `add_document_from_url`.
 
-**D3. Doc lifecycle tools (from new-phases plans)**
+### D3. Doc lifecycle tools (from new-phases plans)
 
 - `refresh_document` — triggers re-ingestion of a stale document.
 - `mark_document_stale` / `check_document_freshness` — for scheduled jobs.
 - `update_document_metadata` — allows manual metadata edits.
 
-**D4. Repo ingestion & sync tools (from extended tech stack plan)**
+### D4. Repo ingestion & sync tools (from extended tech stack plan)
 
 - `add_repo_to_collection` — clone & ingest a repo.
 - `sync_repo` — pull & diff to update changed files only.
 - Optional: `list_repos`, `get_repo_status` for monitoring.
 
-**D5. External MCP / Context7 tools**
+### D5. External MCP / Context7 tools
 
 - `context7_search_docs` — call Context7 MCP server for library/framework docs.
 - `new_phases_plan_lookup` — query the `@new-phases` MCP server for future plans.
 - `synthesis_mcp_search` — self-call to Synthesis MCP from within the Agent SDK for meta workflows.
 
-**D6. Utility tools**
+### D6. Utility tools
 
 - `log_feedback` — record thumbs up/down on answers.
 - `report_issue` — create an issue stub in a repo or internal log.
@@ -191,7 +191,7 @@ The plan is organized into phases to keep the work incremental and avoid over-en
 
 **Goal:** Ensure MCP servers align with the new tool design and are easily callable by the Agent SDK.
 
-**E1. Synthesis MCP alignment**
+### E1. Synthesis MCP alignment
 
 - Verify the Synthesis MCP server exposes:
   - Search operations.
@@ -199,7 +199,7 @@ The plan is organized into phases to keep the work incremental and avoid over-en
   - Ingestion operations.
 - Plan MCP tool descriptions that match the Agent SDK tools where practical.
 
-**E2. New MCP servers**
+### E2. New MCP servers
 
 - `new-phases` MCP:
   - Expose planning docs from `docs/new-phases` and `docs/agent-sdk`.
@@ -208,7 +208,7 @@ The plan is organized into phases to keep the work incremental and avoid over-en
 - Context7-like MCP:
   - Tools to search doc sets for libraries/frameworks by name, version, and topic.
 
-**E3. Agent SDK integration**
+### E3. Agent SDK integration
 
 - For each MCP server, decide how to:
   - Instantiate a client (HTTP/MCP transport).
@@ -225,14 +225,14 @@ The plan is organized into phases to keep the work incremental and avoid over-en
 
 **Goal:** Adopt the Agent SDK implementation safely and gradually.
 
-**F1. Dual-mode testing strategy**
+### F1. Dual-mode testing strategy
 
 - Keep both `MessagesApiAgentRunner` and `AgentSdkAgentRunner` implementations available.
 - Add tests that:
   - Exercise the same scenarios against both implementations.
   - Compare outputs for core behaviour (allowing some flexibility in wording).
 
-**F2. Rollout strategy**
+### F2. Rollout strategy
 
 - Development / staging:
   - Use `AGENT_IMPLEMENTATION=agent-sdk`.
@@ -242,7 +242,7 @@ The plan is organized into phases to keep the work incremental and avoid over-en
   - Start with `AGENT_IMPLEMENTATION=messages`.
   - Gradually enable `agent-sdk` in a controlled environment.
 
-**F3. Cleanup (optional, later)**
+### F3. Cleanup (optional, later)
 
 - Once satisfied, optionally:
   - Make `agent-sdk` the default implementation.
