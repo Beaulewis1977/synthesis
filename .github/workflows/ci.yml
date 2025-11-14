@@ -56,7 +56,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Type check
-        run: pnpm type-check
+        run: pnpm typecheck
 
   test:
     name: Unit Tests
@@ -78,14 +78,16 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: pnpm test --coverage
+        run: pnpm test:coverage
 
       - name: Upload coverage to Codecov
         if: ${{ hashFiles('coverage/coverage-final.json') != '' }}
         uses: codecov/codecov-action@v4
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/coverage-final.json
           flags: unittests
+        continue-on-error: true
 
   build:
     name: Build All Packages
@@ -135,6 +137,9 @@ jobs:
         ports:
           - 5432:5432
 
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/synthesis_test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -151,13 +156,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run migrations
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/synthesis_test
         run: pnpm --filter @synthesis/db migrate
 
       - name: Run integration tests
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/synthesis_test
         run: pnpm test:integration
 
   docker:

@@ -78,40 +78,45 @@ describe('Database Integration Tests', () => {
 
   it('should verify vector embeddings can be stored and queried', async () => {
     const testCollectionName = `test_vec_collection_${Date.now()}`;
+    let collectionId: number | null = null;
 
-    const collectionResult = await pool.query(
-      'INSERT INTO collections (name, description) VALUES ($1, $2) RETURNING id',
-      [testCollectionName, 'Vector test collection']
-    );
-    const collectionId = collectionResult.rows[0].id;
+    try {
+      const collectionResult = await pool.query(
+        'INSERT INTO collections (name, description) VALUES ($1, $2) RETURNING id',
+        [testCollectionName, 'Vector test collection']
+      );
+      collectionId = collectionResult.rows[0].id;
 
-    const documentResult = await pool.query(
-      `INSERT INTO documents (collection_id, title, file_path, status, metadata)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [collectionId, 'Test Doc', '/tmp/test.txt', 'complete', JSON.stringify({})]
-    );
-    const documentId = documentResult.rows[0].id;
+      const documentResult = await pool.query(
+        `INSERT INTO documents (collection_id, title, file_path, status, metadata)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        [collectionId, 'Test Doc', '/tmp/test.txt', 'complete', JSON.stringify({})]
+      );
+      const documentId = documentResult.rows[0].id;
 
-    const testEmbedding = Array.from({ length: 768 }, () => Math.random());
-    const chunkResult = await pool.query(
-      `INSERT INTO chunks (doc_id, chunk_index, text, embedding, metadata)
-       VALUES ($1, $2, $3, $4::vector, $5) RETURNING id`,
-      [documentId, 0, 'Test chunk text', `[${testEmbedding.join(',')}]`, JSON.stringify({})]
-    );
-    expect(chunkResult.rows).toHaveLength(1);
+      const testEmbedding = Array.from({ length: 768 }, () => Math.random());
+      const chunkResult = await pool.query(
+        `INSERT INTO chunks (doc_id, chunk_index, text, embedding, metadata)
+         VALUES ($1, $2, $3, $4::vector, $5) RETURNING id`,
+        [documentId, 0, 'Test chunk text', `[${testEmbedding.join(',')}]`, JSON.stringify({})]
+      );
+      expect(chunkResult.rows).toHaveLength(1);
 
-    const queryEmbedding = Array.from({ length: 768 }, () => Math.random());
-    const searchResult = await pool.query(
-      `SELECT id, text, embedding <=> $1::vector AS distance
-       FROM chunks
-       WHERE doc_id = $2
-       ORDER BY embedding <=> $1::vector
-       LIMIT 5`,
-      [`[${queryEmbedding.join(',')}]`, documentId]
-    );
-    expect(searchResult.rows).toHaveLength(1);
-    expect(searchResult.rows[0].distance).toBeTypeOf('number');
-
-    await pool.query('DELETE FROM collections WHERE id = $1', [collectionId]);
+      const queryEmbedding = Array.from({ length: 768 }, () => Math.random());
+      const searchResult = await pool.query(
+        `SELECT id, text, embedding <=> $1::vector AS distance
+         FROM chunks
+         WHERE doc_id = $2
+         ORDER BY embedding <=> $1::vector
+         LIMIT 5`,
+        [`[${queryEmbedding.join(',')}]`, documentId]
+      );
+      expect(searchResult.rows).toHaveLength(1);
+      expect(searchResult.rows[0].distance).toBeTypeOf('number');
+    } finally {
+      if (collectionId) {
+        await pool.query('DELETE FROM collections WHERE id = $1', [collectionId]);
+      }
+    }
   });
 });

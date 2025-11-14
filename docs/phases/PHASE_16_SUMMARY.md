@@ -59,7 +59,7 @@ Successfully implemented a comprehensive Continuous Integration (CI) pipeline us
 - New code coverage: 100% (integration tests fully tested)
 
 ### Test Results
-```
+```text
 ✓ Integration tests validated locally
 ✓ Format check passes (175 files)
 ✓ Type check passes (all packages)
@@ -261,7 +261,7 @@ jobs:
 ```
 
 ### Integration Test Output (Expected)
-```
+```text
 ✓ apps/server/src/__tests__/database.integration.test.ts (5)
   ✓ Database Integration Tests (5)
     ✓ should connect to the database successfully

@@ -23,6 +23,11 @@
       "dependsOn": ["build"],
       "outputs": ["coverage/**"]
     },
+    "test:integration": {
+      "dependsOn": ["build"],
+      "outputs": [],
+      "cache": false
+    },
     "lint": {
       "outputs": []
     },
