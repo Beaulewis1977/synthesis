@@ -33,26 +33,34 @@ export function RecencyBadge({ lastVerified, className }: RecencyBadgeProps) {
   }
 
   const monthsSince = diffInMonths(verifiedDate);
+  const isoDate = verifiedDate.toISOString();
+
+  let label: string;
+  let colorClass: string;
+  let tooltip: string;
 
   if (monthsSince < 6) {
-    return (
-      <span className={`inline-flex items-center text-xs text-green-700 ${className ?? ''}`.trim()}>
-        🕐 Updated recently
-      </span>
-    );
-  }
-
-  if (monthsSince < 12) {
-    return (
-      <span className={`inline-flex items-center text-xs text-amber-700 ${className ?? ''}`.trim()}>
-        🕐 Updated {monthsSince} month{monthsSince === 1 ? '' : 's'} ago
-      </span>
-    );
+    label = '🕐 Updated recently';
+    colorClass = 'text-green-700';
+    tooltip = `Last verified ${monthsSince === 0 ? 'this month' : `${monthsSince} month${monthsSince === 1 ? '' : 's'} ago`}`;
+  } else if (monthsSince < 12) {
+    label = `🕐 Updated ${monthsSince} month${monthsSince === 1 ? '' : 's'} ago`;
+    colorClass = 'text-amber-700';
+    tooltip = `Last verified ${monthsSince} months ago - may need review`;
+  } else {
+    label = '🕐 Older content';
+    colorClass = 'text-gray-600';
+    tooltip = 'Last verified over a year ago - information may be outdated';
   }
 
   return (
-    <span className={`inline-flex items-center text-xs text-gray-600 ${className ?? ''}`.trim()}>
-      🕐 Older content
-    </span>
+    <time
+      dateTime={isoDate}
+      className={`inline-flex items-center text-xs ${colorClass} ${className ?? ''} animate-fade-in`.trim()}
+      aria-label={tooltip}
+      title={tooltip}
+    >
+      {label}
+    </time>
   );
 }

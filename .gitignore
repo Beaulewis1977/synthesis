@@ -49,4 +49,18 @@ gha-creds-*.json
 .roo/
 .kilocode/
 .factory/
+
+# Test artifacts (Playwright)
+apps/web/test-results/
+apps/web/playwright-report/
 test-results/
+
+# Lighthouse audit reports
+lighthouse*.html
+lighthouse*.json
+
+# Malformed WSL paths (Lighthouse/Chrome artifacts)
+undefined:/
+**/\\wsl.localhost/**
+**/undefined/
+**/lighthouse-temp/

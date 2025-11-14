@@ -23,7 +23,7 @@ body {
   }
 
   .btn-primary {
-    @apply bg-accent text-white hover:bg-blue-600;
+    @apply bg-accent text-white hover:bg-blue-700;
   }
 
   .btn-secondary {
@@ -40,5 +40,60 @@ body {
 
   .input {
     @apply w-full px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-accent;
+  }
+}
+
+/* Animations */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.2s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.15s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /* Respect user's motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
+    .animate-slide-down,
+    .animate-scale-in {
+      animation: none;
+    }
   }
 }
