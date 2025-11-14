@@ -71,7 +71,7 @@ Tests (`apps/server/src/agent/__tests__/agent.test.ts`, `.../routes/__tests__/ag
   - More boilerplate for multi-step workflows.
   - Every new tool and flow requires more custom control logic.
 
-##Claude Agent SDK (Agent API)
+## Claude Agent SDK (Agent API)
 
 - Higher-level **agent framework** built on top of the same underlying API [see Claude Agent SDK docs](https://docs.claude.com/en/docs/agent-sdk/overview).
 - You define:
