@@ -1,177 +1,188 @@
 ## Synthesis Desktop App — Build Plan
 
 **Version:** 1.0  
-**Date:** 2025-11-13
+**Date:** 2025-11-20
 
 ---
 
 ### Overview
 
-This document lays out a **phased build plan** for the Synthesis Desktop app, assuming the architecture chosen in `01_DESKTOP_APP_ARCHITECTURE.md` (monorepo, `apps/desktop`, thin wrapper around existing stack).
-
-Each phase is designed to be small and focused to avoid over-engineering.
+**4 implementation phases** for Synthesis Desktop app (monorepo, `apps/desktop`, Electron wrapper).  
+Each phase completable within 150k tokens. Architecture in `01_DESKTOP_APP_ARCHITECTURE.md` (lines 1-161).  
+Tech stack in `06_DESKTOP_APP_TECH_STACK.md` (lines 1-150).
 
 ---
 
-### Phase 1 — Desktop Shell Scaffolding
+### Phase 1 — Desktop Shell + Docker Orchestration
 
-**Goal:** Create a minimal desktop app that can open a window pointing at the existing Synthesis web UI.
+**Goal:** Minimal desktop app that can start/stop Synthesis via Docker and display the web UI.
+
+**Estimated tokens:** ~120k  
+**Time:** 1 day
 
 **Tasks:**
 
 1. **Scaffold `apps/desktop`**
-   - Add a new app under pnpm workspace: `apps/desktop`.
-   - Choose desktop framework (see `06_DESKTOP_APP_TECH_STACK.md`):
-     - Likely **Electron + TypeScript** initially, to stay close to existing Node/TS tooling.
-   - Add basic scripts:
-     - `pnpm --filter @synthesis/desktop dev`
-     - `pnpm --filter @synthesis/desktop build`
+   - Add to pnpm workspace
+   - Install Electron 33.2.0 + TypeScript 5.7.2
+   - Setup: `package.json`, `tsconfig.json`, `main.ts`, `preload.ts`
+   - Scripts: `dev`, `build`
 
-2. **Minimal window open**
-   - Implement a main process that:
-     - Creates a single window.
-     - Loads a configurable URL (e.g., `http://localhost:5173`).
+2. **Basic window**
+   - Main process creates BrowserWindow
+   - Loads `http://localhost:5173` (configurable via env)
+   - Window config: 1280x800, dev tools in dev mode
 
-3. **Configuration**
-   - Read base URL from env (e.g., `SYNTHESIS_URL=http://localhost:5173`).
+3. **Docker orchestration**
+   - Check Docker availability (`docker --version`)
+   - Start button → `docker compose up -d` (using repo's `docker-compose.yml`)
+   - Stop button → `docker compose down`
+   - Health check: poll `http://localhost:3333/health` until ready
+
+4. **Simple status UI**
+   - Show: Starting → Running → Stopped
+   - Error handling: Docker not found, ports in use
 
 **Exit Criteria:**
-
-- Running `pnpm --filter @synthesis/desktop dev` opens a desktop window pointed at the, already-running, Synthesis web UI.
+- Desktop app starts, shows control UI
+- Click "Start" → launches Synthesis stack → shows web UI when ready
+- Click "Stop" → cleanly shuts down stack
 
 ---
 
-### Phase 2 — Service Orchestration (Docker-first)
+### Phase 2 — MCP Management + Dev Mode + Logs
 
-**Goal:** Let the desktop app start/stop the Synthesis backend via Docker.
+**Goal:** Add MCP server/tool management UI, direct process mode for dev, and log viewer.
+
+**Estimated tokens:** ~130k  
+**Time:** 1 day
 
 **Tasks:**
 
-1. **Prerequisite checks**
-   - From the desktop app, detect whether Docker is installed and running.
-   - Provide clear error messaging if not available.
+1. **MCP Management UI**
+   - Read MCP server config from `apps/mcp/src/index.ts` or config file
+   - Display list of available MCP servers
+   - Toggle buttons to enable/disable each server
+   - Per-server tool list with enable/disable toggles
+   - Save preferences to local config file
+   - Restart backend when MCP config changes
 
-2. **Start/stop commands**
-   - Wire UI buttons to shell out to:
-     - `docker compose up -d` (using the repo’s `docker-compose.yml`).
-     - `docker compose down`.
-   - Optionally allow configuration of the Docker command for users with Podman or alternative setups.
+2. **Direct Process Mode (dev)**
+   - Config toggle: Docker mode vs Direct mode
+   - Direct mode spawns:
+     - `pnpm --filter @synthesis/server dev`
+     - `pnpm --filter @synthesis/web dev`
+   - Monitor stdout/stderr, show in logs
+   - Clean process termination on stop/exit
 
-3. **Health checks**
-   - Implement simple checks (HTTP requests) to:
-     - `http://localhost:3333/health` (or equivalent) for the server.
-     - Optionally `http://localhost:5173` for the frontend.
-   - Display basic status in the UI: starting, running, error.
+3. **Log Viewer**
+   - Scrollable log panel showing recent events
+   - Color-coded: info (white), warn (yellow), error (red)
+   - Focus on: startup, Docker errors, port conflicts, health checks
+   - Clear logs button
 
 **Exit Criteria:**
-
-- User can click “Start Synthesis” and the desktop app will:
-  - Run Docker compose.
-  - Wait for health checks to pass.
-  - Open the web UI when ready.
-- User can click “Stop Synthesis” and the app will bring down the stack.
+- Can toggle MCP servers/tools on/off
+- Dev mode works (no Docker required)
+- Logs show useful diagnostic info
 
 ---
 
-### Phase 3 — Direct Process Mode (Dev Convenience)
+### Phase 3 — Status Dashboard + Packaging
 
-**Goal:** Support a mode for you as a developer to run Synthesis without Docker via the desktop app.
+**Goal:** Per-service status indicators and build distributable packages.
+
+**Estimated tokens:** ~140k  
+**Time:** 1 day
 
 **Tasks:**
 
-1. **Mode selection**
-   - Config flag (env or UI) to choose between **Docker mode** and **Direct process mode**.
+1. **Status Dashboard**
+   - Per-service indicators: DB, Server, Web, MCP
+   - Status: Stopped (gray), Starting (yellow), Running (green), Error (red)
+   - Show port numbers and health check URLs
+   - Quick actions: restart service, view service logs
+   - Auto-refresh status every 5 seconds
 
-2. **Process spawning**
-   - In direct mode, spawn:
-     - `pnpm --filter @synthesis/server dev` (or equivalent).
-     - `pnpm --filter @synthesis/web dev`.
-   - Monitor stdout/stderr and surface basic logs/errors.
+2. **Error Handling**
+   - Detect port conflicts → suggest alternatives
+   - Docker not found → show install instructions
+   - Service crash → show error and restart button
+   - Health check timeout → show troubleshooting steps
 
-3. **Shutdown**
-   - Ensure processes are terminated cleanly when the desktop app exits or when the user clicks “Stop Synthesis”.
+3. **Packaging with electron-builder**
+   - Configure `electron-builder` in `package.json`
+   - Target platforms: Linux (AppImage), macOS (DMG), Windows (NSIS)
+   - App icons and metadata
+   - Bundle `docker-compose.yml` with package
+   - Test builds locally for your platform (WSL2/Linux)
+
+4. **GitHub Actions CI**
+   - Workflow: build desktop on tag push (e.g., `v1.0.0-desktop`)
+   - Matrix build: Linux, macOS, Windows
+   - Upload artifacts to GitHub release
+   - Auto-generate release notes
 
 **Exit Criteria:**
-
-- In dev mode, a single start in the desktop app can launch the server and web dev servers.
-- Clean shutdown works reliably.
+- Status dashboard shows real-time health
+- Packaged `.AppImage` installs and runs
+- CI builds packages automatically
 
 ---
 
-### Phase 4 — Status, Logs, and UX Polish
+### Phase 4 — Advanced Features (Future/Optional)
 
-**Goal:** Improve the desktop UX with status indicators and basic diagnostics.
+**Goal:** Quality-of-life features for power users.
 
-**Tasks:**
+**Estimated tokens:** ~100k  
+**Time:** 0.5 day
 
-1. **Status indicators**
-   - Show per-service status: DB, server, web, MCP, models (if possible).
-   - Keep this simple: green/amber/red, plus short text messages.
+**Not implemented initially. Implement only if requested:**
 
-2. **Logs**
-   - Provide an optional panel or view where recent logs (or error summaries) are shown.
-   - Focus on: startup failures, port conflicts, Docker errors.
+1. **System Tray**
+   - Minimize to tray instead of taskbar
+   - Tray menu: Start/Stop, Show Window, Quit
+   - System notifications for status changes
 
-3. **Error handling**
-   - Gracefully handle cases where:
-     - Ports are already in use.
-     - Services crash after startup.
+2. **Global Hotkeys**
+   - Register keyboard shortcuts (e.g., `Ctrl+Alt+S` to show)
+   - Quick search from anywhere (OS-level)
 
-**Exit Criteria:**
+3. **Protocol Handlers**
+   - Register `synthesis://` URL scheme
+   - Open specific collections/documents from browser links
 
-- User can understand at a glance whether Synthesis is healthy from the desktop UI.
-- Common errors are surfaced in a human-readable way.
+4. **Auto-Start on Boot**
+   - Option to launch Synthesis on system startup
+   - Run in background with tray icon
 
----
+5. **Multi-Workspace**
+   - Switch between multiple Synthesis instances
+   - Per-workspace configuration and data isolation
 
-### Phase 5 — Packaging & Distribution
+6. **Auto-Update**
+   - Check for new desktop versions on launch
+   - Download and install updates in background
 
-**Goal:** Build distributable binaries/installers for major platforms.
-
-**Tasks:**
-
-1. **Build configuration**
-   - Use Electron Builder (or equivalent) to configure packaging for:
-     - Linux (AppImage or `.deb`).
-     - macOS (`.dmg`/`.pkg`).
-     - Windows (`.exe`/installer).
-
-2. **Environment and config**
-   - Ensure the desktop app can find:
-     - The repo’s `docker-compose.yml`.
-     - Default ports and URLs.
-   - Decide how to handle config per environment (dev vs packaged release).
-
-3. **GitHub Actions CI**
-   - Add workflows to:
-     - Build desktop packages on tagged releases.
-     - Attach artifacts to GitHub releases.
+7. **Config Editor**
+   - UI for editing Synthesis `.env` variables
+   - Validation and auto-restart on save
 
 **Exit Criteria:**
-
-- Simple installable artifacts exist for at least Linux and macOS.
-- CI can produce these artifacts on demand.
-
----
-
-### Phase 6 — Optional Enhancements
-
-**Goal:** Add quality-of-life features as needed, without over-engineering.
-
-Possible tasks (only if they provide clear value):
-
-- Auto-update checks for new desktop versions.
-- Quick links to open Synthesis docs, logs, and config.
-- Basic configuration editor for Synthesis env vars (write `.env.local` or similar).
+- Implemented on-demand based on user requests
+- Each feature behind feature flag
 
 ---
 
 ### Summary
 
-This build plan keeps the Synthesis Desktop app **very thin**:
+**4 phases total:**
+- Phase 1: Core shell + Docker (1 day, ~120k tokens)
+- Phase 2: MCP + Dev mode + Logs (1 day, ~130k tokens)
+- Phase 3: Status + Packaging + CI (1 day, ~140k tokens)
+- Phase 4: Advanced features (future, on-demand)
 
-- It orchestrates Docker or dev processes.
-- It reuses the existing web UI and backend.
-- It avoids duplicating RAG or agent logic.
+**Total implementation: 3 days** for fully functional desktop app.
 
-A future implementation agent can follow this plan phase by phase, using `05_DESKTOP_APP_PHASE_PROMPTS.md` for scoped instructions and `04_DESKTOP_APP_GITHUB_ISSUES.md` to create tracking issues in GitHub.
+See `05_DESKTOP_APP_PHASE_PROMPTS.md` (lines 1-180) for agent prompts per phase.  
+See `04_DESKTOP_APP_GITHUB_ISSUES.md` (lines 1-156) for GitHub issue templates.

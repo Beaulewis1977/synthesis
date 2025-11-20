@@ -1,122 +1,104 @@
 ## Synthesis Desktop App — Tech Stack & Versions
 
 **Version:** 1.0  
-**Date:** 2025-11-13
+**Date:** 2025-11-20
 
 ---
 
-### 1. Goals for the Tech Stack
+### 1. Chosen Tech Stack
 
-- Align with the existing Synthesis stack where possible.
-- Use **stable, well-supported tools** with good ecosystem support.
-- Avoid introducing heavy or exotic technologies that would over-complicate setup.
+**Framework:** Electron + TypeScript  
+**Reason:** WSL2 compatible, pure TypeScript, fast development, massive ecosystem.
 
 ---
 
-### 2. Core Choices
+### 2. Specific Versions (as of Nov 2025)
 
-#### 2.1 Node.js & Package Manager
+#### 2.1 Runtime & Package Manager
 
-- **Node.js:** use the same LTS version as Synthesis:
-  - Recommended: **Node.js 20 LTS** (matches Anthropic TypeScript SDK’s supported runtimes and modern TS tooling) — see the `@anthropic-ai/sdk` README’s supported runtimes for Node 20 LTS guidance.
-- **Package manager:** `pnpm` (already in use in this repo).
-- **Version management:**
-  - Keep `.nvmrc` pointing to Node 20 LTS.
-  - Use `pnpm-lock.yaml` for reproducible installs.
+- **Node.js:** `22.20.0` (current LTS, already in use)
+- **pnpm:** `9.14.2` (current stable)
+- **TypeScript:** `5.7.2` (matches repo-wide version)
+
+**Version management:**
+- Use `.nvmrc` set to `22.20.0`
+- Use `pnpm-lock.yaml` for reproducible installs
 
 #### 2.2 Desktop Framework
 
-Two realistic options that work well with your existing TypeScript/React experience:
+- **Electron:** `33.2.0` (latest stable Nov 2025)
+- **electron-builder:** `25.1.8` (for packaging)
 
-- **Option A: Electron + TypeScript** (recommended starting point)
-  - Pros:
-    - Very mature ecosystem and tooling.
-    - Pure JS/TS stack; no Rust/C++ needed.
-    - Easy integration with Node/Pnpm monorepo.
-  - Cons:
-    - Heavier runtime (bundled Chromium).
-
-- **Option B: Tauri + TypeScript**
-  - Pros:
-    - Lightweight bundle; uses system webview.
-    - Good security model.
-  - Cons:
-    - Requires Rust toolchain.
-    - Slightly more complex initial setup if you’re not already using Rust.
-
-**Recommendation:** Start with **Electron + TypeScript** for the first version of Synthesis Desktop to keep everything in the TypeScript/Node ecosystem.
-
-#### 2.3 UI Layer
-
-- The desktop app will mostly:
-  - Use Electron’s main process to orchestrate services.
-  - Use a minimal renderer (front-end) for:
-    - Start/stop buttons.
-    - Status indicators.
-    - Basic logs.
-- The main **RAG UI** remains the existing Synthesis web frontend (React/Vite), loaded inside a webview.
+**Why Electron (not Tauri):**
+- ✅ WSL2 works out of box (critical for your environment)
+- ✅ Pure TypeScript (no Rust toolchain needed)
+- ✅ Fast implementation (~1-2 days vs 3-4 with Tauri)
+- ✅ Huge ecosystem, well-documented
+- ⚠️ Larger bundle (~150MB vs Tauri's ~3MB, acceptable for desktop use)
 
 ---
 
-### 3. Suggested Versions (Initial Baseline)
+### 3. Documentation Links for Implementation
 
-> Note: These are starting points; you can adjust to the latest stable LTS at the time you implement.
+#### Core Electron
 
-- **Node.js:** 20.x LTS (e.g., `20.18.0`).
-- **pnpm:** 9.x (matching current repo tooling).
-- **Electron:** latest stable major at the time of implementation (e.g., ~`31.x`+). When you start, pick the then-current stable and record it here.
-- **TypeScript:** follow repo-wide version (already in `pnpm-lock.yaml`).
+- **Main:** https://www.electronjs.org/docs/latest/
+- **Quick Start:** https://www.electronjs.org/docs/latest/tutorial/quick-start
+- **Process Model:** https://www.electronjs.org/docs/latest/tutorial/process-model
+- **TypeScript Setup:** https://www.electronjs.org/docs/latest/tutorial/typescript
 
-You do not need additional frontend frameworks inside the desktop app beyond minimal UI components; reusing the Synthesis web UI is the priority.
+#### Packaging
+
+- **electron-builder:** https://www.electron.build/
+- **Configuration:** https://www.electron.build/configuration/configuration
+- **Code Signing:** https://www.electron.build/code-signing
+
+#### Node.js APIs (for orchestration)
+
+- **child_process.spawn:** https://nodejs.org/api/child_process.html#child_processspawncommand-args-options
+- **child_process.exec:** https://nodejs.org/api/child_process.html#child_processexeccommand-options-callback
+
+#### Docker Integration
+
+- **Docker Compose CLI:** https://docs.docker.com/compose/reference/
+- **docker compose up:** https://docs.docker.com/compose/reference/up/
+- **docker compose down:** https://docs.docker.com/compose/reference/down/
+
+#### Health Checks
+
+- **Node Fetch:** https://github.com/node-fetch/node-fetch (for HTTP health checks)
 
 ---
 
-### 4. Tooling & Configuration
+### 4. UI Layer
 
-#### 4.1 Node & pnpm
+**Desktop control UI:** Minimal Electron renderer with:
+- Start/stop buttons
+- Status indicators
+- MCP server/tool toggles
+- Basic logs
 
-- Use existing `nvm` + `.nvmrc` to pin Node version.
-- Run `pnpm install` at repo root; desktop app will be part of the workspace.
+**Main app UI:** Existing Synthesis web frontend (React/Vite) loaded in Electron BrowserWindow.
 
-#### 4.2 Electron Config
-
-- Basic config files:
-  - `apps/desktop/package.json` with scripts (`dev`, `build`).
-  - Main process entry file (`main.ts` or `main.js`).
-  - Electron Builder config (if used) for packaging.
-
-- Favor simple, well-documented defaults; avoid advanced Electron features unless needed.
+No additional frontend frameworks needed beyond what's already in the monorepo.
 
 ---
 
 ### 5. External Dependencies
 
-The desktop app relies on external services rather than embedding everything:
+**Required:**
+- **Docker:** Use existing `docker-compose.yml` from repo
 
-- **Docker** (for production-style local runs):
-  - Use existing `docker-compose.yml` from the Synthesis repo.
-- **Local Postgres/Ollama/etc.** (optional):
-  - For dev mode, you may rely on local services instead of Docker.
+**Optional (dev mode):**
+- Local Postgres/Ollama (instead of Docker)
 
-We do **not** plan to embed Postgres or Ollama in the desktop binary in the first version.
-
----
-
-### 6. Best Practices & Non-Goals
-
-- **Best practices:**
-  - Keep dependency list short; avoid pulling in large UI kits just for status indicators.
-  - Use TypeScript for type safety, consistent with the rest of the repo.
-  - Keep all environment-specific configuration in `.env` files or Electron’s config rather than hardcoding paths.
-
-- **Non-goals:**
-  - No native OS-specific UI beyond what is truly needed.
-  - No complex plugin/add-on system for the desktop app.
-  - No bundling of heavy, long-running services inside the desktop binary itself.
+**Not embedding:** DB, Ollama, or other heavy services in binary.
 
 ---
 
-### Summary
+### 6. Summary
 
-- The desktop app tech stack should mirror Synthesis where possible: Node 20 LTS, TypeScript, pnpm, and a simple Electron wrapper.
-- This keeps the learning curve low, leverages existing tooling, and avoids over-engineering while still giving you a convenient way to run and manage Synthesis locally.
+- **Node.js 22.20.0** + **pnpm 9.14.2** + **TypeScript 5.7.2**
+- **Electron 33.2.0** + **electron-builder 25.1.8**
+- Pure TypeScript, WSL2 compatible, fast to implement
+- Minimal dependencies, reuses existing Synthesis stack

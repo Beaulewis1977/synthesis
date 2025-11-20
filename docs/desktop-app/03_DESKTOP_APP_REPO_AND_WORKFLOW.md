@@ -1,148 +1,194 @@
 ## Synthesis Desktop App — Repo & Workflow Strategy
 
 **Version:** 1.0  
-**Date:** 2025-11-13
+**Date:** 2025-11-20
 
 ---
 
 ### 1. Repository Strategy
 
-We want a strategy that:
+**Chosen:** Monorepo with `apps/desktop`
 
-- Keeps Synthesis as the **single source of truth** for backend + web.
-- Minimizes duplication between web/server and desktop.
-- Works well with your existing pnpm monorepo.
-
-#### Recommended: Monorepo with `apps/desktop`
-
-- Keep everything in this repo and add:
-  - `apps/desktop` for the desktop shell.
-- Use the existing pnpm workspace (`pnpm-workspace.yaml`) to manage dependencies.
+- Keep everything in this repo
+- Add `apps/desktop` for the Electron shell
+- Use existing pnpm workspace (`pnpm-workspace.yaml`)
 
 **Advantages:**
+- One repo, easier mental model
+- Desktop + server always at compatible versions (same commit)
+- CI builds all apps in one place (server, web, MCP, desktop)
 
-- One repo = easier mental model.
-- Desktop app and server always at compatible versions (same commit).
-- CI can build server, web, MCP, and desktop in one place.
-
-#### Alternative: New Repo `synthesis-desktop`
-
-You could also create a separate repo:
-
-- `synthesis-desktop` that depends on:
-  - Docker images published from the main Synthesis repo, or
-  - Git submodule/remote of Synthesis.
-
-**Trade-offs:**
-
-- Slightly cleaner separation of concerns for contributors.
-- But more complex versioning and cross-repo maintenance.
-
-**Conclusion:** For now, **monorepo with `apps/desktop` is recommended** to avoid over-engineering and dual-maintenance.
+**Alternative considered (rejected):**
+- Separate `synthesis-desktop` repo → rejected due to version sync complexity
 
 ---
 
-### 2. Branching & Release Workflow
+### 2. Branching & PR Workflow (Stacked PRs)
 
-#### Branches
+**Branch structure:**
+```
+develop (protected)
+  ↑
+  └── feature/phase-18-desktop-app (integration branch)
+        ↑
+        ├── feature/desktop-phase-1 → PR to integration
+        ├── feature/desktop-phase-2 → PR to integration
+        └── feature/desktop-phase-3 → PR to integration
+```
 
-- **`main`**: stable Synthesis (server/web/MCP) + optionally stable desktop.
-- **`develop` or feature branches**: new desktop features (`desktop-init`, `desktop-orchestration`, etc.).
-- **`agent-sdk`**: as already planned, used for Agent SDK migration on the server side.
+**Why stacked PRs:**
+- ✅ Smaller, reviewable PRs (~500-700 lines each)
+- ✅ Test each phase independently
+- ✅ Integration branch accumulates all phases for final testing
+- ✅ Can fix phase issues without affecting others
+- ✅ CI validates each phase before merge
 
-Desktop work can be done on dedicated feature branches and merged into `main` once stable.
+**Workflow per phase:**
 
-#### Releases
+```bash
+# Phase 1
+git checkout feature/phase-18-desktop-app
+git pull origin feature/phase-18-desktop-app
+git checkout -b feature/desktop-phase-1
+# implement Phase 1...
+gh pr create --base feature/phase-18-desktop-app \
+  --head feature/desktop-phase-1 \
+  --title "feat(desktop): Phase 1 - Shell + Docker"
+# review, test, merge → integration branch
 
-- Use **Git tags** and GitHub Releases to manage versions.
-- Suggested version alignment:
-  - Synthesis server/web: `v2.0.x`.
-  - Desktop: `v2.0.x-desktop.y` or keep same version if you release them together.
+# Phase 2
+git checkout feature/phase-18-desktop-app
+git pull origin feature/phase-18-desktop-app  # now has Phase 1
+git checkout -b feature/desktop-phase-2
+# implement Phase 2...
+gh pr create --base feature/phase-18-desktop-app \
+  --head feature/desktop-phase-2 \
+  --title "feat(desktop): Phase 2 - MCP + Dev Mode + Logs"
+# review, test, merge → integration branch
 
-Distribution strategy:
+# Phase 3
+git checkout feature/phase-18-desktop-app
+git pull origin feature/phase-18-desktop-app  # now has Phase 1+2
+git checkout -b feature/desktop-phase-3
+# implement Phase 3...
+gh pr create --base feature/phase-18-desktop-app \
+  --head feature/desktop-phase-3 \
+  --title "feat(desktop): Phase 3 - Status + Packaging"
+# review, test, merge → integration branch
+```
 
-- On a tagged desktop-related release:
-  - Build desktop binaries via CI (see build plan).
-  - Attach them as assets to the GitHub release.
+**Final integration:**
 
----
+```bash
+# Test complete desktop app on integration branch
+git checkout feature/phase-18-desktop-app
+git pull origin feature/phase-18-desktop-app
+pnpm --filter @synthesis/desktop dev
+# test all features thoroughly
 
-### 3. CI/CD Workflow (High Level)
+# When ready, PR to develop
+gh pr create --base develop \
+  --head feature/phase-18-desktop-app \
+  --title "feat: Phase 18 - Synthesis Desktop App (Complete)"
+# review, CI passes, merge → develop
+```
 
-Assuming GitHub Actions:
-
-1. **Build & Test Workflow** (on PRs and main pushes):
-   - Steps:
-     - Install Node (LTS) and pnpm.
-     - `pnpm install`.
-     - `pnpm lint`, `pnpm test`, `pnpm typecheck` for server/web.
-     - `pnpm --filter @synthesis/desktop test` (once desktop has tests).
-
-2. **Release Workflow** (on tags like `v2.0.0-desktop.0`):
-   - Steps:
-     - Build server/web as usual (if desired for container publish).
-     - Build desktop app for target platforms.
-     - Upload artifacts to the GitHub release.
-
-**Note:** We don’t need a very complex CI initially; just enough to build and test the desktop app alongside the existing services.
-
----
-
-### 4. GitHub Project Organization
-
-To keep things clear for contributors and your future self:
-
-- Create a **GitHub Project board** (optional) for "Synthesis Desktop".
-- Use labels like:
-  - `desktop-app`
-  - `electron` (or `tauri`), depending on chosen stack.
-  - `priority:high`, `priority:medium`, `priority:low`.
-
-Group issues by phases defined in `02_DESKTOP_APP_BUILD_PLAN.md`:
-
-- Phase 1: Scaffolding
-- Phase 2: Orchestration (Docker)
-- Phase 3: Direct Process mode
-- Phase 4: Status & Logs
-- Phase 5: Packaging
-- Phase 6: Optional enhancements
-
-Cross-reference issues in `04_DESKTOP_APP_GITHUB_ISSUES.md` with these phases.
-
----
-
-### 5. Developer Workflow Summary
-
-For you / contributors:
-
-1. Clone the repo.
-2. Install Node LTS and pnpm.
-3. For desktop development:
-   - Run `pnpm install`.
-   - Run `pnpm --filter @synthesis/desktop dev` (and ensure server/web/DB are running via Docker or direct commands).
-4. For full-stack testing:
-   - Use existing commands for server/web/MCP.
-   - Use desktop app to orchestrate stack as a sanity check.
-
-This keeps the workflow consistent with how you already work on Synthesis, avoiding a separate "desktop-only" dev story.
+**Release workflow:**
+- Use Git tags: `v2.0.0`, `v2.1.0`, etc.
+- Desktop + server/web share same version
+- On tag push → CI builds binaries for all platforms
+- Binaries attached as GitHub release assets
 
 ---
 
-### 6. Future Scaling Options (Optional)
+### 3. CI/CD Workflow
 
-If the desktop app becomes popular and needs more independence:
+**Existing CI** (from Phase 16):
+- Lint, typecheck, test, build, integration tests, docker builds
+- Runs on PRs and pushes to `develop`/`main`
 
-- You could later:
-  - Split it into its own repo if that simplifies onboarding for desktop-only contributors.
-  - Consume Synthesis via Docker images or published artifacts.
+**Add to CI for desktop:**
 
-But at the current stage, co-locating everything in one repo is simpler and avoids premature optimisation.
+1. **Build & Test** (on PRs/pushes):
+```yaml
+desktop-test:
+  runs-on: ubuntu-latest
+  steps:
+    - pnpm install
+    - pnpm --filter @synthesis/desktop typecheck
+    - pnpm --filter @synthesis/desktop test
+    - pnpm --filter @synthesis/desktop build
+```
+
+2. **Release Build** (on tag push `v*`):
+```yaml
+desktop-release:
+  strategy:
+    matrix:
+      os: [ubuntu-latest, macos-latest, windows-latest]
+  runs-on: ${{ matrix.os }}
+  steps:
+    - pnpm install
+    - pnpm --filter @synthesis/desktop build:release
+    - Upload to GitHub release
+```
+
+**Workflow file:** `.github/workflows/desktop-release.yml`  
+**Triggered by:** tag push matching `v*`
 
 ---
 
-### Summary
+### 4. Labels & Issues
 
-- **Monorepo with `apps/desktop` is recommended** for simplicity and alignment.
-- Branches and CI can follow your existing patterns.
-- Desktop app releases can be tied to or versioned alongside Synthesis server/web releases.
-- The workflow stays close to what you already do: build, test, and run everything from one place.
+**Labels:**
+- `desktop-app` → all desktop-related issues
+- `electron` → Electron-specific
+- `phase-18` → Phase 18 work
+- `priority:high/medium/low` → priority levels
+
+**Phases (from Build Plan):**
+- Phase 1: Shell + Docker
+- Phase 2: MCP + Dev Mode + Logs
+- Phase 3: Status + Packaging
+- Phase 4: Advanced Features (future)
+
+**Issue templates:** `04_DESKTOP_APP_GITHUB_ISSUES.md` (lines 1-156)
+
+---
+
+### 5. Developer Workflow
+
+**Setup:**
+```bash
+git clone <repo>
+nvm use  # Uses Node 22.20.0 from .nvmrc
+pnpm install
+```
+
+**Desktop dev:**
+```bash
+# Terminal 1: Start Synthesis backend (Docker or dev mode)
+pnpm docker:dev  # or manually start services
+
+# Terminal 2: Run desktop app in dev
+pnpm --filter @synthesis/desktop dev
+```
+
+**Full-stack test:**
+- Desktop app orchestrates stack
+- Web UI loads in Electron window
+- Test start/stop, MCP toggles, logs
+
+---
+
+### 6. Summary
+
+- Monorepo with `apps/desktop` for simplicity
+- Desktop + server share versions and releases
+- CI builds all platforms on tag push
+- Workflow consistent with existing Synthesis development
+
+**Cross-references:**
+- Build plan: `02_DESKTOP_APP_BUILD_PLAN.md` (lines 1-177)
+- Issues: `04_DESKTOP_APP_GITHUB_ISSUES.md` (lines 1-156)
+- Prompts: `05_DESKTOP_APP_PHASE_PROMPTS.md` (lines 1-180)
