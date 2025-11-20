@@ -57,7 +57,7 @@ export interface DocumentMetadata {
 }
 
 export interface ChunkMetadata extends DocumentMetadata {
-  chunk_type?: 'text' | 'code' | 'heading' | 'list';
+  chunk_type?: 'text' | 'code' | 'heading' | 'list' | 'analysis';
   heading?: string;
   page?: number | string;
   line_range?: [number, number];

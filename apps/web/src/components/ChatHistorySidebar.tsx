@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { MessageSquare, Plus, Trash2 } from 'lucide-react';
+import { MessageSquare, Plus } from 'lucide-react';
 import type { ChatSession } from '../types';
 
 interface ChatHistorySidebarProps {
@@ -66,4 +66,3 @@ export function ChatHistorySidebar({
     </div>
   );
 }
-

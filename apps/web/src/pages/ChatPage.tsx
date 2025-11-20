@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { AlertCircle, Menu } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
@@ -6,15 +6,14 @@ import { ChatHistorySidebar } from '../components/ChatHistorySidebar';
 import { ChatMessage } from '../components/ChatMessage';
 import { SynthesisView } from '../components/SynthesisView';
 import { apiClient } from '../lib/api';
-import type { ChatMessage as ChatMessageType, ChatSession } from '../types';
+import type { ChatMessage as ChatMessageType } from '../types';
 
 type ViewMode = 'chat' | 'synthesis';
 
 export function ChatPage() {
   const { collectionId } = useParams<{ collectionId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const queryClient = useQueryClient();
-  
+
   // State
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -22,7 +21,7 @@ export function ChatPage() {
   const [lastUserQuery, setLastUserQuery] = useState<string>('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -67,7 +66,7 @@ export function ChatPage() {
     if (sid && sid !== sessionId) {
       setSessionId(sid);
     }
-  }, [searchParams]);
+  }, [searchParams, sessionId]);
 
   // Fetch session messages when sessionId changes
   useQuery({
@@ -174,7 +173,7 @@ export function ChatPage() {
 
     setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
-    
+
     // Re-focus input
     setTimeout(() => inputRef.current?.focus(), 0);
 
@@ -201,7 +200,7 @@ export function ChatPage() {
   return (
     <div className="h-[calc(100vh-120px)] flex">
       {/* Sidebar */}
-      <div 
+      <div
         className={`
           ${isSidebarOpen ? 'w-64' : 'w-0'} 
           transition-all duration-300 ease-in-out overflow-hidden border-r border-border bg-bg-secondary flex-shrink-0
@@ -220,7 +219,7 @@ export function ChatPage() {
       <div className="flex-1 flex flex-col min-w-0">
         <div className="mb-lg p-md pb-0">
           <div className="flex items-center gap-sm mb-sm">
-             <button
+            <button
               type="button"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="p-xs rounded hover:bg-bg-hover text-text-secondary"
@@ -237,7 +236,9 @@ export function ChatPage() {
               <h1 className="text-2xl font-bold text-text-primary truncate">
                 {isCollectionLoading ? '...' : (collection?.name ?? 'Unknown Collection')}
               </h1>
-              <p className="text-text-secondary mt-sm text-sm">Ask questions about your documents</p>
+              <p className="text-text-secondary mt-sm text-sm">
+                Ask questions about your documents
+              </p>
             </div>
             {/* View mode toggle */}
             <fieldset className="flex flex-wrap gap-sm" aria-label="View mode">
@@ -290,7 +291,9 @@ export function ChatPage() {
               <div className="flex items-start gap-md">
                 <AlertCircle className="text-error flex-shrink-0" size={24} />
                 <div>
-                  <h3 className="font-semibold text-error mb-sm">Failed to load collection details</h3>
+                  <h3 className="font-semibold text-error mb-sm">
+                    Failed to load collection details
+                  </h3>
                   <p className="text-sm text-text-secondary mb-md">
                     {collectionError instanceof Error
                       ? collectionError.message
@@ -357,7 +360,7 @@ export function ChatPage() {
                   placeholder="Type your message..."
                   className="input flex-1"
                   // Don't disable input while loading to allow queueing/optimistic updates
-                  // disabled={isLoading} 
+                  // disabled={isLoading}
                 />
                 <button
                   type="submit"
@@ -376,7 +379,9 @@ export function ChatPage() {
               <SynthesisView query={lastUserQuery} collectionId={collectionId} />
             ) : (
               <div className="card bg-bg-secondary text-center py-xl">
-                <p className="text-text-secondary">Send a message first to view synthesis results</p>
+                <p className="text-text-secondary">
+                  Send a message first to view synthesis results
+                </p>
               </div>
             )}
           </div>

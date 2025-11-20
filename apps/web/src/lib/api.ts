@@ -2,8 +2,8 @@ import type {
   AgentChatRequest,
   AgentChatResponse,
   ApiError,
-  ChatSession,
   ChatMessage,
+  ChatSession,
   Collection,
   CollectionsResponse,
   CostAlertsResponse,
@@ -96,6 +96,16 @@ class ApiClient {
    */
   async fetchCollection(collectionId: string): Promise<Collection> {
     return this.request<Collection>(`/api/collections/${encodeURIComponent(collectionId)}`);
+  }
+
+  /**
+   * Create a new collection.
+   */
+  async createCollection(name: string, description?: string): Promise<Collection> {
+    return this.request<Collection>('/api/collections', {
+      method: 'POST',
+      body: JSON.stringify({ name, description }),
+    });
   }
 
   /**

@@ -105,9 +105,9 @@ function extractPolicies(originalContent: string, cleanedContent: string): Funct
     const tableRef = parseTableReference(match[2]);
     const type = match[3] || 'PERMISSIVE'; // PERMISSIVE | RESTRICTIVE
     const cmd = match[4] || 'ALL'; // SELECT | INSERT | UPDATE | DELETE | ALL
-    const roles = match[5] ? match[5].split(',').map((r) => r.trim()) : ['PUBLIC'];
-    const using = match[6];
-    const withCheck = match[7];
+    // const roles = match[5] ? match[5].split(',').map((r) => r.trim()) : ['PUBLIC'];
+    // const using = match[6];
+    // const withCheck = match[7];
 
     const statementEnd = findStatementEnd(cleanedContent, startIndex);
     const endIndex = statementEnd !== -1 ? statementEnd + 1 : startIndex + match[0].length;

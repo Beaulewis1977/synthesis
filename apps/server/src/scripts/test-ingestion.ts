@@ -6,7 +6,7 @@ import { closePool, getPool } from '@synthesis/db';
 import { ingestDocument } from '../pipeline/orchestrator.js';
 
 async function testIngestion() {
-  console.log('🧪 Testing document ingestion...');
+  console.info('🧪 Testing document ingestion...');
 
   const pool = getPool();
 
@@ -21,16 +21,16 @@ async function testIngestion() {
     `);
 
     if (rows.length === 0) {
-      console.log('❌ No pending documents found');
+      console.info('❌ No pending documents found');
       return;
     }
 
     const doc = rows[0];
-    console.log(`📄 Testing ingestion for: ${doc.title} (${doc.id})`);
+    console.info(`📄 Testing ingestion for: ${doc.title} (${doc.id})`);
 
     try {
       await ingestDocument(doc.id);
-      console.log('✅ Ingestion completed successfully!');
+      console.info('✅ Ingestion completed successfully!');
 
       // Check final status
       const { rows: updatedRows } = await pool.query(
@@ -41,9 +41,9 @@ async function testIngestion() {
       );
 
       if (updatedRows.length > 0) {
-        console.log(`📊 Final status: ${updatedRows[0].status}`);
+        console.info(`📊 Final status: ${updatedRows[0].status}`);
         if (updatedRows[0].error_message) {
-          console.log(`❌ Error: ${updatedRows[0].error_message}`);
+          console.info(`❌ Error: ${updatedRows[0].error_message}`);
         }
       }
     } catch (error) {

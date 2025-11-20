@@ -44,7 +44,12 @@ export async function analyzeRedisUsage(content: string, filePath: string): Prom
       cmdGroup: 1,
       keyGroup: 2,
     },
-    { regex: /\.(lpush|rpush|lpop|rpop)\s*\(['"]([^'"]+)['"]/, type: 'queue', cmdGroup: 1, keyGroup: 2 },
+    {
+      regex: /\.(lpush|rpush|lpop|rpop)\s*\(['"]([^'"]+)['"]/,
+      type: 'queue',
+      cmdGroup: 1,
+      keyGroup: 2,
+    },
   ] as const;
 
   lines.forEach((line, index) => {
@@ -69,8 +74,7 @@ export async function analyzeRedisUsage(content: string, filePath: string): Prom
   // This allows the LLM to find "files that use Redis for X" without reading the whole file
   return [
     {
-      text: `Redis Usage Analysis for ${filePath}:\n` +
-        usages.map((u) => `- Line ${u.line}: ${u.command.toUpperCase()} on key "${u.key_pattern}" (${u.type})`).join('\n'),
+      text: `Redis Usage Analysis for ${filePath}:\n${usages.map((u) => `- Line ${u.line}: ${u.command.toUpperCase()} on key "${u.key_pattern}" (${u.type})`).join('\n')}`,
       index: 0,
       metadata: {
         chunk_type: 'analysis',
@@ -84,4 +88,3 @@ export async function analyzeRedisUsage(content: string, filePath: string): Prom
     },
   ];
 }
-

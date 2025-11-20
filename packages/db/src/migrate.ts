@@ -38,17 +38,17 @@ export async function runMigrations(connectionString?: string): Promise<void> {
       .filter((f) => f.endsWith('.sql') && !f.endsWith('_down.sql'))
       .sort();
 
-    console.log(`Found ${files.length} migration files`);
-    console.log(`Already applied: ${appliedSet.size} migrations`);
+    console.info(`Found ${files.length} migration files`);
+    console.info(`Already applied: ${appliedSet.size} migrations`);
 
     // Apply pending migrations
     for (const file of files) {
       if (appliedSet.has(file)) {
-        console.log(`⏭️  Skipping ${file} (already applied)`);
+        console.info(`⏭️  Skipping ${file} (already applied)`);
         continue;
       }
 
-      console.log(`📝 Applying migration: ${file}`);
+      console.info(`📝 Applying migration: ${file}`);
       const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
 
       const client = await pool.connect();
@@ -57,7 +57,7 @@ export async function runMigrations(connectionString?: string): Promise<void> {
         await client.query(sql);
         await client.query('INSERT INTO migrations (name) VALUES ($1)', [file]);
         await client.query('COMMIT');
-        console.log(`✅ Applied ${file}`);
+        console.info(`✅ Applied ${file}`);
       } catch (error) {
         await client.query('ROLLBACK');
         console.error(`❌ Failed to apply ${file}:`, error);
@@ -67,7 +67,7 @@ export async function runMigrations(connectionString?: string): Promise<void> {
       }
     }
 
-    console.log('✅ All migrations applied successfully');
+    console.info('✅ All migrations applied successfully');
   } catch (error) {
     console.error('Migration failed:', error);
     throw error;
@@ -78,7 +78,7 @@ export async function runMigrations(connectionString?: string): Promise<void> {
 if (import.meta.url === pathToFileURL(process.argv[1])?.href) {
   runMigrations()
     .then(() => {
-      console.log('Migration complete');
+      console.info('Migration complete');
       return closePool();
     })
     .then(() => process.exit(0))

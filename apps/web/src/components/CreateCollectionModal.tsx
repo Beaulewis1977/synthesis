@@ -15,16 +15,19 @@ export function CreateCollectionModal({ isOpen, onClose }: CreateCollectionModal
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
     if (isOpen) {
       // Focus input when modal opens
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
     } else {
       // Reset form when modal closes
       setName('');
       setDescription('');
+      createMutation.reset();
     }
+    return () => clearTimeout(timeoutId);
   }, [isOpen]);
 
   const createMutation = useMutation({
@@ -52,6 +55,7 @@ export function CreateCollectionModal({ isOpen, onClose }: CreateCollectionModal
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div
+        // biome-ignore lint/a11y/useSemanticElements: using div for modal dialog to maintain custom styling
         className="bg-bg-primary border border-border rounded-lg shadow-xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
@@ -137,4 +141,3 @@ export function CreateCollectionModal({ isOpen, onClose }: CreateCollectionModal
     </div>
   );
 }
-

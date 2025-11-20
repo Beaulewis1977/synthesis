@@ -204,10 +204,10 @@ const tests = [
   },
 ];
 
-console.log('='.repeat(80));
-console.log('WCAG Contrast Ratio Analysis - Part 2: Color Contrast Verification');
-console.log('='.repeat(80));
-console.log('');
+console.info('='.repeat(80));
+console.info('WCAG Contrast Ratio Analysis - Part 2: Color Contrast Verification');
+console.info('='.repeat(80));
+console.info('');
 
 const results = tests.map((test) => {
   const ratio = getContrastRatio(test.fg, test.bg);
@@ -218,59 +218,59 @@ const results = tests.map((test) => {
 });
 
 // Group by category
-console.log('## Primary Text Colors\n');
+console.info('## Primary Text Colors\n');
 for (const r of results.filter(
   (r) =>
     r.label.includes('text-text-primary') ||
     r.label.includes('text-text-secondary') ||
     r.label.includes('White text on bg-accent')
 )) {
-  console.log(`${r.status} ${r.label}${r.sizeNote}: ${r.ratio}:1 ${r.levelNote}`);
+  console.info(`${r.status} ${r.label}${r.sizeNote}: ${r.ratio}:1 ${r.levelNote}`);
 }
 
-console.log('\n## Status Colors\n');
+console.info('\n## Status Colors\n');
 for (const r of results.filter(
   (r) =>
     r.label.includes('text-error') ||
     r.label.includes('text-success') ||
     r.label.includes('text-warning')
 )) {
-  console.log(`${r.status} ${r.label}${r.sizeNote}: ${r.ratio}:1 ${r.levelNote}`);
+  console.info(`${r.status} ${r.label}${r.sizeNote}: ${r.ratio}:1 ${r.levelNote}`);
 }
 
-console.log('\n## Interactive States\n');
+console.info('\n## Interactive States\n');
 for (const r of results.filter((r) => r.label.includes('text-accent'))) {
-  console.log(`${r.status} ${r.label}${r.sizeNote}: ${r.ratio}:1 ${r.levelNote}`);
+  console.info(`${r.status} ${r.label}${r.sizeNote}: ${r.ratio}:1 ${r.levelNote}`);
 }
 
-console.log('\n## Component-Specific Colors\n');
+console.info('\n## Component-Specific Colors\n');
 for (const r of results.filter(
   (r) =>
     r.label.includes('Trust badge') ||
     r.label.includes('Recency badge') ||
     r.label.includes('Button')
 )) {
-  console.log(`${r.status} ${r.label}${r.sizeNote}: ${r.ratio}:1 ${r.levelNote}`);
+  console.info(`${r.status} ${r.label}${r.sizeNote}: ${r.ratio}:1 ${r.levelNote}`);
 }
 
-console.log(`\n${'='.repeat(80)}`);
-console.log('Summary\n');
+console.info(`\n${'='.repeat(80)}`);
+console.info('Summary\n');
 
 const failed = results.filter((r) => !r.passes);
 const passed = results.filter((r) => r.passes);
 
-console.log(`✅ Passed: ${passed.length}/${results.length}`);
-console.log(`❌ Failed: ${failed.length}/${results.length}`);
+console.info(`✅ Passed: ${passed.length}/${results.length}`);
+console.info(`❌ Failed: ${failed.length}/${results.length}`);
 
 if (failed.length > 0) {
-  console.log('\n⚠️  Failed Combinations:\n');
+  console.info('\n⚠️  Failed Combinations:\n');
   for (const r of failed) {
     const threshold = r.sizeNote.includes('large') ? '3.0' : '4.5';
-    console.log(`  ${r.status} ${r.label}${r.sizeNote}: ${r.ratio}:1 (needs ${threshold}:1)`);
+    console.info(`  ${r.status} ${r.label}${r.sizeNote}: ${r.ratio}:1 (needs ${threshold}:1)`);
   }
 }
 
-console.log(`\n${'='.repeat(80)}`);
-console.log('\nNote: Large text = 18px bold or 24px normal text');
-console.log('WCAG AA requires: ≥4.5:1 for normal text, ≥3:1 for large text');
-console.log('WCAG AAA requires: ≥7:1 for normal text, ≥4.5:1 for large text');
+console.info(`\n${'='.repeat(80)}`);
+console.info('\nNote: Large text = 18px bold or 24px normal text');
+console.info('WCAG AA requires: ≥4.5:1 for normal text, ≥3:1 for large text');
+console.info('WCAG AAA requires: ≥7:1 for normal text, ≥4.5:1 for large text');

@@ -271,7 +271,7 @@ export class CostTracker {
    * Enable fallback mode (use free providers only)
    */
   private async enableFallbackMode(): Promise<void> {
-    console.log('💰 Budget limit reached - enabling fallback mode');
+    console.info('💰 Budget limit reached - enabling fallback mode');
 
     // Set environment overrides
     process.env.EMBEDDING_PROVIDER_OVERRIDE = 'ollama';
@@ -279,9 +279,9 @@ export class CostTracker {
     process.env.DISABLE_CONTRADICTION_DETECTION = 'true';
 
     // Log fallback activation
-    console.log('  → Embeddings: Ollama (free)');
-    console.log('  → Re-ranking: BGE (free)');
-    console.log('  → Contradiction Detection: Disabled');
+    console.info('  → Embeddings: Ollama (free)');
+    console.info('  → Re-ranking: BGE (free)');
+    console.info('  → Contradiction Detection: Disabled');
   }
 }
 

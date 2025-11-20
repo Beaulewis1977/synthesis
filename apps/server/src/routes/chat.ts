@@ -63,4 +63,3 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 };
-
