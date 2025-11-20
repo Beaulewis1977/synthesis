@@ -1,6 +1,8 @@
+import { createWriteStream } from 'node:fs';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
-import type { MultipartFile } from '@fastify/multipart';
+import { pipeline } from 'node:stream/promises';
 import { createDocument, updateDocumentStatus } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
@@ -26,109 +28,124 @@ export const ingestRoutes: FastifyPluginAsync = async (fastify) => {
    * @function
    */
   fastify.post('/api/ingest', async (request, reply) => {
+    const tempFiles: { path: string; filename: string; mimetype: string }[] = [];
+
     try {
       // Iterate over multipart parts
       const parts = request.parts();
       let collectionId: string | undefined;
-      const filesToProcess: MultipartFile[] = [];
 
       for await (const part of parts) {
         if (part.type === 'field' && part.fieldname === 'collection_id') {
           collectionId = part.value as string;
         } else if (part.type === 'file') {
-          // Accumulate files (we need collectionId first to process them safely)
-          // Note: fastify-multipart streams files. To handle multiple files safely
-          // while waiting for collection_id, we might need to buffer them or ensure
-          // collection_id comes first.
-          // However, a simpler approach for batching with unknown field order:
-          // Buffer the file content to memory (limited by limits.fileSize).
-          filesToProcess.push(part);
+          // Stream to a temp file immediately to avoid memory issues
+          const tempPath = path.join(
+            os.tmpdir(),
+            `synthesis-upload-${Date.now()}-${Math.random().toString(36).substring(7)}`
+          );
+          await pipeline(part.file, createWriteStream(tempPath));
+          tempFiles.push({
+            path: tempPath,
+            filename: part.filename,
+            mimetype: part.mimetype,
+          });
         }
       }
 
       if (!collectionId) {
+        // Cleanup temp files if validation fails
+        await Promise.all(tempFiles.map((f) => fs.unlink(f.path).catch(() => {})));
         return reply.code(400).send({ error: 'collection_id is required' });
       }
 
       // Validate collection_id
       const validation = IngestBodySchema.safeParse({ collection_id: collectionId });
       if (!validation.success) {
+        await Promise.all(tempFiles.map((f) => fs.unlink(f.path).catch(() => {})));
         return reply.code(400).send({
           error: 'Invalid collection_id',
           details: validation.error.issues,
         });
       }
 
-      if (filesToProcess.length === 0) {
+      if (tempFiles.length === 0) {
         return reply.code(400).send({ error: 'No files uploaded' });
       }
-
-      const results: Array<{
-        filename: string;
-        status: 'success' | 'error';
-        documentId?: string;
-        error?: string;
-      }> = [];
 
       // Create storage directory if needed
       const collectionStoragePath = path.join(STORAGE_PATH, collectionId);
       await fs.mkdir(collectionStoragePath, { recursive: true });
 
       // Process each file
-      for (const file of filesToProcess) {
-        const filename = file.filename;
-        const contentType = file.mimetype;
+      // Parallelize document creation and move operations
+      const results = await Promise.all(
+        tempFiles.map(async (file, index) => {
+          try {
+            const stats = await fs.stat(file.path);
+            const fileSize = stats.size;
 
-        try {
-          const buffer = await file.toBuffer();
-          const fileSize = buffer.length;
+            if (!collectionId) {
+              throw new Error('Collection ID is missing');
+            }
 
-          // Create document record
-          const document = await createDocument({
-            collection_id: collectionId,
-            title: filename,
-            content_type: contentType,
-            file_size: fileSize,
-          });
+            // Create document record
+            const document = await createDocument({
+              collection_id: collectionId,
+              title: file.filename,
+              content_type: file.mimetype,
+              file_size: fileSize,
+            });
 
-          // Save file to storage
-          const filePath = path.join(
-            collectionStoragePath,
-            `${document.id}${path.extname(filename)}`
-          );
-          await fs.writeFile(filePath, buffer);
+            // Move file to final storage
+            const finalPath = path.join(
+              collectionStoragePath,
+              `${document.id}${path.extname(file.filename)}`
+            );
 
-          // Update document status
-          await updateDocumentStatus(document.id, 'pending', undefined, filePath);
+            // Use copy+unlink (or rename) to move
+            await fs.rename(file.path, finalPath);
 
-          // Start ingestion (fire and forget)
-          ingestDocument(document.id).catch((error) => {
-            fastify.log.error({ docId: document.id, error }, 'Document ingestion failed');
-          });
+            // Update document status
+            await updateDocumentStatus(document.id, 'pending', undefined, finalPath);
 
-          results.push({
-            filename,
-            status: 'success',
-            documentId: document.id,
-          });
-        } catch (error) {
-          fastify.log.error({ filename, error }, 'File processing failed');
-          results.push({
-            filename,
-            status: 'error',
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
+            // Start ingestion (fire and forget)
+            ingestDocument(document.id).catch((error) => {
+              fastify.log.error({ docId: document.id, error }, 'Document ingestion failed');
+            });
+
+            return {
+              filename: file.filename,
+              status: 'success' as const,
+              documentId: document.id,
+              uploadIndex: index,
+            };
+          } catch (error) {
+            // Try to clean up temp file if processing failed and it still exists
+            await fs.unlink(file.path).catch(() => {});
+
+            fastify.log.error({ filename: file.filename, error }, 'File processing failed');
+            return {
+              filename: file.filename,
+              status: 'error' as const,
+              uploadIndex: index,
+              error: error instanceof Error ? error.message : String(error),
+            };
+          }
+        })
+      );
 
       const successCount = results.filter((r) => r.status === 'success').length;
       const failureCount = results.filter((r) => r.status === 'error').length;
 
       return reply.code(201).send({
-        message: `Processed ${filesToProcess.length} files (${successCount} succeeded, ${failureCount} failed)`,
+        message: `Processed ${tempFiles.length} files (${successCount} succeeded, ${failureCount} failed)`,
         results,
       });
     } catch (error) {
+      // Global error handler - try to cleanup all temp files
+      await Promise.all(tempFiles.map((f) => fs.unlink(f.path).catch(() => {})));
+
       fastify.log.error(error, 'Batch ingest error');
       return reply.code(500).send({
         error: 'Internal server error',

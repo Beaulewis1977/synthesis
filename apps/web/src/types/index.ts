@@ -166,12 +166,17 @@ export interface ChatSession {
 }
 
 // Upload-related types
+export interface UploadResult {
+  filename: string;
+  status: 'success' | 'error';
+  documentId?: string;
+  uploadIndex?: number;
+  error?: string;
+}
+
 export interface UploadResponse {
-  documents: {
-    doc_id: string;
-    title: string;
-    status: string;
-  }[];
+  message: string;
+  results: UploadResult[];
 }
 
 // Synthesis-related types (Phase 12)
@@ -271,4 +276,31 @@ export interface RelatedFiles {
 export interface RelatedFilesResponse {
   file_path: string;
   related_files: RelatedFiles;
+}
+
+// Phase 17: Ingestion Agent
+export interface IngestionJob {
+  id: string;
+  collection_id: string;
+  topic: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  error_summary: string | null;
+}
+
+export interface IngestionJobStats {
+  pending: number;
+  scraped: number;
+  ingested: number;
+  failed: number;
+  skipped: number;
+  total: number;
+}
+
+export interface IngestionJobStatusResponse {
+  job: IngestionJob;
+  stats: IngestionJobStats;
 }

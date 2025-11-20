@@ -11,6 +11,7 @@ import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import { closePool, getPool } from '@synthesis/db';
 import Fastify from 'fastify';
+import { agentIngestionRoutes } from './routes/agent-ingestion.js';
 import { agentRoutes } from './routes/agent.js';
 import { chatRoutes } from './routes/chat.js';
 import { collectionRoutes } from './routes/collections.js';
@@ -75,6 +76,7 @@ await fastify.register(searchRoutes);
 await fastify.register(synthesisRoutes);
 await fastify.register(costRoutes);
 await fastify.register(agentRoutes);
+await fastify.register(agentIngestionRoutes);
 await fastify.register(ingestRoutes);
 await registerMetricsRoute(fastify);
 
