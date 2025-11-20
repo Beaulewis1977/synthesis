@@ -166,12 +166,17 @@ export interface ChatSession {
 }
 
 // Upload-related types
+export interface UploadResult {
+  filename: string;
+  status: 'success' | 'error';
+  documentId?: string;
+  uploadIndex?: number;
+  error?: string;
+}
+
 export interface UploadResponse {
-  documents: {
-    doc_id: string;
-    title: string;
-    status: string;
-  }[];
+  message: string;
+  results: UploadResult[];
 }
 
 // Synthesis-related types (Phase 12)

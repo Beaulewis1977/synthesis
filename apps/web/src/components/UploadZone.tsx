@@ -141,11 +141,32 @@ export function UploadZone({ collectionId, onUploadComplete }: UploadZoneProps) 
         console.error('Invalid upload response shape', data);
       }
 
+      // @ts-ignore - UploadResult vs generic object
       const validatedResults = rawResults?.filter(isValidUploadResult) ?? [];
-      const normalizedResults = validatedResults.map((result: { uploadIndex?: number }) => ({
-        ...result,
-        uploadIndex: typeof result.uploadIndex === 'number' ? result.uploadIndex : 0,
-      }));
+      const normalizedResults = validatedResults.filter(
+        (result: {
+          uploadIndex?: number;
+        }): result is (typeof validatedResults)[number] & {
+          uploadIndex: number;
+        } => typeof result.uploadIndex === 'number'
+      );
+
+      // If server returned results but without indices, and count matches, infer indices
+      if (
+        validatedResults.length > 0 &&
+        normalizedResults.length === 0 &&
+        validatedResults.length === uploadTargets.length
+      ) {
+        for (let index = 0; index < validatedResults.length; index++) {
+          const result = validatedResults[index];
+          normalizedResults.push({ ...result, uploadIndex: index });
+        }
+      } else if (validatedResults.length > 0 && normalizedResults.length === 0) {
+        console.warn(
+          'Upload results missing uploadIndex and count mismatch; cannot map results',
+          validatedResults
+        );
+      }
 
       const resultById = new Map<string, (typeof normalizedResults)[number]>();
       for (const result of normalizedResults) {
