@@ -26,6 +26,31 @@ let isQuitting = false;
 let currentMode: 'docker' | 'direct' = 'docker';
 let runningProcesses: ProcessInfo[] = [];
 
+// Phase 4: Service status monitoring
+interface SimpleServiceStatus {
+  db: 'running' | 'stopped' | 'error';
+  server: 'running' | 'stopped' | 'error';
+  web: 'running' | 'stopped' | 'error';
+  mcp: 'running' | 'stopped' | 'error';
+}
+
+interface RecentEvent {
+  timestamp: string;
+  service: string;
+  message: string;
+}
+
+let serviceStatuses: SimpleServiceStatus = {
+  db: 'stopped',
+  server: 'stopped',
+  web: 'stopped',
+  mcp: 'stopped',
+};
+
+const recentEvents: RecentEvent[] = [];
+const MAX_EVENTS = 50;
+let healthCheckInterval: NodeJS.Timeout | null = null;
+
 // Configuration
 const SYNTHESIS_URL = process.env.SYNTHESIS_URL || 'http://localhost:5173';
 const HEALTH_URL = 'http://localhost:3333/health';
@@ -77,6 +102,83 @@ function updateStatus(status: SynthesisStatus, message?: string) {
   // Send to control window if it exists
   if (controlWindow && !controlWindow.isDestroyed()) {
     controlWindow.webContents.send('status-update', update);
+  }
+}
+
+/**
+ * Add an event to recent events
+ */
+function addEvent(service: string, message: string) {
+  const event: RecentEvent = {
+    timestamp: new Date().toISOString(),
+    service,
+    message,
+  };
+  recentEvents.push(event);
+  if (recentEvents.length > MAX_EVENTS) {
+    recentEvents.shift();
+  }
+
+  // Broadcast to renderer
+  if (controlWindow && !controlWindow.isDestroyed()) {
+    controlWindow.webContents.send('recent-event', event);
+  }
+}
+
+/**
+ * Check simple service status (port-based)
+ */
+async function checkSimpleServiceStatus(): Promise<SimpleServiceStatus> {
+  const [dbRunning, serverRunning, webRunning, mcpRunning] = await Promise.all([
+    isPortInUse(5432), // PostgreSQL
+    isPortInUse(SERVER_PORT), // Server
+    isPortInUse(WEB_PORT), // Web
+    // MCP: Check common ports
+    Promise.any([isPortInUse(3001), isPortInUse(3000), isPortInUse(3334)]).catch(() => false),
+  ]);
+
+  return {
+    db: dbRunning ? 'running' : 'stopped',
+    server: serverRunning ? 'running' : 'stopped',
+    web: webRunning ? 'running' : 'stopped',
+    mcp: mcpRunning ? 'running' : 'stopped',
+  };
+}
+
+/**
+ * Start periodic health checks (every 10s while running)
+ */
+function startPeriodicHealthChecks() {
+  stopPeriodicHealthChecks();
+
+  healthCheckInterval = setInterval(async () => {
+    if (currentStatus !== 'running') return;
+
+    const prevStatuses = { ...serviceStatuses };
+    serviceStatuses = await checkSimpleServiceStatus();
+
+    // Detect crashes (service went from running to stopped/error)
+    if (prevStatuses.server === 'running' && serviceStatuses.server === 'stopped') {
+      addEvent('server', 'Server crashed - no longer responding');
+      updateStatus('error', 'Server crashed');
+      await dialog.showMessageBox({
+        type: 'warning',
+        title: 'Service Crashed',
+        message: 'The server has stopped responding.',
+        detail: 'Click Stop and check recent events for details.',
+        buttons: ['OK'],
+      });
+    }
+  }, 10000); // Check every 10 seconds
+}
+
+/**
+ * Stop periodic health checks
+ */
+function stopPeriodicHealthChecks() {
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+    healthCheckInterval = null;
   }
 }
 
@@ -256,7 +358,9 @@ async function handleStartSynthesis(): Promise<StartResult> {
 
       // Success! Open web UI
       updateStatus('running', 'Synthesis is running (Docker mode)');
+      addEvent('system', 'Synthesis started successfully in Docker mode');
       createWebUIWindow();
+      startPeriodicHealthChecks();
 
       return { success: true };
     }
@@ -424,7 +528,9 @@ async function handleStartSynthesis(): Promise<StartResult> {
 
     // Success
     updateStatus('running', 'Synthesis is running (Direct mode)');
+    addEvent('system', 'Synthesis started successfully in Direct mode');
     createWebUIWindow();
+    startPeriodicHealthChecks();
     return { success: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -450,6 +556,7 @@ async function handleStartSynthesis(): Promise<StartResult> {
 async function handleStopSynthesis(): Promise<StopResult> {
   try {
     updateStatus('stopped', 'Stopping services...');
+    stopPeriodicHealthChecks();
 
     // Close web UI window if open
     if (webUIWindow && !webUIWindow.isDestroyed()) {
@@ -483,6 +590,14 @@ async function handleStopSynthesis(): Promise<StopResult> {
     }
 
     updateStatus('stopped', 'Services stopped');
+    addEvent('system', 'Synthesis stopped successfully');
+    // Reset service statuses
+    serviceStatuses = {
+      db: 'stopped',
+      server: 'stopped',
+      web: 'stopped',
+      mcp: 'stopped',
+    };
     return { success: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -538,6 +653,19 @@ function setupIPCHandlers() {
   });
 
   ipcMain.handle('get-mode', () => ({ mode: currentMode }));
+
+  // Phase 4: Service status and events
+  ipcMain.handle('get-service-status', async () => {
+    // If running, get current status; otherwise return stopped
+    if (currentStatus === 'running') {
+      return await checkSimpleServiceStatus();
+    }
+    return serviceStatuses;
+  });
+
+  ipcMain.handle('get-recent-events', () => {
+    return recentEvents;
+  });
 }
 
 /**

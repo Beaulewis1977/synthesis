@@ -16,6 +16,19 @@ export interface StopResult {
   success: boolean;
 }
 
+export interface SimpleServiceStatus {
+  db: 'running' | 'stopped' | 'error';
+  server: 'running' | 'stopped' | 'error';
+  web: 'running' | 'stopped' | 'error';
+  mcp: 'running' | 'stopped' | 'error';
+}
+
+export interface RecentEvent {
+  timestamp: string;
+  service: string;
+  message: string;
+}
+
 export interface SynthesisAPI {
   startSynthesis: () => Promise<StartResult>;
   stopSynthesis: () => Promise<StopResult>;
@@ -27,6 +40,9 @@ export interface SynthesisAPI {
     mode: 'docker' | 'direct'
   ) => Promise<{ success: boolean; mode?: string; error?: string }>;
   getMode: () => Promise<{ mode: 'docker' | 'direct' }>;
+  getServiceStatus: () => Promise<SimpleServiceStatus>;
+  getRecentEvents: () => Promise<RecentEvent[]>;
+  onRecentEvent: (callback: (event: RecentEvent) => void) => () => void;
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -73,6 +89,27 @@ contextBridge.exposeInMainWorld('synthesisAPI', {
 
   getMode: (): Promise<{ mode: 'docker' | 'direct' }> => {
     return ipcRenderer.invoke('get-mode');
+  },
+
+  getServiceStatus: (): Promise<SimpleServiceStatus> => {
+    return ipcRenderer.invoke('get-service-status');
+  },
+
+  getRecentEvents: (): Promise<RecentEvent[]> => {
+    return ipcRenderer.invoke('get-recent-events');
+  },
+
+  onRecentEvent: (callback: (event: RecentEvent) => void) => {
+    const listener = (_event: IpcRendererEvent, event: RecentEvent) => {
+      callback(event);
+    };
+
+    ipcRenderer.on('recent-event', listener);
+
+    // Return unsubscribe function
+    return () => {
+      ipcRenderer.removeListener('recent-event', listener);
+    };
   },
 } as SynthesisAPI);
 
