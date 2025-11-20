@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synthesis Desktop Control</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #333;
+    }
+
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 40px;
+      width: 90%;
+      max-width: 600px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      text-align: center;
+      color: #667eea;
+    }
+
+    .status-section {
+      background: #f7fafc;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+      border: 2px solid #e2e8f0;
+    }
+
+    .status-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #718096;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-value {
+      font-size: 24px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-indicator {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-stopped .status-indicator {
+      background-color: #e53e3e;
+      box-shadow: 0 0 8px rgba(229, 62, 62, 0.5);
+    }
+
+    .status-starting .status-indicator {
+      background-color: #ed8936;
+      box-shadow: 0 0 8px rgba(237, 137, 54, 0.5);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .status-running .status-indicator {
+      background-color: #48bb78;
+      box-shadow: 0 0 8px rgba(72, 187, 120, 0.5);
+    }
+
+    .status-error .status-indicator {
+      background-color: #e53e3e;
+      box-shadow: 0 0 8px rgba(229, 62, 62, 0.5);
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    .status-message {
+      font-size: 14px;
+      color: #718096;
+      margin-top: 8px;
+      font-style: italic;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    button {
+      flex: 1;
+      padding: 14px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-start {
+      background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+      color: white;
+    }
+
+    .btn-stop {
+      background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+      color: white;
+    }
+
+    .btn-open {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-logs {
+      background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+      color: white;
+    }
+
+    .error-section {
+      background: #fff5f5;
+      border: 2px solid #fc8181;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+      display: none;
+    }
+
+    .error-section.visible {
+      display: block;
+    }
+
+    .error-title {
+      font-weight: 700;
+      color: #c53030;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .error-message {
+      color: #742a2a;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 24px;
+      color: #a0aec0;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Synthesis Desktop</h1>
+
+    <div class="status-section" id="statusSection">
+      <div class="status-label">Status</div>
+      <div class="status-value" id="statusValue">
+        <span class="status-indicator"></span>
+        <span id="statusText">Stopped</span>
+      </div>
+      <div class="status-message" id="statusMessage"></div>
+    </div>
+
+    <div class="buttons">
+      <button id="startBtn" class="btn-start">Start Synthesis</button>
+      <button id="stopBtn" class="btn-stop" disabled>Stop Synthesis</button>
+    </div>
+
+    <div class="buttons">
+      <button id="openWebUIBtn" class="btn-open" disabled>Open Web UI</button>
+      <button id="showLogsBtn" class="btn-logs">View Logs</button>
+    </div>
+
+    <div class="error-section" id="errorSection">
+      <div class="error-title">Error</div>
+      <div class="error-message" id="errorMessage"></div>
+    </div>
+
+    <div class="footer">
+      Synthesis Desktop v1.0.0
+    </div>
+  </div>
+
+  <script>
+    const { synthesisAPI } = window;
+
+    // UI Elements
+    const statusSection = document.getElementById('statusSection');
+    const statusText = document.getElementById('statusText');
+    const statusMessage = document.getElementById('statusMessage');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const openWebUIBtn = document.getElementById('openWebUIBtn');
+    const showLogsBtn = document.getElementById('showLogsBtn');
+    const errorSection = document.getElementById('errorSection');
+    const errorMessage = document.getElementById('errorMessage');
+
+    // Update UI based on status
+    function updateUI(status, message) {
+      // Update status display
+      statusSection.className = `status-section status-${status}`;
+      statusText.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+      statusMessage.textContent = message || '';
+
+      // Update button states
+      const isRunning = status === 'running';
+      const isStopped = status === 'stopped';
+      const isStarting = status === 'starting';
+      const isError = status === 'error';
+
+      startBtn.disabled = !isStopped && !isError;
+      stopBtn.disabled = isStopped;
+      openWebUIBtn.disabled = !isRunning;
+
+      // Show/hide error section
+      if (isError && message) {
+        errorMessage.textContent = message;
+        errorSection.classList.add('visible');
+      } else {
+        errorSection.classList.remove('visible');
+      }
+    }
+
+    // Event handlers
+    startBtn.addEventListener('click', async () => {
+      startBtn.disabled = true;
+      startBtn.textContent = 'Starting...';
+
+      const result = await synthesisAPI.startSynthesis();
+
+      if (!result.success) {
+        console.error('Failed to start:', result.error);
+      }
+
+      startBtn.textContent = 'Start Synthesis';
+    });
+
+    stopBtn.addEventListener('click', async () => {
+      stopBtn.disabled = true;
+      stopBtn.textContent = 'Stopping...';
+
+      await synthesisAPI.stopSynthesis();
+
+      stopBtn.textContent = 'Stop Synthesis';
+    });
+
+    openWebUIBtn.addEventListener('click', async () => {
+      await synthesisAPI.openWebUI();
+    });
+
+    showLogsBtn.addEventListener('click', async () => {
+      await synthesisAPI.showLogs();
+    });
+
+    // Listen for status updates
+    synthesisAPI.onStatusUpdate((update) => {
+      updateUI(update.status, update.message);
+    });
+
+    // Get initial status
+    (async () => {
+      const status = await synthesisAPI.getStatus();
+      updateUI(status.status, status.message);
+    })();
+  </script>
+</body>
+</html>
