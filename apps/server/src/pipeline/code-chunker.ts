@@ -4,6 +4,7 @@ import { detectTechStack } from '../services/tech-detector.js';
 import type { Chunk, ChunkMetadata } from './chunk.js';
 import { parseConfigFile } from './config-analyzer.js';
 import { parseDartFile } from './dart-analyzer.js';
+import { analyzeRedisUsage } from './redis-analyzer.js';
 import { parseSQLFile } from './sql-analyzer.js';
 import type { TableConstraint } from './sql-analyzer.js';
 import { parseTypeScriptFile } from './ts-analyzer.js';
@@ -45,10 +46,23 @@ export async function chunkCodeFile(
         return await chunkDartCode(filePath, content, options);
       case 'ts':
       case 'tsx':
-        return await chunkTypeScriptCode(filePath, content, options);
       case 'js':
-      case 'jsx':
-        return await chunkJavaScriptCode(filePath, content, options);
+      case 'jsx': {
+        // First, get standard chunks
+        const chunks =
+          extension === 'js' || extension === 'jsx'
+            ? await chunkJavaScriptCode(filePath, content, options)
+            : await chunkTypeScriptCode(filePath, content, options);
+
+        // Enhance with Redis analysis if enabled
+        try {
+          const redisChunks = await analyzeRedisUsage(content, filePath);
+          return [...chunks, ...redisChunks];
+        } catch (err) {
+          console.warn('Redis analysis failed, skipping', err);
+          return chunks;
+        }
+      }
       case 'sql':
         if (backendParsingEnabled) {
           return await chunkSQLCode(filePath, content, options);
