@@ -23,6 +23,12 @@ export function Layout() {
               >
                 💰 Costs
               </Link>
+              <Link
+                to="/agent/ingest"
+                className="text-text-secondary hover:text-text-primary transition-colors"
+              >
+                🤖 Agent
+              </Link>
             </nav>
           </div>
         </div>

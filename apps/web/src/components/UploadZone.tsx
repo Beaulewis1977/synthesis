@@ -7,6 +7,7 @@ interface UploadZoneProps {
 }
 
 interface FileWithStatus {
+  id: string;
   file: File;
   status: 'pending' | 'uploading' | 'complete' | 'error';
   error?: string;
@@ -14,6 +15,31 @@ interface FileWithStatus {
 
 const ACCEPTED_TYPES = ['.pdf', '.docx', '.md', '.txt'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+const createUploadId = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `upload-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const isValidUploadResult = (
+  input: unknown
+): input is {
+  filename: string;
+  status: 'success' | 'error';
+  uploadIndex?: number;
+  error?: string;
+} => {
+  if (!input || typeof input !== 'object') return false;
+  const candidate = input as Record<string, unknown>;
+  const status = candidate.status;
+  const hasValidStatus = status === 'success' || status === 'error';
+  return (
+    typeof candidate.filename === 'string' &&
+    hasValidStatus &&
+    (candidate.uploadIndex === undefined || typeof candidate.uploadIndex === 'number') &&
+    (candidate.error === undefined || typeof candidate.error === 'string')
+  );
+};
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -43,6 +69,7 @@ export function UploadZone({ collectionId, onUploadComplete }: UploadZoneProps) 
     const newFiles = Array.from(fileList).map((file) => {
       const error = validateFile(file);
       return {
+        id: createUploadId(),
         file,
         status: error ? ('error' as const) : ('pending' as const),
         error: error || undefined,
@@ -71,25 +98,30 @@ export function UploadZone({ collectionId, onUploadComplete }: UploadZoneProps) 
     handleFiles(e.target.files);
   };
 
-  const removeFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+  const removeFile = (id: string) => {
+    setFiles((prev) => prev.filter((file) => file.id !== id));
   };
 
   const uploadFiles = async () => {
-    const validFiles = files.filter((f) => f.status === 'pending');
-    if (validFiles.length === 0) return;
+    const uploadTargets = files.filter((f) => f.status === 'pending');
+    if (uploadTargets.length === 0) return;
 
     setIsUploading(true);
 
+    const uploadOrder = uploadTargets.map((f) => f.id);
+    const uploadIdSet = new Set(uploadOrder);
+
     // Mark files as uploading
     setFiles((prev) =>
-      prev.map((f) => (f.status === 'pending' ? { ...f, status: 'uploading' } : f))
+      prev.map((f) =>
+        f.status === 'pending' ? { ...f, status: 'uploading', error: undefined } : f
+      )
     );
 
     try {
       const formData = new FormData();
       formData.append('collection_id', collectionId);
-      for (const f of validFiles) {
+      for (const f of uploadTargets) {
         formData.append('files', f.file);
       }
 
@@ -103,17 +135,61 @@ export function UploadZone({ collectionId, onUploadComplete }: UploadZoneProps) 
         throw new Error(errorText || `Upload failed with status ${response.status}`);
       }
 
-      // Mark all uploaded files as complete
+      const data = await response.json();
+      const rawResults = Array.isArray(data?.results) ? data.results : null;
+      if (!rawResults) {
+        console.error('Invalid upload response shape', data);
+      }
+
+      const validatedResults = rawResults?.filter(isValidUploadResult) ?? [];
+      const normalizedResults = validatedResults.map((result: { uploadIndex?: number }) => ({
+        ...result,
+        uploadIndex: typeof result.uploadIndex === 'number' ? result.uploadIndex : 0,
+      }));
+
+      const resultById = new Map<string, (typeof normalizedResults)[number]>();
+      for (const result of normalizedResults) {
+        const targetId = uploadOrder[result.uploadIndex];
+        if (targetId) {
+          resultById.set(targetId, result);
+        }
+      }
+
+      // Update files based on results
       setFiles((prev) =>
-        prev.map((f) => (f.status === 'uploading' ? { ...f, status: 'complete' } : f))
+        prev.map((f) => {
+          if (f.status !== 'uploading') return f;
+
+          const result = resultById.get(f.id);
+          if (result) {
+            return {
+              ...f,
+              status: result.status === 'success' ? 'complete' : 'error',
+              error: result.status === 'error' ? result.error : undefined,
+            };
+          }
+
+          if (uploadIdSet.has(f.id)) {
+            return { ...f, status: 'error', error: 'no server result' };
+          }
+
+          return f;
+        })
       );
 
-      // Wait a moment to show success, then navigate back
-      setTimeout(() => {
-        onUploadComplete();
-      }, 1000);
+      const hasFailures = uploadOrder.some((id) => {
+        const result = resultById.get(id);
+        return !result || result.status !== 'success';
+      });
+
+      // Wait a moment to show success, then navigate back if all succeeded
+      if (!hasFailures) {
+        setTimeout(() => {
+          onUploadComplete();
+        }, 1500);
+      }
     } catch (error) {
-      // Mark uploaded files as error
+      // Mark remaining uploading files as error
       const errorMessage = error instanceof Error ? error.message : 'Upload failed';
       setFiles((prev) =>
         prev.map((f) =>
@@ -180,11 +256,8 @@ export function UploadZone({ collectionId, onUploadComplete }: UploadZoneProps) 
           </h3>
 
           <div className="space-y-sm">
-            {files.map((fileWithStatus, index) => (
-              <div
-                key={`${fileWithStatus.file.name}-${index}`}
-                className="card p-md flex items-center gap-md"
-              >
+            {files.map((fileWithStatus) => (
+              <div key={fileWithStatus.id} className="card p-md flex items-center gap-md">
                 <FileText className="text-accent flex-shrink-0" size={24} />
 
                 <div className="flex-1 min-w-0">
@@ -220,7 +293,7 @@ export function UploadZone({ collectionId, onUploadComplete }: UploadZoneProps) 
 
                 <button
                   type="button"
-                  onClick={() => removeFile(index)}
+                  onClick={() => removeFile(fileWithStatus.id)}
                   disabled={isUploading}
                   className="btn btn-sm flex-shrink-0"
                   aria-label="Remove file"

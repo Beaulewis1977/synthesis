@@ -10,6 +10,8 @@ import type {
   CostHistoryResponse,
   CostSummaryResponse,
   DocumentsResponse,
+  IngestionJob,
+  IngestionJobStatusResponse,
   RelatedFilesResponse,
   SearchResponse,
   SynthesisResponse,
@@ -249,6 +251,27 @@ class ApiClient {
   async getRelatedFiles(documentId: string): Promise<RelatedFilesResponse> {
     return this.request<RelatedFilesResponse>(
       `/api/documents/${encodeURIComponent(documentId)}/related-files`
+    );
+  }
+
+  /**
+   * Start a new autonomous ingestion job.
+   * Phase 17 feature.
+   */
+  async startIngestionJob(collectionId: string, topic: string): Promise<IngestionJob> {
+    return this.request<IngestionJob>('/api/ingestion-agent/start', {
+      method: 'POST',
+      body: JSON.stringify({ collection_id: collectionId, topic }),
+    });
+  }
+
+  /**
+   * Get status of an ingestion job.
+   * Phase 17 feature.
+   */
+  async getIngestionJobStatus(jobId: string): Promise<IngestionJobStatusResponse> {
+    return this.request<IngestionJobStatusResponse>(
+      `/api/ingestion-agent/status/${encodeURIComponent(jobId)}`
     );
   }
 }

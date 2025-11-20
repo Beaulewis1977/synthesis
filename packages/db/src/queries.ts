@@ -74,6 +74,39 @@ export interface ChatMessage {
 }
 
 /**
+ * Represents an autonomous ingestion job.
+ */
+export interface IngestionJob {
+  id: string;
+  collection_id: string;
+  topic: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  created_at: Date;
+  updated_at: Date;
+  started_at: Date | null;
+  completed_at: Date | null;
+  error_summary: string | null;
+}
+
+/**
+ * Represents a specific URL discovered during an ingestion job.
+ */
+export interface IngestionJobUrl {
+  id: string; // BigInt returned as string by pg driver usually
+  job_id: string;
+  url: string;
+  status: 'pending' | 'processing' | 'scraped' | 'ingested' | 'failed' | 'skipped';
+  failure_count: number;
+  last_attempt_at: Date | null;
+  retry_after: Date | null;
+  content_hash: string | null;
+  document_id: string | null;
+  notes: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
  * Represents a table schema in the database.
  */
 export interface TableSchema {
@@ -377,4 +410,138 @@ export async function getChatMessages(sessionId: string): Promise<ChatMessage[]>
     [sessionId]
   );
   return result.rows as ChatMessage[];
+}
+
+// Ingestion Agent queries
+
+export async function createIngestionJob(
+  collectionId: string,
+  topic: string
+): Promise<IngestionJob> {
+  const result = await query(
+    'INSERT INTO ingestion_jobs (collection_id, topic, status, started_at) VALUES ($1, $2, $3, NOW()) RETURNING *',
+    [collectionId, topic, 'processing']
+  );
+  return result.rows[0] as IngestionJob;
+}
+
+export async function getIngestionJob(id: string): Promise<IngestionJob | null> {
+  const result = await query('SELECT * FROM ingestion_jobs WHERE id = $1', [id]);
+  return (result.rows[0] as IngestionJob) || null;
+}
+
+export async function updateIngestionJobStatus(
+  id: string,
+  status: IngestionJob['status'],
+  errorSummary?: string
+): Promise<void> {
+  const updates: string[] = ['status = $2', 'updated_at = NOW()'];
+  const params: (string | null)[] = [id, status];
+
+  if (status === 'completed' || status === 'failed') {
+    updates.push('completed_at = NOW()');
+  }
+
+  if (errorSummary) {
+    updates.push('error_summary = $3');
+    params.push(errorSummary);
+  }
+
+  await query(`UPDATE ingestion_jobs SET ${updates.join(', ')} WHERE id = $1`, params);
+}
+
+export async function createIngestionJobUrls(jobId: string, urls: string[]): Promise<void> {
+  if (urls.length === 0) return;
+
+  // Bulk insert
+  const valueStrings = urls.map((_, i) => `($1, $${i + 2})`).join(', ');
+  const params = [jobId, ...urls];
+
+  await query(
+    `INSERT INTO ingestion_job_urls (job_id, url) VALUES ${valueStrings} ON CONFLICT (job_id, url) DO NOTHING`,
+    params
+  );
+}
+
+export async function getNextPendingUrl(jobId: string): Promise<IngestionJobUrl | null> {
+  const result = await query(
+    `WITH next_url AS (
+       SELECT id
+       FROM ingestion_job_urls 
+       WHERE job_id = $1 AND status = 'pending' 
+       ORDER BY id ASC 
+       FOR UPDATE SKIP LOCKED 
+       LIMIT 1
+     )
+     UPDATE ingestion_job_urls AS urls
+     SET status = 'processing',
+         updated_at = NOW(),
+         last_attempt_at = NOW()
+     FROM next_url
+     WHERE urls.id = next_url.id
+     RETURNING urls.*`,
+    [jobId]
+  );
+  return (result.rows[0] as IngestionJobUrl) || null;
+}
+
+export async function updateIngestionJobUrlStatus(
+  id: string | number,
+  status: IngestionJobUrl['status'],
+  updates: Partial<
+    Pick<IngestionJobUrl, 'document_id' | 'notes' | 'content_hash' | 'failure_count'>
+  > = {}
+): Promise<void> {
+  const setClauses = ['status = $2', 'updated_at = NOW()'];
+  const params: (string | number | null)[] = [id, status];
+  let paramIndex = 3;
+
+  if (updates.document_id !== undefined) {
+    setClauses.push(`document_id = $${paramIndex++}`);
+    params.push(updates.document_id);
+  }
+  if (updates.notes !== undefined) {
+    setClauses.push(`notes = $${paramIndex++}`);
+    params.push(updates.notes);
+  }
+  if (updates.content_hash !== undefined) {
+    setClauses.push(`content_hash = $${paramIndex++}`);
+    params.push(updates.content_hash);
+  }
+  if (updates.failure_count !== undefined) {
+    setClauses.push(`failure_count = $${paramIndex++}`);
+    params.push(updates.failure_count);
+  }
+
+  await query(`UPDATE ingestion_job_urls SET ${setClauses.join(', ')} WHERE id = $1`, params);
+}
+
+export async function getIngestionJobStats(jobId: string) {
+  const result = await query(
+    `SELECT status, COUNT(*) as count 
+     FROM ingestion_job_urls 
+     WHERE job_id = $1 
+     GROUP BY status`,
+    [jobId]
+  );
+
+  const stats = {
+    pending: 0,
+    scraped: 0,
+    ingested: 0,
+    failed: 0,
+    skipped: 0,
+    total: 0,
+  };
+
+  for (const row of result.rows) {
+    const status = row.status as keyof typeof stats;
+    const count = Number(row.count);
+    if (status in stats) {
+      stats[status] = count;
+    }
+    stats.total += count;
+  }
+
+  return stats;
 }

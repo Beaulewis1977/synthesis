@@ -272,3 +272,30 @@ export interface RelatedFilesResponse {
   file_path: string;
   related_files: RelatedFiles;
 }
+
+// Phase 17: Ingestion Agent
+export interface IngestionJob {
+  id: string;
+  collection_id: string;
+  topic: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  error_summary: string | null;
+}
+
+export interface IngestionJobStats {
+  pending: number;
+  scraped: number;
+  ingested: number;
+  failed: number;
+  skipped: number;
+  total: number;
+}
+
+export interface IngestionJobStatusResponse {
+  job: IngestionJob;
+  stats: IngestionJobStats;
+}

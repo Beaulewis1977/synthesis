@@ -17,6 +17,9 @@ const SearchPage = lazy(() =>
 const CostDashboard = lazy(() =>
   import('./pages/CostDashboard').then((m) => ({ default: m.CostDashboard }))
 );
+const AgentIngestionPage = lazy(() =>
+  import('./pages/AgentIngestionPage').then((m) => ({ default: m.AgentIngestionPage }))
+);
 
 function AppRoutes() {
   const navigate = useNavigate();
@@ -37,6 +40,7 @@ function AppRoutes() {
             <Route path="chat/:collectionId" element={<ChatPage />} />
             <Route path="search/:collectionId" element={<SearchPage />} />
             <Route path="costs" element={<CostDashboard />} />
+            <Route path="agent/ingest" element={<AgentIngestionPage />} />
           </Route>
         </Routes>
       </Suspense>

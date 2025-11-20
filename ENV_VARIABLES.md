@@ -50,6 +50,15 @@ This document lists all environment variables used in the Synthesis RAG applicat
 | `OLLAMA_HOST` | Ollama API endpoint | `http://localhost:11434` | Server (embeddings) |
 | `EMBEDDING_MODEL` | Embedding model name | `nomic-embed-text` | Server (embeddings) |
 
+### Ingestion Agent
+
+| Variable | Description | Default | Used In |
+|----------|-------------|---------|---------|
+| `GOOGLE_SEARCH_API_KEY` | Google Custom Search JSON API Key | *none* | Server (ingestion agent) |
+| `GOOGLE_SEARCH_CX` | Google Custom Search Engine ID | *none* | Server (ingestion agent) |
+| `AGENT_MAX_URLS` | Max URLs to scrape per job | `20` | Server (ingestion agent) |
+| `AGENT_CONCURRENCY` | Max concurrent scraper pages | `2` | Server (ingestion agent) |
+
 ### CORS (Optional)
 
 | Variable | Description | Default | Used In |
