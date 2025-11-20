@@ -8,8 +8,8 @@
 ### Overview
 
 **4 implementation phases** for Synthesis Desktop app (monorepo, `apps/desktop`, Electron wrapper).  
-Each phase completable within 150k tokens. Architecture in `01_DESKTOP_APP_ARCHITECTURE.md` (lines 1-161).  
-Tech stack in `06_DESKTOP_APP_TECH_STACK.md` (lines 1-150).
+Each phase completable within 150k tokens. Architecture in `01_DESKTOP_APP_ARCHITECTURE.md` (lines 1-148).  
+Tech stack in `06_DESKTOP_APP_TECH_STACK.md` (lines 1-104).
 
 ---
 
@@ -184,5 +184,5 @@ Tech stack in `06_DESKTOP_APP_TECH_STACK.md` (lines 1-150).
 
 **Total implementation: 3 days** for fully functional desktop app.
 
-See `05_DESKTOP_APP_PHASE_PROMPTS.md` (lines 1-180) for agent prompts per phase.  
-See `04_DESKTOP_APP_GITHUB_ISSUES.md` (lines 1-156) for GitHub issue templates.
+See `05_DESKTOP_APP_PHASE_PROMPTS.md` (lines 1-481) for agent prompts per phase.  
+See `04_DESKTOP_APP_GITHUB_ISSUES.md` (lines 1-133) for GitHub issue templates.

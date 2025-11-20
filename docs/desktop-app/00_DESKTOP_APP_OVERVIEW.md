@@ -46,7 +46,7 @@ This avoids rewriting the RAG pipeline or backend and leverages what is already 
 - Create a **desktop shell app** in this repo as `apps/desktop` (monorepo approach).
 - This keeps versions of server + desktop shell aligned at the same commit.
 
-GitHub workflow details are in `03_DESKTOP_APP_REPO_AND_WORKFLOW.md` (lines 8-42).
+GitHub workflow details are in `03_DESKTOP_APP_REPO_AND_WORKFLOW.md` (lines 26-94).
 
 ---
 
@@ -79,7 +79,7 @@ We do **not** want to rebuild all Synthesis UI in a native toolkit; we reuse the
   - MCP server and tool management UI.
 - CI/CD and GitHub strategy for building desktop binaries for major platforms.
 
-**Out of scope (for initial release, see Phase 7 in Build Plan):**
+**Out of scope (for initial release, see Phase 4 in Build Plan):**
 
 - System tray integration.
 - Global hotkeys and keyboard shortcuts.
@@ -94,11 +94,11 @@ We do **not** want to rebuild all Synthesis UI in a native toolkit; we reuse the
 ### Documents in This Folder
 
 - `00_DESKTOP_APP_OVERVIEW.md` — this overview.
-- `01_DESKTOP_APP_ARCHITECTURE.md` — architecture design and component responsibilities (lines 1-161).
-- `02_DESKTOP_APP_BUILD_PLAN.md` — 4 phases for implementation (lines 1-177).
-- `03_DESKTOP_APP_REPO_AND_WORKFLOW.md` — GitHub repository and CI/CD strategy (lines 1-148).
-- `04_DESKTOP_APP_GITHUB_ISSUES.md` — proposed GitHub issues per phase (lines 1-156).
-- `05_DESKTOP_APP_PHASE_PROMPTS.md` — agent prompts for each phase (lines 1-180).
-- `06_DESKTOP_APP_TECH_STACK.md` — tech stack with specific versions and docs links (lines 1-150).
+- `01_DESKTOP_APP_ARCHITECTURE.md` — architecture design and component responsibilities (lines 1-148).
+- `02_DESKTOP_APP_BUILD_PLAN.md` — 4 phases for implementation (lines 1-188).
+- `03_DESKTOP_APP_REPO_AND_WORKFLOW.md` — GitHub repository and CI/CD strategy (lines 1-194).
+- `04_DESKTOP_APP_GITHUB_ISSUES.md` — proposed GitHub issues per phase (lines 1-133).
+- `05_DESKTOP_APP_PHASE_PROMPTS.md` — agent prompts for each phase (lines 1-481).
+- `06_DESKTOP_APP_TECH_STACK.md` — tech stack with specific versions and docs links (lines 1-104).
 
 These docs are meant to be used when you (or an agent) are ready to build the desktop app.

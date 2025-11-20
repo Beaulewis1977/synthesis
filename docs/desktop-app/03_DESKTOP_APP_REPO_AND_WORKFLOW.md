@@ -152,7 +152,7 @@ desktop-release:
 - Phase 3: Status + Packaging
 - Phase 4: Advanced Features (future)
 
-**Issue templates:** `04_DESKTOP_APP_GITHUB_ISSUES.md` (lines 1-156)
+**Issue templates:** `04_DESKTOP_APP_GITHUB_ISSUES.md` (lines 1-133)
 
 ---
 
@@ -189,6 +189,6 @@ pnpm --filter @synthesis/desktop dev
 - Workflow consistent with existing Synthesis development
 
 **Cross-references:**
-- Build plan: `02_DESKTOP_APP_BUILD_PLAN.md` (lines 1-177)
-- Issues: `04_DESKTOP_APP_GITHUB_ISSUES.md` (lines 1-156)
-- Prompts: `05_DESKTOP_APP_PHASE_PROMPTS.md` (lines 1-180)
+- Build plan: `02_DESKTOP_APP_BUILD_PLAN.md` (lines 1-188)
+- Issues: `04_DESKTOP_APP_GITHUB_ISSUES.md` (lines 1-133)
+- Prompts: `05_DESKTOP_APP_PHASE_PROMPTS.md` (lines 1-481)

@@ -37,7 +37,7 @@ Create `apps/desktop` with Electron 33.2.0 + TypeScript 5.7.2. Implement basic w
 - Click "Start" → launches stack via Docker → shows web UI when ready
 - Click "Stop" → cleanly shuts down stack
 
-**Cross-refs:** `02_DESKTOP_APP_BUILD_PLAN.md` lines 17-47, `05_DESKTOP_APP_PHASE_PROMPTS.md` lines 23-65
+**Cross-refs:** `02_DESKTOP_APP_BUILD_PLAN.md` lines 16-50, `05_DESKTOP_APP_PHASE_PROMPTS.md` lines 31-130
 
 ---
 
@@ -64,7 +64,7 @@ Implement MCP server/tool toggle UI, direct process mode for dev, and scrollable
 - Dev mode works without Docker
 - Logs show useful diagnostic info
 
-**Cross-refs:** `02_DESKTOP_APP_BUILD_PLAN.md` lines 49-83, `05_DESKTOP_APP_PHASE_PROMPTS.md` lines 67-105
+**Cross-refs:** `02_DESKTOP_APP_BUILD_PLAN.md` lines 53-88, `05_DESKTOP_APP_PHASE_PROMPTS.md` lines 133-221
 
 ---
 
@@ -93,7 +93,7 @@ Add per-service status indicators, error handling, and configure electron-builde
 - Packaged `.AppImage` installs and runs
 - CI builds packages automatically on tag push
 
-**Cross-refs:** `02_DESKTOP_APP_BUILD_PLAN.md` lines 85-129, `05_DESKTOP_APP_PHASE_PROMPTS.md` lines 107-145
+**Cross-refs:** `02_DESKTOP_APP_BUILD_PLAN.md` lines 91-130, `05_DESKTOP_APP_PHASE_PROMPTS.md` lines 224-351
 
 ---
 
@@ -120,7 +120,7 @@ Quality-of-life features for power users. Implement on-demand based on user requ
 - Features behind configuration flags
 - Documentation updated
 
-**Cross-refs:** `02_DESKTOP_APP_BUILD_PLAN.md` lines 131-174, `05_DESKTOP_APP_PHASE_PROMPTS.md` lines 147-180
+**Cross-refs:** `02_DESKTOP_APP_BUILD_PLAN.md` lines 133-174, `05_DESKTOP_APP_PHASE_PROMPTS.md` lines 354-426
 
 ---
 

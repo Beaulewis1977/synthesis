@@ -43,7 +43,7 @@ Desktop app lives **inside the existing Synthesis repo** as another app in the p
 ### 3. Component Overview
 
 1. **Desktop Shell (`apps/desktop`)**
-   - **Framework:** Electron 33.2.0 + TypeScript 5.7.2 (see `06_DESKTOP_APP_TECH_STACK.md` lines 13-27)
+   - **Framework:** Electron 33.2.0 + TypeScript 5.7.2 (see `06_DESKTOP_APP_TECH_STACK.md` lines 15-38)
    - **Responsibilities:**
      - Start/stop Synthesis backend (Docker or direct processes)
      - Display web UI in Electron BrowserWindow
@@ -128,7 +128,7 @@ Desktop app lives **inside the existing Synthesis repo** as another app in the p
 - Windows: `.exe` (NSIS installer)
 
 **CI/CD:** GitHub Actions builds all platforms on tag push.  
-See `03_DESKTOP_APP_REPO_AND_WORKFLOW.md` (lines 73-88) for workflow details.
+See `03_DESKTOP_APP_REPO_AND_WORKFLOW.md` (lines 104-138) for workflow details.
 
 ---
 
@@ -142,6 +142,6 @@ See `03_DESKTOP_APP_REPO_AND_WORKFLOW.md` (lines 73-88) for workflow details.
 ---
 
 **Cross-references:**
-- Build plan: `02_DESKTOP_APP_BUILD_PLAN.md` (lines 1-177)
-- Tech stack: `06_DESKTOP_APP_TECH_STACK.md` (lines 1-150)
-- CI/CD: `03_DESKTOP_APP_REPO_AND_WORKFLOW.md` (lines 73-88)
+- Build plan: `02_DESKTOP_APP_BUILD_PLAN.md` (lines 1-188)
+- Tech stack: `06_DESKTOP_APP_TECH_STACK.md` (lines 1-104)
+- CI/CD: `03_DESKTOP_APP_REPO_AND_WORKFLOW.md` (lines 104-138)

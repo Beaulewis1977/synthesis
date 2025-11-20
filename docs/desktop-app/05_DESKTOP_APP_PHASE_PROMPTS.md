@@ -14,8 +14,8 @@
 > - Synthesis is a RAG system: Fastify backend, React frontend, PostgreSQL/pgvector, MCP servers
 > - Desktop app is a **thin wrapper** - no RAG logic, no UI duplication
 > - Use Electron 33.2.0 + TypeScript 5.7.2 + Node 22.20.0
-> - Follow existing architecture: `docs/desktop-app/01_DESKTOP_APP_ARCHITECTURE.md` (lines 1-161)
-> - Tech stack: `docs/desktop-app/06_DESKTOP_APP_TECH_STACK.md` (lines 1-150)
+> - Follow existing architecture: `docs/desktop-app/01_DESKTOP_APP_ARCHITECTURE.md` (lines 1-148)
+> - Tech stack: `docs/desktop-app/06_DESKTOP_APP_TECH_STACK.md` (lines 1-104)
 > - Small, incremental changes - don't over-engineer
 > - Each phase must complete within 150k tokens
 > 
@@ -48,9 +48,9 @@
 > **Time:** 1 day
 > 
 > **Read first:**
-> - `docs/desktop-app/02_DESKTOP_APP_BUILD_PLAN.md` lines 17-47
-> - `docs/desktop-app/06_DESKTOP_APP_TECH_STACK.md` lines 1-150
-> - `docs/desktop-app/03_DESKTOP_APP_REPO_AND_WORKFLOW.md` lines 13-47
+> - `docs/desktop-app/02_DESKTOP_APP_BUILD_PLAN.md` lines 16-50
+> - `docs/desktop-app/06_DESKTOP_APP_TECH_STACK.md` lines 1-104
+> - `docs/desktop-app/03_DESKTOP_APP_REPO_AND_WORKFLOW.md` lines 26-94
 > 
 > **Tasks:**
 > 
@@ -150,8 +150,8 @@
 > **Time:** 1 day
 > 
 > **Read first:**
-> - `docs/desktop-app/02_DESKTOP_APP_BUILD_PLAN.md` lines 49-83
-> - `docs/desktop-app/03_DESKTOP_APP_REPO_AND_WORKFLOW.md` lines 13-47
+> - `docs/desktop-app/02_DESKTOP_APP_BUILD_PLAN.md` lines 53-88
+> - `docs/desktop-app/03_DESKTOP_APP_REPO_AND_WORKFLOW.md` lines 26-94
 > - `apps/mcp/src/index.ts` (to understand MCP server structure)
 > 
 > **Tasks:**
@@ -241,8 +241,8 @@
 > **Time:** 1 day
 > 
 > **Read first:**
-> - `docs/desktop-app/02_DESKTOP_APP_BUILD_PLAN.md` lines 85-129
-> - `docs/desktop-app/03_DESKTOP_APP_REPO_AND_WORKFLOW.md` lines 13-47
+> - `docs/desktop-app/02_DESKTOP_APP_BUILD_PLAN.md` lines 91-130
+> - `docs/desktop-app/03_DESKTOP_APP_REPO_AND_WORKFLOW.md` lines 26-94
 > - electron-builder docs: https://www.electron.build/configuration/configuration
 > 
 > **Tasks:**
@@ -372,8 +372,8 @@
 > **Time:** 0.5 day per feature
 > 
 > **Read first:**
-> - `docs/desktop-app/02_DESKTOP_APP_BUILD_PLAN.md` lines 131-174
-> - `docs/desktop-app/03_DESKTOP_APP_REPO_AND_WORKFLOW.md` lines 13-47
+> - `docs/desktop-app/02_DESKTOP_APP_BUILD_PLAN.md` lines 133-174
+> - `docs/desktop-app/03_DESKTOP_APP_REPO_AND_WORKFLOW.md` lines 26-94
 > 
 > **Implement only when requested. Pick from:**
 > 
@@ -474,7 +474,7 @@
 - See `03_DESKTOP_APP_REPO_AND_WORKFLOW.md` lines 13-47 for full workflow
 
 All phases reference:
-- Build plan: `02_DESKTOP_APP_BUILD_PLAN.md`
-- Tech stack: `06_DESKTOP_APP_TECH_STACK.md`
-- Architecture: `01_DESKTOP_APP_ARCHITECTURE.md`
-- Workflow: `03_DESKTOP_APP_REPO_AND_WORKFLOW.md`
+- Build plan: `02_DESKTOP_APP_BUILD_PLAN.md` (lines 1-188)
+- Tech stack: `06_DESKTOP_APP_TECH_STACK.md` (lines 1-104)
+- Architecture: `01_DESKTOP_APP_ARCHITECTURE.md` (lines 1-148)
+- Workflow: `03_DESKTOP_APP_REPO_AND_WORKFLOW.md` (lines 26-94)
