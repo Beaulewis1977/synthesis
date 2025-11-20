@@ -24,15 +24,15 @@ redis:
 
   const ast = await parseConfigFile(yamlContent, 'config.yml');
 
-  console.log('YAML Config Structure:');
-  console.log(
+  console.info('YAML Config Structure:');
+  console.info(
     'Tables (sections):',
     ast.tables.map((t) => t.name)
   );
 
   // Access specific section
   const dbSection = ast.tables.find((t) => t.name === 'database');
-  console.log(
+  console.info(
     'Database columns:',
     dbSection?.columns.map((c) => `${c.name}: ${c.type}`)
   );
@@ -57,13 +57,13 @@ async function exampleJSON() {
 
   const ast = await parseConfigFile(jsonContent, 'config.json');
 
-  console.log('\nJSON Config Structure:');
+  console.info('\nJSON Config Structure:');
   for (const table of ast.tables) {
-    console.log(`\n[${table.name}]`);
+    console.info(`\n[${table.name}]`);
     for (const col of table.columns) {
-      console.log(`  ${col.name}: ${col.type}`);
+      console.info(`  ${col.name}: ${col.type}`);
       if (col.comment) {
-        console.log(`    // ${col.comment}`);
+        console.info(`    // ${col.comment}`);
       }
     }
   }
@@ -101,13 +101,13 @@ volumes:
 
   const ast = await parseConfigFile(dockerCompose, 'docker-compose.yml');
 
-  console.log('\nDocker Compose Structure:');
+  console.info('\nDocker Compose Structure:');
   const servicesTable = ast.tables.find((t) => t.name === 'services');
   if (servicesTable) {
-    console.log('\nService configurations:');
+    console.info('\nService configurations:');
     // Note: Actual values are never exposed, only key paths
     for (const col of servicesTable.columns) {
-      console.log(`  ${col.name}: ${col.type}`);
+      console.info(`  ${col.name}: ${col.type}`);
     }
   }
 }
@@ -134,15 +134,15 @@ features:
   // 3. Detecting config patterns (feature flags, credentials, etc.)
   // 4. Creating dependency graphs between config files
 
-  console.log('\nConfig sections for chunking:');
+  console.info('\nConfig sections for chunking:');
   for (const table of ast.tables) {
-    console.log(`\nSection: ${table.name}`);
-    console.log(`  Keys: ${table.columns.length}`);
-    console.log(`  Comment: ${table.comment}`);
+    console.info(`\nSection: ${table.name}`);
+    console.info(`  Keys: ${table.columns.length}`);
+    console.info(`  Comment: ${table.comment}`);
 
     // Each section can be a separate chunk
     const chunkText = `${table.name} section with keys: ${table.columns.map((c) => c.name).join(', ')}`;
-    console.log(`  Chunk preview: ${chunkText}`);
+    console.info(`  Chunk preview: ${chunkText}`);
   }
 }
 
@@ -162,13 +162,13 @@ production:
   // Convert AST to string to verify no secrets leaked
   const astString = JSON.stringify(ast);
 
-  console.log('\nSecurity Check:');
-  console.log('AST contains secret values?', astString.includes('sk-1234567890abcdef'));
+  console.info('\nSecurity Check:');
+  console.info('AST contains secret values?', astString.includes('sk-1234567890abcdef'));
   // Should be false - only key names are stored, never values
 
-  console.log('Key paths extracted:');
+  console.info('Key paths extracted:');
   const productionSection = ast.tables.find((t) => t.name === 'production');
-  console.log(productionSection?.columns.map((c) => c.name));
+  console.info(productionSection?.columns.map((c) => c.name));
   // Shows: ['api_key', 'database_url', 'oauth.client_id', 'oauth.client_secret']
 }
 

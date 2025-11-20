@@ -378,10 +378,10 @@ function formatResults(dartSummary: BenchmarkSummary, tsSummary: BenchmarkSummar
  * Main benchmark execution
  */
 async function main() {
-  console.log('🚀 Starting Phase 13 Performance Benchmarks...\n');
+  console.info('🚀 Starting Phase 13 Performance Benchmarks...\n');
 
   // Find Dart files
-  console.log('📁 Searching for Dart files...');
+  console.info('📁 Searching for Dart files...');
   const fixtureDir = 'apps/server/src/pipeline/__tests__/fixtures';
   const dartFiles: string[] = [];
 
@@ -390,10 +390,10 @@ async function main() {
 
   // Try to find more Dart files in the project (if any)
   // For now, we'll duplicate the fixture to simulate more files
-  console.log(`Found ${dartFiles.length} Dart file(s)\n`);
+  console.info(`Found ${dartFiles.length} Dart file(s)\n`);
 
   // Find TypeScript files
-  console.log('📁 Searching for TypeScript files...');
+  console.info('📁 Searching for TypeScript files...');
   const tsFiles: string[] = [];
 
   // Add test fixtures
@@ -405,29 +405,29 @@ async function main() {
   const serverFiles = findFiles('apps/server/src', '.ts', 20);
   tsFiles.push(...serverFiles.filter((f) => !f.includes('.test.ts') && !f.includes('fixtures')));
 
-  console.log(`Found ${tsFiles.length} TypeScript file(s)\n`);
+  console.info(`Found ${tsFiles.length} TypeScript file(s)\n`);
 
   // Benchmark Dart files
-  console.log('⚡ Benchmarking Dart parsing...');
+  console.info('⚡ Benchmarking Dart parsing...');
   const dartResults: BenchmarkResult[] = [];
   for (const file of dartFiles) {
     const result = await benchmarkDartFile(file);
     dartResults.push(result);
     const status = result.success ? '✅' : '❌';
-    console.log(`  ${status} ${file} - ${result.parseTime.toFixed(0)}ms (${result.lines} lines)`);
+    console.info(`  ${status} ${file} - ${result.parseTime.toFixed(0)}ms (${result.lines} lines)`);
   }
-  console.log('');
+  console.info('');
 
   // Benchmark TypeScript files
-  console.log('⚡ Benchmarking TypeScript parsing...');
+  console.info('⚡ Benchmarking TypeScript parsing...');
   const tsResults: BenchmarkResult[] = [];
   for (const file of tsFiles) {
     const result = await benchmarkTypeScriptFile(file);
     tsResults.push(result);
     const status = result.success ? '✅' : '❌';
-    console.log(`  ${status} ${file} - ${result.parseTime.toFixed(0)}ms (${result.lines} lines)`);
+    console.info(`  ${status} ${file} - ${result.parseTime.toFixed(0)}ms (${result.lines} lines)`);
   }
-  console.log('');
+  console.info('');
 
   // Calculate summaries
   const dartSummary = calculateSummary('Dart', dartResults);
@@ -442,24 +442,24 @@ async function main() {
   mkdirSync('docs/phases/phase-13', { recursive: true });
   writeFileSync(outputPath, markdown, 'utf-8');
 
-  console.log(`✅ Benchmark results saved to ${outputPath}\n`);
+  console.info(`✅ Benchmark results saved to ${outputPath}\n`);
 
   // Print summary to console
-  console.log('📊 Summary:');
-  console.log(
+  console.info('📊 Summary:');
+  console.info(
     `  Dart: ${dartSummary.avgParseTime.toFixed(0)}ms avg, ${dartSummary.p90ParseTime.toFixed(0)}ms P90 ${dartSummary.p90ParseTime < 500 ? '✅' : '❌'}`
   );
-  console.log(
+  console.info(
     `  TypeScript: ${tsSummary.avgParseTime.toFixed(0)}ms avg, ${tsSummary.p90ParseTime.toFixed(0)}ms P90 ${tsSummary.p90ParseTime < 500 ? '✅' : '❌'}`
   );
 
   if (dartSummary.avgOverhead && tsSummary.avgOverhead) {
-    console.log(
+    console.info(
       `  Chunking Overhead: Dart ${dartSummary.avgOverhead.toFixed(2)}x, TS ${tsSummary.avgOverhead.toFixed(2)}x`
     );
   }
 
-  console.log('\n✨ Benchmarks complete!');
+  console.info('\n✨ Benchmarks complete!');
 }
 
 main().catch(console.error);

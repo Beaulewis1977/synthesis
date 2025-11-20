@@ -1,4 +1,4 @@
-import { getPool } from '@synthesis/db';
+import { addChatMessage, getPool } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { runAgentChat } from '../agent/agent.js';
@@ -19,6 +19,7 @@ const AgentChatBodySchema = z
   .object({
     message: z.string().min(1, 'message must not be empty'),
     collection_id: z.string().uuid(),
+    session_id: z.string().uuid().optional(),
     history: z.array(ConversationMessageSchema).max(20).optional(),
   })
   .strict();
@@ -68,11 +69,31 @@ export const agentRoutes: FastifyPluginAsync = async (fastify) => {
     const body = validation.data as AgentChatBody;
 
     try {
+      // If session_id provided, try to fetch history from DB to use as context
+      // Note: We don't use this history for the *agent* memory right now because
+      // runAgentChat expects specific AgentConversationMessage[] format and handles its own context window.
+      // For now, we rely on the client to pass relevant history or the agent to retrieve it.
+      // Future improvement: Load last N messages from DB if history is empty in body.
+
       const result = await runAgentChat(getPool(), {
         message: body.message,
         collectionId: body.collection_id,
         history: body.history ?? [],
       });
+
+      // If session_id is provided, persist the conversation
+      if (body.session_id) {
+        try {
+          await addChatMessage(body.session_id, 'user', body.message);
+          await addChatMessage(body.session_id, 'assistant', result.message, {
+            tool_calls: result.toolCalls,
+            usage: result.usage,
+          });
+        } catch (persistError) {
+          // Don't fail the request if persistence fails, just log it
+          fastify.log.error(persistError, 'Failed to persist chat message');
+        }
+      }
 
       return reply.send({
         message: result.message,

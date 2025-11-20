@@ -2,6 +2,8 @@ import type {
   AgentChatRequest,
   AgentChatResponse,
   ApiError,
+  ChatMessage,
+  ChatSession,
   Collection,
   CollectionsResponse,
   CostAlertsResponse,
@@ -97,6 +99,16 @@ class ApiClient {
   }
 
   /**
+   * Create a new collection.
+   */
+  async createCollection(name: string, description?: string): Promise<Collection> {
+    return this.request<Collection>('/api/collections', {
+      method: 'POST',
+      body: JSON.stringify({ name, description }),
+    });
+  }
+
+  /**
    * Fetch documents that belong to the provided collection.
    */
   async fetchDocuments(collectionId: string): Promise<DocumentsResponse> {
@@ -122,6 +134,36 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(request),
     });
+  }
+
+  /**
+   * Create a new chat session.
+   */
+  async createChatSession(collectionId: string, title: string): Promise<{ session: ChatSession }> {
+    return this.request<{ session: ChatSession }>('/api/chats', {
+      method: 'POST',
+      body: JSON.stringify({ collectionId, title }),
+    });
+  }
+
+  /**
+   * List chat sessions for a collection.
+   */
+  async listChatSessions(collectionId: string): Promise<{ sessions: ChatSession[] }> {
+    return this.request<{ sessions: ChatSession[] }>(
+      `/api/chats/collection/${encodeURIComponent(collectionId)}`
+    );
+  }
+
+  /**
+   * Get a single chat session with messages.
+   */
+  async getChatSession(
+    sessionId: string
+  ): Promise<{ session: ChatSession; messages: ChatMessage[] }> {
+    return this.request<{ session: ChatSession; messages: ChatMessage[] }>(
+      `/api/chats/${encodeURIComponent(sessionId)}`
+    );
   }
 
   /**

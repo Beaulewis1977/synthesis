@@ -122,48 +122,48 @@ function calculatePrecisionAt5(results, expectedRelevant) {
 }
 
 async function runRealEvaluation() {
-  console.log('🔬 Real Hybrid Search + Reranking Evaluation');
-  console.log('============================================\n');
+  console.info('🔬 Real Hybrid Search + Reranking Evaluation');
+  console.info('============================================\n');
 
   const results = [];
 
   for (const { query, expectedRelevant = [] } of TEST_QUERIES) {
-    console.log(`Testing: "${query}"`);
+    console.info(`Testing: "${query}"`);
 
     const relevantDocs = Array.isArray(expectedRelevant) ? expectedRelevant : [];
 
     try {
       // Baseline hybrid search (no reranking)
-      console.log('  Running hybrid baseline...');
+      console.info('  Running hybrid baseline...');
       const baselineStart = Date.now();
       const baselineResponse = await runHybridSearch(query, false);
       const baselineTime = Date.now() - baselineStart;
 
       // Reranked hybrid search
-      console.log('  Running hybrid + rerank...');
+      console.info('  Running hybrid + rerank...');
       const rerankStart = Date.now();
       const rerankResponse = await runHybridSearch(query, true);
       const rerankTime = Date.now() - rerankStart;
 
-      console.log(`  ✅ Baseline: ${baselineResponse.results.length} results, ${baselineTime}ms`);
-      console.log(`  ✅ Reranked: ${rerankResponse.results.length} results, ${rerankTime}ms`);
-      console.log(`  📈 Latency overhead: ${rerankTime - baselineTime}ms`);
+      console.info(`  ✅ Baseline: ${baselineResponse.results.length} results, ${baselineTime}ms`);
+      console.info(`  ✅ Reranked: ${rerankResponse.results.length} results, ${rerankTime}ms`);
+      console.info(`  📈 Latency overhead: ${rerankTime - baselineTime}ms`);
 
       // Show top results for manual relevance judgment
-      console.log('\n  🔍 TOP 5 BASELINE RESULTS:');
+      console.info('\n  🔍 TOP 5 BASELINE RESULTS:');
       baselineResponse.results.slice(0, 5).forEach((result, i) => {
-        console.log(
+        console.info(
           `    ${i + 1}. ${result.doc_title || 'Unknown'} (score: ${result.similarity?.toFixed(3) || 'N/A'})`
         );
-        console.log(`       "${result.text?.substring(0, 100)}..."`);
+        console.info(`       "${result.text?.substring(0, 100)}..."`);
       });
 
-      console.log('\n  🔍 TOP 5 RERANKED RESULTS:');
+      console.info('\n  🔍 TOP 5 RERANKED RESULTS:');
       rerankResponse.results.slice(0, 5).forEach((result, i) => {
-        console.log(
+        console.info(
           `    ${i + 1}. ${result.doc_title || 'Unknown'} (score: ${result.similarity?.toFixed(3) || 'N/A'})`
         );
-        console.log(`       "${result.text?.substring(0, 100)}..."`);
+        console.info(`       "${result.text?.substring(0, 100)}..."`);
       });
 
       const baselinePrecisionAt5 = calculatePrecisionAt5(baselineResponse.results, relevantDocs);
@@ -196,7 +196,7 @@ async function runRealEvaluation() {
         latency_overhead_ms: rerankTime - baselineTime,
       });
 
-      console.log(`\n${'='.repeat(60)}\n`);
+      console.info(`\n${'='.repeat(60)}\n`);
     } catch (error) {
       console.error(`❌ Error testing "${query}":`, error.message);
       results.push({ query, error: error.message });
@@ -208,8 +208,8 @@ async function runRealEvaluation() {
 }
 
 function generateReport(results) {
-  console.log('📊 EVALUATION SUMMARY');
-  console.log('====================');
+  console.info('📊 EVALUATION SUMMARY');
+  console.info('====================');
 
   const successfulTests = results.filter((r) => !r.error);
   const totalLatencyOverhead = successfulTests.reduce((sum, r) => sum + r.latency_overhead_ms, 0);
@@ -217,15 +217,15 @@ function generateReport(results) {
     successfulTests.length > 0 ? totalLatencyOverhead / successfulTests.length : null;
 
   if (avgLatencyOverhead !== null) {
-    console.log(`\n⏱️  Average Latency Overhead: ${avgLatencyOverhead.toFixed(0)}ms`);
+    console.info(`\n⏱️  Average Latency Overhead: ${avgLatencyOverhead.toFixed(0)}ms`);
   } else {
-    console.log('\n⏱️  Average Latency Overhead: N/A (no successful tests)');
+    console.info('\n⏱️  Average Latency Overhead: N/A (no successful tests)');
   }
-  console.log('🎯 Target: <300ms overhead');
+  console.info('🎯 Target: <300ms overhead');
 
-  console.log('\n📐 Precision@5 Summary:');
+  console.info('\n📐 Precision@5 Summary:');
   if (successfulTests.length === 0) {
-    console.log('- No successful tests to calculate precision');
+    console.info('- No successful tests to calculate precision');
   } else {
     for (const result of successfulTests) {
       const baselinePrecision = result.baseline?.precision_at_5;
@@ -235,7 +235,7 @@ function generateReport(results) {
           ? `${(value * 100).toFixed(1)}%`
           : 'N/A';
 
-      console.log(
+      console.info(
         `- ${result.query}: baseline ${formatPrecision(baselinePrecision)}, reranked ${formatPrecision(
           rerankedPrecision
         )}`
@@ -243,16 +243,16 @@ function generateReport(results) {
     }
   }
 
-  console.log('\n📋 NEXT STEPS FOR PRECISION MEASUREMENT:');
-  console.log('1. Review the top results above for each query');
-  console.log('2. Identify which documents are actually relevant for each query');
-  console.log('3. Update TEST_QUERIES with the expectedRelevant arrays');
-  console.log('4. Run this script again to calculate precision@5 improvements');
+  console.info('\n📋 NEXT STEPS FOR PRECISION MEASUREMENT:');
+  console.info('1. Review the top results above for each query');
+  console.info('2. Identify which documents are actually relevant for each query');
+  console.info('3. Update TEST_QUERIES with the expectedRelevant arrays');
+  console.info('4. Run this script again to calculate precision@5 improvements');
 
-  console.log('\n💡 To get relevance judgments:');
-  console.log('- Look through your Flutter corpus for docs that truly answer each query');
-  console.log('- Add the doc_ids to the expectedRelevant arrays above');
-  console.log('- Rerun to see if reranking improves precision@5');
+  console.info('\n💡 To get relevance judgments:');
+  console.info('- Look through your Flutter corpus for docs that truly answer each query');
+  console.info('- Add the doc_ids to the expectedRelevant arrays above');
+  console.info('- Rerun to see if reranking improves precision@5');
 
   // Save raw results for later analysis
   writeFileSync(
@@ -267,7 +267,7 @@ function generateReport(results) {
     )
   );
 
-  console.log('\n💾 Raw results saved to: real-hybrid-results.json');
+  console.info('\n💾 Raw results saved to: real-hybrid-results.json');
 }
 
 // Run if called directly

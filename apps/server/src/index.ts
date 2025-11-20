@@ -12,6 +12,7 @@ import multipart from '@fastify/multipart';
 import { closePool, getPool } from '@synthesis/db';
 import Fastify from 'fastify';
 import { agentRoutes } from './routes/agent.js';
+import { chatRoutes } from './routes/chat.js';
 import { collectionRoutes } from './routes/collections.js';
 import { costRoutes } from './routes/costs.js';
 import { ingestRoutes } from './routes/ingest.js';
@@ -29,7 +30,7 @@ if (!process.env.DATABASE_URL || process.env.DATABASE_URL.trim() === '') {
   process.exit(1);
 }
 getPool(process.env.DATABASE_URL);
-console.log('Database pool initialized');
+console.info('Database pool initialized');
 
 const fastify = Fastify({
   logger: {
@@ -69,6 +70,7 @@ await fastify.register(compress, {
 
 // Register routes
 await fastify.register(collectionRoutes);
+await fastify.register(chatRoutes);
 await fastify.register(searchRoutes);
 await fastify.register(synthesisRoutes);
 await fastify.register(costRoutes);
@@ -89,7 +91,7 @@ fastify.get('/health', async () => {
 // Start server
 try {
   await fastify.listen({ port: PORT, host: HOST });
-  console.log(`🚀 Server listening on http://${HOST}:${PORT}`);
+  console.info(`🚀 Server listening on http://${HOST}:${PORT}`);
 } catch (err) {
   fastify.log.error(err);
   process.exit(1);
@@ -101,7 +103,7 @@ try {
  * @param {string} signal The signal that triggered the shutdown (e.g., 'SIGTERM').
  */
 const shutdown = async (signal: string) => {
-  console.log(`\n${signal} received, shutting down gracefully...`);
+  console.info(`\n${signal} received, shutting down gracefully...`);
   await fastify.close();
   await closePool();
   await disconnectRedis();

@@ -55,7 +55,7 @@ async function measureQuery(metricsQuery: MetricQuery): Promise<MetricRow> {
   const baselineEnd = performance.now();
 
   // eslint-disable-next-line no-console
-  console.log(
+  console.info(
     `  Retrieved ${baselineCandidates.length} candidates (baseline precision: ${calculatePrecision(
       baselineCandidates,
       metricsQuery.relevantDocIds
@@ -100,7 +100,7 @@ async function main(): Promise<void> {
   const rows: MetricRow[] = [];
   for (const entry of QUERIES) {
     // eslint-disable-next-line no-console
-    console.log(`Measuring "${entry.query}"...`);
+    console.info(`Measuring "${entry.query}"...`);
     const result = await measureQuery(entry);
     rows.push(result);
   }
@@ -108,7 +108,7 @@ async function main(): Promise<void> {
   await closePool();
 
   // eslint-disable-next-line no-console
-  console.log('\nQuery Metrics');
+  console.info('\nQuery Metrics');
   // eslint-disable-next-line no-console
   console.table(
     rows.map((row) => ({
@@ -127,7 +127,7 @@ async function main(): Promise<void> {
   const averageLatencyDelta = rows.reduce((sum, row) => sum + row.latencyDelta, 0) / rows.length;
 
   // eslint-disable-next-line no-console
-  console.log(
+  console.info(
     `Average Δ Precision@5: ${averagePrecisionDelta.toFixed(2)} | Average Δ Latency: ${averageLatencyDelta.toFixed(
       1
     )}ms`

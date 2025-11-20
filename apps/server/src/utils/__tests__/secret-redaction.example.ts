@@ -24,8 +24,8 @@ const appConfig = {
   },
 };
 
-console.log('Application Config (redacted):');
-console.log(JSON.stringify(redactSecrets(appConfig), null, 2));
+console.info('Application Config (redacted):');
+console.info(JSON.stringify(redactSecrets(appConfig), null, 2));
 // Output:
 // {
 //   "database": {
@@ -51,8 +51,8 @@ const loginRequest = {
   timestamp: new Date(),
 };
 
-console.log('\nLogin Request (redacted):');
-console.log(JSON.stringify(redactSecrets(loginRequest), null, 2));
+console.info('\nLogin Request (redacted):');
+console.info(JSON.stringify(redactSecrets(loginRequest), null, 2));
 // Output:
 // {
 //   "username": "alice@example.com",
@@ -67,8 +67,8 @@ const users = [
   { id: 2, name: 'Bob', email: 'bob@example.com', password: 'secret2' },
 ];
 
-console.log('\nUsers Array (redacted):');
-console.log(JSON.stringify(redactSecrets({ users }), null, 2));
+console.info('\nUsers Array (redacted):');
+console.info(JSON.stringify(redactSecrets({ users }), null, 2));
 // Output:
 // {
 //   "users": [
@@ -93,8 +93,8 @@ const credentials = {
   public_urls: ['https://api.example.com', 'https://app.example.com', 'https://docs.example.com'],
 };
 
-console.log('\nCredentials (redacted):');
-console.log(JSON.stringify(redactSecrets(credentials), null, 2));
+console.info('\nCredentials (redacted):');
+console.info(JSON.stringify(redactSecrets(credentials), null, 2));
 // Output:
 // {
 //   "api_keys": "<redacted>",
@@ -119,8 +119,8 @@ try {
     },
   };
 
-  console.log('\nError Context (redacted):');
-  console.log(JSON.stringify(redactSecrets(errorContext), null, 2));
+  console.info('\nError Context (redacted):');
+  console.info(JSON.stringify(redactSecrets(errorContext), null, 2));
   // Output:
   // {
   //   "message": "API connection failed",
@@ -142,8 +142,8 @@ const authData = {
   expires_at: new Date('2024-12-31'),
 };
 
-console.log('\nAuth Data (redacted):');
-console.log(JSON.stringify(redactSecrets(authData), null, 2));
+console.info('\nAuth Data (redacted):');
+console.info(JSON.stringify(redactSecrets(authData), null, 2));
 // Output:
 // {
 //   "user_id": 12345,

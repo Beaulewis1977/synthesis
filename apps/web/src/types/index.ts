@@ -146,12 +146,23 @@ export interface AgentChatRequest {
   message: string;
   collection_id: string;
   history?: Array<{ role: string; content: string }>;
+  session_id?: string;
 }
 
 export interface AgentChatResponse {
   message: string;
   tool_calls: ToolCall[];
   history: Array<{ role: string; content: string }>;
+  usage?: Record<string, unknown>;
+  session_id?: string;
+}
+
+export interface ChatSession {
+  id: string;
+  collection_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // Upload-related types

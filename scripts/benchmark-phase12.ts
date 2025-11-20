@@ -580,12 +580,12 @@ function outputSummary(metrics: QueryMetrics[]): void {
   };
 
   // eslint-disable-next-line no-console
-  console.log('\n=== Phase 12 Benchmark Results ===\n');
+  console.info('\n=== Phase 12 Benchmark Results ===\n');
   // eslint-disable-next-line no-console
   console.table(summary);
 
   // eslint-disable-next-line no-console
-  console.log('\nTop Queries (Precision@5 delta)');
+  console.info('\nTop Queries (Precision@5 delta)');
   // eslint-disable-next-line no-console
   console.table(
     topImproved.map((entry) => ({
@@ -597,7 +597,7 @@ function outputSummary(metrics: QueryMetrics[]): void {
 
   if (noImprovement.length > 0) {
     // eslint-disable-next-line no-console
-    console.log('\nQueries With No Precision Gain');
+    console.info('\nQueries With No Precision Gain');
     // eslint-disable-next-line no-console
     console.table(
       noImprovement.map((entry) => ({

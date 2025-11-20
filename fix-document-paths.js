@@ -62,7 +62,7 @@ async function confirmExecution(message) {
 }
 
 async function fixDocumentPaths() {
-  console.log('🔧 Fixing document file paths...');
+  console.info('🔧 Fixing document file paths...');
 
   if (!collectionId) {
     throw new Error(
@@ -91,7 +91,7 @@ async function fixDocumentPaths() {
       '⚠️  You are about to run fix-document-paths.js in production.'
     );
     if (!confirmed) {
-      console.log('❌ Operation cancelled by user.');
+      console.info('❌ Operation cancelled by user.');
       return;
     }
   } else {
@@ -99,7 +99,7 @@ async function fixDocumentPaths() {
       'This operation will update document paths in the database.'
     );
     if (!confirmed) {
-      console.log('❌ Operation cancelled by user.');
+      console.info('❌ Operation cancelled by user.');
       return;
     }
   }
@@ -149,13 +149,13 @@ async function fixDocumentPaths() {
     await client.end();
   }
 
-  console.log(`✅ Updated ${rows.length} documents:`);
+  console.info(`✅ Updated ${rows.length} documents:`);
   for (const row of rows) {
-    console.log(`  - ${row.id}: ${row.title} → ${row.file_path}`);
+    console.info(`  - ${row.id}: ${row.title} → ${row.file_path}`);
   }
 
-  console.log('\n📝 Documents are now ready for processing.');
-  console.log('The ingestion pipeline should automatically process them.');
+  console.info('\n📝 Documents are now ready for processing.');
+  console.info('The ingestion pipeline should automatically process them.');
 }
 
 fixDocumentPaths().catch(console.error);

@@ -33,8 +33,14 @@ function normalizeIndexMethod(method?: string): IndexMethod | undefined {
   return (INDEX_METHODS as readonly string[]).includes(lower) ? (lower as IndexMethod) : undefined;
 }
 
+export interface PolicyDefinition extends FunctionDefinition {
+  table: string;
+  roles?: string[];
+  cmd?: string;
+}
+
 /**
- * Parse PostgreSQL DDL file and extract tables, indexes, and constraints.
+ * Parse PostgreSQL DDL file and extract tables, indexes, constraints, and RLS policies.
  * Returns BackendAST structure compatible with existing chunking pipeline.
  *
  * @param content - SQL file content
@@ -62,6 +68,10 @@ export async function parseSQLFile(content: string, filePath?: string): Promise<
     // Extract CREATE FUNCTION/PROCEDURE statements
     ast.functions = extractFunctions(content, cleanedContent);
 
+    // Extract CREATE POLICY statements (treated as functions for chunking purposes)
+    const policies = extractPolicies(content, cleanedContent);
+    ast.functions.push(...policies);
+
     // Process ALTER TABLE statements and attach to existing tables
     processAlterStatements(content, cleanedContent, ast.tables);
 
@@ -73,6 +83,54 @@ export async function parseSQLFile(content: string, filePath?: string): Promise<
     console.warn(`Failed to parse SQL file${filePath ? ` ${filePath}` : ''}: ${error}`);
     return ast;
   }
+}
+
+/**
+ * Extract CREATE POLICY statements (RLS)
+ *
+ * @param originalContent - Original content (for line ranges)
+ * @param cleanedContent - Cleaned content (for parsing)
+ * @returns Array of policy definitions (mapped to FunctionDefinition structure)
+ */
+function extractPolicies(originalContent: string, cleanedContent: string): FunctionDefinition[] {
+  const policies: FunctionDefinition[] = [];
+  const createPolicyRegex =
+    /CREATE\s+POLICY\s+"?([^"\s]+)"?\s+ON\s+([^\s]+)\s+(?:AS\s+(\w+)\s+)?(?:FOR\s+(\w+)\s+)?(?:TO\s+([^\s]+)\s+)?(?:USING\s*\(([^)]+)\))?(?:\s+WITH\s+CHECK\s*\(([^)]+)\))?/gi;
+
+  let match: RegExpExecArray | null;
+  // biome-ignore lint/suspicious/noAssignInExpressions: Standard regex iteration pattern
+  while ((match = createPolicyRegex.exec(cleanedContent)) !== null) {
+    const startIndex = match.index;
+    const name = match[1];
+    const tableRef = parseTableReference(match[2]);
+    const type = match[3] || 'PERMISSIVE'; // PERMISSIVE | RESTRICTIVE
+    const cmd = match[4] || 'ALL'; // SELECT | INSERT | UPDATE | DELETE | ALL
+    // TODO: Add roles, using, and withCheck to PolicyDefinition metadata when needed
+    // const roles = match[5] ? match[5].split(',').map((r) => r.trim()) : ['PUBLIC'];
+    // const using = match[6];
+    // const withCheck = match[7];
+
+    const statementEnd = findStatementEnd(cleanedContent, startIndex);
+    const endIndex = statementEnd !== -1 ? statementEnd + 1 : startIndex + match[0].length;
+
+    const code = originalContent.substring(startIndex, endIndex).trim();
+    const lineRange = getLineRange(originalContent, startIndex, endIndex);
+
+    policies.push({
+      name: `POLICY: ${name}`,
+      schema: tableRef.schema,
+      // Store policy specifics in available fields or extend AST later
+      // For now, we map to FunctionDefinition to reuse the chunker
+      return_type: `RLS ${type} FOR ${cmd}`,
+      language: 'sql',
+      code,
+      lineRange,
+      startOffset: startIndex,
+      endOffset: endIndex,
+    });
+  }
+
+  return policies;
 }
 
 /**

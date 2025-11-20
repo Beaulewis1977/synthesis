@@ -49,6 +49,44 @@ export interface Chunk {
   created_at: Date;
 }
 
+/**
+ * Represents a persistent chat session.
+ */
+export interface ChatSession {
+  id: string;
+  collection_id: string;
+  title: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Represents a message within a chat session.
+ */
+export interface ChatMessage {
+  id: string;
+  session_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  created_at: Date;
+  // biome-ignore lint/suspicious/noExplicitAny: Metadata can be any shape
+  metadata: Record<string, any>;
+}
+
+/**
+ * Represents a table schema in the database.
+ */
+export interface TableSchema {
+  table_name: string;
+  schema_name: string;
+  columns: Array<{
+    name: string;
+    type: string;
+    is_nullable: boolean;
+    default_value: string | null;
+  }>;
+}
+
 // Collection queries
 /**
  * Retrieves all collections from the database, ordered by creation date.
@@ -265,4 +303,78 @@ export async function upsertChunk(
 export async function deleteDocumentChunks(docId: string, client?: PoolClient): Promise<void> {
   const queryFn = client ? client.query.bind(client) : query;
   await queryFn('DELETE FROM chunks WHERE doc_id = $1', [docId]);
+}
+
+// Chat Session queries
+
+/**
+ * Creates a new chat session.
+ * @param collectionId The collection this chat belongs to.
+ * @param title The title of the chat session.
+ * @returns The created chat session.
+ */
+export async function createChatSession(collectionId: string, title: string): Promise<ChatSession> {
+  const result = await query(
+    'INSERT INTO chat_sessions (collection_id, title) VALUES ($1, $2) RETURNING *',
+    [collectionId, title]
+  );
+  return result.rows[0] as ChatSession;
+}
+
+/**
+ * Retrieves all chat sessions for a collection.
+ * @param collectionId The collection ID.
+ * @returns List of chat sessions.
+ */
+export async function listChatSessions(collectionId: string): Promise<ChatSession[]> {
+  const result = await query(
+    'SELECT * FROM chat_sessions WHERE collection_id = $1 ORDER BY updated_at DESC',
+    [collectionId]
+  );
+  return result.rows as ChatSession[];
+}
+
+/**
+ * Retrieves a single chat session.
+ * @param id The chat session ID.
+ */
+export async function getChatSession(id: string): Promise<ChatSession | null> {
+  const result = await query('SELECT * FROM chat_sessions WHERE id = $1', [id]);
+  return (result.rows[0] as ChatSession) || null;
+}
+
+/**
+ * Adds a message to a chat session.
+ * @param sessionId The chat session ID.
+ * @param role The role (user/assistant).
+ * @param content The message content.
+ * @param metadata Optional metadata.
+ */
+export async function addChatMessage(
+  sessionId: string,
+  role: 'user' | 'assistant' | 'system',
+  content: string,
+  metadata?: Record<string, unknown>
+): Promise<ChatMessage> {
+  const result = await query(
+    'INSERT INTO chat_messages (session_id, role, content, metadata) VALUES ($1, $2, $3, $4) RETURNING *',
+    [sessionId, role, content, JSON.stringify(metadata || {})]
+  );
+
+  // Update session updated_at
+  await query('UPDATE chat_sessions SET updated_at = NOW() WHERE id = $1', [sessionId]);
+
+  return result.rows[0] as ChatMessage;
+}
+
+/**
+ * Retrieves messages for a chat session.
+ * @param sessionId The chat session ID.
+ */
+export async function getChatMessages(sessionId: string): Promise<ChatMessage[]> {
+  const result = await query(
+    'SELECT * FROM chat_messages WHERE session_id = $1 ORDER BY created_at ASC',
+    [sessionId]
+  );
+  return result.rows as ChatMessage[];
 }

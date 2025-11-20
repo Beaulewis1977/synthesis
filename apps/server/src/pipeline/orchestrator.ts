@@ -69,7 +69,7 @@ export async function ingestDocument(
 
     if (codeFile && codeChunkingEnabled) {
       // Use code-aware chunking
-      console.log(`Using code-aware chunking for ${document.file_path}`);
+      // console.info(`Using code-aware chunking for ${document.file_path}`);
       const parsedEnvMaxChunk = Number.parseInt(process.env.CODE_MAX_CHUNK_LINES ?? '', 10);
       const maxChunkSize = Number.isNaN(parsedEnvMaxChunk) ? 100 : Math.max(parsedEnvMaxChunk, 1);
       chunks = await chunkCodeFile(document.file_path, extraction.text, {
