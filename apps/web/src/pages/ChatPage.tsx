@@ -69,29 +69,23 @@ export function ChatPage() {
   }, [searchParams, sessionId]);
 
   // Fetch session messages when sessionId changes
-  useQuery({
+  const { data: sessionData } = useQuery({
     queryKey: ['chat-session', sessionId],
     queryFn: () => (sessionId ? apiClient.getChatSession(sessionId) : null),
     enabled: !!sessionId,
-    // Sync messages when data is loaded
-    // biome-ignore lint/suspicious/noExplicitAny: data is typed but react-query types can be tricky
-    select: (data: any) => data,
   });
 
-  // Effect to sync messages from query data
+  // Sync messages when session data is loaded
   useEffect(() => {
-    if (sessionId) {
-      apiClient.getChatSession(sessionId).then((data) => {
-        setMessages(data.messages);
-        // If it's an existing session, we might want to set the last user query
-        // from the history to enable synthesis view context
-        const lastUserMsg = [...data.messages].reverse().find((m) => m.role === 'user');
-        if (lastUserMsg) {
-          setLastUserQuery(lastUserMsg.content);
-        }
-      });
+    if (sessionData?.messages) {
+      setMessages(sessionData.messages);
+      // If it's an existing session, set the last user query for synthesis view context
+      const lastUserMsg = [...sessionData.messages].reverse().find((m) => m.role === 'user');
+      if (lastUserMsg) {
+        setLastUserQuery(lastUserMsg.content);
+      }
     }
-  }, [sessionId]);
+  }, [sessionData]);
 
   // Chat mutation
   const chatMutation = useMutation({

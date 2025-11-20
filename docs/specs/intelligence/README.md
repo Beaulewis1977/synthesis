@@ -34,8 +34,8 @@ Here is the exact order to implement the intelligence for these, from "Must Have
 ### 🎨 Phase C: Future Expansion (When needed)
 *Implement these only when you actually start writing code in these languages.*
 
-6.  **React Native** - *Spec: `04_CROSS_PLATFORM_SPEC.md`*
-7.  **Firebase/Firestore** - *Spec: `04_CROSS_PLATFORM_SPEC.md`*
+6. **React Native** - *Spec: `04_CROSS_PLATFORM_SPEC.md`*
+7. **Firebase/Firestore** - *Spec: `04_CROSS_PLATFORM_SPEC.md`*
 
 ---
 
