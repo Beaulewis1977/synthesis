@@ -1,6 +1,8 @@
 -- Migration: 008_chat_history.sql
 -- Description: Create tables for persistent chat sessions and messages
 
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- Chat Sessions Table
 CREATE TABLE IF NOT EXISTS chat_sessions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -24,4 +26,5 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_collection_id ON chat_sessions(collection_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated_at ON chat_sessions(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at ASC);
 

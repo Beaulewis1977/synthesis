@@ -55,10 +55,16 @@ export async function chunkCodeFile(
             : await chunkTypeScriptCode(filePath, content, options);
 
         // Enhance with Redis analysis if enabled
+        const redisAnalysisEnabled = process.env.REDIS_ANALYSIS === 'true';
+        if (!redisAnalysisEnabled) {
+          return chunks;
+        }
+
         try {
           const redisChunks = await analyzeRedisUsage(content, filePath);
           return [...chunks, ...redisChunks];
         } catch (err) {
+          // Use console.warn for non-fatal analysis errors
           console.warn('Redis analysis failed, skipping', err);
           return chunks;
         }

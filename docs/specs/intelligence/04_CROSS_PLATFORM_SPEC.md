@@ -32,9 +32,9 @@
 ### Role Detection
 *   **Configuration:** `redis.conf` files.
 *   **Usage Scanner:** Scan backend code (Node/Python/Go) for Redis client calls:
-    *   `redis.set`, `redis.get` -> `caching`
-    *   `redis.publish`, `redis.subscribe` -> `messaging` (Pub/Sub)
-    *   `lpush`, `rpop` -> `queue`
+  *   `redis.set`, `redis.get` -> `caching`
+  *   `redis.publish`, `redis.subscribe` -> `messaging` (Pub/Sub)
+  *   `lpush`, `rpop` -> `queue`
 
 ### Key Patterns to Tag
 *   **Cache Keys:** Attempt to extract string patterns used in keys (e.g., `user:{id}:session`). *Usage:* Helps LLM understand the cache key namespace to avoid collisions.

@@ -71,14 +71,27 @@ export function ChatPage() {
   // Fetch session messages when sessionId changes
   useQuery({
     queryKey: ['chat-session', sessionId],
-    queryFn: async () => {
-      if (!sessionId) return null;
-      const data = await apiClient.getChatSession(sessionId);
-      setMessages(data.messages);
-      return data;
-    },
+    queryFn: () => (sessionId ? apiClient.getChatSession(sessionId) : null),
     enabled: !!sessionId,
+    // Sync messages when data is loaded
+    // biome-ignore lint/suspicious/noExplicitAny: data is typed but react-query types can be tricky
+    select: (data: any) => data,
   });
+
+  // Effect to sync messages from query data
+  useEffect(() => {
+    if (sessionId) {
+      apiClient.getChatSession(sessionId).then((data) => {
+        setMessages(data.messages);
+        // If it's an existing session, we might want to set the last user query
+        // from the history to enable synthesis view context
+        const lastUserMsg = [...data.messages].reverse().find((m) => m.role === 'user');
+        if (lastUserMsg) {
+          setLastUserQuery(lastUserMsg.content);
+        }
+      });
+    }
+  }, [sessionId]);
 
   // Chat mutation
   const chatMutation = useMutation({
@@ -186,6 +199,7 @@ export function ChatPage() {
     setSearchParams({});
     setMessages([]);
     setInputValue('');
+    setLastUserQuery(''); // Reset synthesis context
     chatMutation.reset();
     inputRef.current?.focus();
   };

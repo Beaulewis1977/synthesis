@@ -30,7 +30,7 @@ if (!process.env.DATABASE_URL || process.env.DATABASE_URL.trim() === '') {
   process.exit(1);
 }
 getPool(process.env.DATABASE_URL);
-// console.info('Database pool initialized');
+console.info('Database pool initialized');
 
 const fastify = Fastify({
   logger: {
@@ -91,7 +91,7 @@ fastify.get('/health', async () => {
 // Start server
 try {
   await fastify.listen({ port: PORT, host: HOST });
-  // console.info(`🚀 Server listening on http://${HOST}:${PORT}`);
+  console.info(`🚀 Server listening on http://${HOST}:${PORT}`);
 } catch (err) {
   fastify.log.error(err);
   process.exit(1);

@@ -56,7 +56,15 @@ export function ChatHistorySidebar({
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">{session.title}</p>
                 <p className="text-xs text-text-secondary truncate">
-                  {format(new Date(session.updated_at), 'MMM d, h:mm a')}
+                  {session.updated_at
+                    ? (() => {
+                        try {
+                          return format(new Date(session.updated_at), 'MMM d, h:mm a');
+                        } catch {
+                          return 'Unknown date';
+                        }
+                      })()
+                    : 'Unknown date'}
                 </p>
               </div>
             </button>

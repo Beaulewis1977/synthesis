@@ -105,6 +105,7 @@ function extractPolicies(originalContent: string, cleanedContent: string): Funct
     const tableRef = parseTableReference(match[2]);
     const type = match[3] || 'PERMISSIVE'; // PERMISSIVE | RESTRICTIVE
     const cmd = match[4] || 'ALL'; // SELECT | INSERT | UPDATE | DELETE | ALL
+    // TODO: Add roles, using, and withCheck to PolicyDefinition metadata when needed
     // const roles = match[5] ? match[5].split(',').map((r) => r.trim()) : ['PUBLIC'];
     // const using = match[6];
     // const withCheck = match[7];

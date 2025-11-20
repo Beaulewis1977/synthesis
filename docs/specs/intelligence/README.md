@@ -44,14 +44,14 @@ Here is the exact order to implement the intelligence for these, from "Must Have
 **No.** And here is the honest truth:
 
 *   **YES, Special Intelligence Needed:**
-    *   **SQL/RLS:** Because strict security logic cannot be "fuzzy".
-    *   **Flutter/Dart:** Because the nesting structure of Widgets is unique and hard for generic parsers.
-    *   **Backend Logic (Node/Deno/Python):** Because parsing API routes (`GET /user`) is high-value metadata.
+  *   **SQL/RLS:** Because strict security logic cannot be "fuzzy".
+  *   **Flutter/Dart:** Because the nesting structure of Widgets is unique and hard for generic parsers.
+  *   **Backend Logic (Node/Deno/Python):** Because parsing API routes (`GET /user`) is high-value metadata.
 
 *   **NO, Standard Ingestion is Fine:**
-    *   **RevenueCat/Stripe:** These are just *libraries*. You don't need a special parser for them. You just need your existing TypeScript analyzer to say "Oh, this file imports `stripe`". That is enough (Level 2).
-    *   **Redis:** It's a key-value store. You don't need deep structural parsing. Simple usage detection is enough.
-    *   **Realtime:** This is just a feature of Supabase. As long as you parse the Client SDK usage (in Dart/JS), you are good.
+  *   **RevenueCat/Stripe:** These are just *libraries*. You don't need a special parser for them. You just need your existing TypeScript analyzer to say "Oh, this file imports `stripe`". That is enough (Level 2).
+  *   **Redis:** It's a key-value store. You don't need deep structural parsing. Simple usage detection is enough.
+  *   **Realtime:** This is just a feature of Supabase. As long as you parse the Client SDK usage (in Dart/JS), you are good.
 
 **Verdict:**
 Don't over-engineer parsers for libraries (Stripe/RevenueCat). **DO** engineer parsers for **Languages** (SQL, Dart, TS, Python) and **Framework Patterns** (Supabase RLS, Flutter Widgets, NestJS Controllers).
