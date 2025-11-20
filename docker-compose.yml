@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   # PostgreSQL with pgvector
   synthesis-db:
@@ -51,15 +53,12 @@ services:
         condition: service_healthy
       synthesis-ollama:
         condition: service_started
-      synthesis-redis:
-        condition: service_started
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@synthesis-db:5432/synthesis
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OLLAMA_HOST=http://synthesis-ollama:11434
-      - REDIS_URL=redis://synthesis-redis:6379
+      - OLLAMA_BASE_URL=http://synthesis-ollama:11434
       - NODE_ENV=development
-      - SERVER_PORT=3333
+      - PORT=3333
       - STORAGE_PATH=/app/storage
     ports:
       - "3333:3333"
@@ -88,7 +87,7 @@ services:
     container_name: synthesis-web
     restart: unless-stopped
     environment:
-      - VITE_API_URL=http://synthesis-server:3333
+      - VITE_API_URL=http://localhost:3333
     ports:
       - "5173:5173"
     volumes:
@@ -117,7 +116,7 @@ services:
     depends_on:
       - synthesis-server
     environment:
-      - BACKEND_API_URL=http://synthesis-server:3333
+      - API_URL=http://synthesis-server:3333
       - MCP_PORT=3334
       - MCP_MODE=${MCP_MODE:-stdio}
     ports:
@@ -137,18 +136,6 @@ services:
       - app  # Only start with --profile app
     stdin_open: true
     tty: true
-
-  # Redis (caching layer)
-  synthesis-redis:
-    image: redis:7-alpine
-    container_name: synthesis-redis
-    restart: unless-stopped
-    ports:
-      - '6379:6379'
-    command: >
-      sh -c "redis-server --save '' --appendonly no"
-    networks:
-      - synthesis-network
 
 volumes:
   postgres_data:

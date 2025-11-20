@@ -3,29 +3,12 @@
   "organizeImports": {
     "enabled": true
   },
-  "files": {
-    "ignore": [
-      "dist",
-      ".turbo",
-      "node_modules",
-      ".roo",
-      ".kilocode",
-      ".gemini",
-      "storage/**",
-      "**/fixtures/**"
-    ]
-  },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
       "suspicious": {
-        "noExplicitAny": "error",
-        "noConsoleLog": "warn"
-      },
-      "style": {
-        "useConst": "error",
-        "noVar": "error"
+        "noExplicitAny": "error"
       }
     }
   },

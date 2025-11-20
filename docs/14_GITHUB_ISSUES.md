@@ -351,18 +351,18 @@ gh issue create \
 
 # Story 3.2
 gh issue create \
-  --title "Implement Claude Messages API agent loop" \
+  --title "Setup Claude Agent SDK" \
   --label "phase-3,feature,priority:high" \
   --body "## Technical Specs
 - Documentation: docs/04_AGENT_TOOLS.md
-- Dependencies: @anthropic-ai/sdk
+- Dependencies: @anthropic-ai/agent-sdk, @anthropic-ai/sdk
 
 ## Tasks
-- [ ] Implement manual tool-use loop in apps/server/src/agent/agent.ts
-- [ ] Build tool definitions/executors with buildAgentTools()
-- [ ] Track cumulative token usage and cap at 10 turns
-- [ ] Ensure `/api/agent/chat` executes tools and returns final response
-- [ ] Add unit tests covering the agent loop"
+- [ ] Install Agent SDK
+- [ ] Create agent.ts
+- [ ] Configure system prompt
+- [ ] Register tools
+- [ ] Test basic agent response"
 
 # Story 3.3
 gh issue create \
@@ -374,10 +374,10 @@ gh issue create \
   - apps/server/src/agent/tools/search.ts
 
 ## Tasks
-- [ ] Define tool metadata/JSON schema via zodToJsonSchema
-- [ ] Implement executor that calls the vector search service and formats citations
-- [ ] Return definition/executor from createSearchRagTool()
-- [ ] Unit test tool execution
+- [ ] Define tool schema
+- [ ] Implement execute() function
+- [ ] Call search service
+- [ ] Format for agent
 - [ ] Register with agent
 - [ ] Test tool calling"
 
@@ -595,12 +595,12 @@ gh issue create \
 
 ---
 
-### Phase 11-12: Polish + Testing (Days 8-9)
+### Phase 8-9: Polish + Testing (Days 8-9)
 
 ```bash
 # Epic
 gh issue create \
-  --title "Phase 11-12: Polish and Final Testing" \
+  --title "Phase 8-9: Polish and Final Testing" \
   --label "phase-8,phase-9,epic,priority:medium" \
   --body "See docs/09_BUILD_PLAN.md#day-8-9"
 

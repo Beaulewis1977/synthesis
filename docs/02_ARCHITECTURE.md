@@ -1,6 +1,6 @@
 # System Architecture
-**Version:** 2.0
-**Last Updated:** November 13, 2025
+**Version:** 1.0  
+**Last Updated:** October 6, 2025
 
 ---
 
@@ -66,39 +66,23 @@
 └────────┬───────────┘
          │
          ▼
-┌──────────────────────────────────────────────────────────────┐
-│                  RAG Pipeline (v2.0)                         │
-│                                                              │
-│  Extract → AST Parse → Chunk → Route → Embed → Upsert       │
-│          (code only)  (context-  (provider  (multi-         │
-│                       aware)     selection) provider)        │
-└────────────┬─────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────────────────────────────┐
-│         Postgres 16 + pgvector 0.7.4                         │
-│                                                              │
-│  Tables:                                                     │
-│  • collections                 • api_usage (cost tracking)   │
-│  • documents                   • file_relationships          │
-│  • chunks (vector + tsvector)                                │
-│                                                              │
-│  Indexes:                                                    │
-│  • HNSW (vector cosine similarity)                           │
-│  • GIN (full-text search for BM25)                           │
-│  • JSONB (metadata, tech_stack)                              │
-└────────────┬─────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────────────────────────────────────────────┐
-│               Intelligent Search Layer (v2.0)                │
-│                                                              │
-│  Query → [Vector Search + BM25 Search] → RRF Fusion         │
-│        → Re-ranking (Cohere/BGE) → Synthesis (optional)      │
-│        → Tech Stack Filter → Results                         │
-│                                                              │
-│  Cost Tracker: Monitor API usage, enforce budgets           │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│      RAG Pipeline                   │
+│                                     │
+│  Extract → Chunk → Embed → Upsert  │
+└─────────┬───────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────┐
+│   Postgres 16 + pgvector 0.7.4      │
+│                                     │
+│   Tables:                           │
+│   • collections                     │
+│   • documents                       │
+│   • chunks (with vector embeddings) │
+│                                     │
+│   Index: HNSW (cosine similarity)   │
+└─────────────────────────────────────┘
 ```
 
 ---
@@ -140,35 +124,18 @@ apps/server/src/
 │   ├── agent.ts          # POST /api/agent/chat
 │   ├── collections.ts    # CRUD for collections
 │   ├── docs.ts           # CRUD for documents
-│   ├── search.ts         # POST /api/search (hybrid, re-ranking)
-│   ├── ingest.ts         # POST /api/ingest
-│   ├── synthesis.ts      # POST /api/synthesis/compare (NEW)
-│   └── costs.ts          # GET /api/costs/* (NEW)
+│   ├── search.ts         # POST /api/search
+│   └── ingest.ts         # POST /api/ingest
 ├── agent/
 │   ├── agent.ts          # Claude Agent SDK setup
-│   └── tools.ts          # Tool implementations
+│   └── tools/            # Tool implementations
 ├── pipeline/
 │   ├── extract.ts        # PDF/DOCX/MD extraction
 │   ├── chunk.ts          # Chunking logic
-│   ├── code-chunker.ts   # AST-based code chunking (NEW)
-│   ├── dart-analyzer.ts  # Dart AST parser (NEW)
-│   ├── ts-analyzer.ts    # TypeScript AST parser (NEW)
-│   ├── embed.ts          # Multi-provider embeddings
+│   ├── embed.ts          # Ollama/Voyage embeddings
 │   └── ingest.ts         # Orchestration
 ├── services/
-│   ├── search.ts         # Smart search orchestrator (NEW)
-│   ├── vector.ts         # Pure vector search
-│   ├── hybrid.ts         # Hybrid search with RRF (NEW)
-│   ├── bm25.ts           # BM25 full-text search (NEW)
-│   ├── reranker.ts       # Cohere/BGE re-ranking (NEW)
-│   ├── synthesis.ts      # Multi-source synthesis (NEW)
-│   ├── contradiction-detection.ts  # Contradiction finder (NEW)
-│   ├── embedding-router.ts  # Provider selection (NEW)
-│   ├── ollama.ts         # Ollama client
-│   ├── openai.ts         # OpenAI client (NEW)
-│   ├── voyage.ts         # Voyage client (NEW)
-│   ├── cost-tracker.ts   # API cost monitoring (NEW)
-│   ├── tech-detector.ts  # Tech stack detection (NEW)
+│   ├── search.ts         # Vector search logic
 │   └── scraper.ts        # Web content fetching
 └── db/
     ├── client.ts         # Postgres pool
@@ -221,9 +188,9 @@ User: "Add Flutter docs"
 
 ---
 
-### 4. RAG Pipeline (v2.0)
+### 4. RAG Pipeline
 
-**Purpose:** Transform documents into searchable vectors with intelligent routing
+**Purpose:** Transform documents into searchable vectors
 
 **Stages:**
 
@@ -244,101 +211,44 @@ switch (contentType) {
 }
 ```
 
-#### 4.2 AST Parsing (Code Files Only) **NEW in Phase 13**
+#### 4.2 Chunking
 ```typescript
-// Input: Code file (detected by extension)
-// Output: AST-based chunks with preserved structure
-
-if (isCodeFile(fileName)) {
-  const language = detectLanguage(fileName);  // .dart, .ts, .py, etc.
-
-  const codeChunks = await parseCodeFile(content, language, {
-    preserveImports: true,      // Include imports in each chunk
-    trackRelationships: true,   // Store file relationships
-    maxLinesPerChunk: 100,
-  });
-
-  // Store relationships: imports, tests, siblings
-  await storeFileRelationships(docId, codeChunks.relationships);
-
-  return codeChunks;
-}
-```
-
-#### 4.3 Chunking
-```typescript
-// Input: Text (or AST chunks for code)
+// Input: Text
 // Output: Array of chunks
 
-// For documents (Phase 1):
 const chunks = splitIntoChunks(text, {
   maxSize: 800,      // characters
   overlap: 150,      // characters
   splitOn: '\n\n',   // paragraph boundaries
 });
-
-// For code (Phase 13):
-// Already chunked by AST parser, skip this stage
 ```
 
-#### 4.4 Provider Routing & Embedding **NEW in Phase 11**
+#### 4.3 Embedding
 ```typescript
-// Input: Chunks + metadata
-// Output: Array of vectors (768, 1024, or 1536 dims)
+// Input: Array of chunks
+// Output: Array of vectors (768 or 1024 dims)
 
-// Automatic provider selection based on content
-for (const chunk of chunks) {
-  const provider = selectEmbeddingProvider(chunk, {
-    type: metadata.doc_type,      // 'code' | 'docs' | 'personal'
-    language: metadata.language,   // e.g., 'typescript'
-  });
-
-  switch (provider) {
-    case 'voyage':  // Best for code (voyage-code-2, 1024 dims)
-      embeddings = await voyageClient.embed(chunk);
-      break;
-    case 'openai':  // Best for personal writing (text-embedding-3-large, 1536 dims)
-      embeddings = await openaiClient.embed(chunk);
-      break;
-    case 'ollama':  // Free, good for docs (nomic-embed-text, 768 dims)
-    default:
-      embeddings = await ollamaClient.embed(chunk);
-  }
-
-  // Track cost
-  await costTracker.logEmbedding(provider, tokens);
-}
-```
-
-#### 4.5 Tech Stack Detection **NEW in Phase 13.5**
-```typescript
-// Input: Document content + metadata
-// Output: Tech stack tags
-
-const techStack = detectTechStack(content, fileName, {
-  detectFrameworks: true,   // React, Flutter, etc.
-  detectLanguages: true,    // TypeScript, Dart, etc.
-  detectLibraries: true,    // Express, Riverpod, etc.
+// Option A: Ollama (local, free)
+const embeddings = await ollamaClient.embeddings({
+  model: 'nomic-embed-text',
+  prompt: chunks,
 });
 
-metadata.tech_stack = techStack;  // ['dart', 'flutter', 'riverpod']
+// Option B: Voyage (cloud, higher quality)
+const embeddings = await voyageClient.embed({
+  model: 'voyage-3.5',
+  input: chunks,
+});
 ```
 
-#### 4.6 Upsert **UPDATED in Phase 11**
+#### 4.4 Upsert
 ```typescript
-// Input: Chunks + embeddings + metadata
+// Input: Chunks + embeddings
 // Output: Database records
 
 await db.query(`
-  INSERT INTO chunks (
-    doc_id, chunk_index, text, embedding, metadata,
-    fts, tech_stack, embedding_provider
-  )
-  VALUES ($1, $2, $3, $4, $5,
-    to_tsvector('english', $3),  -- Full-text search index
-    $6,  -- Tech stack array
-    $7   -- 'ollama', 'voyage', or 'openai'
-  )
+  INSERT INTO chunks (doc_id, chunk_index, text, embedding, metadata)
+  VALUES ($1, $2, $3, $4, $5)
   ON CONFLICT (doc_id, chunk_index) DO UPDATE ...
 `);
 ```
@@ -360,220 +270,33 @@ Upload
 
 ---
 
-### 5. Intelligent Search Engine (v2.0) **UPDATED Phase 11-12**
+### 5. Vector Search Engine
 
-**Purpose:** Find relevant chunks using hybrid search, re-ranking, and synthesis
+**Purpose:** Find relevant chunks for queries
 
-**Smart Search Orchestrator:**
+**Search Algorithm:**
 ```typescript
-async function smartSearch(query: string, options: SearchOptions) {
-  // 1. Select search mode based on options
-  const mode = options.mode || process.env.SEARCH_MODE || 'vector';
-
-  let results;
-
-  switch (mode) {
-    case 'hybrid':
-      results = await hybridSearch(query, options);  // BM25 + Vector + RRF
-      break;
-    case 'bm25':
-      results = await bm25Search(query, options);    // Keyword only
-      break;
-    case 'vector':
-    default:
-      results = await vectorSearch(query, options);  // Semantic only
-  }
-
-  // 2. Apply tech stack filtering (Phase 14)
-  if (options.tech_stack?.length > 0) {
-    results = results.filter(r =>
-      r.tech_stack.some(t => options.tech_stack.includes(t))
-    );
-  }
-
-  // 3. Re-rank results (Phase 12)
-  if (options.enable_reranking && results.length > 0) {
-    results = await rerank(query, results, {
-      provider: process.env.RERANKER_PROVIDER || 'bge',
-      topK: options.top_k
-    });
-  }
-
-  // 4. Synthesize (Phase 12, optional)
-  let synthesis = null;
-  if (options.enable_synthesis && results.length >= 3) {
-    synthesis = await synthesizeResults(query, results);
-  }
-
-  return { results, synthesis };
-}
-```
-
-**Hybrid Search with RRF Fusion (Phase 11):**
-```typescript
-async function hybridSearch(query: string, options: SearchOptions) {
+async function searchRAG(query: string, collectionId: string, topK: number) {
   // 1. Embed query
-  const queryEmbedding = await embed(query, options.embedding_provider);
-
-  // 2. Parallel search execution
-  const [vectorResults, bm25Results] = await Promise.all([
-    // Vector similarity search
-    db.query(`
-      SELECT
-        c.text,
-        c.metadata,
-        d.title as doc_title,
-        (c.embedding <=> $1::vector) as similarity
-      FROM chunks c
-      JOIN documents d ON d.id = c.doc_id
-      WHERE d.collection_id = $2
-      ORDER BY c.embedding <=> $1::vector
-      LIMIT $3
-    `, [queryEmbedding, options.collection_id, options.top_k * 3]),
-
-    // BM25 keyword search
-    db.query(`
-      SELECT
-        c.text,
-        c.metadata,
-        d.title as doc_title,
-        ts_rank(c.fts, plainto_tsquery('english', $1)) as bm25_score
-      FROM chunks c
-      JOIN documents d ON d.id = c.doc_id
-      WHERE d.collection_id = $2
-        AND c.fts @@ plainto_tsquery('english', $1)
-      ORDER BY ts_rank(c.fts, plainto_tsquery('english', $1)) DESC
-      LIMIT $3
-    `, [query, options.collection_id, options.top_k * 3])
-  ]);
-
-  // 3. Reciprocal Rank Fusion (RRF)
-  const fused = fuseResults(vectorResults, bm25Results, {
-    vectorWeight: process.env.HYBRID_VECTOR_WEIGHT || 0.7,
-    bm25Weight: process.env.HYBRID_BM25_WEIGHT || 0.3,
-    rrfK: 60  // RRF constant
-  });
-
-  // 4. Apply trust scoring (optional)
-  if (process.env.ENABLE_TRUST_SCORING === 'true') {
-    return applyTrustScoring(fused);
-  }
-
-  return fused.slice(0, options.top_k);
-}
-
-// RRF Fusion Formula:
-// fusedScore(doc) = Σ(weight / (k + rank + 1))
-//   where k=60, weight=0.7 (vector) or 0.3 (BM25)
-```
-
-**Re-ranking (Phase 12):**
-```typescript
-async function rerank(query: string, results: SearchResult[], options) {
-  const provider = options.provider;
-
-  if (provider === 'cohere' && process.env.COHERE_API_KEY) {
-    // Cohere cross-encoder (paid, highest quality)
-    const reranked = await cohereClient.rerank({
-      query,
-      documents: results.map(r => r.text),
-      model: 'rerank-english-v3.0',
-      top_n: options.topK
-    });
-
-    // Track cost
-    await costTracker.logRerank('cohere', results.length);
-
-    return reranked;
-  } else {
-    // BGE local cross-encoder (free fallback)
-    return await bgeRerank(query, results, options.topK);
-  }
-}
-```
-
-**Document Synthesis (Phase 12):**
-```typescript
-async function synthesizeResults(query: string, results: SearchResult[]) {
-  // 1. Group results by approach (k-means clustering)
-  const clusters = clusterResults(results, { maxClusters: 3 });
-
-  // 2. Extract approach from each cluster
-  const approaches = clusters.map(cluster => ({
-    approach: extractApproach(cluster),
-    sources: cluster.results,
-    consensusScore: calculateConsensus(cluster)
-  }));
-
-  // 3. Detect contradictions (Claude Haiku)
-  const contradictions = await detectContradictions(results, {
-    maxPairs: 6,
-    thresholds: { min: 0.2, max: 0.7 }
-  });
-
-  // 4. Select recommended approach
-  const recommended = approaches.reduce((best, curr) =>
-    curr.consensusScore > best.consensusScore ? curr : best
-  );
-
-  return {
-    synthesis: recommended.approach,
-    consensusScore: recommended.consensusScore,
-    approaches,
-    contradictions,
-    sources: results.slice(0, 10)
-  };
-}
-```
-
-**Cost Tracking (Phase 12):**
-```typescript
-// Every API call is tracked
-await costTracker.log({
-  operation: 'embedding',    // or 'reranking', 'synthesis'
-  provider: 'voyage',        // or 'cohere', 'openai'
-  tokens: 1024,
-  cost_usd: 0.000123
-});
-
-// Budget enforcement
-if (await costTracker.isBudgetExceeded()) {
-  // Automatically fallback to free providers
-  provider = 'ollama';  // Free embedding
-  reranker = 'bge';     // Free re-ranking
-}
-```
-
-**Performance Characteristics:**
-
-| Search Mode | Latency (P90) | Accuracy | Cost |
-|-------------|---------------|----------|------|
-| Vector only | 234ms | Good | Low |
-| BM25 only | 187ms | Moderate | Free |
-| Hybrid (RRF) | 487ms | Best | Low |
-| Hybrid + Rerank | 1,203ms | Excellent | Medium |
-| Hybrid + Rerank + Synthesis | 2,456ms | Exceptional | High |
-
-**Data Flow:**
-```
-Query
-  ↓
-[Select Mode: Vector | BM25 | Hybrid]
-  ↓
-[Parallel Search Execution]
-  ↓
-[RRF Fusion (if hybrid)]
-  ↓
-[Tech Stack Filtering]
-  ↓
-[Re-ranking (optional, Cohere/BGE)]
-  ↓
-[Synthesis (optional, Claude)]
-  ↓
-[Cost Tracking]
-  ↓
-Results
-```
+  const queryEmbedding = await embed(query);
+  
+  // 2. Vector similarity search
+  const results = await db.query(`
+    SELECT 
+      c.text,
+      c.metadata,
+      d.title as doc_title,
+      (c.embedding <=> $1::vector) as distance
+    FROM chunks c
+    JOIN documents d ON d.id = c.doc_id
+    WHERE d.collection_id = $2
+    ORDER BY c.embedding <=> $1::vector
+    LIMIT $3
+  `, [queryEmbedding, collectionId, topK]);
+  
+  // 3. Format results with citations
+  return results.rows.map(row => ({
+    text: row.text,
     score: 1 - row.distance,
     citation: {
       title: row.doc_title,
@@ -873,7 +596,7 @@ services:
       - "3333:3333"
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/synthesis
-      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_BASE_URL=http://ollama:11434
   
   web:
     build: ./apps/web

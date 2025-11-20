@@ -1,7 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["**/.env.*local"],
-  "globalPassThroughEnv": ["DATABASE_URL"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -22,11 +21,6 @@
     "test:coverage": {
       "dependsOn": ["build"],
       "outputs": ["coverage/**"]
-    },
-    "test:integration": {
-      "dependsOn": ["build"],
-      "outputs": [],
-      "cache": false
     },
     "lint": {
       "outputs": []
