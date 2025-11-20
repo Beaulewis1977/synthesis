@@ -23,6 +23,10 @@ export interface SynthesisAPI {
   openWebUI: () => Promise<void>;
   showLogs: () => Promise<void>;
   onStatusUpdate: (callback: (update: StatusUpdate) => void) => () => void;
+  setMode: (
+    mode: 'docker' | 'direct'
+  ) => Promise<{ success: boolean; mode?: string; error?: string }>;
+  getMode: () => Promise<{ mode: 'docker' | 'direct' }>;
 }
 
 // Expose protected methods that allow the renderer process to use
@@ -59,6 +63,16 @@ contextBridge.exposeInMainWorld('synthesisAPI', {
     return () => {
       ipcRenderer.removeListener('status-update', listener);
     };
+  },
+
+  setMode: (
+    mode: 'docker' | 'direct'
+  ): Promise<{ success: boolean; mode?: string; error?: string }> => {
+    return ipcRenderer.invoke('set-mode', mode);
+  },
+
+  getMode: (): Promise<{ mode: 'docker' | 'direct' }> => {
+    return ipcRenderer.invoke('get-mode');
   },
 } as SynthesisAPI);
 
