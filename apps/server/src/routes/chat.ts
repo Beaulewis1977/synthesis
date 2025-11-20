@@ -1,0 +1,79 @@
+import {
+  createChatSession,
+  getChatMessages,
+  getChatSession,
+  listChatSessions,
+} from '@synthesis/db';
+import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
+
+const CreateSessionSchema = z.object({
+  collectionId: z.string().uuid(),
+  title: z.string().min(1).max(255),
+});
+
+const uuidSchema = z.string().uuid();
+
+export const chatRoutes: FastifyPluginAsync = async (fastify) => {
+  // List chat sessions for a collection
+  fastify.get<{ Params: { collectionId: string } }>(
+    '/api/chats/collection/:collectionId',
+    async (request, reply) => {
+      const { collectionId } = request.params;
+      if (!uuidSchema.safeParse(collectionId).success) {
+        fastify.log.warn({ collectionId }, 'Invalid collectionId for chat listing');
+        return reply.code(400).send({ error: 'Invalid collectionId' });
+      }
+
+      try {
+        const sessions = await listChatSessions(collectionId);
+        return reply.send({ sessions });
+      } catch (error) {
+        fastify.log.error(error, 'Failed to list chat sessions');
+        return reply.code(500).send({ error: 'Failed to list chat sessions' });
+      }
+    }
+  );
+
+  // Get a single chat session with messages
+  fastify.get<{ Params: { id: string } }>('/api/chats/:id', async (request, reply) => {
+    const { id: chatId } = request.params;
+    if (!uuidSchema.safeParse(chatId).success) {
+      fastify.log.warn({ chatId }, 'Invalid chat id requested');
+      return reply.code(400).send({ error: 'Invalid chat id' });
+    }
+
+    try {
+      const session = await getChatSession(chatId);
+      if (!session) {
+        return reply.code(404).send({ error: 'Chat session not found' });
+      }
+
+      const messages = await getChatMessages(chatId);
+      return reply.send({ session, messages });
+    } catch (error) {
+      fastify.log.error(error, 'Failed to get chat session');
+      return reply.code(500).send({ error: 'Failed to get chat session' });
+    }
+  });
+
+  // Create a new chat session
+  fastify.post('/api/chats', async (request, reply) => {
+    const validation = CreateSessionSchema.safeParse(request.body);
+    if (!validation.success) {
+      return reply.code(400).send({
+        error: 'Invalid request',
+        details: validation.error.issues,
+      });
+    }
+
+    try {
+      const { collectionId, title } = validation.data;
+      const session = await createChatSession(collectionId, title);
+      return reply.code(201).send({ session });
+    } catch (error) {
+      fastify.log.error(error, 'Failed to create chat session');
+      return reply.code(500).send({ error: 'Failed to create chat session' });
+    }
+  });
+};

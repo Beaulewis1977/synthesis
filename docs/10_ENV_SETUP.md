@@ -1,6 +1,20 @@
 # Environment Setup & Docker Guide
-**Version:** 1.0  
-**Last Updated:** October 6, 2025
+**Version:** 2.0
+**Last Updated:** November 13, 2025
+
+---
+
+## 📖 v2.0 Configuration
+
+**For comprehensive configuration reference, see [CONFIGURATION.md](./CONFIGURATION.md)** which documents all 70+ environment variables for:
+- Hybrid search settings (Phase 11)
+- Multi-provider embeddings (Phase 11) - Voyage, OpenAI, Ollama
+- Re-ranking & synthesis (Phase 12) - Cohere, cost tracking
+- Code intelligence (Phase 13) - AST parsing, relationships
+- Tech stack filtering (Phase 14)
+- Performance & caching (Phase 15)
+
+This guide focuses on initial setup. For detailed configuration options, see [CONFIGURATION.md](./CONFIGURATION.md).
 
 ---
 
@@ -9,7 +23,7 @@
 ### Prerequisites
 - Windows 11 + WSL2 (Ubuntu 24.04) OR Linux/macOS
 - 16GB+ RAM
-- NVIDIA GPU with 16GB VRAM (for Ollama)
+- NVIDIA GPU with 16GB VRAM (for Ollama, optional for v2.0 with cloud providers)
 - 50GB free disk space
 
 ### 5-Minute Setup
@@ -230,7 +244,7 @@ DATABASE_URL=postgres://postgres:postgres@localhost:5432/synthesis
 ANTHROPIC_API_KEY=sk-ant-api03-xxx...
 
 # Ollama (local)
-OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_HOST=http://localhost:11434
 EMBEDDING_MODEL=nomic-embed-text
 
 # Voyage (optional cloud embeddings)
@@ -372,7 +386,7 @@ services:
     environment:
       - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@db:5432/synthesis
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_HOST=http://ollama:11434
       - NODE_ENV=production
     ports:
       - "3333:3333"

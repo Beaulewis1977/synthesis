@@ -243,7 +243,7 @@ DATABASE_URL=postgres://postgres:postgres@localhost:5432/synthesis
 ANTHROPIC_API_KEY=sk-ant-...
 
 # Ollama (local)
-OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_HOST=http://localhost:11434
 EMBEDDING_MODEL=nomic-embed-text
 
 # Server
@@ -531,3 +531,7 @@ pnpm migrate:down   # Rollback last
 ---
 
 **This stack is proven, not bleeding-edge, and gets you to working MVP fast.**
+
+
+### Tooling updates
+- Husky hooks now execute pnpm scripts directly without legacy shims.

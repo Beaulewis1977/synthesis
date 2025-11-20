@@ -1,16 +1,26 @@
 # RAG Ingestion Pipeline
-**Version:** 1.0  
-**Last Updated:** October 6, 2025
+**Version:** 2.0
+**Last Updated:** November 13, 2025
 
 ---
 
-## 🎯 Pipeline Overview
+## 🎯 Pipeline Overview (v2.0)
 
-Transform uploaded documents into searchable vector embeddings through 4 stages:
+Transform uploaded documents into searchable vector embeddings through intelligent processing:
 
 ```
-Upload → Extract → Chunk → Embed → Store
+Upload → Extract → AST Parse → Chunk → Route → Embed → Tech Detect → Store
+                   (code only)  (context- (provider (multi-  (auto-tag)
+                                aware)    select)  provider)
 ```
+
+**New in v2.0:**
+- **AST Parsing (Phase 13):** Preserves code structure for source files
+- **Provider Routing (Phase 11):** Content-aware embedding provider selection
+- **Multi-Provider Support (Phase 11):** Ollama, Voyage, OpenAI embeddings
+- **Tech Stack Detection (Phase 13.5):** Automatic technology tagging
+- **File Relationships (Phase 13):** Track imports, tests, siblings
+- **Cost Tracking (Phase 12):** Monitor API usage throughout pipeline
 
 Each stage updates the document status so you can track progress.
 
@@ -20,11 +30,11 @@ Each stage updates the document status so you can track progress.
 
 ```sql
 -- Document status progression
-pending → extracting → chunking → embedding → complete
-                                            ↘ error
+pending → extracting → [ast_parsing] → chunking → embedding → [tech_tagging] → complete
+                      (code files)                                            ↘ error
 ```
 
-Status tracked in `documents.status` column.
+Status tracked in `documents.status` column. New stages shown in brackets are transparent to status tracking (internal steps).
 
 ---
 
@@ -309,7 +319,7 @@ function extractChunkMetadata(
 
 ```typescript
 export async function embedText(text: string): Promise<number[]> {
-  const response = await fetch(`${process.env.OLLAMA_BASE_URL}/api/embeddings`, {
+  const response = await fetch(`${process.env.OLLAMA_HOST}/api/embeddings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

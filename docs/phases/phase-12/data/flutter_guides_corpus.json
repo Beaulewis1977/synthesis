@@ -1,0 +1,122 @@
+[
+  {
+    "id": "doc-setup",
+    "title": "Flutter Project Setup Checklist",
+    "url": "https://flutter.dev/docs/get-started/setup",
+    "topics": ["setup", "tooling"],
+    "summary": "Install Flutter SDK, set up tooling, and verify the doctor report.",
+    "content": "Walks through installing the Flutter SDK, configuring IDE plugins, accepting licenses, setting up desktop targets, and running flutter doctor to verify the environment. Includes CI setup tips."
+  },
+  {
+    "id": "doc-widget-basics",
+    "title": "Flutter Widget Fundamentals",
+    "url": "https://flutter.dev/docs/development/ui/widgets-intro",
+    "topics": ["widgets", "basics"],
+    "summary": "Core widget concepts including composition, layout, and rebuild behavior.",
+    "content": "Explains StatelessWidget vs StatefulWidget, build method idempotency, layout widgets, constraints, and debugging rebuilds with debugPrintRebuildDirtyWidgets."
+  },
+  {
+    "id": "doc-theming",
+    "title": "Material 3 Theming",
+    "url": "https://docs.flutter.dev/ui/design/material/material-3",
+    "topics": ["theming", "material"],
+    "summary": "How to apply Material 3 color schemes, typography, and component themes.",
+    "content": "Covers ColorScheme generators, dynamic color from platform, custom typography, component theming, and migrating from Material 2 settings."
+  },
+  {
+    "id": "doc-localization",
+    "title": "Localization and Internationalization",
+    "url": "https://flutter.dev/docs/development/accessibility-and-localization/internationalization",
+    "topics": ["localization", "accessibility"],
+    "summary": "Add localization delegates, handle pluralization, and test RTL layouts.",
+    "content": "Demonstrates using flutter_localizations, generating arb files, plural formatting, supporting right-to-left languages, and testing locale changes."
+  },
+  {
+    "id": "doc-accessibility",
+    "title": "Accessibility Checklist",
+    "url": "https://flutter.dev/docs/development/accessibility-and-localization/accessibility",
+    "topics": ["accessibility", "a11y"],
+    "summary": "Ensure Flutter apps are accessible with semantics, labels, and focus order.",
+    "content": "Discusses Semantics widgets, large fonts, contrast, TalkBack/VoiceOver testing, focus traversal, and keyboard navigation for desktop targets."
+  },
+  {
+    "id": "doc-firebase-email",
+    "title": "Firebase Email/Password Authentication",
+    "url": "https://flutter.dev/docs/auth/firebase-email",
+    "topics": ["authentication", "firebase", "email"],
+    "summary": "Step-by-step guidance for configuring Firebase email/password auth in Flutter.",
+    "content": "Configure Firebase Authentication by enabling the email/password provider, adding firebase_auth to pubspec.yaml, initializing Firebase in main(), and wiring a ChangeNotifier to manage login state. Includes production tips for secure token refresh."
+  },
+  {
+    "id": "doc-firebase-mfa",
+    "title": "Firebase Multi-factor Authentication",
+    "url": "https://flutter.dev/docs/auth/firebase-mfa",
+    "topics": ["authentication", "firebase", "mfa"],
+    "summary": "How to add multi-factor authentication with SMS and TOTP to a Flutter app.",
+    "content": "Explains enrolling second factors using the Firebase Admin SDK, verifying OTP codes from SMS, and upgrading sessions with multiFactor.getSession(). Covers fallbacks and testing guidance for emulator-based verification."
+  },
+  {
+    "id": "doc-supabase-auth",
+    "title": "Supabase Authentication Cookbook",
+    "url": "https://supabase.com/docs/guides/auth/flutter",
+    "topics": ["authentication", "supabase"],
+    "summary": "Supabase auth with RLS policies, magic links, OAuth providers, and deep links.",
+    "content": "Details configuring Row Level Security policies, using supabase_flutter for session persistence, and enabling passwordless login via magic links. Includes troubleshooting for refresh tokens and realtime listeners."
+  },
+  {
+    "id": "doc-provider-state",
+    "title": "Provider State Management Patterns",
+    "url": "https://flutter.dev/docs/state-management/provider",
+    "topics": ["state management", "provider"],
+    "summary": "Core provider patterns including ChangeNotifierProvider, Consumer, and performance tips.",
+    "content": "Walkthrough of ChangeNotifier, ProviderScope best practices, and splitting widgets to avoid unnecessary rebuilds. Covers testing strategies and migrating from setState to provider for scalability."
+  },
+  {
+    "id": "doc-bloc-state",
+    "title": "Building Apps with Bloc",
+    "url": "https://bloclibrary.dev/tutorials/flutter",
+    "topics": ["state management", "bloc"],
+    "summary": "Bloc architecture with events, states, and testing guidance for Flutter apps.",
+    "content": "Introduces BlocProvider, BlocBuilder, event transformers, hydration, and integration with Navigator 2. Demonstrates migrating complex forms to bloc and adding unit tests with blocTest."
+  },
+  {
+    "id": "doc-router-nav2",
+    "title": "Navigator 2 Declarative Routing",
+    "url": "https://flutter.dev/docs/navigation/declarative",
+    "topics": ["navigation", "router", "navigator2"],
+    "summary": "Using Router and RouteInformationParser to build declarative navigation.",
+    "content": "Shows how to implement RouterDelegate, parse RouteInformation, sync browser history, and manage deep links. Includes patterns for nested navigation and state restoration for web."
+  },
+  {
+    "id": "doc-gorouter",
+    "title": "GoRouter Cookbook",
+    "url": "https://docs.flutter.dev/cookbook/navigation/go-router",
+    "topics": ["navigation", "gorouter"],
+    "summary": "GoRouter recipes for nested navigation, async redirects, and deep linking.",
+    "content": "Provides practical GoRouter examples covering shell routes, query parameters, Hero transitions, and guard patterns. Highlights migration steps from Navigator 1.x."
+  },
+  {
+    "id": "doc-testing",
+    "title": "Flutter Testing Strategies",
+    "url": "https://flutter.dev/docs/testing/overview",
+    "topics": ["testing", "widgets", "integration"],
+    "summary": "Widget, integration, and golden testing guidance for production apps.",
+    "content": "Compares unit, widget, and integration tests. Includes golden test setup with flutter_test, fakes for platform channels, network image mocking, and CI tips for vendor-agnostic pipelines."
+  },
+  {
+    "id": "doc-performance",
+    "title": "Performance Profiling Checklist",
+    "url": "https://flutter.dev/docs/perf/benchmarks",
+    "topics": ["performance", "profiling"],
+    "summary": "Profile Flutter apps with DevTools, tracing, and shader compilation guidance.",
+    "content": "Lists actionable steps: enable performance overlay, trace timeline events, prewarm shader caches, reduce jank with image caching, and monitor frame build/layout durations."
+  },
+  {
+    "id": "doc-animations",
+    "title": "Implicit and Explicit Animations",
+    "url": "https://flutter.dev/docs/development/ui/animations",
+    "topics": ["animations"],
+    "summary": "Blend implicit animations with AnimationController-driven sequences.",
+    "content": "Explains AnimatedContainer, TweenAnimationBuilder, using AnimationController with TickerProviderStateMixin, choreographing staggered animations, and testing animations deterministically."
+  }
+]

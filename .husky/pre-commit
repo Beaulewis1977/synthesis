@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+
+echo "Running pre-commit hooks..."
+pnpm lint
+pnpm format
+pnpm typecheck
+echo "Pre-commit hooks passed."

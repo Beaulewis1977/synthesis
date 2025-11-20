@@ -1,6 +1,6 @@
 # Backend API Specification
-**Version:** 1.0  
-**Last Updated:** October 6, 2025
+**Version:** 2.0
+**Last Updated:** November 13, 2025
 
 ---
 
@@ -309,7 +309,7 @@ files: [File, File, ...]
 ### Search
 
 #### POST `/api/search`
-**Purpose:** Vector search (internal use by agent, but also directly accessible)
+**Purpose:** Intelligent search with hybrid mode, re-ranking, and synthesis support
 
 **Request:**
 ```json
@@ -317,9 +317,25 @@ files: [File, File, ...]
   "query": "How to set up authentication",
   "collection_id": "uuid",
   "top_k": 10,
-  "min_similarity": 0.5
+  "min_similarity": 0.5,
+  "mode": "hybrid",
+  "embedding_provider": "voyage",
+  "enable_reranking": true,
+  "enable_synthesis": false,
+  "tech_stack": ["typescript", "react"]
 }
 ```
+
+**Parameters:**
+- `query` (string, required): Search query
+- `collection_id` (string, required): UUID of collection to search
+- `top_k` (number, optional, default: 10): Number of results to return
+- `min_similarity` (number, optional, default: 0.5): Minimum similarity threshold (0-1)
+- `mode` (string, optional, default: "vector"): Search mode - "vector", "hybrid", or "bm25"
+- `embedding_provider` (string, optional): Override provider - "ollama", "voyage", or "openai"
+- `enable_reranking` (boolean, optional, default: false): Re-rank results with Cohere/BGE
+- `enable_synthesis` (boolean, optional, default: false): Enable multi-source synthesis
+- `tech_stack` (array, optional): Filter by tech stack tags (e.g., ["dart", "flutter"])
 
 **Response:**
 ```json
@@ -329,9 +345,11 @@ files: [File, File, ...]
       "id": "chunk-id",
       "text": "To set up authentication...",
       "similarity": 0.87,
+      "rerank_score": 0.92,
       "doc_id": "uuid",
       "doc_title": "Supabase Auth Guide",
       "source_url": "https://...",
+      "tech_stack": ["typescript", "node"],
       "citation": {
         "title": "Supabase Auth Guide",
         "page": 12,
@@ -339,15 +357,245 @@ files: [File, File, ...]
       },
       "metadata": {
         "page": 12,
-        "heading": "Setup"
+        "heading": "Setup",
+        "embedding_provider": "voyage",
+        "trust_score": 0.95
       }
     }
   ],
   "query": "How to set up authentication",
   "total_results": 10,
-  "search_time_ms": 234
+  "search_time_ms": 456,
+  "mode": "hybrid",
+  "reranked": true,
+  "cost_usd": 0.0024
 }
 ```
+
+---
+
+### Synthesis
+
+#### POST `/api/synthesis/compare`
+**Purpose:** Compare multiple documents and detect contradictions
+
+**Request:**
+```json
+{
+  "query": "What is the recommended authentication method?",
+  "collection_id": "uuid",
+  "document_ids": ["doc-uuid-1", "doc-uuid-2", "doc-uuid-3"],
+  "detect_contradictions": true
+}
+```
+
+**Parameters:**
+- `query` (string, required): Question to synthesize across documents
+- `collection_id` (string, required): Collection UUID
+- `document_ids` (array, optional): Specific documents to compare (if omitted, uses top search results)
+- `detect_contradictions` (boolean, optional, default: true): Enable contradiction detection
+
+**Response:**
+```json
+{
+  "query": "What is the recommended authentication method?",
+  "synthesis": "The recommended authentication method varies by use case. For web applications, OAuth 2.0 with JWT tokens is preferred (3 sources). Mobile apps should use device-based authentication (2 sources).",
+  "consensus_score": 0.78,
+  "sources": [
+    {
+      "doc_id": "uuid-1",
+      "doc_title": "Web Auth Guide",
+      "snippet": "OAuth 2.0 is the industry standard...",
+      "agreement_score": 0.92
+    },
+    {
+      "doc_id": "uuid-2",
+      "doc_title": "Mobile Security",
+      "snippet": "Device-based authentication provides...",
+      "agreement_score": 0.85
+    }
+  ],
+  "contradictions": [
+    {
+      "topic": "Session duration",
+      "conflicting_sources": [
+        {
+          "doc_id": "uuid-1",
+          "claim": "Sessions should last 24 hours",
+          "confidence": 0.88
+        },
+        {
+          "doc_id": "uuid-3",
+          "claim": "Sessions should expire after 1 hour",
+          "confidence": 0.82
+        }
+      ],
+      "severity": "medium"
+    }
+  ],
+  "cost_usd": 0.0156
+}
+```
+
+**Status Codes:**
+- `200` - Success
+- `400` - Invalid request
+- `429` - Budget exceeded (falls back to free synthesis if available)
+
+---
+
+### Related Files
+
+#### GET `/api/documents/:id/related-files`
+**Purpose:** Get files related to a document through imports, tests, or sibling relationships
+
+**Query Parameters:**
+- `relationship_type` (optional): Filter by type - "import", "test", "sibling", "all" (default)
+- `depth` (number, optional, default: 1): Relationship depth (1-3)
+
+**Response:**
+```json
+{
+  "document_id": "uuid",
+  "document_title": "auth_service.dart",
+  "relationships": {
+    "imports": [
+      {
+        "doc_id": "uuid-2",
+        "doc_title": "user_model.dart",
+        "relationship_type": "import",
+        "confidence": 0.95,
+        "metadata": {
+          "import_path": "../models/user_model.dart",
+          "line_number": 3
+        }
+      }
+    ],
+    "imported_by": [
+      {
+        "doc_id": "uuid-3",
+        "doc_title": "login_page.dart",
+        "relationship_type": "imported_by",
+        "confidence": 0.95
+      }
+    ],
+    "tests": [
+      {
+        "doc_id": "uuid-4",
+        "doc_title": "auth_service_test.dart",
+        "relationship_type": "test",
+        "confidence": 0.98,
+        "metadata": {
+          "test_type": "unit"
+        }
+      }
+    ],
+    "siblings": [
+      {
+        "doc_id": "uuid-5",
+        "doc_title": "token_service.dart",
+        "relationship_type": "sibling",
+        "confidence": 0.75,
+        "metadata": {
+          "shared_directory": "services/"
+        }
+      }
+    ]
+  },
+  "total_relationships": 12
+}
+```
+
+**Status Codes:**
+- `200` - Success
+- `404` - Document not found
+
+---
+
+### Cost Tracking
+
+#### GET `/api/costs/summary`
+**Purpose:** Get cost summary and budget status
+
+**Query Parameters:**
+- `period` (optional): "daily", "weekly", "monthly" (default), "all"
+- `provider` (optional): Filter by provider - "voyage", "cohere", "openai", "all" (default)
+
+**Response:**
+```json
+{
+  "period": "monthly",
+  "current_month": "2025-11",
+  "total_cost_usd": 8.47,
+  "budget_limit_usd": 10.00,
+  "budget_remaining_usd": 1.53,
+  "budget_used_percent": 84.7,
+  "alert_threshold": 0.8,
+  "alert_triggered": true,
+  "by_provider": {
+    "voyage": {
+      "cost_usd": 3.24,
+      "requests": 2743,
+      "tokens": 2700000
+    },
+    "cohere": {
+      "cost_usd": 4.56,
+      "requests": 2280
+    },
+    "openai": {
+      "cost_usd": 0.67,
+      "requests": 543,
+      "tokens": 515000
+    }
+  },
+  "by_operation": {
+    "embedding": 3.91,
+    "reranking": 4.56,
+    "synthesis": 0.00
+  },
+  "daily_breakdown": [
+    {
+      "date": "2025-11-13",
+      "cost_usd": 1.23,
+      "requests": 456
+    }
+  ]
+}
+```
+
+**Status Codes:**
+- `200` - Success
+
+---
+
+#### GET `/api/costs/alerts`
+**Purpose:** Get active cost alerts
+
+**Response:**
+```json
+{
+  "alerts": [
+    {
+      "id": "alert-uuid",
+      "type": "budget_threshold",
+      "severity": "warning",
+      "message": "Monthly budget at 84.7% (threshold: 80%)",
+      "triggered_at": "2025-11-13T08:23:15Z",
+      "current_cost_usd": 8.47,
+      "budget_limit_usd": 10.00,
+      "actions_taken": [
+        "Disabled Cohere re-ranking (using free BGE fallback)",
+        "Switched to Ollama embeddings for non-code documents"
+      ]
+    }
+  ],
+  "has_active_alerts": true,
+  "budget_exceeded": false
+}
+```
+
+**Status Codes:**
+- `200` - Success
 
 ---
 
@@ -378,6 +626,12 @@ files: [File, File, ...]
 | `PROCESSING_ERROR` | 500 | Document processing failed |
 | `EMBEDDING_ERROR` | 500 | Embedding service failed |
 | `DATABASE_ERROR` | 500 | Database operation failed |
+| `RERANKING_ERROR` | 500 | Re-ranking service failed |
+| `SYNTHESIS_ERROR` | 500 | Synthesis generation failed |
+| `BUDGET_EXCEEDED` | 429 | Monthly budget limit reached |
+| `PROVIDER_UNAVAILABLE` | 503 | External provider unavailable |
+| `INVALID_TECH_STACK` | 400 | Invalid tech stack filter |
+| `RELATIONSHIP_NOT_FOUND` | 404 | No relationships found |
 
 ---
 
@@ -481,7 +735,7 @@ curl -X POST http://localhost:3333/api/agent/chat \
   }'
 ```
 
-### Search
+### Search (Vector Only)
 ```bash
 curl -X POST http://localhost:3333/api/search \
   -H "Content-Type: application/json" \
@@ -490,6 +744,47 @@ curl -X POST http://localhost:3333/api/search \
     "collection_id": "uuid-here",
     "top_k": 5
   }'
+```
+
+### Search (Hybrid with Re-ranking)
+```bash
+curl -X POST http://localhost:3333/api/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "authentication setup",
+    "collection_id": "uuid-here",
+    "top_k": 10,
+    "mode": "hybrid",
+    "enable_reranking": true,
+    "embedding_provider": "voyage",
+    "tech_stack": ["typescript", "node"]
+  }'
+```
+
+### Synthesize Documents
+```bash
+curl -X POST http://localhost:3333/api/synthesis/compare \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is the recommended authentication approach?",
+    "collection_id": "uuid-here",
+    "detect_contradictions": true
+  }'
+```
+
+### Get Related Files
+```bash
+curl http://localhost:3333/api/documents/uuid-here/related-files?relationship_type=all&depth=1
+```
+
+### Get Cost Summary
+```bash
+curl http://localhost:3333/api/costs/summary?period=monthly&provider=all
+```
+
+### Get Cost Alerts
+```bash
+curl http://localhost:3333/api/costs/alerts
 ```
 
 ---

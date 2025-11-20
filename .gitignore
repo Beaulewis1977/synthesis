@@ -24,6 +24,7 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+*:Zone.Identifier
 
 # IDE
 .vscode/
@@ -37,3 +38,29 @@ storage/*
 # Misc
 .turbo/
 .cache/
+codeant_email_draft.md
+rovo-review.md
+
+.gemini/
+gha-creds-*.json
+.github/workflows/gemini-scheduled-triage.yml
+
+# Tool-specific directories
+.roo/
+.kilocode/
+.factory/
+
+# Test artifacts (Playwright)
+apps/web/test-results/
+apps/web/playwright-report/
+test-results/
+
+# Lighthouse audit reports
+lighthouse*.html
+lighthouse*.json
+
+# Malformed WSL paths (Lighthouse/Chrome artifacts)
+undefined:/
+**/\\wsl.localhost/**
+**/undefined/
+**/lighthouse-temp/

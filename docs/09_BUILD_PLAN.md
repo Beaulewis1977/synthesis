@@ -1,4 +1,4 @@
-# 7-9 Day Build Plan
+# Phase-Based Build Plan
 **Version:** 1.0  
 **Target:** Working autonomous RAG system  
 **Last Updated:** October 6, 2025
@@ -22,9 +22,9 @@
 
 ---
 
-## 📅 Daily Breakdown
+## 📅 Phased Breakdown
 
-### Day 0: Setup (2-3 hours, do today)
+### Phase 0: Setup (2-3 hours, do today)
 
 **Goal:** Development environment ready
 
@@ -59,7 +59,7 @@
 
 ---
 
-### Day 1: Database + Core Pipeline
+### Phase 1: Database + Core Pipeline
 
 **Goal:** Upload a PDF, extract text, store in DB
 
@@ -106,7 +106,7 @@ psql $DATABASE_URL -c "SELECT * FROM documents;"
 
 ---
 
-### Day 2: Chunking + Embeddings
+### Phase 2: Chunking + Embeddings
 
 **Goal:** Process uploaded docs into searchable chunks
 
@@ -153,7 +153,7 @@ console.log(`Created ${chunks.rows[0].count} chunks`);
 
 ---
 
-### Day 3: Search + Agent Tools
+### Phase 3: Search + Agent Tools
 
 **Goal:** Search works, agent can use it
 
@@ -176,13 +176,11 @@ console.log(`Created ${chunks.rows[0].count} chunks`);
     -d '{"query": "test query", "collection_id": "uuid", "top_k": 5}'
   ```
 
-**Afternoon (4 hours):**
-- [ ] Install Agent SDK: `pnpm add @anthropic-ai/agent-sdk @anthropic-ai/sdk`
-
-- [ ] Create agent
-  - `apps/server/src/agent/agent.ts`
-  - Basic setup with system prompt
-  - Register `search_rag` tool
+- **Afternoon (4 hours):**
+- [ ] Wire up Claude Messages API loop
+  - Use `@anthropic-ai/sdk` directly (no `claude-agent-sdk` dependency)
+  - Implement manual tool-use loop in `apps/server/src/agent/agent.ts`
+  - Track token usage totals across turns
 
 - [ ] Implement `search_rag` tool
   - `apps/server/src/agent/tools/search.ts`
@@ -209,7 +207,7 @@ curl -X POST http://localhost:3333/api/agent/chat \
 
 ---
 
-### Day 4: Autonomous Web Fetching
+### Phase 4: Autonomous Web Fetching
 
 **Goal:** Agent can fetch docs from URLs
 
@@ -264,7 +262,7 @@ curl -X POST http://localhost:3333/api/agent/chat \
 
 ---
 
-### Day 5: Frontend UI
+### Phase 5: Frontend UI
 
 **Goal:** Basic UI for collections, upload, chat
 
@@ -316,58 +314,41 @@ curl -X POST http://localhost:3333/api/agent/chat \
 
 ---
 
-### Day 6: MCP Server
+### Phase 6: MCP Server
 
-**Goal:** External agents can access RAG
+**Goal:** External agents can access the full capabilities of the RAG system.
 
 **Morning (4 hours):**
-- [ ] Create MCP package
-  - `apps/mcp/` directory
-  - Install `@modelcontextprotocol/sdk`
-  - Create `server.ts`
-
-- [ ] Implement stdio mode (WSL/IDE)
-  - Register `search_docs` tool
-  - Register `list_collections` tool
-  - Call backend API internally
-
-- [ ] Test from command line
-  ```bash
-  echo '{"method":"tools/list"}' | node apps/mcp/dist/server.js
-  ```
+- [ ] Create MCP package in `apps/mcp/`.
+- [ ] Install `@modelcontext/server` and `dotenv`.
+- [ ] Implement a simple API client to communicate with the `apps/server` backend, configurable via `BACKEND_API_URL`.
+- [ ] Define and implement the full MCP toolset:
+  - `search_rag`
+  - `list_collections`
+  - `list_documents`
+  - `create_collection`
+  - `fetch_and_add_document_from_url`
+  - `delete_document`
+  - `delete_collection`
 
 **Afternoon (4 hours):**
-- [ ] Implement SSE mode (Windows/Claude Desktop)
-  - Add HTTP server with SSE transport
-  - Same tools, different transport
-  - Listen on port 3334
-
-- [ ] Create MCP config for Claude Desktop
-  ```json
-  {
-    "mcpServers": {
-      "synthesis-rag": {
-        "url": "http://localhost:3334/sse"
-      }
-    }
-  }
+- [ ] Implement `stdio` transport for IDE agents.
+- [ ] Implement `SSE` transport on a separate port (e.g., 3334) for clients like Claude Desktop.
+- [ ] Test `stdio` mode from the command line.
+  ```bash
+  echo '{"method":"tools/list"}' | node apps/mcp/dist/index.js
   ```
-
-- [ ] Test from Claude Desktop (Windows)
-  - Add config
-  - Restart Claude Desktop
-  - Ask: "Search my docs for X"
-  - Verify it calls your MCP server
+- [ ] Test `SSE` mode with `curl`.
+- [ ] Perform end-to-end tests for `search_rag` and `fetch_and_add_document_from_url` to ensure they work through the MCP server.
 
 **Definition of Done:**
-- stdio mode works for IDE agents
-- SSE mode works for Claude Desktop
-- Both modes access same backend
-- External agents can search RAG
+- External agents can discover and call all 7 tools.
+- Both `stdio` and `SSE` modes are functional and connect to the same backend logic.
+- The server is configurable and ready for the Docker phase.
 
 ---
 
-### Day 7: Docker + Testing
+### Phase 7: Docker + Testing
 
 **Goal:** Everything runs in Docker, end-to-end tested
 
@@ -411,7 +392,7 @@ curl -X POST http://localhost:3333/api/agent/chat \
 
 ---
 
-### Day 8: Polish + Documentation
+### Phase 11: Polish + Documentation
 
 **Goal:** Production-ready MVP
 
@@ -454,7 +435,7 @@ curl -X POST http://localhost:3333/api/agent/chat \
 
 ---
 
-### Day 9: Final Testing + Buffer
+### Phase 12: Final Testing + Buffer
 
 **Goal:** Fix remaining issues, prepare for use
 
@@ -488,32 +469,48 @@ curl -X POST http://localhost:3333/api/agent/chat \
 - Ready to use daily
 
 ---
+### Phase 13: CI/CD Pipeline
+
+**Goal:** Automate testing and deployment
+
+**Tasks:**
+- [ ] Create a GitHub Actions workflow
+- [ ] Configure a matrix build for different environments
+- [ ] Add steps for linting, testing, and building
+- [ ] (Optional) Add a step for deploying to a staging environment
+
+**Definition of Done:**
+- CI pipeline runs on every push to `develop`
+- All tests are executed automatically
+- Build artifacts are created
+
+---
 
 ## 🚨 Risk Mitigation
 
 ### If Behind Schedule
 
-**Day 3-4 Issues:**
+**Phase 3-4 Issues:**
 - Skip web crawling, focus on single-page fetch
 - Use simpler chunking (just split on character count)
 
-**Day 5-6 Issues:**
+**Phase 5-6 Issues:**
 - Simplify UI to bare minimum (no fancy styles)
 - Skip SSE mode, just stdio for MCP
 
-**Day 7 Issues:**
+**Phase 7 Issues:**
 - Skip full Docker, just run locally
 - Add Docker in week 2
 
 ---
 
-## 🎯 Daily Checklist
+## 🎯 Phase Checklist
 
-Each day ends with:
+Each phase ends with:
 - [ ] Code committed to git
 - [ ] Tests passing
 - [ ] Demo to yourself works
-- [ ] Tomorrow's plan reviewed
+- [ ] Next phase's plan reviewed
 
 ---
 
@@ -562,10 +559,10 @@ Before calling it "done":
 
 ## 📊 Progress Tracking
 
-Update daily:
+Update after each phase:
 
-| Day | Goal | Status | Blocker | Notes |
-|-----|------|--------|---------|-------|
+| Phase | Goal | Status | Blocker | Notes |
+|-------|------|--------|---------|-------|
 | 0 | Setup | ⬜ | | |
 | 1 | DB + Extraction | ⬜ | | |
 | 2 | Chunking + Embedding | ⬜ | | |
@@ -576,17 +573,18 @@ Update daily:
 | 7 | Docker | ⬜ | | |
 | 8 | Polish | ⬜ | | |
 | 9 | Final Test | ⬜ | | |
+| 10 | CI/CD | ⬜ | | |
 
 Status: ⬜ Not Started | 🟡 In Progress | ✅ Done | ❌ Blocked
 
 ---
 
-## 💬 Daily Standup Template
+## 💬 Phase Summary Template
 
-**What I did yesterday:**
+**What I did this phase:**
 - ...
 
-**What I'm doing today:**
+**What I'm doing next phase:**
 - ...
 
 **Blockers:**

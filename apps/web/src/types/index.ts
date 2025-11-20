@@ -1,0 +1,309 @@
+// Type definitions for the Synthesis RAG application
+
+export interface Collection {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Document {
+  id: string;
+  collection_id: string;
+  title: string;
+  content_type: string | null;
+  file_size: number | null;
+  file_path: string | null;
+  status: 'pending' | 'extracting' | 'chunking' | 'embedding' | 'complete' | 'error';
+  source_url: string | null;
+  error_message: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  processed_at: string | null;
+  updated_at: string;
+  version: number;
+  source_url_hash: string | null;
+  last_checked_at: string | null;
+}
+
+// Search-related types for Phase 8
+// Phase 14: Updated to include tech_stack support
+export interface ChunkMetadata {
+  file_path?: string;
+  language?: string;
+  tech_stack?: string[];
+  source_quality?: 'official' | 'verified' | 'community' | string | null;
+  last_verified?: string | Date | null;
+  [key: string]: unknown;
+}
+
+export interface SearchResultMetadata extends ChunkMetadata {
+  // Inherits all properties from ChunkMetadata
+}
+
+export interface SearchMetadata {
+  search_mode: 'vector' | 'hybrid';
+  vector_count?: number | null;
+  bm25_count?: number | null;
+  fused_count?: number | null;
+  embedding_provider?: string | null;
+  reranked: boolean;
+  rerank_provider: string | null;
+  pagination?: {
+    page: number;
+    page_size: number;
+    total_results: number;
+    total_pages: number;
+  };
+}
+
+export interface SearchResult {
+  id: number;
+  snippet: string;
+  similarity: number;
+  vector_score?: number | null;
+  bm25_score?: number | null;
+  fused_score?: number | null;
+  source?: 'vector' | 'bm25' | 'both';
+  doc_id: string;
+  doc_title: string | null;
+  source_url: string | null;
+  citation?: {
+    title: string | null;
+    page?: number | string | null;
+    section?: string | null;
+  } | null;
+  metadata?: SearchResultMetadata | null;
+  related_files?: RelatedFiles | null;
+}
+
+export interface SearchResponse {
+  query: string;
+  results: SearchResult[];
+  total_results: number;
+  search_time_ms: number;
+  metadata?: SearchMetadata;
+}
+
+/**
+ * Search request body for POST /api/search
+ * Phase 14: Added tech_stack filtering support
+ */
+export interface SearchRequest {
+  query: string;
+  collection_id: string;
+  top_k?: number;
+  min_similarity?: number;
+  search_mode?: 'vector' | 'hybrid';
+  rerank?: boolean;
+  rerank_top_k?: number;
+  rerank_max_candidates?: number;
+  rerank_provider?: 'cohere' | 'bge' | 'none';
+  tech_stack?: string[];
+  page?: number;
+  page_size?: number;
+  include_related_files?: boolean;
+}
+
+export interface CollectionsResponse {
+  collections: Collection[];
+}
+
+export interface DocumentsResponse {
+  documents: Document[];
+}
+
+export interface ApiError {
+  error: string;
+  code: string;
+  details?: Record<string, unknown>;
+  timestamp: string;
+}
+
+// Chat-related types
+export interface ToolCall {
+  id: string;
+  tool: string;
+  status: string;
+  input?: unknown;
+  result?: unknown;
+  server?: string;
+}
+
+export interface Citation {
+  title: string;
+  page?: number;
+  section?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  tool_calls?: ToolCall[];
+  citations?: Citation[];
+}
+
+export interface AgentChatRequest {
+  message: string;
+  collection_id: string;
+  history?: Array<{ role: string; content: string }>;
+  session_id?: string;
+}
+
+export interface AgentChatResponse {
+  message: string;
+  tool_calls: ToolCall[];
+  history: Array<{ role: string; content: string }>;
+  usage?: Record<string, unknown>;
+  session_id?: string;
+}
+
+export interface ChatSession {
+  id: string;
+  collection_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Upload-related types
+export interface UploadResult {
+  filename: string;
+  status: 'success' | 'error';
+  documentId?: string;
+  uploadIndex?: number;
+  error?: string;
+}
+
+export interface UploadResponse {
+  message: string;
+  results: UploadResult[];
+}
+
+// Synthesis-related types (Phase 12)
+export interface SynthesisResponse {
+  query: string;
+  approaches: Approach[];
+  conflicts: Conflict[];
+  recommended: Approach | null;
+  metadata: SynthesisMetadata;
+}
+
+export interface Approach {
+  method: string;
+  topic: string;
+  summary: string;
+  consensusScore: number;
+  sources: SynthesizedSource[];
+}
+
+export interface SynthesizedSource {
+  docId: string;
+  docTitle: string | null;
+  sourceUrl: string | null;
+  snippet: string;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface Conflict {
+  id?: string;
+  topic: string;
+  source_a: ConflictSource;
+  source_b: ConflictSource;
+  severity: 'high' | 'medium' | 'low';
+  difference: string;
+  recommendation: string;
+}
+
+export interface ConflictSource {
+  title: string | null;
+  statement: string;
+  url: string | null;
+}
+
+export interface SynthesisMetadata {
+  total_sources: number;
+  approaches_found: number;
+  conflicts_found: number;
+  synthesis_time_ms: number;
+}
+
+// Cost tracking types (Phase 12)
+export interface CostBreakdownItem {
+  provider: string;
+  operation: string;
+  total_cost: number;
+  request_count: number;
+}
+
+export interface CostSummaryResponse {
+  current_spend: number;
+  budget: number;
+  percentage_used: number;
+  remaining: number;
+  breakdown: CostBreakdownItem[];
+}
+
+export interface CostHistoryResponse {
+  history: CostBreakdownItem[];
+}
+
+export interface BudgetAlert {
+  id: number;
+  alert_type: 'warning' | 'limit_reached';
+  threshold_usd: number;
+  current_spend_usd: number;
+  period: string;
+  triggered_at: string;
+  acknowledged: boolean;
+}
+
+export interface CostAlertsResponse {
+  alerts: BudgetAlert[];
+}
+
+// Phase 13: Code Intelligence - Related Files
+export interface RelatedFiles {
+  imports: string[];
+  imported_by: string[];
+  uses: string[];
+  used_by: string[];
+  tests: string[];
+  tested_by: string[];
+  siblings: string[];
+  parent: string | null;
+}
+
+export interface RelatedFilesResponse {
+  file_path: string;
+  related_files: RelatedFiles;
+}
+
+// Phase 17: Ingestion Agent
+export interface IngestionJob {
+  id: string;
+  collection_id: string;
+  topic: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  error_summary: string | null;
+}
+
+export interface IngestionJobStats {
+  pending: number;
+  scraped: number;
+  ingested: number;
+  failed: number;
+  skipped: number;
+  total: number;
+}
+
+export interface IngestionJobStatusResponse {
+  job: IngestionJob;
+  stats: IngestionJobStats;
+}
