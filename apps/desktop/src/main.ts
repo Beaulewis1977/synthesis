@@ -9,6 +9,7 @@ let controlWindow: BrowserWindow | null = null;
 let webUIWindow: BrowserWindow | null = null;
 let currentStatus: SynthesisStatus = 'stopped';
 let statusMessage: string | undefined;
+let isQuitting = false;
 
 // Configuration
 const SYNTHESIS_URL = process.env.SYNTHESIS_URL || 'http://localhost:5173';
@@ -17,6 +18,7 @@ const SERVER_PORT = 3333;
 const WEB_PORT = 5173;
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const isDev = !app.isPackaged;
+const MAX_LOG_PREVIEW_LENGTH = 500; // Characters to show in error dialogs
 
 /**
  * Update status and notify renderer
@@ -193,7 +195,7 @@ async function handleStartSynthesis(): Promise<StartResult> {
         type: 'error',
         title: 'Backend Failed to Start',
         message: 'The backend service failed to become healthy within 60 seconds.',
-        detail: `Error: ${healthResult.error}\n\nRecent logs:\n${logs?.slice(-500)}`,
+        detail: `Error: ${healthResult.error}\n\nRecent logs:\n${logs?.slice(-MAX_LOG_PREVIEW_LENGTH)}`,
         buttons: ['OK'],
       });
       updateStatus('stopped');
@@ -319,9 +321,10 @@ app.on('activate', () => {
 });
 
 app.on('before-quit', async (event) => {
-  // Stop Docker services if running
-  if (currentStatus === 'running') {
+  // Stop Docker services if running (prevent race condition with flag)
+  if (currentStatus === 'running' && !isQuitting) {
     event.preventDefault();
+    isQuitting = true;
     await handleStopSynthesis();
     app.quit();
   }

@@ -251,7 +251,6 @@
       // Update button states
       const isRunning = status === 'running';
       const isStopped = status === 'stopped';
-      const isStarting = status === 'starting';
       const isError = status === 'error';
 
       startBtn.disabled = !isStopped && !isError;

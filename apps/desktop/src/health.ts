@@ -25,6 +25,11 @@ export async function healthCheck(
         if (data.status === 'ok') {
           return { healthy: true };
         }
+        // Health endpoint responded but status is not 'ok'
+        return {
+          healthy: false,
+          error: `Health check failed: received status "${data.status ?? 'undefined'}" from ${url}`,
+        };
       }
     } catch (error) {
       // Ignore fetch errors and continue polling
