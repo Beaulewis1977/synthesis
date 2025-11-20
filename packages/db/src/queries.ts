@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg';
-import { query } from './client.js';
+import { getPool, query } from './client.js';
 
 // Type definitions
 /**
@@ -31,6 +31,9 @@ export interface Document {
   created_at: Date;
   processed_at: Date | null;
   updated_at: Date;
+  version: number;
+  source_url_hash: string | null;
+  last_checked_at: Date | null;
 }
 
 /**
@@ -102,6 +105,23 @@ export interface IngestionJobUrl {
   content_hash: string | null;
   document_id: string | null;
   notes: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Represents a repository source for GitHub/Git ingestion.
+ */
+export interface RepositorySource {
+  id: string;
+  collection_id: string;
+  repo_url: string;
+  default_branch: string;
+  last_synced_commit: string | null;
+  last_synced_at: Date | null;
+  sync_status: 'idle' | 'syncing' | 'error';
+  sync_error: string | null;
+  ignored_paths: string[];
   created_at: Date;
   updated_at: Date;
 }
@@ -544,4 +564,74 @@ export async function getIngestionJobStats(jobId: string) {
   }
 
   return stats;
+}
+
+// Repository Source queries
+
+export async function createRepoSource(data: {
+  collectionId: string;
+  repoUrl: string;
+  defaultBranch?: string;
+  ignoredPaths?: string[];
+}): Promise<RepositorySource> {
+  const pool = getPool();
+  const ignoredPaths = data.ignoredPaths || ['node_modules/', '.git/', 'dist/', 'build/', '*.log'];
+  const result = await pool.query(
+    `INSERT INTO repository_sources (collection_id, repo_url, default_branch, ignored_paths)
+     VALUES ($1, $2, $3, $4)
+     RETURNING *`,
+    [data.collectionId, data.repoUrl, data.defaultBranch || 'main', ignoredPaths]
+  );
+  return result.rows[0] as RepositorySource;
+}
+
+export async function getRepoSource(id: string): Promise<RepositorySource | null> {
+  const result = await query('SELECT * FROM repository_sources WHERE id = $1', [id]);
+  return (result.rows[0] as RepositorySource) || null;
+}
+
+export async function listRepoSources(collectionId: string): Promise<RepositorySource[]> {
+  const result = await query(
+    'SELECT * FROM repository_sources WHERE collection_id = $1 ORDER BY created_at DESC',
+    [collectionId]
+  );
+  return result.rows as RepositorySource[];
+}
+
+export async function updateRepoSyncStatus(
+  id: string,
+  updates: {
+    syncStatus?: 'idle' | 'syncing' | 'error';
+    syncError?: string | null;
+    lastSyncedCommit?: string;
+    lastSyncedAt?: Date;
+  }
+): Promise<void> {
+  const pool = getPool();
+  const setClauses: string[] = ['updated_at = NOW()'];
+  const params: Array<string | number | boolean | null | Date> = [id];
+  let paramIndex = 2;
+
+  if (updates.syncStatus !== undefined) {
+    setClauses.push(`sync_status = $${paramIndex++}`);
+    params.push(updates.syncStatus);
+  }
+  if (updates.syncError !== undefined) {
+    setClauses.push(`sync_error = $${paramIndex++}`);
+    params.push(updates.syncError);
+  }
+  if (updates.lastSyncedCommit !== undefined) {
+    setClauses.push(`last_synced_commit = $${paramIndex++}`);
+    params.push(updates.lastSyncedCommit);
+  }
+  if (updates.lastSyncedAt !== undefined) {
+    setClauses.push(`last_synced_at = $${paramIndex++}`);
+    params.push(updates.lastSyncedAt);
+  }
+
+  await pool.query(`UPDATE repository_sources SET ${setClauses.join(', ')} WHERE id = $1`, params);
+}
+
+export async function deleteRepoSource(id: string): Promise<void> {
+  await query('DELETE FROM repository_sources WHERE id = $1', [id]);
 }

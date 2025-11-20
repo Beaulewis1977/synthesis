@@ -129,6 +129,34 @@ class ApiClient {
   }
 
   /**
+   * Batch delete multiple documents
+   */
+  async batchDeleteDocuments(documentIds: string[]): Promise<{
+    deleted: string[];
+    failed: Array<{ id: string; error: string }>;
+    summary: { total: number; deleted: number; failed: number };
+  }> {
+    return this.request('/api/documents/batch', {
+      method: 'DELETE',
+      body: JSON.stringify({ documentIds }),
+    });
+  }
+
+  /**
+   * Refresh a document from its source URL
+   */
+  async refreshDocument(documentId: string): Promise<{
+    documentId: string;
+    version: number;
+    hasChanges: boolean;
+    message: string;
+  }> {
+    return this.request(`/api/documents/${encodeURIComponent(documentId)}/refresh`, {
+      method: 'POST',
+    });
+  }
+
+  /**
    * Send a chat message to the agent API.
    */
   async sendChatMessage(request: AgentChatRequest): Promise<AgentChatResponse> {

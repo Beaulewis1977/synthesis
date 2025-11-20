@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Loader2, MessageSquare, Search } from 'lucide-react';
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DocumentList } from '../components/DocumentList';
 import { apiClient } from '../lib/api';
@@ -8,6 +9,7 @@ export function CollectionView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [refreshingDocId, setRefreshingDocId] = useState<string | null>(null);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['documents', id],
@@ -32,8 +34,49 @@ export function CollectionView() {
     },
   });
 
+  const batchDeleteMutation = useMutation({
+    mutationFn: (documentIds: string[]) => apiClient.batchDeleteDocuments(documentIds),
+    onSuccess: (result) => {
+      console.info('Batch deletion result:', result.summary);
+      // Refetch documents after successful deletion
+      queryClient.invalidateQueries({ queryKey: ['documents', id] });
+      // Also invalidate collections to update doc count
+      queryClient.invalidateQueries({ queryKey: ['collections'] });
+    },
+    onError: (error) => {
+      console.error('Failed to batch delete documents:', error);
+      // TODO: Show user-facing notification/toast with error message
+    },
+  });
+
   const handleDelete = (documentId: string) => {
     deleteMutation.mutate(documentId);
+  };
+
+  const handleBatchDelete = (documentIds: string[]) => {
+    batchDeleteMutation.mutate(documentIds);
+  };
+
+  const refreshMutation = useMutation({
+    mutationFn: (documentId: string) => apiClient.refreshDocument(documentId),
+    onMutate: (documentId) => {
+      setRefreshingDocId(documentId);
+    },
+    onSuccess: (result) => {
+      console.info('Document refresh result:', result);
+      // Refetch documents after refresh
+      queryClient.invalidateQueries({ queryKey: ['documents', id] });
+      setRefreshingDocId(null);
+    },
+    onError: (error) => {
+      console.error('Failed to refresh document:', error);
+      setRefreshingDocId(null);
+      // TODO: Show user-facing notification/toast with error message
+    },
+  });
+
+  const handleRefresh = (documentId: string) => {
+    refreshMutation.mutate(documentId);
   };
 
   const handleChat = () => {
@@ -116,7 +159,12 @@ export function CollectionView() {
         <DocumentList
           documents={data.documents}
           onDelete={handleDelete}
+          onBatchDelete={handleBatchDelete}
+          onRefresh={handleRefresh}
           isDeleting={deleteMutation.isPending}
+          isBatchDeleting={batchDeleteMutation.isPending}
+          isRefreshing={refreshMutation.isPending}
+          refreshingDocId={refreshingDocId ?? undefined}
         />
       )}
     </div>

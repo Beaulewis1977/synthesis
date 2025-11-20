@@ -22,6 +22,9 @@ export interface Document {
   created_at: string;
   processed_at: string | null;
   updated_at: string;
+  version: number;
+  source_url_hash: string | null;
+  last_checked_at: string | null;
 }
 
 // Search-related types for Phase 8
