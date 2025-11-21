@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Loader2, MessageSquare, Search } from 'lucide-react';
+import { AlertCircle, Loader2, MessageSquare, Search, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DocumentList } from '../components/DocumentList';
@@ -118,8 +118,10 @@ export function CollectionView() {
             <button
               type="button"
               onClick={() => navigate(`/upload/${id}`)}
-              className="btn btn-secondary"
+              className="btn btn-primary flex items-center gap-xs"
+              title="Upload documents to this collection"
             >
+              <Upload size={18} />
               Upload
             </button>
           </div>
