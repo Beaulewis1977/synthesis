@@ -56,7 +56,7 @@ linux:
   maintainer: beaulewis1977
   vendor: Synthesis Team
   synopsis: Desktop wrapper for Synthesis RAG
-  icon: build/icon.png  # 512x512 PNG
+  # icon: build/icon.png  # 512x512 PNG (optional, uses Electron default if missing)
 
 # AppImage specific
 appImage:
@@ -65,13 +65,12 @@ appImage:
 # Debian package specific
 deb:
   depends:
-    - gconf2
-    - gconf-service
     - libnotify4
-    - libappindicator1
     - libxtst6
     - libnss3
+    - libayatana-appindicator3-1  # Modern replacement for libappindicator1
   priority: optional
+  # Removed deprecated: gconf2, gconf-service (replaced by gsettings/dconf)
 
 # ===========================
 # WINDOWS CONFIGURATION
@@ -79,7 +78,7 @@ deb:
 win:
   target:
     - nsis
-  icon: build/icon.ico  # 256x256 ICO
+  # icon: build/icon.ico  # 256x256 ICO (optional, uses Electron default if missing)
   artifactName: ${productName}-Setup-${version}.${ext}
 
 # NSIS installer options
@@ -89,9 +88,9 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Synthesis Desktop
-  installerIcon: build/icon.ico
-  uninstallerIcon: build/icon.ico
-  license: ../../LICENSE  # Include license in installer
+  # installerIcon: build/icon.ico  # Optional
+  # uninstallerIcon: build/icon.ico  # Optional
+  # license: ../../LICENSE  # Optional - include license in installer
   warningsAsErrors: false
 
 # ===========================

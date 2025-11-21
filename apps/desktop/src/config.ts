@@ -104,8 +104,19 @@ export function getUserConfigPath(): string {
 /**
  * Get path to bundled resource (docker-compose.yml, .env.example)
  * Works in both development and packaged app
+ *
+ * @param resourceName - Name of the resource file (e.g., 'docker-compose.yml')
+ * @returns Absolute path to the resource
+ * @throws Error if resourceName contains path traversal sequences
  */
 export function getResourcePath(resourceName: string): string {
+  // Security: Prevent path traversal attacks
+  if (resourceName.includes('..') || resourceName.includes('/') || resourceName.includes('\\')) {
+    throw new Error(
+      `Invalid resource name: "${resourceName}". Resource names cannot contain path separators or traversal sequences.`
+    );
+  }
+
   if (app.isPackaged) {
     // Production: resources are in extraResources/
     return join(process.resourcesPath, resourceName);
@@ -116,11 +127,24 @@ export function getResourcePath(resourceName: string): string {
 
 /**
  * Get path to docker-compose.yml (bundled or custom)
+ *
+ * @param config - Optional config object with custom docker-compose path
+ * @returns Absolute path to docker-compose.yml (validated if custom)
  */
 export function getDockerComposePath(config?: Config): string {
   if (config?.docker?.composePath) {
-    // User-specified custom path
-    return config.docker.composePath;
+    // User-specified custom path - validate it exists
+    const customPath = config.docker.composePath;
+
+    // Security: Validate path exists before using
+    if (!existsSync(customPath)) {
+      console.warn(
+        `Custom docker-compose path does not exist: ${customPath}. Falling back to bundled version.`
+      );
+      return getResourcePath('docker-compose.yml');
+    }
+
+    return customPath;
   }
 
   // Use bundled docker-compose.yml

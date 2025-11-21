@@ -57,15 +57,24 @@ const WEB_PORT = 5173;
 const isDev = !app.isPackaged;
 const MAX_LOG_PREVIEW_LENGTH = 500; // Characters to show in error dialogs
 
-// Derive REPO_ROOT based on packaging mode
-function getRepoRoot(): string {
+/**
+ * Derive REPO_ROOT based on packaging mode
+ * In packaged mode, returns the directory containing extraResources
+ *
+ * @param cfg - Config object (required for packaged mode)
+ * @returns Absolute path to repository root (dev) or resources parent (packaged)
+ */
+function getRepoRoot(cfg?: Config): string {
   if (isDev) {
     // Development: apps/desktop/dist/main.js → go up 4 levels to repo root
     return path.resolve(__dirname, '../../../..');
   }
-  // Packaged: Use current working directory or bundled resource path parent
-  // In packaged mode, docker-compose.yml is in extraResources/
-  return path.dirname(getDockerComposePath(config));
+  // Packaged: Use directory containing bundled docker-compose.yml
+  // Fallback to process.resourcesPath parent if config not available
+  if (cfg) {
+    return path.dirname(getDockerComposePath(cfg));
+  }
+  return path.dirname(process.resourcesPath);
 }
 
 /**
@@ -301,7 +310,7 @@ async function handleStartSynthesis(): Promise<StartResult> {
       // Start Docker Compose
       updateStatus('starting', 'Starting Docker services...');
       const dockerComposePath = getDockerComposePath(config);
-      const repoRoot = getRepoRoot();
+      const repoRoot = getRepoRoot(config);
       const startResult = await startSynthesis(repoRoot, dockerComposePath);
 
       if (!startResult.success) {
@@ -335,7 +344,7 @@ async function handleStartSynthesis(): Promise<StartResult> {
         updateStatus('error', 'Backend failed to start');
 
         // Get Docker logs for troubleshooting
-        const logsResult = await getDockerLogs(getRepoRoot(), 'synthesis-server');
+        const logsResult = await getDockerLogs(getRepoRoot(config), 'synthesis-server');
         const logs = logsResult.success ? logsResult.logs : 'Unable to retrieve logs';
 
         await dialog.showMessageBox({
@@ -418,7 +427,7 @@ async function handleStartSynthesis(): Promise<StartResult> {
 
     // Load .env file
     updateStatus('starting', 'Loading environment...');
-    const envResult = loadEnvForDirectMode(getRepoRoot());
+    const envResult = loadEnvForDirectMode(getRepoRoot(config));
     if (!envResult.success) {
       updateStatus('error', '.env file not found');
       await dialog.showMessageBox({
@@ -474,7 +483,7 @@ async function handleStartSynthesis(): Promise<StartResult> {
     // Start processes
     updateStatus('starting', 'Starting services...');
     const startResult = await startDirectMode(
-      getRepoRoot(),
+      getRepoRoot(config),
       envResult.env || {},
       (_service, _data) => {}
     );
@@ -561,7 +570,7 @@ async function handleStopSynthesis(): Promise<StopResult> {
 
     if (config.mode === 'docker') {
       // Stop Docker Compose
-      const stopResult = await stopSynthesis(getRepoRoot());
+      const stopResult = await stopSynthesis(getRepoRoot(config));
 
       if (!stopResult.success) {
         updateStatus('error', 'Failed to stop Docker services');
@@ -615,7 +624,7 @@ function setupIPCHandlers() {
     }
   });
   ipcMain.handle('show-logs', async () => {
-    const logsResult = await getDockerLogs(getRepoRoot());
+    const logsResult = await getDockerLogs(getRepoRoot(config));
     if (logsResult.success) {
       await dialog.showMessageBox({
         type: 'info',

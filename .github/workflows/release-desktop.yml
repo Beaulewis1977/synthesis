@@ -18,26 +18,26 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            artifact_name: '*.AppImage'
-            artifact_path: 'apps/desktop/release/*.AppImage'
+            artifact_name: 'Linux'
+            artifact_pattern: 'apps/desktop/release/*.{AppImage,deb}'
           - os: windows-latest
-            artifact_name: '*.exe'
-            artifact_path: 'apps/desktop/release/*.exe'
+            artifact_name: 'Windows'
+            artifact_pattern: 'apps/desktop/release/*.exe'
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'pnpm'
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Get pnpm store directory
         shell: bash
@@ -69,7 +69,7 @@ jobs:
       - name: Upload artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.artifact_path }}
+          files: ${{ matrix.artifact_pattern }}
           draft: false
           prerelease: false
           generate_release_notes: true
@@ -79,8 +79,8 @@ jobs:
       - name: Upload artifacts to workflow
         uses: actions/upload-artifact@v4
         with:
-          name: synthesis-desktop-${{ matrix.os }}
-          path: ${{ matrix.artifact_path }}
+          name: synthesis-desktop-${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_pattern }}
           if-no-files-found: error
           retention-days: 30
 
