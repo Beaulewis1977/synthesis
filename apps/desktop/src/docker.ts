@@ -68,10 +68,18 @@ export async function isPortInUse(port: number): Promise<boolean> {
  */
 export async function startSynthesis(
   cwd: string,
+  dockerComposePath?: string,
   onOutput?: (data: string) => void
 ): Promise<{ success: boolean; error?: string; process?: ChildProcess }> {
   return new Promise((resolve) => {
-    const dockerProcess = spawn('docker', ['compose', 'up', '-d'], { cwd });
+    // Build docker compose command args
+    const args = ['compose'];
+    if (dockerComposePath) {
+      args.push('-f', dockerComposePath);
+    }
+    args.push('up', '-d');
+
+    const dockerProcess = spawn('docker', args, { cwd });
 
     let stdout = '';
     let stderr = '';

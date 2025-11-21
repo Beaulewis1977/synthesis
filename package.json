@@ -1,6 +1,6 @@
 {
   "name": "synthesis-monorepo",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Autonomous RAG system with Claude Agent SDK",
   "repository": {

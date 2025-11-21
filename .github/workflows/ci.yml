@@ -200,3 +200,39 @@ jobs:
           tags: synthesis-mcp:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  desktop-build:
+    name: Desktop App Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build desktop app (pack only, no installers)
+        run: pnpm --filter @synthesis/desktop pack
+
+      - name: Verify build artifacts
+        run: |
+          if [ ! -d "apps/desktop/dist" ]; then
+            echo "Desktop dist directory not found"
+            exit 1
+          fi
+
+          if [ ! -f "apps/desktop/dist/main.js" ]; then
+            echo "Main process bundle not found"
+            exit 1
+          fi
+
+          echo "Desktop app build verification passed"
