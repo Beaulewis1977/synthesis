@@ -253,6 +253,150 @@
       color: #a0aec0;
       font-size: 12px;
     }
+
+    /* Services Status Grid */
+    .services-section {
+      background: #f7fafc;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+      border: 2px solid #e2e8f0;
+    }
+
+    .services-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #718096;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .service-card {
+      background: white;
+      border-radius: 6px;
+      padding: 12px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .service-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .service-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: #cbd5e0;
+    }
+
+    .service-card.running .service-indicator {
+      background-color: #48bb78;
+      box-shadow: 0 0 6px rgba(72, 187, 120, 0.5);
+    }
+
+    .service-card.stopped .service-indicator {
+      background-color: #e53e3e;
+      box-shadow: 0 0 6px rgba(229, 62, 62, 0.5);
+    }
+
+    .service-card.error .service-indicator {
+      background-color: #e53e3e;
+      box-shadow: 0 0 6px rgba(229, 62, 62, 0.5);
+    }
+
+    .service-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: #4a5568;
+    }
+
+    .service-status {
+      font-size: 11px;
+      color: #718096;
+      margin-top: 4px;
+    }
+
+    /* Events Panel */
+    .events-section {
+      background: #f7fafc;
+      border-radius: 8px;
+      border: 2px solid #e2e8f0;
+      margin-bottom: 24px;
+    }
+
+    .events-header {
+      padding: 16px 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+
+    .events-header:hover {
+      background: #edf2f7;
+    }
+
+    .events-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .events-badge {
+      background: #667eea;
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      min-width: 24px;
+      text-align: center;
+    }
+
+    .events-list {
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 0 20px 16px 20px;
+    }
+
+    .event-item {
+      padding: 8px;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 12px;
+    }
+
+    .event-item:last-child {
+      border-bottom: none;
+    }
+
+    .event-time {
+      color: #a0aec0;
+      font-size: 11px;
+      margin-right: 8px;
+    }
+
+    .event-service {
+      font-weight: 600;
+      color: #4a5568;
+      margin-right: 4px;
+    }
+
+    .event-message {
+      color: #718096;
+    }
   </style>
 </head>
 <body>
@@ -279,6 +423,40 @@
       </p>
     </div>
 
+    <div class="services-section">
+      <div class="services-label">Services</div>
+      <div class="services-grid">
+        <div class="service-card" id="serviceDb">
+          <div class="service-header">
+            <span class="service-indicator"></span>
+            <span class="service-name">Database</span>
+          </div>
+          <div class="service-status" id="serviceDbStatus">-</div>
+        </div>
+        <div class="service-card" id="serviceServer">
+          <div class="service-header">
+            <span class="service-indicator"></span>
+            <span class="service-name">Server</span>
+          </div>
+          <div class="service-status" id="serviceServerStatus">-</div>
+        </div>
+        <div class="service-card" id="serviceWeb">
+          <div class="service-header">
+            <span class="service-indicator"></span>
+            <span class="service-name">Web UI</span>
+          </div>
+          <div class="service-status" id="serviceWebStatus">-</div>
+        </div>
+        <div class="service-card" id="serviceMcp">
+          <div class="service-header">
+            <span class="service-indicator"></span>
+            <span class="service-name">MCP Server</span>
+          </div>
+          <div class="service-status" id="serviceMcpStatus">-</div>
+        </div>
+      </div>
+    </div>
+
     <div class="buttons">
       <button id="startBtn" class="btn-start">Start Synthesis</button>
       <button id="stopBtn" class="btn-stop" disabled>Stop Synthesis</button>
@@ -293,6 +471,16 @@
       <div class="error-title">Error</div>
       <div class="error-message" id="errorMessage"></div>
     </div>
+
+    <details class="events-section">
+      <summary class="events-header">
+        <span class="events-label">Recent Events</span>
+        <span class="events-badge" id="eventsBadge">0</span>
+      </summary>
+      <div class="events-list" id="eventsList">
+        <!-- Events will be dynamically inserted here -->
+      </div>
+    </details>
 
     <div class="footer">
       Synthesis Desktop v1.0.0
@@ -316,6 +504,26 @@
     const modeDirectBtn = document.getElementById('modeDirectBtn');
     const modeHelp = document.getElementById('modeHelp');
 
+    // Service status elements
+    const servicesSection = {
+      db: document.getElementById('serviceDb'),
+      server: document.getElementById('serviceServer'),
+      web: document.getElementById('serviceWeb'),
+      mcp: document.getElementById('serviceMcp'),
+      dbStatus: document.getElementById('serviceDbStatus'),
+      serverStatus: document.getElementById('serviceServerStatus'),
+      webStatus: document.getElementById('serviceWebStatus'),
+      mcpStatus: document.getElementById('serviceMcpStatus')
+    };
+
+    // Events elements
+    const eventsList = document.getElementById('eventsList');
+    const eventsBadge = document.getElementById('eventsBadge');
+
+    // State
+    let statusPollInterval = null;
+    let eventCount = 0;
+
     // Current mode state
     let currentMode = 'docker';
 
@@ -324,6 +532,72 @@
       docker: 'Docker: Containers (production) | Direct: Dev processes (development only)',
       direct: 'Docker: Containers (production) | Direct: Dev processes (development only)'
     };
+
+    // Update service status display
+    function updateServiceStatus(services) {
+      for (const [service, status] of Object.entries(services)) {
+        const card = servicesSection[service];
+        const statusText = servicesSection[`${service}Status`];
+
+        if (card && statusText) {
+          // Update status class
+          card.className = `service-card ${status}`;
+
+          // Update status text
+          statusText.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+      }
+    }
+
+    // Add event to the list
+    function addEvent(event) {
+      const eventItem = document.createElement('div');
+      eventItem.className = 'event-item';
+
+      const time = new Date(event.timestamp).toLocaleTimeString();
+
+      eventItem.innerHTML = `
+        <span class="event-time">${time}</span>
+        <span class="event-service">${event.service}:</span>
+        <span class="event-message">${event.message}</span>
+      `;
+
+      eventsList.insertBefore(eventItem, eventsList.firstChild);
+
+      // Update badge count
+      eventCount++;
+      eventsBadge.textContent = eventCount.toString();
+
+      // Keep only last 50 events
+      while (eventsList.children.length > 50) {
+        eventsList.removeChild(eventsList.lastChild);
+      }
+    }
+
+    // Poll service status
+    function startStatusPolling() {
+      // Initial fetch
+      fetchServiceStatus();
+
+      // Poll every 10 seconds
+      statusPollInterval = setInterval(fetchServiceStatus, 10000);
+    }
+
+    function stopStatusPolling() {
+      if (statusPollInterval) {
+        clearInterval(statusPollInterval);
+        statusPollInterval = null;
+      }
+    }
+
+    async function fetchServiceStatus() {
+      try {
+        const services = await synthesisAPI.getServiceStatus();
+        updateServiceStatus(services);
+      } catch (error) {
+        console.error('Failed to fetch service status:', error);
+      }
+    }
 
     // Update mode UI
     function updateModeUI(mode) {
@@ -360,6 +634,13 @@
       // Disable mode buttons when running or starting
       modeDockerBtn.disabled = isRunningOrStarting;
       modeDirectBtn.disabled = isRunningOrStarting;
+
+      // Control polling based on status
+      if (status === 'running' || status === 'starting') {
+        startStatusPolling();
+      } else {
+        stopStatusPolling();
+      }
 
       // Show/hide error section
       if (isError && message) {
@@ -425,6 +706,11 @@
       updateUI(update.status, update.message);
     });
 
+    // Listen for real-time events
+    synthesisAPI.onRecentEvent((event) => {
+      addEvent(event);
+    });
+
     // Get initial status and mode
     (async () => {
       const status = await synthesisAPI.getStatus();
@@ -433,6 +719,26 @@
       // Load saved mode
       const modeResult = await synthesisAPI.getMode();
       updateModeUI(modeResult.mode);
+
+      // Load service status
+      await fetchServiceStatus();
+
+      // Load recent events
+      try {
+        const events = await synthesisAPI.getRecentEvents();
+        eventCount = events.length;
+        eventsBadge.textContent = eventCount.toString();
+
+        // Reverse to show newest first
+        events.reverse().forEach(addEvent);
+      } catch (error) {
+        console.error('Failed to load recent events:', error);
+      }
+
+      // Start polling if already running
+      if (status.status === 'running') {
+        startStatusPolling();
+      }
     })();
   </script>
 </body>

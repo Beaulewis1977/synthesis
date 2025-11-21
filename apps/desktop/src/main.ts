@@ -669,12 +669,35 @@ function setupIPCHandlers() {
 }
 
 /**
+ * Check if services are already running on startup
+ */
+async function checkInitialStatus() {
+  const [serverRunning, webRunning] = await Promise.all([
+    isPortInUse(SERVER_PORT),
+    isPortInUse(WEB_PORT),
+  ]);
+
+  if (serverRunning && webRunning) {
+    // Check if backend is actually healthy
+    const health = await healthCheck(HEALTH_URL, 5000, 1000);
+    if (health.healthy) {
+      updateStatus('running', 'Synthesis is already running');
+      addEvent('system', 'Detected running services on startup');
+      startPeriodicHealthChecks();
+    }
+  }
+}
+
+/**
  * App lifecycle
  */
-app.on('ready', () => {
+app.on('ready', async () => {
   currentMode = loadMode(); // Load saved mode
   setupIPCHandlers();
   createControlWindow();
+
+  // Check if services are already running
+  await checkInitialStatus();
 });
 
 app.on('window-all-closed', () => {
