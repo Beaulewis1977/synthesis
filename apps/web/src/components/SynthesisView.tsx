@@ -44,11 +44,21 @@ export function SynthesisView({ query, collectionId }: SynthesisViewProps) {
             <h3 className="font-semibold text-error mb-sm">
               {is404 ? 'Synthesis Feature Disabled' : 'Synthesis Failed'}
             </h3>
-            <p className="text-sm text-text-secondary mb-md break-words">
-              {is404
-                ? 'The synthesis feature is not enabled on the backend. Set ENABLE_SYNTHESIS=true in your environment.'
-                : errorMessage}
-            </p>
+            {is404 ? (
+              <div className="text-sm text-text-secondary">
+                <p>The synthesis feature is not enabled on the backend.</p>
+                <p className="mt-2">
+                  Add{' '}
+                  <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">
+                    ENABLE_SYNTHESIS=true
+                  </code>{' '}
+                  to your <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">.env</code> file
+                  and restart the server.
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-text-secondary mb-md break-words">{errorMessage}</p>
+            )}
             {!is404 && (
               <button
                 type="button"

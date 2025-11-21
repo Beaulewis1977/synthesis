@@ -1,9 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, Folder, Loader2 } from 'lucide-react';
+import { AlertCircle, Folder, Loader2, Plus } from 'lucide-react';
+import { useState } from 'react';
 import { CollectionCard } from '../components/CollectionCard';
+import { CreateCollectionModal } from '../components/CreateCollectionModal';
 import { apiClient } from '../lib/api';
 
 export function Dashboard() {
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['collections'],
     queryFn: () => apiClient.fetchCollections(),
@@ -11,9 +15,19 @@ export function Dashboard() {
 
   return (
     <div>
-      <div className="mb-lg">
-        <h1 className="text-2xl font-bold text-text-primary mb-md">Your Collections</h1>
-        <p className="text-text-secondary">Manage and explore your document collections</p>
+      <div className="flex items-center justify-between mb-lg">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary mb-md">Your Collections</h1>
+          <p className="text-text-secondary">Manage and explore your document collections</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsCreateModalOpen(true)}
+          className="btn btn-primary flex items-center gap-2"
+        >
+          <Plus size={18} />
+          Create Collection
+        </button>
       </div>
 
       {/* Loading State */}
@@ -44,7 +58,15 @@ export function Dashboard() {
         <div className="card text-center py-xl">
           <Folder className="mx-auto text-text-secondary mb-md" size={48} />
           <h3 className="text-lg font-semibold text-text-primary mb-sm">No collections yet</h3>
-          <p className="text-text-secondary">Create your first collection to get started</p>
+          <p className="text-text-secondary mb-md">Create your first collection to get started</p>
+          <button
+            type="button"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="btn btn-primary flex items-center gap-2 mx-auto"
+          >
+            <Plus size={18} />
+            Create Collection
+          </button>
         </div>
       )}
 
@@ -56,6 +78,12 @@ export function Dashboard() {
           ))}
         </div>
       )}
+
+      {/* Create Collection Modal */}
+      <CreateCollectionModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
     </div>
   );
 }
