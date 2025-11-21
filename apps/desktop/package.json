@@ -3,30 +3,24 @@
   "version": "1.0.0",
   "description": "Synthesis Desktop - Electron wrapper for Synthesis RAG system",
   "author": "Synthesis Team",
+  "license": "MIT",
   "main": "dist/main.js",
   "scripts": {
     "dev": "tsup && electron .",
-    "build": "tsup && electron-builder",
+    "build": "tsup && electron-builder --config electron-builder.yml",
+    "build:linux": "tsup && electron-builder --linux --config electron-builder.yml",
+    "build:win": "tsup && electron-builder --win --config electron-builder.yml",
+    "pack": "tsup && electron-builder --dir --config electron-builder.yml",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
   "devDependencies": {
     "@types/node": "^22.7.5",
     "electron": "33.2.0",
     "electron-builder": "25.1.8",
     "tsup": "^8.3.0",
     "typescript": "5.7.2"
-  },
-  "build": {
-    "appId": "com.synthesis.desktop",
-    "productName": "Synthesis Desktop",
-    "files": ["dist/**/*", "src/renderer/**/*"],
-    "directories": {
-      "output": "release"
-    },
-    "linux": {
-      "target": "AppImage",
-      "category": "Development"
-    }
   }
 }

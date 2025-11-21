@@ -12,7 +12,8 @@
       ".kilocode",
       ".gemini",
       "storage/**",
-      "**/fixtures/**"
+      "**/fixtures/**",
+      "**/release/**"
     ]
   },
   "linter": {

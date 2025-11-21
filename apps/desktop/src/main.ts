@@ -1,6 +1,6 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import { BrowserWindow, app, dialog, ipcMain } from 'electron';
+import { type Config, getDockerComposePath, loadConfig, saveConfig } from './config';
 import { checkDocker, getDockerLogs, isPortInUse, startSynthesis, stopSynthesis } from './docker';
 import { healthCheck } from './health';
 import type { StartResult, StatusUpdate, StopResult, SynthesisStatus } from './preload';
@@ -22,8 +22,8 @@ let currentStatus: SynthesisStatus = 'stopped';
 let statusMessage: string | undefined;
 let isQuitting = false;
 
-// Direct mode state
-let currentMode: 'docker' | 'direct' = 'docker';
+// Configuration state
+let config: Config;
 let runningProcesses: ProcessInfo[] = [];
 
 // Phase 4: Service status monitoring
@@ -51,43 +51,41 @@ const recentEvents: RecentEvent[] = [];
 const MAX_EVENTS = 50;
 let healthCheckInterval: NodeJS.Timeout | null = null;
 
-// Configuration
-const SYNTHESIS_URL = process.env.SYNTHESIS_URL || 'http://localhost:5173';
-const HEALTH_URL = 'http://localhost:3333/health';
+// Constants
 const SERVER_PORT = 3333;
 const WEB_PORT = 5173;
-const REPO_ROOT = path.resolve(__dirname, '../../..');
 const isDev = !app.isPackaged;
 const MAX_LOG_PREVIEW_LENGTH = 500; // Characters to show in error dialogs
 
 /**
- * Mode persistence
+ * Derive REPO_ROOT based on packaging mode
+ * In packaged mode, returns the directory containing extraResources
+ *
+ * @param cfg - Config object (required for packaged mode)
+ * @returns Absolute path to repository root (dev) or resources parent (packaged)
  */
-const MODE_CONFIG_FILE = path.join(app.getPath('userData'), 'mode.json');
-
-function loadMode(): 'docker' | 'direct' {
-  try {
-    if (fs.existsSync(MODE_CONFIG_FILE)) {
-      const data = fs.readFileSync(MODE_CONFIG_FILE, 'utf-8');
-      const config = JSON.parse(data);
-      return config.mode === 'direct' ? 'direct' : 'docker';
-    }
-  } catch (err) {
-    console.error('Failed to load mode config:', err);
+function getRepoRoot(cfg?: Config): string {
+  if (isDev) {
+    // Development: apps/desktop/dist/main.js → go up 4 levels to repo root
+    return path.resolve(__dirname, '../../../..');
   }
-  return 'docker'; // Default
+  // Packaged: Use directory containing bundled docker-compose.yml
+  // Fallback to process.resourcesPath parent if config not available
+  if (cfg) {
+    return path.dirname(getDockerComposePath(cfg));
+  }
+  return path.dirname(process.resourcesPath);
 }
 
-function saveMode(mode: 'docker' | 'direct') {
-  try {
-    const dir = path.dirname(MODE_CONFIG_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(MODE_CONFIG_FILE, JSON.stringify({ mode }));
-  } catch (err) {
-    console.error('Failed to save mode config:', err);
-  }
+/**
+ * Get dynamic values from config
+ */
+function getHealthUrl(): string {
+  return `${config.serverUrl.replace(/\/$/, '')}/health`;
+}
+
+function getSynthesisWebUrl(): string {
+  return config.webUrl;
 }
 
 /**
@@ -233,7 +231,7 @@ function createWebUIWindow() {
     },
   });
 
-  webUIWindow.loadURL(SYNTHESIS_URL);
+  webUIWindow.loadURL(getSynthesisWebUrl());
 
   // Enable dev tools in development
   if (isDev) {
@@ -258,9 +256,9 @@ async function handleStartSynthesis(): Promise<StartResult> {
       };
     }
 
-    updateStatus('starting', `Starting in ${currentMode} mode...`);
+    updateStatus('starting', `Starting in ${config.mode} mode...`);
 
-    if (currentMode === 'docker') {
+    if (config.mode === 'docker') {
       // ===== DOCKER MODE =====
       updateStatus('starting', 'Checking Docker availability...');
 
@@ -311,7 +309,9 @@ async function handleStartSynthesis(): Promise<StartResult> {
 
       // Start Docker Compose
       updateStatus('starting', 'Starting Docker services...');
-      const startResult = await startSynthesis(REPO_ROOT);
+      const dockerComposePath = getDockerComposePath(config);
+      const repoRoot = getRepoRoot(config);
+      const startResult = await startSynthesis(repoRoot, dockerComposePath);
 
       if (!startResult.success) {
         updateStatus('error', 'Failed to start Docker services');
@@ -331,15 +331,20 @@ async function handleStartSynthesis(): Promise<StartResult> {
 
       // Wait for backend to be healthy
       updateStatus('starting', 'Waiting for backend to be ready...');
-      const healthResult = await healthCheck(HEALTH_URL, 60000, 2000, (attempt, maxAttempts) => {
-        updateStatus('starting', `Health check: attempt ${attempt}/${maxAttempts}...`);
-      });
+      const healthResult = await healthCheck(
+        getHealthUrl(),
+        60000,
+        2000,
+        (attempt, maxAttempts) => {
+          updateStatus('starting', `Health check: attempt ${attempt}/${maxAttempts}...`);
+        }
+      );
 
       if (!healthResult.healthy) {
         updateStatus('error', 'Backend failed to start');
 
         // Get Docker logs for troubleshooting
-        const logsResult = await getDockerLogs(REPO_ROOT, 'synthesis-server');
+        const logsResult = await getDockerLogs(getRepoRoot(config), 'synthesis-server');
         const logs = logsResult.success ? logsResult.logs : 'Unable to retrieve logs';
 
         await dialog.showMessageBox({
@@ -422,7 +427,7 @@ async function handleStartSynthesis(): Promise<StartResult> {
 
     // Load .env file
     updateStatus('starting', 'Loading environment...');
-    const envResult = loadEnvForDirectMode(REPO_ROOT);
+    const envResult = loadEnvForDirectMode(getRepoRoot(config));
     if (!envResult.success) {
       updateStatus('error', '.env file not found');
       await dialog.showMessageBox({
@@ -478,7 +483,7 @@ async function handleStartSynthesis(): Promise<StartResult> {
     // Start processes
     updateStatus('starting', 'Starting services...');
     const startResult = await startDirectMode(
-      REPO_ROOT,
+      getRepoRoot(config),
       envResult.env || {},
       (_service, _data) => {}
     );
@@ -503,7 +508,7 @@ async function handleStartSynthesis(): Promise<StartResult> {
 
     // Wait for backend health
     updateStatus('starting', 'Waiting for backend...');
-    const healthResult = await healthCheck(HEALTH_URL, 60000, 2000, (attempt, maxAttempts) => {
+    const healthResult = await healthCheck(getHealthUrl(), 60000, 2000, (attempt, maxAttempts) => {
       updateStatus('starting', `Health check: attempt ${attempt}/${maxAttempts}...`);
     });
 
@@ -563,9 +568,9 @@ async function handleStopSynthesis(): Promise<StopResult> {
       webUIWindow.close();
     }
 
-    if (currentMode === 'docker') {
+    if (config.mode === 'docker') {
       // Stop Docker Compose
-      const stopResult = await stopSynthesis(REPO_ROOT);
+      const stopResult = await stopSynthesis(getRepoRoot(config));
 
       if (!stopResult.success) {
         updateStatus('error', 'Failed to stop Docker services');
@@ -619,7 +624,7 @@ function setupIPCHandlers() {
     }
   });
   ipcMain.handle('show-logs', async () => {
-    const logsResult = await getDockerLogs(REPO_ROOT);
+    const logsResult = await getDockerLogs(getRepoRoot(config));
     if (logsResult.success) {
       await dialog.showMessageBox({
         type: 'info',
@@ -647,12 +652,12 @@ function setupIPCHandlers() {
         error: 'Stop Synthesis before changing modes',
       };
     }
-    currentMode = mode;
-    saveMode(mode);
+    config.mode = mode;
+    saveConfig(config);
     return { success: true, mode };
   });
 
-  ipcMain.handle('get-mode', () => ({ mode: currentMode }));
+  ipcMain.handle('get-mode', () => ({ mode: config.mode }));
 
   // Phase 4: Service status and events
   ipcMain.handle('get-service-status', async () => {
@@ -679,7 +684,7 @@ async function checkInitialStatus() {
 
   if (serverRunning && webRunning) {
     // Check if backend is actually healthy
-    const health = await healthCheck(HEALTH_URL, 5000, 1000);
+    const health = await healthCheck(getHealthUrl(), 5000, 1000);
     if (health.healthy) {
       updateStatus('running', 'Synthesis is already running');
       addEvent('system', 'Detected running services on startup');
@@ -692,7 +697,9 @@ async function checkInitialStatus() {
  * App lifecycle
  */
 app.on('ready', async () => {
-  currentMode = loadMode(); // Load saved mode
+  // Load configuration
+  config = loadConfig();
+
   setupIPCHandlers();
   createControlWindow();
 
@@ -721,7 +728,7 @@ app.on('before-quit', async (event) => {
     isQuitting = true;
 
     // Clean up based on mode
-    if (currentMode === 'direct' && runningProcesses.length > 0) {
+    if (config.mode === 'direct' && runningProcesses.length > 0) {
       await stopDirectMode(runningProcesses);
       runningProcesses = [];
     } else {
