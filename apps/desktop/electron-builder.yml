@@ -19,6 +19,8 @@ files:
   - "!**/*.map"  # Exclude source maps
   - "!**/*.ts"   # Exclude TypeScript source files
   - "!**/node_modules/**/{README.md,CHANGELOG.md,LICENSE}"
+  - "!node_modules/.pnpm/**"  # Exclude pnpm virtual store
+  - "!node_modules/.cache/**"  # Exclude cache directories
 
 # Extra resources (not in ASAR, accessible via process.resourcesPath)
 extraResources:
@@ -37,6 +39,10 @@ compression: normal  # Options: store, normal, maximum
 
 # Build for current platform only in dev
 buildVersion: ${version}
+
+# Disable native dependency rebuilding (we have no native deps)
+nodeGypRebuild: false
+npmRebuild: false
 
 # ===========================
 # LINUX CONFIGURATION
