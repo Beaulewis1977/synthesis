@@ -946,7 +946,7 @@ export async function listWorkflowTemplates(
     sql += ` AND category = $${params.length}`;
   }
   if (techStack) {
-    params.push(techStack);
+    params.push(JSON.stringify([techStack]));
     sql += ` AND (tech_stacks @> $${params.length}::jsonb OR tech_stacks = '[]'::jsonb)`;
   }
 

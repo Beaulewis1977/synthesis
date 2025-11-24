@@ -9,7 +9,6 @@ import {
   getPool,
   getRepoSource,
   listRepoSources,
-  type RepositorySource,
 } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
@@ -23,30 +22,29 @@ const CreateRepoSourceSchema = z.object({
   ignored_paths: z.array(z.string()).optional(),
 });
 
-const SyncRepoSchema = z.object({
+// Schema for sync endpoint (used for validation)
+const _SyncRepoSchema = z.object({
   repo_source_id: z.string().uuid(),
 });
+void _SyncRepoSchema; // Mark as intentionally unused for now
 
 export const repoRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/repos - List all repository sources for a collection
-  fastify.get<{ Querystring: { collection_id: string } }>(
-    '/api/repos',
-    async (request, reply) => {
-      const { collection_id } = request.query;
+  fastify.get<{ Querystring: { collection_id: string } }>('/api/repos', async (request, reply) => {
+    const { collection_id } = request.query;
 
-      if (!collection_id) {
-        return reply.code(400).send({ error: 'collection_id is required' });
-      }
-
-      try {
-        const repos = await listRepoSources(collection_id);
-        return reply.send({ repos });
-      } catch (error) {
-        fastify.log.error(error, 'Failed to list repository sources');
-        return reply.code(500).send({ error: 'Failed to list repository sources' });
-      }
+    if (!collection_id) {
+      return reply.code(400).send({ error: 'collection_id is required' });
     }
-  );
+
+    try {
+      const repos = await listRepoSources(collection_id);
+      return reply.send({ repos });
+    } catch (error) {
+      fastify.log.error(error, 'Failed to list repository sources');
+      return reply.code(500).send({ error: 'Failed to list repository sources' });
+    }
+  });
 
   // GET /api/repos/:id - Get a specific repository source
   fastify.get<{ Params: { id: string } }>('/api/repos/:id', async (request, reply) => {
@@ -90,12 +88,12 @@ export const repoRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(201).send({ repo });
     } catch (error) {
       fastify.log.error(error, 'Failed to create repository source');
-      
+
       // Check for unique constraint violation
       if (error instanceof Error && error.message.includes('unique')) {
         return reply.code(409).send({ error: 'Repository already exists in this collection' });
       }
-      
+
       return reply.code(500).send({ error: 'Failed to create repository source' });
     }
   });

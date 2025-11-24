@@ -18,6 +18,8 @@ const CLASS_PATTERN =
 const PROPERTY_PATTERN =
   /(?:(?:public|private|protected|internal|open|override|const|lateinit)\s+)*(?:val|var)\s+(\w+)(?:\s*:\s*([^\s=]+))?(?:\s*=\s*([^;\n]+))?/g;
 
+const COMPANION_OBJECT_PATTERN = /companion\s+object\s*(?:\w+)?\s*\{/g;
+
 const KDOC_PATTERN = /\/\*\*[\s\S]*?\*\//g;
 const SINGLE_COMMENT_PATTERN = /\/\/.*$/gm;
 
@@ -45,9 +47,12 @@ function extractImports(content: string): DartAST['imports'] {
   IMPORT_PATTERN.lastIndex = 0;
 
   while ((match = IMPORT_PATTERN.exec(content)) !== null) {
+    const uri = match[1];
+    const alias = match[2] || undefined;
+
     imports.push({
-      uri: match[1],
-      prefix: match[2] || undefined,
+      uri,
+      prefix: alias,
       show: [],
       hide: [],
     });
@@ -85,14 +90,18 @@ function extractFunctions(content: string): DartAST['functions'] {
     const code = content.substring(startOffset, endOffset);
     const lineRange = getLineRange(content, startOffset, endOffset);
 
+    const parameters = parseParameterNames(paramsStr);
+    const docComment = extractDocComment(content, startOffset);
+    const isAsync = content.substring(Math.max(0, startOffset - 50), startOffset).includes('suspend');
+
     functions.push({
       name,
       code,
-      parameters: parseParameterNames(paramsStr),
+      parameters,
       returnType,
-      docComment: extractDocComment(content, startOffset),
+      docComment,
       lineRange,
-      isAsync: content.substring(Math.max(0, startOffset - 50), startOffset).includes('suspend'),
+      isAsync,
       isGenerator: false,
       isArrowFunction: code.includes('=') && !code.includes('{'),
       startOffset,
@@ -139,6 +148,7 @@ function extractClasses(content: string): DartAST['classes'] {
     const classBody = extractClassBody(content, startOffset);
     const methods = extractMethodsFromClass(classBody, startOffset);
     const properties = extractPropertiesFromClass(classBody);
+    const isAbstract = content.substring(Math.max(0, startOffset - 30), startOffset).includes('abstract');
 
     classes.push({
       name,
@@ -149,7 +159,7 @@ function extractClasses(content: string): DartAST['classes'] {
       interfaces,
       mixins: [],
       lineRange,
-      isAbstract: content.substring(Math.max(0, startOffset - 30), startOffset).includes('abstract'),
+      isAbstract,
       startOffset,
       endOffset,
     });
@@ -167,13 +177,14 @@ function extractConstants(content: string): DartAST['constants'] {
   while ((match = CONST_PATTERN.exec(content)) !== null) {
     const startOffset = match.index;
     const endOffset = startOffset + match[0].length;
+    const lineRange = getLineRange(content, startOffset, endOffset);
 
     constants.push({
       name: match[1],
       code: match[0],
       type: match[2] || 'Any',
       value: match[3].trim(),
-      lineRange: getLineRange(content, startOffset, endOffset),
+      lineRange,
       startOffset,
       endOffset,
     });
@@ -184,7 +195,24 @@ function extractConstants(content: string): DartAST['constants'] {
 
 function parseParameterNames(paramsStr: string): string[] {
   if (!paramsStr.trim()) return [];
+  
   const params: string[] = [];
+  const parts = splitParameters(paramsStr);
+
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const paramMatch = trimmed.match(/(\w+)\s*:/);
+    if (paramMatch) {
+      params.push(paramMatch[1]);
+    }
+  }
+
+  return params;
+}
+
+function splitParameters(paramsStr: string): string[] {
+  const result: string[] = [];
   let current = '';
   let depth = 0;
 
@@ -192,31 +220,31 @@ function parseParameterNames(paramsStr: string): string[] {
     if (char === '<' || char === '(') depth++;
     else if (char === '>' || char === ')') depth--;
     else if (char === ',' && depth === 0) {
-      const match = current.trim().match(/(\w+)\s*:/);
-      if (match) params.push(match[1]);
+      result.push(current);
       current = '';
       continue;
     }
     current += char;
   }
 
-  if (current.trim()) {
-    const match = current.trim().match(/(\w+)\s*:/);
-    if (match) params.push(match[1]);
-  }
-
-  return params;
+  if (current.trim()) result.push(current);
+  return result;
 }
 
 function findFunctionEnd(content: string, startIndex: number): number {
+  // Find opening brace or = for expression functions
   let i = startIndex;
-  while (i < content.length && content[i] !== '{' && content[i] !== '=') i++;
+  while (i < content.length && content[i] !== '{' && content[i] !== '=') {
+    i++;
+  }
 
   if (content[i] === '=') {
+    // Expression function - find end of line or next statement
     while (i < content.length && content[i] !== '\n') i++;
     return i;
   }
 
+  // Block function - find matching brace
   return findMatchingBrace(content, i);
 }
 
@@ -258,14 +286,15 @@ function extractMethodsFromClass(classBody: string, classStartOffset: number): D
 
   while ((match = FUNCTION_PATTERN.exec(classBody)) !== null) {
     const startOffset = classStartOffset + match.index;
-    const endOffset = startOffset + match[0].length + 50;
+    const endOffset = startOffset + match[0].length + 50; // Approximate
+    const lineRange = getLineRange(classBody, match.index, match.index + match[0].length);
 
     methods.push({
       name: match[1],
       code: match[0],
       parameters: parseParameterNames(match[2]),
       returnType: match[3] || 'Unit',
-      lineRange: getLineRange(classBody, match.index, match.index + match[0].length),
+      lineRange,
       isStatic: classBody.substring(Math.max(0, match.index - 30), match.index).includes('companion'),
       isAsync: classBody.substring(Math.max(0, match.index - 50), match.index).includes('suspend'),
       startOffset,

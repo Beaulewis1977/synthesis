@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Loader2, MessageSquare, Search, Upload, Zap } from 'lucide-react';
+import { AlertCircle, Loader2, MessageSquare, Search, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DocumentList } from '../components/DocumentList';

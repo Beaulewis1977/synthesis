@@ -21,13 +21,9 @@ const SearchFeedbackSchema = z.object({
   similarity_score: z.number().optional(),
   search_mode: z.enum(['vector', 'hybrid']).optional(),
   feedback_text: z.string().max(1000).optional(),
-  feedback_category: z.enum([
-    'irrelevant',
-    'outdated',
-    'incorrect',
-    'helpful',
-    'perfect',
-  ]).optional(),
+  feedback_category: z
+    .enum(['irrelevant', 'outdated', 'incorrect', 'helpful', 'perfect'])
+    .optional(),
   session_id: z.string().uuid().optional(),
 });
 
@@ -138,7 +134,7 @@ export const feedbackRoutes: FastifyPluginAsync = async (fastify) => {
     '/api/feedback/top-quality/:collectionId',
     async (request, reply) => {
       const { collectionId } = request.params;
-      const limit = parseInt(request.query.limit || '10', 10);
+      const limit = Number.parseInt(request.query.limit || '10', 10);
 
       try {
         const documents = await getTopQualityDocuments(collectionId, limit);

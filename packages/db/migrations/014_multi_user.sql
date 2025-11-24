@@ -163,11 +163,13 @@ CREATE INDEX idx_collection_permissions_collection ON collection_permissions(col
 CREATE INDEX idx_collection_permissions_user ON collection_permissions(user_id);
 CREATE INDEX idx_api_keys_user ON api_keys(user_id);
 CREATE INDEX idx_api_keys_prefix ON api_keys(key_prefix);
+CREATE UNIQUE INDEX idx_api_keys_hash ON api_keys(key_hash);
 CREATE INDEX idx_audit_log_user ON audit_log(user_id);
 CREATE INDEX idx_audit_log_action ON audit_log(action);
 CREATE INDEX idx_audit_log_created ON audit_log(created_at);
 CREATE INDEX idx_sessions_user ON sessions(user_id);
 CREATE INDEX idx_sessions_expires ON sessions(expires_at);
+CREATE UNIQUE INDEX idx_sessions_token ON sessions(token_hash);
 
 -- Row Level Security policies (for Supabase integration)
 -- These would be enabled when using Supabase

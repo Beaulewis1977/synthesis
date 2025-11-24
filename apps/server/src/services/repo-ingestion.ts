@@ -417,7 +417,7 @@ export async function syncRepository(_db: Pool, repoSourceId: string): Promise<v
 
               // Save file content
               const fileExtension = path.extname(relativePath) || '.txt';
-              const savedPath = await writeDocumentFile(
+              await writeDocumentFile(
                 repoSource.collection_id,
                 document.id,
                 fileExtension,

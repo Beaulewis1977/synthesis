@@ -3,12 +3,7 @@
  * Includes chunk viewing/editing, metadata editing, and stale document management
  */
 
-import {
-  getDocument,
-  getDocumentChunks,
-  getPool,
-  upsertChunk,
-} from '@synthesis/db';
+import { getDocument, getDocumentChunks, getPool, upsertChunk } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { embedText } from '../pipeline/embed.js';
@@ -85,7 +80,7 @@ export const documentRoutes: FastifyPluginAsync = async (fastify) => {
     '/api/documents/:id/chunks/:chunkIndex',
     async (request, reply) => {
       const { id, chunkIndex } = request.params;
-      const chunkIdx = parseInt(chunkIndex, 10);
+      const chunkIdx = Number.parseInt(chunkIndex, 10);
 
       if (Number.isNaN(chunkIdx) || chunkIdx < 0) {
         return reply.code(400).send({ error: 'Invalid chunk index' });
@@ -109,17 +104,23 @@ export const documentRoutes: FastifyPluginAsync = async (fastify) => {
         const { text, metadata } = validation.data;
 
         // Generate new embedding for the updated text
-        fastify.log.info({ docId: id, chunkIndex: chunkIdx }, 'Generating embedding for updated chunk');
-        
+        fastify.log.info(
+          { docId: id, chunkIndex: chunkIdx },
+          'Generating embedding for updated chunk'
+        );
+
         let embedding: number[] | undefined;
         let embeddingModel: string | undefined;
-        
+
         try {
           const embeddingResult = await embedText(text);
           embedding = embeddingResult.embedding;
           embeddingModel = embeddingResult.model;
         } catch (embeddingError) {
-          fastify.log.warn({ error: embeddingError }, 'Failed to generate embedding, saving without');
+          fastify.log.warn(
+            { error: embeddingError },
+            'Failed to generate embedding, saving without'
+          );
         }
 
         // Upsert the chunk
@@ -190,10 +191,7 @@ export const documentRoutes: FastifyPluginAsync = async (fastify) => {
           params.push(JSON.stringify(metadata));
         }
 
-        await pool.query(
-          `UPDATE documents SET ${updates.join(', ')} WHERE id = $1`,
-          params
-        );
+        await pool.query(`UPDATE documents SET ${updates.join(', ')} WHERE id = $1`, params);
 
         const updatedDocument = await getDocument(id);
 
@@ -265,7 +263,7 @@ export const documentRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Delete chunks first (should cascade, but be explicit)
       await pool.query('DELETE FROM chunks WHERE doc_id = $1', [id]);
-      
+
       // Delete document
       await pool.query('DELETE FROM documents WHERE id = $1', [id]);
 

@@ -7,12 +7,13 @@ import crypto from 'node:crypto';
 import { getPool, type Document } from '@synthesis/db';
 
 // Configuration
-const BATCH_SIZE = parseInt(process.env.STALE_CHECK_BATCH_SIZE || '500', 10);
-const MAX_PARALLEL_WORKERS = parseInt(process.env.STALE_CHECK_WORKERS || '5', 10);
-const FETCH_TIMEOUT_MS = parseInt(process.env.STALE_CHECK_TIMEOUT || '10000', 10);
-const RATE_LIMIT_PER_HOST = parseInt(process.env.STALE_CHECK_RATE_LIMIT || '5', 10); // requests per second per host
-const MAX_RETRIES = 3;
-const RETRY_DELAYS = [60000, 300000, 900000]; // 1min, 5min, 15min
+const BATCH_SIZE = Number.parseInt(process.env.STALE_CHECK_BATCH_SIZE || '500', 10);
+const MAX_PARALLEL_WORKERS = Number.parseInt(process.env.STALE_CHECK_WORKERS || '5', 10);
+const FETCH_TIMEOUT_MS = Number.parseInt(process.env.STALE_CHECK_TIMEOUT || '10000', 10);
+const RATE_LIMIT_PER_HOST = Number.parseInt(process.env.STALE_CHECK_RATE_LIMIT || '5', 10); // requests per second per host
+// TODO: Implement retry logic with these constants
+// const MAX_RETRIES = 3;
+// const RETRY_DELAYS = [60000, 300000, 900000]; // 1min, 5min, 15min
 
 interface StaleCheckResult {
   documentId: string;
@@ -297,7 +298,31 @@ export function startStaleCheckScheduler(): void {
   
   // Simple cron parser for daily jobs
   // Format: minute hour * * * (we only support daily for now)
-  const [minute, hour] = cronSchedule.split(' ').map(Number);
+  // Validate cron expression: must be "minute hour * * *"
+  let minute = 0;
+  let hour = 2;
+  const cronParts = cronSchedule.trim().split(/\s+/);
+  
+  if (cronParts.length === 5) {
+    const parsedMinute = Number.parseInt(cronParts[0], 10);
+    const parsedHour = Number.parseInt(cronParts[1], 10);
+    if (
+      Number.isInteger(parsedMinute) && parsedMinute >= 0 && parsedMinute <= 59 &&
+      Number.isInteger(parsedHour) && parsedHour >= 0 && parsedHour <= 23 &&
+      cronParts[2] === '*' && cronParts[3] === '*' && cronParts[4] === '*'
+    ) {
+      minute = parsedMinute;
+      hour = parsedHour;
+    } else {
+      console.error(
+        `Invalid STALE_CHECK_CRON format: "${cronSchedule}". Falling back to default "0 2 * * *" (2:00 AM UTC daily).`
+      );
+    }
+  } else {
+    console.error(
+      `Invalid STALE_CHECK_CRON format: "${cronSchedule}". Falling back to default "0 2 * * *" (2:00 AM UTC daily).`
+    );
+  }
   
   function scheduleNextRun() {
     const now = new Date();

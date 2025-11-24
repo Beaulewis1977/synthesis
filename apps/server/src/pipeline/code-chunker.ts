@@ -94,8 +94,10 @@ export async function chunkCodeFile(
       case 'py':
         return await chunkPythonCode(filePath, content, options);
       case 'java':
-        // Java uses similar structure to Kotlin, reuse the chunker
-        return await chunkKotlinCode(filePath, content, options);
+        // TODO: Implement dedicated Java analyzer - Java syntax differs from Kotlin
+        // For now, use simple chunking to avoid incorrect metadata
+        console.warn('Java AST parsing not yet implemented, using simple chunking');
+        return simpleChunking(content);
       default:
         console.warn(`Unsupported file type: ${extension}, using simple chunking`);
         return simpleChunking(content);
