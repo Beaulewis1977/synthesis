@@ -635,3 +635,425 @@ export async function updateRepoSyncStatus(
 export async function deleteRepoSource(id: string): Promise<void> {
   await query('DELETE FROM repository_sources WHERE id = $1', [id]);
 }
+
+// ============================================
+// Tech Stack Profiles
+// ============================================
+
+export interface TechStackProfile {
+  id: string;
+  collection_id: string;
+  primary_language: string | null;
+  primary_framework: string | null;
+  database_type: string | null;
+  database_version: string | null;
+  frameworks: string[];
+  prefer_official_docs: boolean;
+  prefer_code_examples: boolean;
+  min_source_quality: string;
+  version_constraints: Record<string, string>;
+  code_embedding_provider: string;
+  doc_embedding_provider: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface TechStackTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  primary_language: string | null;
+  primary_framework: string | null;
+  database_type: string | null;
+  frameworks: string[];
+  version_constraints: Record<string, string>;
+  search_boost_patterns: Array<{ pattern: string; boost: number }>;
+  created_at: Date;
+}
+
+export async function getTechStackProfile(collectionId: string): Promise<TechStackProfile | null> {
+  const result = await query<TechStackProfile>(
+    'SELECT * FROM collection_tech_profiles WHERE collection_id = $1',
+    [collectionId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function createTechStackProfile(data: {
+  collectionId: string;
+  primaryLanguage?: string;
+  primaryFramework?: string;
+  databaseType?: string;
+  frameworks?: string[];
+  versionConstraints?: Record<string, string>;
+}): Promise<TechStackProfile> {
+  const result = await query<TechStackProfile>(
+    `INSERT INTO collection_tech_profiles 
+     (collection_id, primary_language, primary_framework, database_type, frameworks, version_constraints)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING *`,
+    [
+      data.collectionId,
+      data.primaryLanguage || null,
+      data.primaryFramework || null,
+      data.databaseType || null,
+      JSON.stringify(data.frameworks || []),
+      JSON.stringify(data.versionConstraints || {}),
+    ]
+  );
+  return result.rows[0];
+}
+
+export async function updateTechStackProfile(
+  collectionId: string,
+  updates: Partial<Omit<TechStackProfile, 'id' | 'collection_id' | 'created_at' | 'updated_at'>>
+): Promise<TechStackProfile | null> {
+  const setClauses: string[] = ['updated_at = NOW()'];
+  const params: (string | number | boolean | null | Date | object)[] = [collectionId];
+  let idx = 2;
+
+  if (updates.primary_language !== undefined) {
+    setClauses.push(`primary_language = $${idx++}`);
+    params.push(updates.primary_language);
+  }
+  if (updates.primary_framework !== undefined) {
+    setClauses.push(`primary_framework = $${idx++}`);
+    params.push(updates.primary_framework);
+  }
+  if (updates.database_type !== undefined) {
+    setClauses.push(`database_type = $${idx++}`);
+    params.push(updates.database_type);
+  }
+  if (updates.frameworks !== undefined) {
+    setClauses.push(`frameworks = $${idx++}`);
+    params.push(JSON.stringify(updates.frameworks));
+  }
+  if (updates.version_constraints !== undefined) {
+    setClauses.push(`version_constraints = $${idx++}`);
+    params.push(JSON.stringify(updates.version_constraints));
+  }
+
+  const result = await query<TechStackProfile>(
+    `UPDATE collection_tech_profiles SET ${setClauses.join(', ')} WHERE collection_id = $1 RETURNING *`,
+    params
+  );
+  return result.rows[0] || null;
+}
+
+export async function listTechStackTemplates(category?: string): Promise<TechStackTemplate[]> {
+  if (category) {
+    const result = await query<TechStackTemplate>(
+      'SELECT * FROM tech_stack_templates WHERE category = $1 ORDER BY name',
+      [category]
+    );
+    return result.rows;
+  }
+  const result = await query<TechStackTemplate>(
+    'SELECT * FROM tech_stack_templates ORDER BY category, name'
+  );
+  return result.rows;
+}
+
+export async function applyTechStackTemplate(
+  collectionId: string,
+  templateName: string
+): Promise<TechStackProfile> {
+  const template = await query<TechStackTemplate>(
+    'SELECT * FROM tech_stack_templates WHERE name = $1',
+    [templateName]
+  );
+  if (!template.rows[0]) {
+    throw new Error(`Template ${templateName} not found`);
+  }
+  const t = template.rows[0];
+
+  const result = await query<TechStackProfile>(
+    `INSERT INTO collection_tech_profiles 
+     (collection_id, primary_language, primary_framework, database_type, frameworks, version_constraints)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (collection_id) DO UPDATE SET
+       primary_language = EXCLUDED.primary_language,
+       primary_framework = EXCLUDED.primary_framework,
+       database_type = EXCLUDED.database_type,
+       frameworks = EXCLUDED.frameworks,
+       version_constraints = EXCLUDED.version_constraints,
+       updated_at = NOW()
+     RETURNING *`,
+    [collectionId, t.primary_language, t.primary_framework, t.database_type, t.frameworks, t.version_constraints]
+  );
+  return result.rows[0];
+}
+
+// ============================================
+// Feedback & Quality
+// ============================================
+
+export interface SearchFeedback {
+  id: string;
+  chunk_id: number | null;
+  doc_id: string | null;
+  query: string;
+  collection_id: string;
+  rating: number;
+  result_position: number | null;
+  similarity_score: number | null;
+  search_mode: string | null;
+  feedback_text: string | null;
+  feedback_category: string | null;
+  session_id: string | null;
+  user_id: string | null;
+  created_at: Date;
+}
+
+export interface DocumentQualityScore {
+  id: string;
+  doc_id: string;
+  total_ratings: number;
+  positive_ratings: number;
+  negative_ratings: number;
+  quality_score: number;
+  relevance_score: number;
+  accuracy_score: number;
+  freshness_score: number;
+  times_retrieved: number;
+  times_cited: number;
+  last_feedback_at: Date | null;
+  updated_at: Date;
+}
+
+export async function submitSearchFeedback(data: {
+  chunkId?: number;
+  docId?: string;
+  query: string;
+  collectionId: string;
+  rating: number;
+  resultPosition?: number;
+  similarityScore?: number;
+  searchMode?: string;
+  feedbackText?: string;
+  feedbackCategory?: string;
+  sessionId?: string;
+  userId?: string;
+}): Promise<SearchFeedback> {
+  const result = await query<SearchFeedback>(
+    `INSERT INTO search_feedback 
+     (chunk_id, doc_id, query, collection_id, rating, result_position, similarity_score, search_mode, feedback_text, feedback_category, session_id, user_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+     RETURNING *`,
+    [
+      data.chunkId || null,
+      data.docId || null,
+      data.query,
+      data.collectionId,
+      data.rating,
+      data.resultPosition || null,
+      data.similarityScore || null,
+      data.searchMode || null,
+      data.feedbackText || null,
+      data.feedbackCategory || null,
+      data.sessionId || null,
+      data.userId || null,
+    ]
+  );
+  return result.rows[0];
+}
+
+export async function getDocumentQualityScore(docId: string): Promise<DocumentQualityScore | null> {
+  const result = await query<DocumentQualityScore>(
+    'SELECT * FROM document_quality_scores WHERE doc_id = $1',
+    [docId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function incrementDocumentRetrievalCount(docId: string): Promise<void> {
+  await query(
+    `INSERT INTO document_quality_scores (doc_id, times_retrieved)
+     VALUES ($1, 1)
+     ON CONFLICT (doc_id) DO UPDATE SET
+       times_retrieved = document_quality_scores.times_retrieved + 1,
+       updated_at = NOW()`,
+    [docId]
+  );
+}
+
+export async function getTopQualityDocuments(
+  collectionId: string,
+  limit = 10
+): Promise<DocumentQualityScore[]> {
+  const result = await query<DocumentQualityScore>(
+    `SELECT dqs.* FROM document_quality_scores dqs
+     JOIN documents d ON d.id = dqs.doc_id
+     WHERE d.collection_id = $1 AND dqs.total_ratings >= 3
+     ORDER BY dqs.quality_score DESC
+     LIMIT $2`,
+    [collectionId, limit]
+  );
+  return result.rows;
+}
+
+// ============================================
+// Workflow Tools
+// ============================================
+
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  tech_stacks: string[];
+  steps: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    tools: string[];
+    query_template?: string;
+    filters?: Record<string, unknown>;
+  }>;
+  is_system: boolean;
+  created_by: string | null;
+  created_at: Date;
+}
+
+export interface WorkflowInstance {
+  id: string;
+  template_id: string | null;
+  collection_id: string;
+  user_id: string | null;
+  session_id: string | null;
+  task_description: string;
+  task_context: Record<string, unknown>;
+  status: 'active' | 'paused' | 'completed' | 'failed';
+  current_step_id: string | null;
+  completed_steps: string[];
+  findings: Array<{ step: string; sources: unknown[]; summary: string }>;
+  final_output: string | null;
+  started_at: Date;
+  completed_at: Date | null;
+  updated_at: Date;
+}
+
+export async function listWorkflowTemplates(
+  category?: string,
+  techStack?: string
+): Promise<WorkflowTemplate[]> {
+  let sql = 'SELECT * FROM workflow_templates WHERE 1=1';
+  const params: (string | number | boolean | null | Date | object)[] = [];
+
+  if (category) {
+    params.push(category);
+    sql += ` AND category = $${params.length}`;
+  }
+  if (techStack) {
+    params.push(techStack);
+    sql += ` AND (tech_stacks @> $${params.length}::jsonb OR tech_stacks = '[]'::jsonb)`;
+  }
+
+  sql += ' ORDER BY is_system DESC, name';
+  const result = await query<WorkflowTemplate>(sql, params);
+  return result.rows;
+}
+
+export async function getWorkflowTemplate(id: string): Promise<WorkflowTemplate | null> {
+  const result = await query<WorkflowTemplate>(
+    'SELECT * FROM workflow_templates WHERE id = $1',
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+export async function createWorkflowInstance(data: {
+  templateId?: string;
+  collectionId: string;
+  userId?: string;
+  sessionId?: string;
+  taskDescription: string;
+  taskContext?: Record<string, unknown>;
+}): Promise<WorkflowInstance> {
+  const result = await query<WorkflowInstance>(
+    `INSERT INTO workflow_instances 
+     (template_id, collection_id, user_id, session_id, task_description, task_context)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING *`,
+    [
+      data.templateId || null,
+      data.collectionId,
+      data.userId || null,
+      data.sessionId || null,
+      data.taskDescription,
+      JSON.stringify(data.taskContext || {}),
+    ]
+  );
+  return result.rows[0];
+}
+
+export async function updateWorkflowInstance(
+  id: string,
+  updates: {
+    status?: 'active' | 'paused' | 'completed' | 'failed';
+    currentStepId?: string | null;
+    completedSteps?: string[];
+    findings?: Array<{ step: string; sources: unknown[]; summary: string }>;
+    finalOutput?: string;
+  }
+): Promise<WorkflowInstance | null> {
+  const setClauses: string[] = ['updated_at = NOW()'];
+  const params: (string | number | boolean | null | Date | object)[] = [id];
+  let idx = 2;
+
+  if (updates.status !== undefined) {
+    setClauses.push(`status = $${idx++}`);
+    params.push(updates.status);
+    if (updates.status === 'completed' || updates.status === 'failed') {
+      setClauses.push('completed_at = NOW()');
+    }
+  }
+  if (updates.currentStepId !== undefined) {
+    setClauses.push(`current_step_id = $${idx++}`);
+    params.push(updates.currentStepId);
+  }
+  if (updates.completedSteps !== undefined) {
+    setClauses.push(`completed_steps = $${idx++}`);
+    params.push(JSON.stringify(updates.completedSteps));
+  }
+  if (updates.findings !== undefined) {
+    setClauses.push(`findings = $${idx++}`);
+    params.push(JSON.stringify(updates.findings));
+  }
+  if (updates.finalOutput !== undefined) {
+    setClauses.push(`final_output = $${idx++}`);
+    params.push(updates.finalOutput);
+  }
+
+  const result = await query<WorkflowInstance>(
+    `UPDATE workflow_instances SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`,
+    params
+  );
+  return result.rows[0] || null;
+}
+
+export async function getWorkflowInstance(id: string): Promise<WorkflowInstance | null> {
+  const result = await query<WorkflowInstance>(
+    'SELECT * FROM workflow_instances WHERE id = $1',
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+export async function listWorkflowInstances(
+  collectionId: string,
+  status?: string
+): Promise<WorkflowInstance[]> {
+  let sql = 'SELECT * FROM workflow_instances WHERE collection_id = $1';
+  const params: (string | number | boolean | null | Date | object)[] = [collectionId];
+
+  if (status) {
+    params.push(status);
+    sql += ` AND status = $${params.length}`;
+  }
+
+  sql += ' ORDER BY started_at DESC';
+  const result = await query<WorkflowInstance>(sql, params);
+  return result.rows;
+}

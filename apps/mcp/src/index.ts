@@ -442,6 +442,158 @@ server.registerTool(
 );
 
 /**
+ * Tool 8: add_repo_to_collection
+ * Adds a GitHub/Git repository to a collection for ingestion.
+ */
+const addRepoInput = z
+  .object({
+    collectionId: z.string().uuid().describe('The ID of the collection to add the repo to'),
+    repoUrl: z.string().url().describe('The Git repository URL (e.g., https://github.com/user/repo)'),
+    defaultBranch: z.string().default('main').describe('The default branch to sync (default: main)'),
+    ignoredPaths: z
+      .array(z.string())
+      .optional()
+      .describe('Paths to ignore (e.g., ["node_modules/", "dist/"])'),
+  })
+  .strict();
+
+const addRepoInputSchema = toJsonSchema(addRepoInput, 'AddRepoInput');
+
+server.registerTool(
+  'add_repo_to_collection',
+  {
+    description: 'Add a GitHub/Git repository to a collection for code ingestion.',
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
+    inputSchema: addRepoInputSchema as any,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    const { collectionId, repoUrl, defaultBranch, ignoredPaths } = addRepoInput.parse(input);
+    try {
+      const result = await apiClient.post('/api/repos', {
+        collection_id: collectionId,
+        repo_url: repoUrl,
+        default_branch: defaultBranch,
+        ignored_paths: ignoredPaths,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
+ * Tool 9: sync_repo
+ * Triggers a sync for a repository to pull latest changes.
+ */
+const syncRepoInput = z
+  .object({
+    repoSourceId: z.string().uuid().describe('The ID of the repository source to sync'),
+  })
+  .strict();
+
+const syncRepoInputSchema = toJsonSchema(syncRepoInput, 'SyncRepoInput');
+
+server.registerTool(
+  'sync_repo',
+  {
+    description: 'Trigger a sync for a repository to pull and ingest latest changes.',
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
+    inputSchema: syncRepoInputSchema as any,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    const { repoSourceId } = syncRepoInput.parse(input);
+    try {
+      const result = await apiClient.post(`/api/repos/${repoSourceId}/sync`, {});
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
+ * Tool 10: list_repos
+ * Lists all repository sources for a collection.
+ */
+const listReposInput = z
+  .object({
+    collectionId: z.string().uuid().describe('The ID of the collection'),
+  })
+  .strict();
+
+const listReposInputSchema = toJsonSchema(listReposInput, 'ListReposInput');
+
+server.registerTool(
+  'list_repos',
+  {
+    description: 'List all repository sources for a collection.',
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
+    inputSchema: listReposInputSchema as any,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    const { collectionId } = listReposInput.parse(input);
+    try {
+      const result = await apiClient.get(`/api/repos?collection_id=${collectionId}`);
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
  * Main function to start the MCP server with either stdio or HTTP transport
  */
 async function main() {
@@ -454,7 +606,7 @@ async function main() {
       console.error('🚀 Synthesis MCP Server started successfully');
       console.error('   Mode: stdio');
       console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
-      console.error('   Tools: 7 available');
+      console.error('   Tools: 10 available');
       console.error('');
     } else if (MCP_MODE === 'http') {
       // Start HTTP/SSE transport for Claude Desktop and web clients
@@ -509,7 +661,7 @@ async function main() {
         console.error(`   Port: ${MCP_PORT}`);
         console.error(`   URL: http://localhost:${MCP_PORT}`);
         console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
-        console.error('   Tools: 7 available');
+        console.error('   Tools: 10 available');
         console.error('');
       });
 

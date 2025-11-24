@@ -1,4 +1,4 @@
-import { Pool, type PoolClient, type QueryResult } from 'pg';
+import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
 
 let pool: Pool | undefined;
 
@@ -51,9 +51,9 @@ export async function withTransaction<T>(callback: (client: PoolClient) => Promi
 }
 
 // Export query method for convenience
-export async function query(
+export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
-  params?: (string | number | boolean | null)[]
-): Promise<QueryResult> {
-  return getPool().query(text, params);
+  params?: (string | number | boolean | null | Date | object)[]
+): Promise<QueryResult<T>> {
+  return getPool().query<T>(text, params);
 }

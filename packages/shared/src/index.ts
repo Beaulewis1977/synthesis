@@ -22,7 +22,11 @@ export type DocumentLanguage =
   | 'yaml'
   | 'sql'
   | 'json'
-  | 'markdown';
+  | 'markdown'
+  | 'kotlin'
+  | 'java'
+  | 'swift'
+  | 'python';
 export type DocumentContentCategory =
   | 'api_reference'
   | 'tutorial'

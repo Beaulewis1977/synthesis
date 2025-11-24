@@ -1,6 +1,14 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { createDocument, getRepoSource, listDocuments, updateRepoSyncStatus } from '@synthesis/db';
+import {
+  createDocument,
+  getPool,
+  getRepoSource,
+  listDocuments,
+  updateDocumentMetadata,
+  updateRepoSyncStatus,
+} from '@synthesis/db';
 import type { Pool } from 'pg';
 import { simpleGit } from 'simple-git';
 import { writeDocumentFile } from '../agent/utils/storage.js';
@@ -186,7 +194,73 @@ function getContentType(filePath: string): string {
 }
 
 /**
- * Sync a repository: clone/pull and ingest all files
+ * Compute content hash for change detection
+ */
+function computeContentHash(content: Buffer | string): string {
+  return crypto
+    .createHash('sha256')
+    .update(Buffer.isBuffer(content) ? content : Buffer.from(content))
+    .digest('hex');
+}
+
+/**
+ * Get changed files between two commits using git diff
+ */
+async function getChangedFiles(
+  repoPath: string,
+  fromCommit: string | null,
+  toCommit: string
+): Promise<{ added: string[]; modified: string[]; deleted: string[] }> {
+  const git = simpleGit(repoPath);
+
+  if (!fromCommit) {
+    // First sync - all files are "added"
+    const files = await git.raw(['ls-tree', '-r', '--name-only', toCommit]);
+    return {
+      added: files.split('\n').filter(Boolean),
+      modified: [],
+      deleted: [],
+    };
+  }
+
+  // Get diff between commits
+  const diff = await git.diffSummary([fromCommit, toCommit]);
+
+  const added: string[] = [];
+  const modified: string[] = [];
+  const deleted: string[] = [];
+
+  for (const file of diff.files) {
+    // DiffResultTextFile has 'file' property
+    const filePath = 'file' in file ? file.file : '';
+    if (!filePath) continue;
+
+    // Type guard for text files with insertions/deletions
+    const isTextFile = 'insertions' in file && 'deletions' in file;
+    
+    if (isTextFile) {
+      const textFile = file as { insertions: number; deletions: number; binary?: boolean };
+      if (textFile.insertions > 0 && textFile.deletions === 0 && !textFile.binary) {
+        // New file
+        added.push(filePath);
+      } else if (textFile.deletions > 0 && textFile.insertions === 0) {
+        // Deleted file
+        deleted.push(filePath);
+      } else {
+        // Modified file
+        modified.push(filePath);
+      }
+    } else {
+      // Binary or name-status file - treat as modified
+      modified.push(filePath);
+    }
+  }
+
+  return { added, modified, deleted };
+}
+
+/**
+ * Sync a repository with incremental updates using git diff
  */
 export async function syncRepository(_db: Pool, repoSourceId: string): Promise<void> {
   const repoSource = await getRepoSource(repoSourceId);
@@ -202,67 +276,169 @@ export async function syncRepository(_db: Pool, repoSourceId: string): Promise<v
   });
 
   try {
-    // Create temp directory for repo
-    const tempDir = path.join(process.cwd(), 'storage', 'repos', repoSourceId);
-    await fs.mkdir(tempDir, { recursive: true });
+    // Create directory for repo
+    const repoDir = path.join(process.cwd(), 'storage', 'repos', repoSourceId);
+    await fs.mkdir(repoDir, { recursive: true });
 
-    // Clone or pull repo
-    const commitHash = await cloneOrPullRepo(
-      repoSource.repo_url,
-      tempDir,
-      repoSource.default_branch
-    );
+    const previousCommit = repoSource.last_synced_commit;
 
-    console.info(`Synced repo ${repoSource.repo_url} at commit ${commitHash}`);
+    // Clone or pull repo (without --depth 1 for incremental sync)
+    const git = simpleGit();
+    let currentCommit: string;
+
+    try {
+      await fs.access(path.join(repoDir, '.git'));
+      // Directory exists, fetch and pull
+      console.info(`Fetching latest changes for ${repoSource.repo_url}`);
+      const repoGit = simpleGit(repoDir);
+      await repoGit.fetch(['--all']);
+      await repoGit.checkout(repoSource.default_branch);
+      await repoGit.pull('origin', repoSource.default_branch);
+      const log = await repoGit.log({ maxCount: 1 });
+      currentCommit = log.latest?.hash || '';
+    } catch {
+      // Clone fresh
+      console.info(`Cloning repository ${repoSource.repo_url}`);
+      await git.clone(repoSource.repo_url, repoDir, ['--branch', repoSource.default_branch]);
+      const repoGit = simpleGit(repoDir);
+      const log = await repoGit.log({ maxCount: 1 });
+      currentCommit = log.latest?.hash || '';
+    }
+
+    console.info(`Repository at commit ${currentCommit} (previous: ${previousCommit || 'none'})`);
+
+    // Check if there are any changes
+    if (previousCommit === currentCommit) {
+      console.info('No changes detected, skipping sync');
+      await updateRepoSyncStatus(repoSourceId, {
+        syncStatus: 'idle',
+        lastSyncedAt: new Date(),
+      });
+      return;
+    }
+
+    // Get changed files using git diff
+    const { added, modified, deleted } = await getChangedFiles(repoDir, previousCommit, currentCommit);
+
+    console.info(`Changes detected: ${added.length} added, ${modified.length} modified, ${deleted.length} deleted`);
 
     // Get existing documents for this repo
     const existingDocs = await listDocuments(repoSource.collection_id);
     const existingDocsByPath = new Map(
       existingDocs
         .filter((doc) => doc.metadata?.repoFilePath)
-        .map((doc) => [doc.metadata.repoFilePath, doc])
+        .map((doc) => [doc.metadata.repoFilePath as string, doc])
     );
 
-    // Walk repository files
     const ignoredPatterns =
       repoSource.ignored_paths.length > 0 ? repoSource.ignored_paths : DEFAULT_IGNORED_PATTERNS;
-    const files = await walkRepoFiles(tempDir, ignoredPatterns);
 
-    console.info(`Found ${files.length} files to process in ${repoSource.repo_url}`);
+    const pool = getPool();
 
-    // Process files in batches
+    // Process deleted files - mark documents as deleted or remove
+    for (const filePath of deleted) {
+      if (shouldIgnoreFile(filePath, ignoredPatterns)) continue;
+
+      const existingDoc = existingDocsByPath.get(filePath);
+      if (existingDoc) {
+        console.info(`Marking deleted: ${filePath}`);
+        await updateDocumentMetadata(existingDoc.id, {
+          deleted_from_repo: true,
+          deleted_at_commit: currentCommit,
+        });
+      }
+    }
+
+    // Process added files
+    const filesToProcess = [...added, ...modified].filter(
+      (f) => !shouldIgnoreFile(f, ignoredPatterns)
+    );
+
     const batchSize = 10;
-    for (let i = 0; i < files.length; i += batchSize) {
-      const batch = files.slice(i, i + batchSize);
+    for (let i = 0; i < filesToProcess.length; i += batchSize) {
+      const batch = filesToProcess.slice(i, i + batchSize);
 
       await Promise.all(
-        batch.map(async (file) => {
+        batch.map(async (relativePath) => {
           try {
-            // Check if document already exists
-            if (existingDocsByPath.has(file.relativePath)) {
-              // Document exists, skip for now (future: check if content changed)
+            const fullPath = path.join(repoDir, relativePath);
+
+            // Check if file exists (might have been deleted in a later commit)
+            try {
+              await fs.access(fullPath);
+            } catch {
+              console.info(`File no longer exists: ${relativePath}`);
               return;
             }
 
             // Read file content
-            const content = await fs.readFile(file.fullPath);
+            const content = await fs.readFile(fullPath);
 
-            // Skip binary files (simple heuristic: check for null bytes)
+            // Skip binary files
             if (content.includes(0)) {
-              console.info(`Skipping binary file: ${file.relativePath}`);
+              console.info(`Skipping binary file: ${relativePath}`);
               return;
             }
 
-            // Ingest file
-            await ingestRepoFile(
-              repoSource.collection_id,
-              repoSourceId,
-              file.relativePath,
-              content
-            );
-            console.info(`Ingested: ${file.relativePath}`);
+            const contentHash = computeContentHash(content);
+            const existingDoc = existingDocsByPath.get(relativePath);
+
+            // Check if content actually changed (for modified files)
+            if (existingDoc && existingDoc.metadata?.contentHash === contentHash) {
+              console.info(`Content unchanged, skipping: ${relativePath}`);
+              return;
+            }
+
+            if (existingDoc) {
+              // Update existing document - delete old chunks and re-ingest
+              console.info(`Updating: ${relativePath}`);
+              await pool.query('DELETE FROM chunks WHERE doc_id = $1', [existingDoc.id]);
+              await updateDocumentMetadata(existingDoc.id, {
+                contentHash,
+                lastSyncedCommit: currentCommit,
+                version: (existingDoc.version || 1) + 1,
+              });
+              // Re-ingest the document
+              ingestDocument(existingDoc.id).catch((error: unknown) => {
+                console.error(`Re-ingestion failed for ${existingDoc.id}:`, error);
+              });
+            } else {
+              // Create new document
+              console.info(`Adding: ${relativePath}`);
+              const title = path.basename(relativePath);
+              const contentType = getContentType(relativePath);
+
+              const document = await createDocument({
+                collection_id: repoSource.collection_id,
+                title,
+                content_type: contentType,
+                file_size: content.length,
+              });
+
+              // Save file content
+              const fileExtension = path.extname(relativePath) || '.txt';
+              const savedPath = await writeDocumentFile(
+                repoSource.collection_id,
+                document.id,
+                fileExtension,
+                content
+              );
+
+              // Update document with metadata
+              await updateDocumentMetadata(document.id, {
+                repoFilePath: relativePath,
+                repoSourceId,
+                contentHash,
+                lastSyncedCommit: currentCommit,
+              });
+
+              // Trigger ingestion
+              ingestDocument(document.id).catch((error: unknown) => {
+                console.error(`Ingestion failed for ${document.id}:`, error);
+              });
+            }
           } catch (error) {
-            console.error(`Failed to ingest ${file.relativePath}:`, error);
+            console.error(`Failed to process ${relativePath}:`, error);
           }
         })
       );
@@ -271,11 +447,12 @@ export async function syncRepository(_db: Pool, repoSourceId: string): Promise<v
     // Update status to idle
     await updateRepoSyncStatus(repoSourceId, {
       syncStatus: 'idle',
-      lastSyncedCommit: commitHash,
+      lastSyncedCommit: currentCommit,
       lastSyncedAt: new Date(),
     });
 
     console.info(`Successfully synced repository ${repoSource.repo_url}`);
+    console.info(`  Added: ${added.length}, Modified: ${modified.length}, Deleted: ${deleted.length}`);
   } catch (error) {
     console.error(`Failed to sync repository ${repoSourceId}:`, error);
     await updateRepoSyncStatus(repoSourceId, {
