@@ -23,10 +23,6 @@ const CreateCollectionSchema = z.object({
   description: z.string().optional(),
 });
 
-const BatchDeleteDocumentsSchema = z.object({
-  documentIds: z.array(z.string().uuid()).min(1).max(100),
-});
-
 export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/collections - List all collections
   fastify.get('/api/collections', async (_request, reply) => {
@@ -150,102 +146,6 @@ export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
   );
-
-  // DELETE /api/documents/batch - Batch delete multiple documents
-  fastify.delete('/api/documents/batch', async (request, reply) => {
-    const validation = BatchDeleteDocumentsSchema.safeParse(request.body);
-
-    if (!validation.success) {
-      return reply.code(400).send({
-        error: 'Invalid request',
-        details: validation.error.issues,
-      });
-    }
-
-    const { documentIds } = validation.data;
-    const db = getPool();
-    const deleted: string[] = [];
-    const failed: Array<{ id: string; error: string }> = [];
-    const filesToDelete: string[] = [];
-
-    // Start transaction
-    const client = await db.connect();
-    let transactionStarted = false;
-
-    try {
-      await client.query('BEGIN');
-      transactionStarted = true;
-
-      // Process each document
-      for (const docId of documentIds) {
-        try {
-          // Get document to retrieve file path
-          const document = await getDocument(docId);
-
-          if (!document) {
-            failed.push({ id: docId, error: 'Document not found' });
-            continue;
-          }
-
-          // Delete chunks
-          await deleteDocumentChunks(document.id, client);
-
-          // Delete document record
-          await client.query('DELETE FROM documents WHERE id = $1', [document.id]);
-
-          // Track file for deletion after commit
-          if (document.file_path) {
-            filesToDelete.push(document.file_path);
-          }
-
-          deleted.push(docId);
-          fastify.log.info({ docId }, 'Document deleted in batch');
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          failed.push({ id: docId, error: errorMessage });
-          fastify.log.error({ docId, error }, 'Failed to delete document in batch');
-        }
-      }
-
-      // Commit transaction
-      await client.query('COMMIT');
-      fastify.log.info(
-        { deletedCount: deleted.length, failedCount: failed.length },
-        'Batch deletion transaction committed'
-      );
-    } catch (error) {
-      if (transactionStarted) {
-        await client.query('ROLLBACK');
-        fastify.log.error(error, 'Batch deletion transaction rolled back');
-      }
-      return reply.code(500).send({
-        error: 'Batch deletion failed',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      });
-    } finally {
-      client.release();
-    }
-
-    // Delete files from disk (after successful commit)
-    for (const filePath of filesToDelete) {
-      try {
-        await deleteFileIfExists(filePath);
-      } catch (error) {
-        // Log but don't fail the operation if file deletion fails
-        fastify.log.warn({ filePath, error }, 'Failed to delete file during batch deletion');
-      }
-    }
-
-    return reply.send({
-      deleted,
-      failed,
-      summary: {
-        total: documentIds.length,
-        deleted: deleted.length,
-        failed: failed.length,
-      },
-    });
-  });
 
   // POST /api/documents/:id/refresh - Refresh document from source URL
   fastify.post<{ Params: { id: string } }>('/api/documents/:id/refresh', async (request, reply) => {

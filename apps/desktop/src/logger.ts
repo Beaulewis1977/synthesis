@@ -57,12 +57,14 @@ export function addLog(level: LogLevel, message: string, source?: string): void 
     case 'warn':
       console.warn(logMessage);
       break;
+    case 'info':
+      console.log(logMessage);
+      break;
     case 'debug':
       if (process.env.NODE_ENV === 'development') {
         console.debug(logMessage);
       }
       break;
-    default:
   }
 }
 

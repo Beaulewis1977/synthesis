@@ -34,7 +34,7 @@ export interface DetectContradictionsOptions {
   maxPairs?: number;
 }
 
-const DEFAULT_MODEL = process.env.CONTRADICTION_MODEL ?? 'claude-3-5-haiku-latest';
+const DEFAULT_MODEL = process.env.CONTRADICTION_MODEL ?? 'claude-3-5-haiku-20241022';
 const DEFAULT_MAX_PAIRS = clampInt(process.env.CONTRADICTION_MAX_PAIRS, 6, 6);
 const MIN_OVERLAP = clampFloat(process.env.CONTRADICTION_MIN_SIMILARITY, 1, 0.2);
 const MAX_OVERLAP = clampFloat(process.env.CONTRADICTION_MAX_SIMILARITY, 1, 0.7);

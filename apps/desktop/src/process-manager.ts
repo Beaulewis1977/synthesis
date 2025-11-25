@@ -159,11 +159,16 @@ export async function stopDevMode(): Promise<OperationResult> {
 
       // Try graceful shutdown first
       if (process.platform === 'win32') {
-        // Windows: use taskkill
+        // Windows: use taskkill and await completion
         const pid = proc.pid;
         if (pid !== undefined) {
-          spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'], {
+          const killProc = spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'], {
             shell: true,
+          });
+          await new Promise<void>((resolve) => {
+            killProc.on('close', () => resolve());
+            killProc.on('error', () => resolve());
+            setTimeout(resolve, 5000); // Timeout after 5s
           });
         }
       } else {

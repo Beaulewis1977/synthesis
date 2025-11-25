@@ -3,15 +3,12 @@
  * Handles Docker Compose operations for the Synthesis stack
  */
 
-import { type ChildProcess, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
 import { addLog } from './logger.js';
 import type { CommandResult, DockerCheckResult, OperationResult } from './types.js';
-
-/** Active Docker Compose process */
-let activeProcess: ChildProcess | null = null;
 
 /**
  * Get the path to docker-compose.yml
@@ -238,10 +235,9 @@ export async function getContainerLogs(containerName: string, lines = 100): Prom
 
 /**
  * Clean up on app exit
+ * Note: Docker Compose runs detached (-d), so no active process to kill.
+ * Containers are stopped via stopSynthesis() before app exit.
  */
 export function cleanup(): void {
-  if (activeProcess) {
-    activeProcess.kill();
-    activeProcess = null;
-  }
+  // No active process to clean up - Docker Compose runs detached
 }

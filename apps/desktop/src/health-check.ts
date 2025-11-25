@@ -4,7 +4,6 @@
  */
 
 import { type Socket, createConnection } from 'node:net';
-import { isContainerRunning } from './docker.js';
 import { addLog } from './logger.js';
 import type {
   AppStatus,

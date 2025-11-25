@@ -22,9 +22,15 @@ export interface ExtractionResult {
   };
 }
 
-interface PDFParseData {
-  numpages: number;
+/**
+ * pdf-parse v2.x TextResult interface
+ */
+interface PDFParseResult {
+  pages: Array<{ num: number; text: string }>;
   text: string;
+  total: number;
+  info?: object;
+  metadata?: object;
 }
 
 /**
@@ -50,30 +56,32 @@ export async function extractPDF(buffer: Buffer): Promise<ExtractionResult> {
 
     console.info(`[PDF Extract] Processing PDF buffer (${buffer.length} bytes)`);
 
-    const data = (await pdf(buffer)) as unknown as PDFParseData;
+    const data = (await pdf(buffer)) as unknown as PDFParseResult;
 
+    // pdf-parse v2.x uses 'total' for page count, v1.x used 'numpages'
+    const pageCount = data.total ?? 0;
     const text = data.text?.trim() ?? '';
     const wordCount = text === '' ? 0 : text.split(/\s+/).length;
 
     console.info(
-      `[PDF Extract] Extracted ${data.numpages} pages, ${wordCount} words, ${text.length} characters`
+      `[PDF Extract] Extracted ${pageCount} pages, ${wordCount} words, ${text.length} characters`
     );
 
     // Warn if PDF produced no text (likely scanned/image-based)
     if (wordCount === 0) {
       console.warn(
-        `[PDF Extract] WARNING: PDF has ${data.numpages} pages but extracted 0 words. ` +
+        `[PDF Extract] WARNING: PDF has ${pageCount} pages but extracted 0 words. ` +
           'This PDF may be scanned/image-based and requires OCR for text extraction.'
       );
       throw new Error(
-        `PDF extraction produced no text (${data.numpages} pages). ` +
+        `PDF extraction produced no text (${pageCount} pages). ` +
           'The PDF may be scanned/image-based. OCR is required for such documents.'
       );
     }
 
     // Warn if very low text density (possible partial extraction)
-    const avgWordsPerPage = wordCount / Math.max(data.numpages, 1);
-    if (avgWordsPerPage < 10 && data.numpages > 1) {
+    const avgWordsPerPage = wordCount / Math.max(pageCount, 1);
+    if (avgWordsPerPage < 10 && pageCount > 1) {
       console.warn(
         `[PDF Extract] WARNING: Low text density (${avgWordsPerPage.toFixed(1)} words/page). ` +
           'Some pages may be images or have extraction issues.'
@@ -83,7 +91,7 @@ export async function extractPDF(buffer: Buffer): Promise<ExtractionResult> {
     return {
       text: data.text,
       metadata: {
-        pageCount: data.numpages,
+        pageCount,
         wordCount,
       },
     };

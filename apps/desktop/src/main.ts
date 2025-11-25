@@ -12,12 +12,7 @@ import {
   startSynthesis as dockerStart,
   stopSynthesis as dockerStop,
 } from './docker.js';
-import {
-  checkPortsAvailable,
-  getStackStatus,
-  httpHealthCheck,
-  waitForStack,
-} from './health-check.js';
+import { getStackStatus, httpHealthCheck, waitForStack } from './health-check.js';
 import { addLog, clearLogs, getLogs, setMainWindow } from './logger.js';
 import {
   isRunning as isDevRunning,
@@ -34,8 +29,8 @@ const __dirname = path.dirname(__filename);
 /** Main application window */
 let mainWindow: BrowserWindow | null = null;
 
-/** Web UI window */
-const webWindow: BrowserWindow | null = null;
+/** Flag to track if cleanup has been performed */
+let cleanupCompleted = false;
 
 /** Current launch mode */
 let launchMode: LaunchMode = 'docker';
@@ -376,9 +371,12 @@ app.on('window-all-closed', () => {
 
 // Clean up before quit
 app.on('before-quit', async (event) => {
-  event.preventDefault();
-  await cleanup();
-  app.exit(0);
+  if (!cleanupCompleted) {
+    event.preventDefault();
+    await cleanup();
+    cleanupCompleted = true;
+    app.quit();
+  }
 });
 
 // Handle uncaught exceptions

@@ -11,13 +11,7 @@ export default defineConfig([
     sourcemap: true,
     clean: true,
     external: ['electron'],
-    noExternal: [
-      './logger.js',
-      './docker.js',
-      './health-check.js',
-      './process-manager.js',
-      './types.js',
-    ],
+    // Local imports are automatically bundled, noExternal not needed
   },
   // Preload script
   {
