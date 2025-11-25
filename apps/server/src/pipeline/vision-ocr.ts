@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { PROVIDER_PRICING } from '../services/cost-tracker.js';
 
 /**
  * Vision OCR Module
@@ -67,7 +68,6 @@ export function isVisionOCREnabled(): boolean {
 async function extractTextFromImage(
   imageBase64: string,
   pageNum: number,
-  totalPages: number,
   model: string
 ): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
   const anthropic = getAnthropicClient();
@@ -89,7 +89,7 @@ async function extractTextFromImage(
           },
           {
             type: 'text',
-            text: `Extract ALL text from this document page (page ${pageNum} of ${totalPages}). 
+            text: `Extract ALL text from this document page (page ${pageNum}). 
 Preserve the original structure, paragraphs, and formatting as much as possible.
 Include headers, footers, captions, and any visible text.
 Output ONLY the extracted text, no commentary or explanations.`,
@@ -160,7 +160,7 @@ export async function extractTextWithVision(
 
       console.info(`[Vision OCR] Processing page ${pageCount}...`);
 
-      const result = await extractTextFromImage(base64, pageCount, pageCount, model);
+      const result = await extractTextFromImage(base64, pageCount, model);
       pages.push(result.text);
       totalInputTokens += result.inputTokens;
       totalOutputTokens += result.outputTokens;
@@ -223,18 +223,18 @@ export function calculateVisionOCRCost(
 ): number {
   const modelName = model ?? getVisionOCRConfig().model;
 
-  // Pricing per 1K tokens (as of 2024-11)
-  const pricing: Record<string, { input: number; output: number }> = {
-    'claude-3-5-haiku-20241022': { input: 0.0008, output: 0.004 },
-    'claude-3-5-haiku-latest': { input: 0.0008, output: 0.004 },
-    'claude-3-5-sonnet-20241022': { input: 0.003, output: 0.015 },
-    'claude-3-5-sonnet-latest': { input: 0.003, output: 0.015 },
-  };
+  // Pricing per 1K tokens uses shared provider pricing from CostTracker
+  const inputPricingTable = PROVIDER_PRICING['anthropic'] ?? {};
+  const outputPricingTable = PROVIDER_PRICING['anthropic-output'] ?? {};
 
-  const modelPricing = pricing[modelName] ?? pricing['claude-3-5-haiku-20241022'];
+  const defaultModel = 'claude-3-5-haiku-20241022';
+  const inputRate =
+    (modelName && inputPricingTable[modelName]) || inputPricingTable[defaultModel] || 0;
+  const outputRate =
+    (modelName && outputPricingTable[modelName]) || outputPricingTable[defaultModel] || 0;
 
-  const inputCost = (inputTokens / 1000) * modelPricing.input;
-  const outputCost = (outputTokens / 1000) * modelPricing.output;
+  const inputCost = (inputTokens / 1000) * inputRate;
+  const outputCost = (outputTokens / 1000) * outputRate;
 
   return inputCost + outputCost;
 }

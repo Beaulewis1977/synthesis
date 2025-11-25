@@ -19,39 +19,41 @@ export interface TrackUsageParams {
   metadata?: Record<string, unknown>;
 }
 
+export const PROVIDER_PRICING: Record<string, Record<string, number>> = {
+  openai: {
+    'text-embedding-3-large': 0.00013, // per 1K tokens
+    'gpt-4': 0.03, // per 1K input tokens
+  },
+  voyage: {
+    'voyage-code-2': 0.00012, // per 1K tokens
+  },
+  cohere: {
+    'rerank-english-v3.0': 0.001, // per request
+    'rerank-v3.5': 0.001, // per request
+  },
+  anthropic: {
+    'claude-3-haiku': 0.00025, // per 1K input tokens (legacy)
+    'claude-3-haiku-20240307': 0.00025, // per 1K input tokens (legacy)
+    'claude-3-5-haiku-latest': 0.0008, // per 1K input tokens
+    'claude-3-5-haiku-20241022': 0.0008, // per 1K input tokens
+    // Vision OCR models (note: image tokens calculated differently ~1,334 tokens per 1024x1024 tile)
+    'claude-3-5-sonnet-20241022': 0.003, // per 1K input tokens
+    'claude-3-5-sonnet-latest': 0.003, // per 1K input tokens
+  },
+  // Vision OCR output pricing (separate from input)
+  'anthropic-output': {
+    'claude-3-5-haiku-20241022': 0.004, // per 1K output tokens
+    'claude-3-5-haiku-latest': 0.004, // per 1K output tokens
+    'claude-3-5-sonnet-20241022': 0.015, // per 1K output tokens
+    'claude-3-5-sonnet-latest': 0.015, // per 1K output tokens
+  },
+};
+
 export class CostTracker {
   private db: Pool;
 
   // Pricing per provider (updated 2025-10)
-  private pricing: Record<string, Record<string, number>> = {
-    openai: {
-      'text-embedding-3-large': 0.00013, // per 1K tokens
-      'gpt-4': 0.03, // per 1K input tokens
-    },
-    voyage: {
-      'voyage-code-2': 0.00012, // per 1K tokens
-    },
-    cohere: {
-      'rerank-english-v3.0': 0.001, // per request
-      'rerank-v3.5': 0.001, // per request
-    },
-    anthropic: {
-      'claude-3-haiku': 0.00025, // per 1K input tokens (legacy)
-      'claude-3-haiku-20240307': 0.00025, // per 1K input tokens (legacy)
-      'claude-3-5-haiku-latest': 0.0008, // per 1K input tokens
-      'claude-3-5-haiku-20241022': 0.0008, // per 1K input tokens
-      // Vision OCR models (note: image tokens calculated differently ~1,334 tokens per 1024x1024 tile)
-      'claude-3-5-sonnet-20241022': 0.003, // per 1K input tokens
-      'claude-3-5-sonnet-latest': 0.003, // per 1K input tokens
-    },
-    // Vision OCR output pricing (separate from input)
-    'anthropic-output': {
-      'claude-3-5-haiku-20241022': 0.004, // per 1K output tokens
-      'claude-3-5-haiku-latest': 0.004, // per 1K output tokens
-      'claude-3-5-sonnet-20241022': 0.015, // per 1K output tokens
-      'claude-3-5-sonnet-latest': 0.015, // per 1K output tokens
-    },
-  };
+  private pricing: Record<string, Record<string, number>> = PROVIDER_PRICING;
 
   constructor(db: Pool) {
     this.db = db;
