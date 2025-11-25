@@ -4,7 +4,6 @@
  */
 
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron';
 import {
   checkDocker,
@@ -21,10 +20,6 @@ import {
   stopDevMode,
 } from './process-manager.js';
 import type { LaunchMode, StackStatus } from './types.js';
-
-// Get __dirname equivalent in ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 /** Main application window */
 let mainWindow: BrowserWindow | null = null;
@@ -53,7 +48,7 @@ function createMainWindow(): void {
     title: 'Synthesis Desktop',
     backgroundColor: '#1a1a2e',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false, // Required for preload to work with IPC

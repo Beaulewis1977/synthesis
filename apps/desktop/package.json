@@ -5,13 +5,13 @@
   "author": "Synthesis Team",
   "license": "MIT",
   "homepage": "https://github.com/beaulewis1977/synthesis",
-  "main": "dist/index.js",
+  "main": "dist/main.js",
   "scripts": {
-    "dev": "tsup src/index.ts --format cjs && electron .",
-    "build": "tsup src/index.ts --format cjs && electron-builder --config electron-builder.yml",
-    "build:linux": "tsup src/index.ts --format cjs && electron-builder --linux --config electron-builder.yml",
-    "build:win": "tsup src/index.ts --format cjs && electron-builder --win --config electron-builder.yml",
-    "pack": "tsup src/index.ts --format cjs && electron-builder --dir --config electron-builder.yml",
+    "dev": "tsup && electron .",
+    "build": "tsup && electron-builder --config electron-builder.yml",
+    "build:linux": "tsup && electron-builder --linux --config electron-builder.yml",
+    "build:win": "tsup && electron-builder --win --config electron-builder.yml",
+    "pack": "tsup && electron-builder --dir --config electron-builder.yml",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
