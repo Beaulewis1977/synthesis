@@ -1,9 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, Folder, Loader2 } from 'lucide-react';
+import { AlertCircle, Folder, Loader2, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { AddCollectionModal } from '../components/AddCollectionModal';
 import { CollectionCard } from '../components/CollectionCard';
 import { apiClient } from '../lib/api';
 
 export function Dashboard() {
+  const [showAddModal, setShowAddModal] = useState(false);
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['collections'],
     queryFn: () => apiClient.fetchCollections(),
@@ -12,9 +15,22 @@ export function Dashboard() {
   return (
     <div>
       <div className="mb-lg">
-        <h1 className="text-2xl font-bold text-text-primary mb-md">Your Collections</h1>
+        <div className="flex items-center justify-between mb-md">
+          <h1 className="text-2xl font-bold text-text-primary">Your Collections</h1>
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="btn btn-primary flex items-center gap-xs"
+          >
+            <Plus size={18} />
+            Add Collection
+          </button>
+        </div>
         <p className="text-text-secondary">Manage and explore your document collections</p>
       </div>
+
+      {/* Add Collection Modal */}
+      <AddCollectionModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} />
 
       {/* Loading State */}
       {isLoading && (
