@@ -40,6 +40,16 @@ export class CostTracker {
       'claude-3-haiku-20240307': 0.00025, // per 1K input tokens (legacy)
       'claude-3-5-haiku-latest': 0.0008, // per 1K input tokens
       'claude-3-5-haiku-20241022': 0.0008, // per 1K input tokens
+      // Vision OCR models (note: image tokens calculated differently ~1,334 tokens per 1024x1024 tile)
+      'claude-3-5-sonnet-20241022': 0.003, // per 1K input tokens
+      'claude-3-5-sonnet-latest': 0.003, // per 1K input tokens
+    },
+    // Vision OCR output pricing (separate from input)
+    'anthropic-output': {
+      'claude-3-5-haiku-20241022': 0.004, // per 1K output tokens
+      'claude-3-5-haiku-latest': 0.004, // per 1K output tokens
+      'claude-3-5-sonnet-20241022': 0.015, // per 1K output tokens
+      'claude-3-5-sonnet-latest': 0.015, // per 1K output tokens
     },
   };
 

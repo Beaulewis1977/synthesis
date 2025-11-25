@@ -1,4 +1,4 @@
-import { CheckCircle, Clock, Edit2, RefreshCw, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle, Clock, Edit2, Eye, RefreshCw, Trash2, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -113,6 +113,21 @@ function DocumentItem({
             {document.error_message && (
               <p className="text-sm text-error mt-xs">{document.error_message}</p>
             )}
+            {/* Vision OCR indicator */}
+            {document.metadata &&
+              typeof document.metadata === 'object' &&
+              'extractionMethod' in document.metadata &&
+              document.metadata.extractionMethod === 'vision-ocr' && (
+                <div className="flex items-center gap-xs text-xs text-text-secondary mt-xs">
+                  <Eye size={12} />
+                  <span>
+                    Processed with Vision OCR
+                    {'visionOCRConfidence' in document.metadata &&
+                      typeof document.metadata.visionOCRConfidence === 'string' &&
+                      ` (${document.metadata.visionOCRConfidence} confidence)`}
+                  </span>
+                </div>
+              )}
           </div>
         </div>
         <div className="flex items-center gap-md flex-shrink-0">
