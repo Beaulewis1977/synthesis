@@ -256,12 +256,12 @@ describe('CostTracker', () => {
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 
       await tracker.checkBudget();
 
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Budget Limit Reached'));
-      expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect(consoleInfoSpy).toHaveBeenCalledWith(
         expect.stringContaining('Budget limit reached - enabling fallback mode')
       );
 
@@ -271,7 +271,7 @@ describe('CostTracker', () => {
       expect(process.env.DISABLE_CONTRADICTION_DETECTION).toBe('true');
 
       consoleSpy.mockRestore();
-      consoleLogSpy.mockRestore();
+      consoleInfoSpy.mockRestore();
     });
 
     it('does not send duplicate alerts within 24 hours', async () => {

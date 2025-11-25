@@ -432,6 +432,30 @@ export async function getChatMessages(sessionId: string): Promise<ChatMessage[]>
   return result.rows as ChatMessage[];
 }
 
+/**
+ * Deletes a chat session and all its messages (cascade).
+ * @param sessionId The chat session ID.
+ */
+export async function deleteChatSession(sessionId: string): Promise<void> {
+  await query('DELETE FROM chat_sessions WHERE id = $1', [sessionId]);
+}
+
+/**
+ * Updates the title of a chat session.
+ * @param sessionId The chat session ID.
+ * @param title The new title.
+ */
+export async function updateChatSessionTitle(
+  sessionId: string,
+  title: string
+): Promise<ChatSession | null> {
+  const result = await query(
+    'UPDATE chat_sessions SET title = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+    [title, sessionId]
+  );
+  return (result.rows[0] as ChatSession) || null;
+}
+
 // Ingestion Agent queries
 
 export async function createIngestionJob(
