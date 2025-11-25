@@ -633,29 +633,37 @@ async function main() {
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization');
 
-        // Add rate limit headers
-        const rateLimitHeaders = rateLimiter.getHeaders(req);
-        for (const [key, value] of Object.entries(rateLimitHeaders)) {
-          res.setHeader(key, value);
-        }
-
         if (req.method === 'OPTIONS') {
           res.writeHead(200);
           res.end();
           return;
         }
 
-        // Check rate limit
+        // Check rate limit first, then add headers with accurate post-check values
         if (!rateLimiter.isAllowed(req)) {
-          res.writeHead(429, { 'Content-Type': 'application/json' });
+          // Calculate actual retry time based on refill rate (time for 1 token)
+          const retryAfter = Math.ceil(60 / rateLimiter.getStats().config.refillRate);
+          const rateLimitHeaders = rateLimiter.getHeaders(req);
+
+          res.writeHead(429, {
+            'Content-Type': 'application/json',
+            'Retry-After': String(retryAfter),
+            ...rateLimitHeaders,
+          });
           res.end(
             JSON.stringify({
               error: 'Too Many Requests',
               message: 'Rate limit exceeded. Please try again later.',
-              retryAfter: 60,
+              retryAfter,
             })
           );
           return;
+        }
+
+        // Add rate limit headers after successful check (accurate remaining count)
+        const rateLimitHeaders = rateLimiter.getHeaders(req);
+        for (const [key, value] of Object.entries(rateLimitHeaders)) {
+          res.setHeader(key, value);
         }
 
         // Handle MCP requests

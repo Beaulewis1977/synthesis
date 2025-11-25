@@ -36,7 +36,13 @@ export function AddCollectionModal({ isOpen, onClose }: AddCollectionModalProps)
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Create New Collection" size="md">
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Create New Collection"
+      size="md"
+      allowClose={!createMutation.isPending}
+    >
       <form onSubmit={handleSubmit}>
         <div className="space-y-4">
           {/* Name Field */}

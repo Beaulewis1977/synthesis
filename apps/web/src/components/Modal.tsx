@@ -8,13 +8,22 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   size?: 'sm' | 'md' | 'lg';
+  /** Prevent closing during critical operations (default: true) */
+  allowClose?: boolean;
 }
 
-export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = 'md',
+  allowClose = true,
+}: ModalProps) {
   // Handle escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && allowClose) {
         onClose();
       }
     };
@@ -28,7 +37,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, allowClose]);
 
   if (!isOpen) return null;
 
@@ -40,28 +49,31 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+      {/* Backdrop - click only, keyboard close via ESC key handler above */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: ESC key handler provides keyboard accessibility */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-        onKeyDown={(e) => e.key === 'Enter' && onClose()}
-        role="button"
-        tabIndex={0}
-        aria-label="Close modal"
+        onClick={allowClose ? onClose : undefined}
       />
 
       {/* Modal Content */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
         className={`relative bg-bg-primary rounded-lg shadow-xl w-full ${sizeClasses[size]} mx-4 animate-in fade-in zoom-in-95 duration-200`}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+          <h2 id="modal-title" className="text-lg font-semibold text-text-primary">
+            {title}
+          </h2>
           <button
             type="button"
             onClick={onClose}
             className="p-1 rounded-md hover:bg-bg-secondary transition-colors"
             aria-label="Close"
+            disabled={!allowClose}
           >
             <X size={20} className="text-text-secondary" />
           </button>

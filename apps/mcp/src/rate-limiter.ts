@@ -101,7 +101,9 @@ export class RateLimiter {
     }
 
     const remaining = Math.max(0, Math.floor(bucket.tokens));
-    const resetTime = Math.ceil((1 - bucket.tokens) * (60000 / this.config.refillRate));
+    // Calculate time until next token is available (0 if tokens available)
+    const resetTime =
+      bucket.tokens >= 1 ? 0 : Math.ceil((1 - bucket.tokens) * (60000 / this.config.refillRate));
 
     return {
       'X-RateLimit-Limit': String(this.config.burstCapacity),
@@ -154,10 +156,11 @@ export class RateLimiter {
   }
 
   /**
-   * Check if IP is private
+   * Check if IP is private (simplified check for common ranges)
+   * Covers: RFC 1918 (10.x, 172.16-31.x, 192.168.x), loopback, link-local
    */
   private isPrivateIp(ip: string): boolean {
-    // IPv4 private ranges
+    // IPv4 private ranges (RFC 1918)
     if (ip.startsWith('10.') || ip.startsWith('192.168.') || ip.startsWith('127.')) {
       return true;
     }
@@ -168,15 +171,19 @@ export class RateLimiter {
         return true;
       }
     }
-    // IPv6 loopback
-    if (ip === '::1') {
+    // Link-local (169.254.x.x)
+    if (ip.startsWith('169.254.')) {
+      return true;
+    }
+    // IPv6 loopback and link-local
+    if (ip === '::1' || ip.startsWith('fe80:') || ip.startsWith('fc') || ip.startsWith('fd')) {
       return true;
     }
     return false;
   }
 
   /**
-   * Simple CIDR matching (supports /8, /16, /24 for IPv4)
+   * CIDR matching for IPv4 (supports /0 to /32 subnet masks)
    */
   private ipMatchesCidr(ip: string, cidr: string): boolean {
     // Exact match
@@ -194,13 +201,17 @@ export class RateLimiter {
         const ipParts = ip.split('.').map((p) => Number.parseInt(p, 10));
         const networkParts = network.split('.').map((p) => Number.parseInt(p, 10));
 
-        const ipNum = (ipParts[0] << 24) | (ipParts[1] << 16) | (ipParts[2] << 8) | ipParts[3];
+        // Use unsigned right shift to handle 32-bit signed integer correctly
+        const ipNum =
+          ((ipParts[0] << 24) | (ipParts[1] << 16) | (ipParts[2] << 8) | ipParts[3]) >>> 0;
         const netNum =
-          (networkParts[0] << 24) |
-          (networkParts[1] << 16) |
-          (networkParts[2] << 8) |
-          networkParts[3];
-        const mask = ~((1 << (32 - maskBits)) - 1);
+          ((networkParts[0] << 24) |
+            (networkParts[1] << 16) |
+            (networkParts[2] << 8) |
+            networkParts[3]) >>>
+          0;
+        // Create mask using unsigned right shift to avoid signed integer issues
+        const mask = (0xffffffff << (32 - maskBits)) >>> 0;
 
         return (ipNum & mask) === (netNum & mask);
       }
