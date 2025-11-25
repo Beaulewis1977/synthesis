@@ -39,7 +39,7 @@ Implemented automatic OCR fallback using Claude Vision API when `pdf-parse` fail
 - [x] Text is extracted with confidence scoring
 - [x] Costs are tracked and logged with token counts
 - [x] Error handling is graceful with clear messages
-- [x] Feature can be disabled via `VISION_OCR_ENABLED=false`
+- [x] Feature is explicit opt-in via `VISION_OCR_ENABLED=true` (can be disabled via `VISION_OCR_ENABLED=false` or leaving it unset)
 - [x] Max pages limit prevents runaway costs
 - [x] All existing tests pass (366 tests)
 - [x] Lint checks pass
@@ -56,7 +56,7 @@ None. The feature is additive and backward compatible.
 
 ```env
 # Phase 20: Vision OCR for Scanned PDFs
-VISION_OCR_ENABLED=true          # Enable/disable Vision OCR fallback
+VISION_OCR_ENABLED=true          # Set to 'true' to enable Vision OCR fallback (explicit opt-in)
 VISION_OCR_MAX_PAGES=50          # Maximum pages to process (cost control)
 VISION_OCR_MODEL=claude-3-5-haiku-20241022  # Model for OCR
 ```

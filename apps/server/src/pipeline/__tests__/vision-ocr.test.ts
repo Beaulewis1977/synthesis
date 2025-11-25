@@ -31,9 +31,9 @@ describe('vision-ocr', () => {
   });
 
   describe('isVisionOCREnabled', () => {
-    it('returns true by default', () => {
+    it('returns false by default (explicit opt-in)', () => {
       process.env.VISION_OCR_ENABLED = undefined;
-      expect(isVisionOCREnabled()).toBe(true);
+      expect(isVisionOCREnabled()).toBe(false);
     });
 
     it('returns true when VISION_OCR_ENABLED=true', () => {
@@ -41,8 +41,11 @@ describe('vision-ocr', () => {
       expect(isVisionOCREnabled()).toBe(true);
     });
 
-    it('returns false when VISION_OCR_ENABLED=false', () => {
+    it('returns false for any non-true value', () => {
       process.env.VISION_OCR_ENABLED = 'false';
+      expect(isVisionOCREnabled()).toBe(false);
+
+      process.env.VISION_OCR_ENABLED = 'flase';
       expect(isVisionOCREnabled()).toBe(false);
     });
   });

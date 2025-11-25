@@ -11,7 +11,7 @@ import { PROVIDER_PRICING } from '../services/cost-tracker.js';
 // Environment configuration (read dynamically to support testing)
 function getVisionOCRConfig() {
   return {
-    enabled: process.env.VISION_OCR_ENABLED !== 'false',
+    enabled: process.env.VISION_OCR_ENABLED === 'true',
     maxPages: Number.parseInt(process.env.VISION_OCR_MAX_PAGES || '50', 10),
     model: process.env.VISION_OCR_MODEL || 'claude-3-5-haiku-20241022',
   };
@@ -224,7 +224,7 @@ export function calculateVisionOCRCost(
   const modelName = model ?? getVisionOCRConfig().model;
 
   // Pricing per 1K tokens uses shared provider pricing from CostTracker
-  const inputPricingTable = PROVIDER_PRICING['anthropic'] ?? {};
+  const inputPricingTable = PROVIDER_PRICING.anthropic ?? {};
   const outputPricingTable = PROVIDER_PRICING['anthropic-output'] ?? {};
 
   const defaultModel = 'claude-3-5-haiku-20241022';
