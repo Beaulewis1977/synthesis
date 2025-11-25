@@ -1,5 +1,6 @@
-import { CheckCircle, Clock, RefreshCw, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle, Clock, Edit2, RefreshCw, Trash2, XCircle } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   formatFileSize,
   formatRelativeTime,
@@ -118,6 +119,15 @@ function DocumentItem({
           {getStatusBadge()}
           {!showCheckbox && (
             <>
+              {/* Edit button */}
+              <Link
+                to={`/documents/${document.id}/edit`}
+                className="text-text-secondary hover:text-accent transition-colors"
+                title="Edit document chunks"
+                aria-label="Edit document"
+              >
+                <Edit2 size={18} />
+              </Link>
               {/* Refresh button for documents with source URLs */}
               {document.source_url && onRefresh && (
                 <button

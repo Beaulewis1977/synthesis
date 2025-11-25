@@ -9,12 +9,23 @@ import type {
   CostAlertsResponse,
   CostHistoryResponse,
   CostSummaryResponse,
+  Document,
+  DocumentChunksResponse,
+  DocumentQualityScore,
   DocumentsResponse,
   IngestionJob,
   IngestionJobStatusResponse,
   RelatedFilesResponse,
+  RepositorySource,
+  RepositorySourcesResponse,
+  SearchFeedbackRequest,
   SearchResponse,
   SynthesisResponse,
+  TechStackProfile,
+  TechStackTemplate,
+  UpdateChunkResponse,
+  WorkflowInstance,
+  WorkflowTemplate,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3333';
@@ -301,6 +312,209 @@ class ApiClient {
     return this.request<IngestionJobStatusResponse>(
       `/api/ingestion-agent/status/${encodeURIComponent(jobId)}`
     );
+  }
+
+  /**
+   * Get document details.
+   * Phase 16 feature.
+   */
+  async getDocument(documentId: string): Promise<{ document: Document }> {
+    return this.request<{ document: Document }>(`/api/documents/${encodeURIComponent(documentId)}`);
+  }
+
+  /**
+   * Get chunks for a document.
+   * Phase 16 feature.
+   */
+  async getDocumentChunks(documentId: string): Promise<DocumentChunksResponse> {
+    return this.request<DocumentChunksResponse>(
+      `/api/documents/${encodeURIComponent(documentId)}/chunks`
+    );
+  }
+
+  /**
+   * Update a chunk's text and metadata.
+   * Phase 16 feature.
+   */
+  async updateChunk(
+    documentId: string,
+    chunkIndex: number,
+    data: { text: string; metadata?: Record<string, unknown> }
+  ): Promise<UpdateChunkResponse> {
+    return this.request<UpdateChunkResponse>(
+      `/api/documents/${encodeURIComponent(documentId)}/chunks/${chunkIndex}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  /**
+   * Update document metadata.
+   * Phase 16 feature.
+   */
+  async updateDocumentMetadata(
+    documentId: string,
+    data: { title?: string; metadata?: Record<string, unknown> }
+  ): Promise<{ message: string; document: Document }> {
+    return this.request<{ message: string; document: Document }>(
+      `/api/documents/${encodeURIComponent(documentId)}/metadata`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  /**
+   * Get repository sources for a collection.
+   * Phase 16 feature.
+   */
+  async getRepositorySources(collectionId: string): Promise<RepositorySourcesResponse> {
+    return this.request<RepositorySourcesResponse>(
+      `/api/repos?collection_id=${encodeURIComponent(collectionId)}`
+    );
+  }
+
+  /**
+   * Add a repository source to a collection.
+   * Phase 16 feature.
+   */
+  async addRepositorySource(data: {
+    collection_id: string;
+    repo_url: string;
+    default_branch?: string;
+    ignored_paths?: string[];
+  }): Promise<{ repo: RepositorySource }> {
+    return this.request<{ repo: RepositorySource }>('/api/repos', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Trigger repository sync.
+   * Phase 16 feature.
+   */
+  async syncRepository(repoSourceId: string): Promise<{ message: string; status: string }> {
+    return this.request<{ message: string; status: string }>(
+      `/api/repos/${encodeURIComponent(repoSourceId)}/sync`,
+      {
+        method: 'POST',
+      }
+    );
+  }
+
+  // ============================================
+  // Tech Stack Profiles (Phase C)
+  // ============================================
+
+  async getTechStackTemplates(category?: string): Promise<{ templates: TechStackTemplate[] }> {
+    const url = category
+      ? `/api/tech-profiles/templates?category=${encodeURIComponent(category)}`
+      : '/api/tech-profiles/templates';
+    return this.request<{ templates: TechStackTemplate[] }>(url);
+  }
+
+  async getTechStackProfile(collectionId: string): Promise<{ profile: TechStackProfile }> {
+    return this.request<{ profile: TechStackProfile }>(
+      `/api/tech-profiles/${encodeURIComponent(collectionId)}`
+    );
+  }
+
+  async applyTechStackTemplate(
+    collectionId: string,
+    templateName: string
+  ): Promise<{ message: string; profile: TechStackProfile }> {
+    return this.request<{ message: string; profile: TechStackProfile }>(
+      `/api/tech-profiles/${encodeURIComponent(collectionId)}/apply-template`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ template_name: templateName }),
+      }
+    );
+  }
+
+  async updateTechStackProfile(
+    collectionId: string,
+    data: Partial<TechStackProfile>
+  ): Promise<{ profile: TechStackProfile }> {
+    return this.request<{ profile: TechStackProfile }>(
+      `/api/tech-profiles/${encodeURIComponent(collectionId)}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  // ============================================
+  // Feedback (Phase D)
+  // ============================================
+
+  async submitSearchFeedback(
+    data: SearchFeedbackRequest
+  ): Promise<{ message: string; feedback_id: string }> {
+    return this.request<{ message: string; feedback_id: string }>('/api/feedback/search', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getDocumentQuality(docId: string): Promise<{ quality: DocumentQualityScore }> {
+    return this.request<{ quality: DocumentQualityScore }>(
+      `/api/feedback/quality/${encodeURIComponent(docId)}`
+    );
+  }
+
+  // ============================================
+  // Workflows (Phase F)
+  // ============================================
+
+  async getWorkflowTemplates(
+    category?: string,
+    techStack?: string
+  ): Promise<{ templates: WorkflowTemplate[] }> {
+    const params = new URLSearchParams();
+    if (category) params.set('category', category);
+    if (techStack) params.set('tech_stack', techStack);
+    const query = params.toString();
+    return this.request<{ templates: WorkflowTemplate[] }>(
+      `/api/workflows/templates${query ? `?${query}` : ''}`
+    );
+  }
+
+  async getWorkflows(
+    collectionId: string,
+    status?: string
+  ): Promise<{ workflows: WorkflowInstance[] }> {
+    const params = new URLSearchParams({ collection_id: collectionId });
+    if (status) params.set('status', status);
+    return this.request<{ workflows: WorkflowInstance[] }>(`/api/workflows?${params.toString()}`);
+  }
+
+  async createWorkflow(data: {
+    collection_id: string;
+    template_id?: string;
+    task_description: string;
+    task_context?: Record<string, unknown>;
+  }): Promise<{ message: string; workflow: WorkflowInstance }> {
+    return this.request<{ message: string; workflow: WorkflowInstance }>('/api/workflows', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async executeWorkflowStep(workflowId: string): Promise<{
+    message: string;
+    workflow_id: string;
+    current_step?: { id: string; name: string };
+    status?: string;
+  }> {
+    return this.request(`/api/workflows/${encodeURIComponent(workflowId)}/step`, {
+      method: 'POST',
+    });
   }
 }
 

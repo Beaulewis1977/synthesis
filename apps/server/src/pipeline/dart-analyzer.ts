@@ -247,7 +247,6 @@ function isInsideClass(content: string, position: number): boolean {
     /(abstract\s+)?class\s+\w+(?:\s+extends\s+\w+)?(?:\s+with\s+[^\{]+)?(?:\s+implements\s+[^\{]+)?\s*\{/g;
 
   let match: RegExpExecArray | null;
-  // biome-ignore lint/suspicious/noAssignInExpressions: regex iteration pattern
   while ((match = classRegex.exec(content)) !== null) {
     const openBraceIndex = match.index + match[0].length - 1;
 
@@ -272,7 +271,6 @@ function extractImports(content: string): DartAST['imports'] {
   const importRegex = /import\s+['"]([^'"]+)['"]\s*(?:as\s+(\w+))?\s*(?:(show|hide)\s+([^;]+))?;/g;
 
   let match: RegExpExecArray | null;
-  // biome-ignore lint/suspicious/noAssignInExpressions: Standard regex pattern
   while ((match = importRegex.exec(content)) !== null) {
     const uri = match[1];
     const prefix = match[2];
@@ -309,7 +307,6 @@ function extractFunctions(content: string): DartAST['functions'] {
     /(^|\n)\s*(?:Future<[^>]+>|Future|void|\w+(?:<[^>]+>)?)\s+(\w+)\s*\(([^)]*)\)\s*(async)?\s*\{/g;
 
   let match: RegExpExecArray | null;
-  // biome-ignore lint/suspicious/noAssignInExpressions: Standard regex pattern
   while ((match = funcRegex.exec(content)) !== null) {
     const matchStart = match.index + match[1].length;
     const funcName = match[2];
@@ -376,7 +373,6 @@ function extractClasses(content: string): DartAST['classes'] {
     /(abstract\s+)?class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+with\s+([^{]+))?(?:\s+implements\s+([^{]+))?\s*\{/g;
 
   let match: RegExpExecArray | null;
-  // biome-ignore lint/suspicious/noAssignInExpressions: Standard regex pattern
   while ((match = classRegex.exec(content)) !== null) {
     const isAbstract = !!match[1];
     const className = match[2];
@@ -408,7 +404,6 @@ function extractClasses(content: string): DartAST['classes'] {
       /(static\s+)?(?:Future<[^>]+>|Future|void|\w+(?:<[^>]+>)?)\s+(\w+)\s*\(([^)]*)\)\s*(async)?\s*\{/g;
 
     let methodMatch: RegExpExecArray | null;
-    // biome-ignore lint/suspicious/noAssignInExpressions: Standard regex pattern
     while ((methodMatch = methodRegex.exec(classBody)) !== null) {
       const isStatic = !!methodMatch[1];
       const methodName = methodMatch[2];
@@ -464,7 +459,6 @@ function extractClasses(content: string): DartAST['classes'] {
       /(static\s+)?(final\s+|const\s+)?(\w+(?:<[^>]+>)?)\s+(\w+)\s*(?:=\s*[^;]+)?;/g;
 
     let propMatch: RegExpExecArray | null;
-    // biome-ignore lint/suspicious/noAssignInExpressions: Standard regex pattern
     while ((propMatch = propRegex.exec(classBody)) !== null) {
       const isStatic = !!propMatch[1];
       const isFinal = !!propMatch[2];
@@ -507,7 +501,6 @@ function extractConstants(content: string): DartAST['constants'] {
   const constRegex = /(^|\n)\s*(const|final)\s+(\w+(?:<[^>]+>)?)\s+(\w+)\s*=\s*([^;]+);/g;
 
   let match: RegExpExecArray | null;
-  // biome-ignore lint/suspicious/noAssignInExpressions: Standard regex pattern
   while ((match = constRegex.exec(content)) !== null) {
     const matchStart = match.index + match[1].length;
     const type = match[3];

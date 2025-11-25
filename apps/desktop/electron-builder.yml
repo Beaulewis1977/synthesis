@@ -1,0 +1,138 @@
+# Synthesis Desktop - Electron Builder Configuration
+# Phase 5: Packaging & Distribution
+# Targets: Linux (AppImage, deb) + Windows (NSIS)
+
+appId: com.synthesis.desktop
+productName: Synthesis Desktop
+copyright: Copyright © 2025 Synthesis Team
+
+# Directories
+directories:
+  output: release
+  buildResources: build
+
+# Files to include in the app package
+files:
+  - dist/**/*
+  - src/renderer/**/*
+  - package.json
+  - "!**/*.map"  # Exclude source maps
+  - "!**/*.ts"   # Exclude TypeScript source files
+  - "!**/node_modules/**/{README.md,CHANGELOG.md,LICENSE}"
+  - "!node_modules/.pnpm/**"  # Exclude pnpm virtual store
+  - "!node_modules/.cache/**"  # Exclude cache directories
+
+# Extra resources (not in ASAR, accessible via process.resourcesPath)
+extraResources:
+  - from: ../../docker-compose.yml
+    to: docker-compose.yml
+  - from: ../../.env.example
+    to: .env.example
+
+# ASAR configuration (archive app code for integrity)
+asar: true
+asarUnpack:
+  - "**/*.node"  # Unpack native modules if any are added
+
+# Compression
+compression: normal  # Options: store, normal, maximum
+
+# Build for current platform only in dev
+buildVersion: ${version}
+
+# Disable native dependency rebuilding (we have no native deps)
+nodeGypRebuild: false
+npmRebuild: false
+
+# ===========================
+# LINUX CONFIGURATION
+# ===========================
+linux:
+  target:
+    - AppImage
+    # - deb  # Uncomment for release builds (slower)
+  category: Development
+  description: Autonomous RAG system with Claude Agent SDK
+  maintainer: beaulewis1977
+  vendor: Synthesis Team
+  synopsis: Desktop wrapper for Synthesis RAG
+  # icon: build/icon.png  # 512x512 PNG (optional, uses Electron default if missing)
+
+# AppImage specific
+appImage:
+  # license: MIT  # Disabled - requires LICENSE file in build directory
+
+# Debian package specific
+deb:
+  depends:
+    - libnotify4
+    - libxtst6
+    - libnss3
+    - libayatana-appindicator3-1  # Modern replacement for libappindicator1
+  priority: optional
+  artifactName: synthesis-desktop_${version}_${arch}.${ext}
+  # Removed deprecated: gconf2, gconf-service (replaced by gsettings/dconf)
+
+# ===========================
+# WINDOWS CONFIGURATION
+# ===========================
+win:
+  target:
+    - nsis
+  # icon: build/icon.ico  # 256x256 ICO (optional, uses Electron default if missing)
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+# NSIS installer options
+nsis:
+  oneClick: false  # Allow custom install directory
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Synthesis Desktop
+  # installerIcon: build/icon.ico  # Optional
+  # uninstallerIcon: build/icon.ico  # Optional
+  # license: ../../LICENSE  # Optional - include license in installer
+  warningsAsErrors: false
+
+# ===========================
+# MACOS CONFIGURATION (Phase 6)
+# ===========================
+# mac:
+#   target:
+#     - dmg
+#     - zip
+#   category: public.app-category.developer-tools
+#   icon: build/icon.icns
+#   entitlements: build/entitlements.mac.plist
+#   entitlementsInherit: build/entitlements.mac.plist
+#   hardenedRuntime: true
+#   gatekeeperAssess: false
+#   identity: null  # Defer code signing to Phase 6
+#
+# dmg:
+#   title: ${productName} ${version}
+#   icon: build/icon.icns
+#   iconSize: 80
+#   contents:
+#     - x: 410
+#       y: 150
+#       type: link
+#       path: /Applications
+#     - x: 130
+#       y: 150
+#       type: file
+#
+# afterSign: scripts/notarize.js  # macOS notarization (Phase 6)
+
+# ===========================
+# PUBLISHING (Phase 6+)
+# ===========================
+# publish:
+#   provider: github
+#   owner: beaulewis1977
+#   repo: synthesis
+#   releaseType: release
+
+# Auto-update configuration (Phase 6)
+# electronUpdater:
+#   enabled: false  # Defer to Phase 6

@@ -16,11 +16,17 @@ import { agentRoutes } from './routes/agent.js';
 import { chatRoutes } from './routes/chat.js';
 import { collectionRoutes } from './routes/collections.js';
 import { costRoutes } from './routes/costs.js';
+import { documentRoutes } from './routes/documents.js';
+import { feedbackRoutes } from './routes/feedback.js';
 import { ingestRoutes } from './routes/ingest.js';
+import { repoRoutes } from './routes/repos.js';
 import { searchRoutes } from './routes/search.js';
 import { synthesisRoutes } from './routes/synthesis.js';
+import { techProfileRoutes } from './routes/tech-profiles.js';
+import { workflowRoutes } from './routes/workflows.js';
 import { initializeMetrics, registerMetricsRoute } from './services/metrics.js';
 import { disconnectRedis } from './services/redis.js';
+import { startStaleCheckScheduler, stopStaleCheckScheduler } from './services/stale-check-job.js';
 
 const PORT = Number(process.env.SERVER_PORT) || 3333;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -78,6 +84,11 @@ await fastify.register(costRoutes);
 await fastify.register(agentRoutes);
 await fastify.register(agentIngestionRoutes);
 await fastify.register(ingestRoutes);
+await fastify.register(documentRoutes);
+await fastify.register(repoRoutes);
+await fastify.register(techProfileRoutes);
+await fastify.register(feedbackRoutes);
+await fastify.register(workflowRoutes);
 await registerMetricsRoute(fastify);
 
 /**
@@ -94,6 +105,12 @@ fastify.get('/health', async () => {
 try {
   await fastify.listen({ port: PORT, host: HOST });
   console.info(`🚀 Server listening on http://${HOST}:${PORT}`);
+
+  // Start background stale check scheduler (if enabled)
+  if (process.env.ENABLE_STALE_CHECK !== 'false') {
+    startStaleCheckScheduler();
+    console.info('📅 Stale document check scheduler started');
+  }
 } catch (err) {
   fastify.log.error(err);
   process.exit(1);
@@ -106,6 +123,7 @@ try {
  */
 const shutdown = async (signal: string) => {
   console.info(`\n${signal} received, shutting down gracefully...`);
+  stopStaleCheckScheduler();
   await fastify.close();
   await closePool();
   await disconnectRedis();

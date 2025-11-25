@@ -20,6 +20,12 @@ const CostDashboard = lazy(() =>
 const AgentIngestionPage = lazy(() =>
   import('./pages/AgentIngestionPage').then((m) => ({ default: m.AgentIngestionPage }))
 );
+const DocumentEditorPage = lazy(() =>
+  import('./pages/DocumentEditorPage').then((m) => ({ default: m.DocumentEditorPage }))
+);
+const WorkflowsPage = lazy(() =>
+  import('./pages/WorkflowsPage').then((m) => ({ default: m.WorkflowsPage }))
+);
 
 function AppRoutes() {
   const navigate = useNavigate();
@@ -41,6 +47,8 @@ function AppRoutes() {
             <Route path="search/:collectionId" element={<SearchPage />} />
             <Route path="costs" element={<CostDashboard />} />
             <Route path="agent/ingest" element={<AgentIngestionPage />} />
+            <Route path="documents/:id/edit" element={<DocumentEditorPage />} />
+            <Route path="workflows/:collectionId" element={<WorkflowsPage />} />
           </Route>
         </Routes>
       </Suspense>

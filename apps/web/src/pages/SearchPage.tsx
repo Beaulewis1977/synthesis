@@ -214,8 +214,14 @@ export function SearchPage() {
       {/* Results */}
       {!isLoading && !isError && data && data.results.length > 0 && (
         <div className="space-y-md">
-          {data.results.map((result) => (
-            <ResultCard key={result.id} result={result} collectionId={collectionId} />
+          {data.results.map((result, index) => (
+            <ResultCard
+              key={result.id}
+              result={result}
+              collectionId={collectionId}
+              query={currentQuery}
+              resultPosition={index + 1}
+            />
           ))}
         </div>
       )}

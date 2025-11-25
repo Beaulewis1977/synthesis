@@ -50,6 +50,9 @@ gha-creds-*.json
 .kilocode/
 .factory/
 
+# Electron build output
+apps/desktop/release/
+
 # Test artifacts (Playwright)
 apps/web/test-results/
 apps/web/playwright-report/

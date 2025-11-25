@@ -307,3 +307,132 @@ export interface IngestionJobStatusResponse {
   job: IngestionJob;
   stats: IngestionJobStats;
 }
+
+// Phase 16: Document Chunk Types
+export interface Chunk {
+  id: number;
+  chunk_index: number;
+  text: string;
+  token_count: number | null;
+  metadata: Record<string, unknown>;
+  has_embedding: boolean;
+  embedding_model: string | null;
+}
+
+export interface DocumentChunksResponse {
+  document: {
+    id: string;
+    title: string;
+    status: string;
+  };
+  chunks: Chunk[];
+  total: number;
+}
+
+export interface UpdateChunkRequest {
+  text: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateChunkResponse {
+  message: string;
+  chunk: Chunk;
+}
+
+// Phase 16: Repository Types
+export interface RepositorySource {
+  id: string;
+  collection_id: string;
+  repo_url: string;
+  default_branch: string;
+  last_synced_commit: string | null;
+  last_synced_at: string | null;
+  sync_status: 'idle' | 'syncing' | 'error';
+  sync_error: string | null;
+  ignored_paths: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RepositorySourcesResponse {
+  repos: RepositorySource[];
+}
+
+// Phase C: Tech Stack Profiles
+export interface TechStackProfile {
+  id: string;
+  collection_id: string;
+  primary_language: string | null;
+  primary_framework: string | null;
+  database_type: string | null;
+  frameworks: string[];
+  version_constraints: Record<string, string>;
+  prefer_official_docs: boolean;
+  prefer_code_examples: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TechStackTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  primary_language: string | null;
+  primary_framework: string | null;
+  database_type: string | null;
+  frameworks: string[];
+  search_boost_patterns: Array<{ pattern: string; boost: number }>;
+}
+
+// Phase D: Feedback
+export interface SearchFeedbackRequest {
+  chunk_id?: number;
+  doc_id?: string;
+  query: string;
+  collection_id: string;
+  rating: -1 | 0 | 1;
+  result_position?: number;
+  similarity_score?: number;
+  feedback_text?: string;
+  feedback_category?: 'irrelevant' | 'outdated' | 'incorrect' | 'helpful' | 'perfect';
+}
+
+export interface DocumentQualityScore {
+  doc_id: string;
+  quality_score: number;
+  total_ratings: number;
+  positive_ratings: number;
+  negative_ratings: number;
+}
+
+// Phase F: Workflows
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  tech_stacks: string[];
+  steps: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    tools: string[];
+  }>;
+  is_system: boolean;
+}
+
+export interface WorkflowInstance {
+  id: string;
+  template_id: string | null;
+  collection_id: string;
+  task_description: string;
+  task_context: Record<string, unknown>;
+  status: 'active' | 'paused' | 'completed' | 'failed';
+  current_step_id: string | null;
+  completed_steps: string[];
+  findings: Array<{ step: string; sources: unknown[]; summary: string }>;
+  final_output: string | null;
+  started_at: string;
+  completed_at: string | null;
+}

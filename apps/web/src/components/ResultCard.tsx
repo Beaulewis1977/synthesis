@@ -1,5 +1,6 @@
 import { type KeyboardEvent, useState } from 'react';
 import type { SearchResult } from '../types';
+import { FeedbackButtons } from './FeedbackButtons';
 import { RecencyBadge } from './RecencyBadge';
 import { RelatedFilesPanel } from './RelatedFilesPanel';
 import { TrustBadge } from './TrustBadge';
@@ -7,10 +8,18 @@ import { TrustBadge } from './TrustBadge';
 interface ResultCardProps {
   result: SearchResult;
   collectionId?: string;
+  query?: string;
+  resultPosition?: number;
   onClick?: () => void;
 }
 
-export function ResultCard({ result, collectionId, onClick }: ResultCardProps) {
+export function ResultCard({
+  result,
+  collectionId,
+  query,
+  resultPosition,
+  onClick,
+}: ResultCardProps) {
   const [showRelated, setShowRelated] = useState(false);
   const hasSimilarity = typeof result.similarity === 'number' && result.similarity > 0;
   const similarityPercent = hasSimilarity ? Math.round(result.similarity * 100) : null;
@@ -56,19 +65,30 @@ export function ResultCard({ result, collectionId, onClick }: ResultCardProps) {
         {result.snippet}
       </p>
 
-      {result.source_url && (
-        <div className="pt-sm border-t border-border">
+      {/* Feedback and Source */}
+      <div className="pt-sm border-t border-border flex items-center justify-between">
+        {query && collectionId && (
+          <FeedbackButtons
+            query={query}
+            collectionId={collectionId}
+            docId={result.doc_id}
+            chunkId={result.id}
+            resultPosition={resultPosition}
+            similarityScore={result.similarity}
+          />
+        )}
+        {result.source_url && (
           <a
             href={result.source_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-accent hover:underline"
+            className="text-xs text-accent hover:underline ml-auto"
             onClick={(event) => event.stopPropagation()}
           >
             View source →
           </a>
-        </div>
-      )}
+        )}
+      </div>
 
       {isCodeFile && collectionId && typeof result.metadata?.file_path === 'string' && (
         <div className="pt-sm border-t border-border">

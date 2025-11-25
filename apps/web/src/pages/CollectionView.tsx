@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Loader2, MessageSquare, Search } from 'lucide-react';
+import { AlertCircle, Loader2, MessageSquare, Search, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DocumentList } from '../components/DocumentList';
@@ -121,6 +121,15 @@ export function CollectionView() {
               className="btn btn-secondary"
             >
               Upload
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(`/workflows/${id}`)}
+              className="btn btn-secondary flex items-center gap-xs"
+              title="Manage workflows"
+            >
+              <Zap size={18} />
+              Workflows
             </button>
           </div>
         </div>

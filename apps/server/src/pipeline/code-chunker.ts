@@ -4,9 +4,12 @@ import { detectTechStack } from '../services/tech-detector.js';
 import type { Chunk, ChunkMetadata } from './chunk.js';
 import { parseConfigFile } from './config-analyzer.js';
 import { parseDartFile } from './dart-analyzer.js';
+import { parseKotlinFile } from './kotlin-analyzer.js';
+import { parsePythonFile } from './python-analyzer.js';
 import { analyzeRedisUsage } from './redis-analyzer.js';
 import { parseSQLFile } from './sql-analyzer.js';
 import type { TableConstraint } from './sql-analyzer.js';
+import { parseSwiftFile } from './swift-analyzer.js';
 import { parseTypeScriptFile } from './ts-analyzer.js';
 
 /**
@@ -82,6 +85,18 @@ export async function chunkCodeFile(
           return await chunkConfigCode(filePath, content, options);
         }
         console.warn('BACKEND_PARSING=false, using simple chunking for config file');
+        return simpleChunking(content);
+      case 'kt':
+      case 'kts':
+        return await chunkKotlinCode(filePath, content, options);
+      case 'swift':
+        return await chunkSwiftCode(filePath, content, options);
+      case 'py':
+        return await chunkPythonCode(filePath, content, options);
+      case 'java':
+        // TODO: Implement dedicated Java analyzer - Java syntax differs from Kotlin
+        // For now, use simple chunking to avoid incorrect metadata
+        console.warn('Java AST parsing not yet implemented, using simple chunking');
         return simpleChunking(content);
       default:
         console.warn(`Unsupported file type: ${extension}, using simple chunking`);
@@ -870,6 +885,317 @@ function simpleChunking(content: string): Chunk[] {
         line_range: [i + 1, i + chunkLines.length],
         startOffset: lineStartOffsets[i] ?? 0,
         endOffset: lineEndOffsets[i + chunkLines.length - 1] ?? lineStartOffsets[i] + text.length,
+      },
+    });
+  }
+
+  return chunks;
+}
+
+/**
+ * Chunks Kotlin code using the AST parser.
+ * Extracts complete functions and classes with rich metadata.
+ */
+async function chunkKotlinCode(
+  filePath: string,
+  content: string,
+  options: CodeChunkOptions
+): Promise<Chunk[]> {
+  const ast = await parseKotlinFile(content, filePath);
+  const chunks: Chunk[] = [];
+  let chunkIndex = 0;
+
+  const imports = ast.imports.map((i) => i.uri);
+
+  for (const func of ast.functions) {
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      function_name: func.name,
+      parameters: func.parameters,
+      return_type: func.returnType,
+      line_range: func.lineRange as [number, number],
+      file_path: filePath,
+      language: 'kotlin',
+      startOffset: func.startOffset,
+      endOffset: func.endOffset,
+    };
+
+    if (func.docComment) {
+      metadata.doc_comment = func.docComment;
+    }
+    if (func.isAsync) {
+      metadata.is_async = func.isAsync;
+    }
+    if (options.preserveImports && imports.length > 0) {
+      metadata.imports = imports;
+    }
+
+    chunks.push({ text: func.code, index: chunkIndex++, metadata });
+  }
+
+  for (const cls of ast.classes) {
+    const lineCount = cls.code.split('\n').length;
+    const maxSize = options.maxChunkSize ?? 100;
+
+    if (lineCount < maxSize) {
+      const metadata: ChunkMetadata = {
+        chunk_type: 'code',
+        class_name: cls.name,
+        methods: cls.methods.map((m) => m.name),
+        properties: cls.properties.map((p) => p.name),
+        line_range: cls.lineRange as [number, number],
+        file_path: filePath,
+        language: 'kotlin',
+        startOffset: cls.startOffset,
+        endOffset: cls.endOffset,
+      };
+
+      if (cls.superclass) metadata.extends = cls.superclass;
+      if (cls.interfaces?.length > 0) metadata.implements = cls.interfaces;
+      if (cls.isAbstract) metadata.is_abstract = cls.isAbstract;
+      if (options.preserveImports && imports.length > 0) metadata.imports = imports;
+
+      chunks.push({ text: cls.code, index: chunkIndex++, metadata });
+    } else {
+      for (const method of cls.methods) {
+        const metadata: ChunkMetadata = {
+          chunk_type: 'code',
+          function_name: method.name,
+          class_context: cls.name,
+          parameters: method.parameters,
+          return_type: method.returnType,
+          line_range: method.lineRange as [number, number],
+          file_path: filePath,
+          language: 'kotlin',
+          startOffset: method.startOffset,
+          endOffset: method.endOffset,
+        };
+
+        if (method.isStatic) metadata.is_static = method.isStatic;
+        if (method.isAsync) metadata.is_async = method.isAsync;
+        if (options.preserveImports && imports.length > 0) metadata.imports = imports;
+
+        chunks.push({ text: method.code, index: chunkIndex++, metadata });
+      }
+    }
+  }
+
+  for (const constant of ast.constants) {
+    chunks.push({
+      text: constant.code,
+      index: chunkIndex++,
+      metadata: {
+        chunk_type: 'code',
+        constant_name: constant.name,
+        constant_type: constant.type,
+        line_range: constant.lineRange as [number, number],
+        file_path: filePath,
+        language: 'kotlin',
+        startOffset: constant.startOffset,
+        endOffset: constant.endOffset,
+      },
+    });
+  }
+
+  return chunks;
+}
+
+/**
+ * Chunks Swift code using the AST parser.
+ */
+async function chunkSwiftCode(
+  filePath: string,
+  content: string,
+  options: CodeChunkOptions
+): Promise<Chunk[]> {
+  const ast = await parseSwiftFile(content, filePath);
+  const chunks: Chunk[] = [];
+  let chunkIndex = 0;
+
+  const imports = ast.imports.map((i) => i.uri);
+
+  for (const func of ast.functions) {
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      function_name: func.name,
+      parameters: func.parameters,
+      return_type: func.returnType,
+      line_range: func.lineRange as [number, number],
+      file_path: filePath,
+      language: 'swift',
+      startOffset: func.startOffset,
+      endOffset: func.endOffset,
+    };
+
+    if (func.docComment) metadata.doc_comment = func.docComment;
+    if (func.isAsync) metadata.is_async = func.isAsync;
+    if (options.preserveImports && imports.length > 0) metadata.imports = imports;
+
+    chunks.push({ text: func.code, index: chunkIndex++, metadata });
+  }
+
+  for (const cls of ast.classes) {
+    const lineCount = cls.code.split('\n').length;
+    const maxSize = options.maxChunkSize ?? 100;
+
+    if (lineCount < maxSize) {
+      const metadata: ChunkMetadata = {
+        chunk_type: 'code',
+        class_name: cls.name,
+        methods: cls.methods.map((m) => m.name),
+        properties: cls.properties.map((p) => p.name),
+        line_range: cls.lineRange as [number, number],
+        file_path: filePath,
+        language: 'swift',
+        startOffset: cls.startOffset,
+        endOffset: cls.endOffset,
+      };
+
+      if (cls.superclass) metadata.extends = cls.superclass;
+      if (cls.interfaces?.length > 0) metadata.implements = cls.interfaces;
+      if (cls.isAbstract) metadata.is_abstract = cls.isAbstract;
+      if (options.preserveImports && imports.length > 0) metadata.imports = imports;
+
+      chunks.push({ text: cls.code, index: chunkIndex++, metadata });
+    } else {
+      for (const method of cls.methods) {
+        const metadata: ChunkMetadata = {
+          chunk_type: 'code',
+          function_name: method.name,
+          class_context: cls.name,
+          parameters: method.parameters,
+          return_type: method.returnType,
+          line_range: method.lineRange as [number, number],
+          file_path: filePath,
+          language: 'swift',
+          startOffset: method.startOffset,
+          endOffset: method.endOffset,
+        };
+
+        if (method.isStatic) metadata.is_static = method.isStatic;
+        if (method.isAsync) metadata.is_async = method.isAsync;
+        if (options.preserveImports && imports.length > 0) metadata.imports = imports;
+
+        chunks.push({ text: method.code, index: chunkIndex++, metadata });
+      }
+    }
+  }
+
+  for (const constant of ast.constants) {
+    chunks.push({
+      text: constant.code,
+      index: chunkIndex++,
+      metadata: {
+        chunk_type: 'code',
+        constant_name: constant.name,
+        constant_type: constant.type,
+        line_range: constant.lineRange as [number, number],
+        file_path: filePath,
+        language: 'swift',
+        startOffset: constant.startOffset,
+        endOffset: constant.endOffset,
+      },
+    });
+  }
+
+  return chunks;
+}
+
+/**
+ * Chunks Python code using the AST parser.
+ */
+async function chunkPythonCode(
+  filePath: string,
+  content: string,
+  options: CodeChunkOptions
+): Promise<Chunk[]> {
+  const ast = await parsePythonFile(content, filePath);
+  const chunks: Chunk[] = [];
+  let chunkIndex = 0;
+
+  const imports = ast.imports.map((i) => i.uri);
+
+  for (const func of ast.functions) {
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      function_name: func.name,
+      parameters: func.parameters,
+      return_type: func.returnType,
+      line_range: func.lineRange as [number, number],
+      file_path: filePath,
+      language: 'python',
+      startOffset: func.startOffset,
+      endOffset: func.endOffset,
+    };
+
+    if (func.docComment) metadata.doc_comment = func.docComment;
+    if (func.isAsync) metadata.is_async = func.isAsync;
+    if (func.isGenerator) metadata.is_generator = func.isGenerator;
+    if (options.preserveImports && imports.length > 0) metadata.imports = imports;
+
+    chunks.push({ text: func.code, index: chunkIndex++, metadata });
+  }
+
+  for (const cls of ast.classes) {
+    const lineCount = cls.code.split('\n').length;
+    const maxSize = options.maxChunkSize ?? 100;
+
+    if (lineCount < maxSize) {
+      const metadata: ChunkMetadata = {
+        chunk_type: 'code',
+        class_name: cls.name,
+        methods: cls.methods.map((m) => m.name),
+        properties: cls.properties.map((p) => p.name),
+        line_range: cls.lineRange as [number, number],
+        file_path: filePath,
+        language: 'python',
+        startOffset: cls.startOffset,
+        endOffset: cls.endOffset,
+      };
+
+      if (cls.superclass) metadata.extends = cls.superclass;
+      if (cls.interfaces?.length > 0) metadata.implements = cls.interfaces;
+      if (cls.isAbstract) metadata.is_abstract = cls.isAbstract;
+      if (options.preserveImports && imports.length > 0) metadata.imports = imports;
+
+      chunks.push({ text: cls.code, index: chunkIndex++, metadata });
+    } else {
+      for (const method of cls.methods) {
+        const metadata: ChunkMetadata = {
+          chunk_type: 'code',
+          function_name: method.name,
+          class_context: cls.name,
+          parameters: method.parameters,
+          return_type: method.returnType,
+          line_range: method.lineRange as [number, number],
+          file_path: filePath,
+          language: 'python',
+          startOffset: method.startOffset,
+          endOffset: method.endOffset,
+        };
+
+        if (method.isStatic) metadata.is_static = method.isStatic;
+        if (method.isAsync) metadata.is_async = method.isAsync;
+        if (options.preserveImports && imports.length > 0) metadata.imports = imports;
+
+        chunks.push({ text: method.code, index: chunkIndex++, metadata });
+      }
+    }
+  }
+
+  for (const constant of ast.constants) {
+    chunks.push({
+      text: constant.code,
+      index: chunkIndex++,
+      metadata: {
+        chunk_type: 'code',
+        constant_name: constant.name,
+        constant_type: constant.type,
+        line_range: constant.lineRange as [number, number],
+        file_path: filePath,
+        language: 'python',
+        startOffset: constant.startOffset,
+        endOffset: constant.endOffset,
       },
     });
   }
