@@ -59,6 +59,22 @@ export async function ingestDocument(
     await updateDocumentStatus(documentId, 'extracting');
     const extraction = await extract(buffer, document.content_type, document.title);
 
+    // If Vision OCR was used, update document metadata to reflect this
+    if (extraction.metadata.extractionMethod === 'vision-ocr') {
+      const visionOCRMetadata = {
+        extractionMethod: 'vision-ocr',
+        visionOCRConfidence: extraction.metadata.confidence,
+        visionOCRCost: extraction.metadata.visionOCR?.estimatedCost,
+      };
+      await updateDocumentMetadata(documentId, {
+        ...(document.metadata ?? {}),
+        ...visionOCRMetadata,
+      });
+      console.info(
+        `[Ingest] Document ${documentId} processed with Vision OCR (confidence: ${extraction.metadata.confidence})`
+      );
+    }
+
     await updateDocumentStatus(documentId, 'chunking');
 
     // Check if this is a code file and code chunking is enabled

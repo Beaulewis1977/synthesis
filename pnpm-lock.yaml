@@ -23,7 +23,7 @@ importers:
         version: 22.18.8
       '@vitest/coverage-v8':
         specifier: ^2.1.4
-        version: 2.1.9(vitest@2.1.9(@types/node@22.18.8)(jsdom@27.0.0))
+        version: 2.1.9(vitest@2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)))
       tsx:
         specifier: ^4.19.1
         version: 4.20.6
@@ -35,7 +35,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.4
-        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(postcss@8.5.6))
+        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6))
 
   apps/desktop:
     dependencies:
@@ -143,6 +143,9 @@ importers:
       pdf-parse:
         specifier: 2.1.10
         version: 2.1.10
+      pdf-to-img:
+        specifier: ^5.0.0
+        version: 5.0.0
       pg:
         specifier: ^8.12.0
         version: 8.16.3
@@ -197,7 +200,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.4
-        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(postcss@8.5.6))
+        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6))
 
   apps/web:
     dependencies:
@@ -246,7 +249,7 @@ importers:
         version: 10.4.21(postcss@8.5.6)
       jsdom:
         specifier: ^27.0.0
-        version: 27.0.0(postcss@8.5.6)
+        version: 27.0.0(canvas@3.1.0)(postcss@8.5.6)
       postcss:
         specifier: ^8.4.47
         version: 8.5.6
@@ -261,7 +264,7 @@ importers:
         version: 5.4.21(@types/node@22.18.8)
       vitest:
         specifier: ^2.1.4
-        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(postcss@8.5.6))
+        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6))
 
   packages/db:
     dependencies:
@@ -286,7 +289,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.4
-        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(postcss@8.5.6))
+        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6))
 
   packages/shared:
     dependencies:
@@ -305,7 +308,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.4
-        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(postcss@8.5.6))
+        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6))
 
 packages:
 
@@ -2127,6 +2130,10 @@ packages:
   caniuse-lite@1.0.30001748:
     resolution: {integrity: sha512-5P5UgAr0+aBmNiplks08JLw+AW/XG/SurlgZLgB1dDLfAw7EfRGxIwzPHxdSCGY/BTKDqIVyJL87cCN6s0ZR0w==}
 
+  canvas@3.1.0:
+    resolution: {integrity: sha512-tTj3CqqukVJ9NgSahykNwtGda7V33VLObwrHfzT0vqJXu7J4d4C/7kQQW3fOEGDfZZoILPut5H00gOjyttPGyg==}
+    engines: {node: ^18.12.0 || >= 20.9.0}
+
   chai@5.3.3:
     resolution: {integrity: sha512-4zNhdJD/iOjSH0A05ea+Ke6MU5mmpQcbQsSOkgdaUMJ9zTlDTD/GYlwohmIE2u0gaxHYiVHEn1Fw9mZ/ktJWgw==}
     engines: {node: '>=18'}
@@ -3465,6 +3472,9 @@ packages:
   node-addon-api@6.1.0:
     resolution: {integrity: sha512-+eawOlIgy680F0kBzPUNFhMZGtJ1YmqM6l4+Crf4IkImjYrO/mqPwRMh352g23uIaQKFItcQ64I7KMaJxHgAVA==}
 
+  node-addon-api@7.1.1:
+    resolution: {integrity: sha512-5m3bsyrjFWE1xf7nz7YXdN4udnVtXK6/Yfgn5qnahL6bCkf2yKt4k3nuTKAtT4r3IG8JNR2ncsIMdZuAzJjHQQ==}
+
   node-api-version@0.2.1:
     resolution: {integrity: sha512-2xP/IGGMmmSQpI1+O/k72jF/ykvZ89JeuKX3TLJAYPDVLUalrshrLHkeVcCCZqG/eEa635cr8IBYzgnDvM2O8Q==}
 
@@ -3637,6 +3647,11 @@ packages:
   pdf-parse@2.1.10:
     resolution: {integrity: sha512-DhXu3nRE2EGtgduxWjUaTPk0abpI0mtpJzNXnd3eP68R2SG6371AnfHf3OroQdKjf+Q9vOpLig0cR9XtqIoEIw==}
     engines: {node: '>=16'}
+
+  pdf-to-img@5.0.0:
+    resolution: {integrity: sha512-QJy7P2Qbk86lntPPIC3HVZAyw/CvM+CP592UbO7grborOJ74Icspb8A2sdHO33MDb/WHwHZpSJxd771rQTlZKA==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   pdfjs-dist@5.4.296:
     resolution: {integrity: sha512-DlOzet0HO7OEnmUmB6wWGJrrdvbyJKftI1bhMitK7O2N8W2gc757yyYBbINy9IDafXAV9wmKr9t7xsTaNKRG5Q==}
@@ -6533,7 +6548,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vitest/coverage-v8@2.1.9(vitest@2.1.9(@types/node@22.18.8)(jsdom@27.0.0))':
+  '@vitest/coverage-v8@2.1.9(vitest@2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)))':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@bcoe/v8-coverage': 0.2.3
@@ -6547,7 +6562,7 @@ snapshots:
       std-env: 3.9.0
       test-exclude: 7.0.1
       tinyrainbow: 1.2.0
-      vitest: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(postcss@8.5.6))
+      vitest: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6))
     transitivePeerDependencies:
       - supports-color
 
@@ -7022,6 +7037,12 @@ snapshots:
   camelcase-css@2.0.1: {}
 
   caniuse-lite@1.0.30001748: {}
+
+  canvas@3.1.0:
+    dependencies:
+      node-addon-api: 7.1.1
+      prebuild-install: 7.1.3
+    optional: true
 
   chai@5.3.3:
     dependencies:
@@ -8108,7 +8129,7 @@ snapshots:
     dependencies:
       argparse: 2.0.1
 
-  jsdom@27.0.0(postcss@8.5.6):
+  jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6):
     dependencies:
       '@asamuzakjp/dom-selector': 6.6.1
       cssstyle: 5.3.1(postcss@8.5.6)
@@ -8130,6 +8151,8 @@ snapshots:
       whatwg-url: 15.1.0
       ws: 8.18.3
       xml-name-validator: 5.0.0
+    optionalDependencies:
+      canvas: 3.1.0
     transitivePeerDependencies:
       - bufferutil
       - postcss
@@ -8619,6 +8642,9 @@ snapshots:
 
   node-addon-api@6.1.0: {}
 
+  node-addon-api@7.1.1:
+    optional: true
+
   node-api-version@0.2.1:
     dependencies:
       semver: 7.7.2
@@ -8785,6 +8811,10 @@ snapshots:
   pathval@2.0.1: {}
 
   pdf-parse@2.1.10:
+    dependencies:
+      pdfjs-dist: 5.4.296
+
+  pdf-to-img@5.0.0:
     dependencies:
       pdfjs-dist: 5.4.296
 
@@ -9980,7 +10010,7 @@ snapshots:
       '@types/node': 22.18.8
       fsevents: 2.3.3
 
-  vitest@2.1.9(@types/node@22.18.8)(jsdom@27.0.0(postcss@8.5.6)):
+  vitest@2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6)):
     dependencies:
       '@vitest/expect': 2.1.9
       '@vitest/mocker': 2.1.9(vite@5.4.20(@types/node@22.18.8))
@@ -10004,7 +10034,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 22.18.8
-      jsdom: 27.0.0(postcss@8.5.6)
+      jsdom: 27.0.0(canvas@3.1.0)(postcss@8.5.6)
     transitivePeerDependencies:
       - less
       - lightningcss

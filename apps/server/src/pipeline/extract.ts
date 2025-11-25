@@ -3,6 +3,7 @@ import { toString as mdastToString } from 'mdast-util-to-string';
 import { pdf } from 'pdf-parse';
 import remarkParse from 'remark-parse';
 import { unified } from 'unified';
+import { calculateVisionOCRCost, extractTextWithVision, isVisionOCREnabled } from './vision-ocr.js';
 
 /**
  * Represents the result of a text extraction operation.
@@ -67,16 +68,67 @@ export async function extractPDF(buffer: Buffer): Promise<ExtractionResult> {
       `[PDF Extract] Extracted ${pageCount} pages, ${wordCount} words, ${text.length} characters`
     );
 
-    // Warn if PDF produced no text (likely scanned/image-based)
-    if (wordCount === 0) {
+    // If no text extracted, try Vision OCR as fallback
+    if (wordCount === 0 && pageCount > 0) {
       console.warn(
         `[PDF Extract] WARNING: PDF has ${pageCount} pages but extracted 0 words. ` +
-          'This PDF may be scanned/image-based and requires OCR for text extraction.'
+          'This PDF may be scanned/image-based.'
       );
-      throw new Error(
-        `PDF extraction produced no text (${pageCount} pages). ` +
-          'The PDF may be scanned/image-based. OCR is required for such documents.'
-      );
+
+      // Check if Vision OCR is enabled
+      if (!isVisionOCREnabled()) {
+        throw new Error(
+          `PDF extraction produced no text (${pageCount} pages). ` +
+            'The PDF may be scanned/image-based. Enable Vision OCR (VISION_OCR_ENABLED=true) to process such documents.'
+        );
+      }
+
+      console.info('[PDF Extract] Attempting Vision OCR fallback...');
+
+      try {
+        const visionResult = await extractTextWithVision(buffer);
+
+        if (visionResult.text.trim().length === 0) {
+          throw new Error(
+            'PDF extraction failed: Neither text extraction nor Vision OCR produced results. ' +
+              'The PDF may be corrupted or contain only non-text content.'
+          );
+        }
+
+        const visionWordCount = visionResult.text.split(/\s+/).length;
+        const estimatedCost = calculateVisionOCRCost(
+          visionResult.inputTokens,
+          visionResult.outputTokens
+        );
+
+        console.info(
+          `[PDF Extract] Vision OCR successful: ${visionResult.pageCount} pages, ` +
+            `${visionWordCount} words, confidence: ${visionResult.confidence}, ` +
+            `estimated cost: $${estimatedCost.toFixed(4)}`
+        );
+
+        return {
+          text: visionResult.text,
+          metadata: {
+            pageCount: visionResult.pageCount,
+            wordCount: visionWordCount,
+            extractionMethod: 'vision-ocr',
+            confidence: visionResult.confidence,
+            visionOCR: {
+              inputTokens: visionResult.inputTokens,
+              outputTokens: visionResult.outputTokens,
+              estimatedCost,
+            },
+          },
+        };
+      } catch (visionError) {
+        const visionMessage =
+          visionError instanceof Error ? visionError.message : String(visionError);
+        console.error(`[PDF Extract] Vision OCR failed: ${visionMessage}`);
+        throw new Error(
+          `PDF extraction failed: Text extraction found no text, and Vision OCR failed: ${visionMessage}`
+        );
+      }
     }
 
     // Warn if very low text density (possible partial extraction)

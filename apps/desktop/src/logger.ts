@@ -58,7 +58,7 @@ export function addLog(level: LogLevel, message: string, source?: string): void 
       console.warn(logMessage);
       break;
     case 'info':
-      console.log(logMessage);
+      console.info(logMessage);
       break;
     case 'debug':
       if (process.env.NODE_ENV === 'development') {
