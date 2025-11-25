@@ -1,8 +1,11 @@
 import {
+  addChatMessage,
   createChatSession,
+  deleteChatSession,
   getChatMessages,
   getChatSession,
   listChatSessions,
+  updateChatSessionTitle,
 } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
@@ -10,6 +13,16 @@ import { z } from 'zod';
 const CreateSessionSchema = z.object({
   collectionId: z.string().uuid(),
   title: z.string().min(1).max(255),
+});
+
+const UpdateSessionSchema = z.object({
+  title: z.string().min(1).max(255),
+});
+
+const AddMessageSchema = z.object({
+  role: z.enum(['user', 'assistant', 'system']),
+  content: z.string().min(1),
+  metadata: z.record(z.unknown()).optional(),
 });
 
 const uuidSchema = z.string().uuid();
@@ -74,6 +87,86 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
     } catch (error) {
       fastify.log.error(error, 'Failed to create chat session');
       return reply.code(500).send({ error: 'Failed to create chat session' });
+    }
+  });
+
+  // Delete a chat session
+  fastify.delete<{ Params: { id: string } }>('/api/chats/:id', async (request, reply) => {
+    const { id: chatId } = request.params;
+    if (!uuidSchema.safeParse(chatId).success) {
+      return reply.code(400).send({ error: 'Invalid chat id' });
+    }
+
+    try {
+      // Verify session exists before deleting
+      const session = await getChatSession(chatId);
+      if (!session) {
+        return reply.code(404).send({ error: 'Chat session not found' });
+      }
+
+      await deleteChatSession(chatId);
+      return reply.code(204).send();
+    } catch (error) {
+      fastify.log.error(error, 'Failed to delete chat session');
+      return reply.code(500).send({ error: 'Failed to delete chat session' });
+    }
+  });
+
+  // Update chat session title
+  fastify.patch<{ Params: { id: string } }>('/api/chats/:id', async (request, reply) => {
+    const { id: chatId } = request.params;
+    if (!uuidSchema.safeParse(chatId).success) {
+      return reply.code(400).send({ error: 'Invalid chat id' });
+    }
+
+    const validation = UpdateSessionSchema.safeParse(request.body);
+    if (!validation.success) {
+      return reply.code(400).send({
+        error: 'Invalid request',
+        details: validation.error.issues,
+      });
+    }
+
+    try {
+      const session = await updateChatSessionTitle(chatId, validation.data.title);
+      if (!session) {
+        return reply.code(404).send({ error: 'Chat session not found' });
+      }
+      return reply.send({ session });
+    } catch (error) {
+      fastify.log.error(error, 'Failed to update chat session');
+      return reply.code(500).send({ error: 'Failed to update chat session' });
+    }
+  });
+
+  // Add message to chat session
+  fastify.post<{ Params: { id: string } }>('/api/chats/:id/messages', async (request, reply) => {
+    const { id: chatId } = request.params;
+    if (!uuidSchema.safeParse(chatId).success) {
+      return reply.code(400).send({ error: 'Invalid chat id' });
+    }
+
+    const validation = AddMessageSchema.safeParse(request.body);
+    if (!validation.success) {
+      return reply.code(400).send({
+        error: 'Invalid request',
+        details: validation.error.issues,
+      });
+    }
+
+    try {
+      // Verify session exists
+      const session = await getChatSession(chatId);
+      if (!session) {
+        return reply.code(404).send({ error: 'Chat session not found' });
+      }
+
+      const { role, content, metadata } = validation.data;
+      const message = await addChatMessage(chatId, role, content, metadata);
+      return reply.code(201).send({ message });
+    } catch (error) {
+      fastify.log.error(error, 'Failed to add chat message');
+      return reply.code(500).send({ error: 'Failed to add chat message' });
     }
   });
 };

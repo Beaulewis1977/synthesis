@@ -208,6 +208,49 @@ class ApiClient {
   }
 
   /**
+   * Delete a chat session.
+   * Phase 16 feature - persistent chat history.
+   */
+  async deleteChatSession(sessionId: string): Promise<void> {
+    await this.request(`/api/chats/${encodeURIComponent(sessionId)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Update a chat session title.
+   * Phase 16 feature - persistent chat history.
+   */
+  async updateChatSessionTitle(
+    sessionId: string,
+    title: string
+  ): Promise<{ session: ChatSession }> {
+    return this.request<{ session: ChatSession }>(`/api/chats/${encodeURIComponent(sessionId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ title }),
+    });
+  }
+
+  /**
+   * Add a message to a chat session.
+   * Phase 16 feature - persistent chat history.
+   */
+  async addChatMessage(
+    sessionId: string,
+    role: 'user' | 'assistant' | 'system',
+    content: string,
+    metadata?: Record<string, unknown>
+  ): Promise<{ message: ChatMessage }> {
+    return this.request<{ message: ChatMessage }>(
+      `/api/chats/${encodeURIComponent(sessionId)}/messages`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ role, content, metadata }),
+      }
+    );
+  }
+
+  /**
    * Synthesize search results with multi-source comparison.
    * Phase 12 feature - requires ENABLE_SYNTHESIS=true on backend.
    */

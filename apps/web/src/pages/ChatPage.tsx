@@ -203,6 +203,20 @@ export function ChatPage() {
     setSearchParams({ session: id });
   };
 
+  const handleDeleteSession = async (id: string) => {
+    try {
+      await apiClient.deleteChatSession(id);
+      // If we deleted the current session, clear it
+      if (sessionId === id) {
+        handleNewChat();
+      }
+      // Refresh sessions list
+      refetchSessions();
+    } catch (error) {
+      console.error('Failed to delete session:', error);
+    }
+  };
+
   const isLoading = chatMutation.isPending;
 
   return (
@@ -219,6 +233,7 @@ export function ChatPage() {
           currentSessionId={sessionId}
           onSelectSession={handleSelectSession}
           onNewChat={handleNewChat}
+          onDeleteSession={handleDeleteSession}
           className="h-full w-64"
         />
       </div>
