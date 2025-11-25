@@ -373,7 +373,11 @@ app.on('window-all-closed', () => {
 app.on('before-quit', async (event) => {
   if (!cleanupCompleted) {
     event.preventDefault();
-    await cleanup();
+    try {
+      await cleanup();
+    } catch (err) {
+      console.error('Cleanup failed:', err);
+    }
     cleanupCompleted = true;
     app.quit();
   }

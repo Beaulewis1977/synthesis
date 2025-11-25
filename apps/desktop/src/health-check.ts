@@ -252,8 +252,8 @@ export async function waitForStack(maxWaitMs = 120000, pollIntervalMs = 3000): P
 
     if (status.overall === 'error') {
       const errorServices = Object.entries(status.services)
-        .filter(([_, s]) => s.status === 'error')
-        .map(([k, s]) => `${s.name}: ${s.error}`)
+        .filter(([_key, s]) => s.status === 'error')
+        .map(([_key, s]) => `${s.name}: ${s.error}`)
         .join(', ');
       addLog('warn', `Services with errors: ${errorServices}`, 'health');
     }
