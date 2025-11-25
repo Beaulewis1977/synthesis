@@ -26,11 +26,15 @@ const UpdateWorkflowSchema = z.object({
   status: z.enum(['active', 'paused', 'completed', 'failed']).optional(),
   current_step_id: z.string().optional().nullable(),
   completed_steps: z.array(z.string()).optional(),
-  findings: z.array(z.object({
-    step: z.string(),
-    sources: z.array(z.unknown()),
-    summary: z.string(),
-  })).optional(),
+  findings: z
+    .array(
+      z.object({
+        step: z.string(),
+        sources: z.array(z.unknown()),
+        summary: z.string(),
+      })
+    )
+    .optional(),
   final_output: z.string().optional(),
 });
 
@@ -87,22 +91,19 @@ export const workflowRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   // GET /api/workflows/:id - Get a specific workflow instance
-  fastify.get<{ Params: { id: string } }>(
-    '/api/workflows/:id',
-    async (request, reply) => {
-      const { id } = request.params;
-      try {
-        const workflow = await getWorkflowInstance(id);
-        if (!workflow) {
-          return reply.code(404).send({ error: 'Workflow not found' });
-        }
-        return reply.send({ workflow });
-      } catch (error) {
-        fastify.log.error(error, 'Failed to get workflow');
-        return reply.code(500).send({ error: 'Failed to get workflow' });
+  fastify.get<{ Params: { id: string } }>('/api/workflows/:id', async (request, reply) => {
+    const { id } = request.params;
+    try {
+      const workflow = await getWorkflowInstance(id);
+      if (!workflow) {
+        return reply.code(404).send({ error: 'Workflow not found' });
       }
+      return reply.send({ workflow });
+    } catch (error) {
+      fastify.log.error(error, 'Failed to get workflow');
+      return reply.code(500).send({ error: 'Failed to get workflow' });
     }
-  );
+  });
 
   // POST /api/workflows - Create a new workflow instance
   fastify.post('/api/workflows', async (request, reply) => {
@@ -135,102 +136,98 @@ export const workflowRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // PATCH /api/workflows/:id - Update a workflow instance
-  fastify.patch<{ Params: { id: string } }>(
-    '/api/workflows/:id',
-    async (request, reply) => {
-      const { id } = request.params;
-      const validation = UpdateWorkflowSchema.safeParse(request.body);
-      if (!validation.success) {
-        return reply.code(400).send({
-          error: 'Invalid request',
-          details: validation.error.issues,
-        });
-      }
-
-      try {
-        const workflow = await updateWorkflowInstance(id, {
-          status: validation.data.status,
-          currentStepId: validation.data.current_step_id,
-          completedSteps: validation.data.completed_steps,
-          findings: validation.data.findings,
-          finalOutput: validation.data.final_output,
-        });
-
-        if (!workflow) {
-          return reply.code(404).send({ error: 'Workflow not found' });
-        }
-
-        return reply.send({
-          message: 'Workflow updated',
-          workflow,
-        });
-      } catch (error) {
-        fastify.log.error(error, 'Failed to update workflow');
-        return reply.code(500).send({ error: 'Failed to update workflow' });
-      }
+  fastify.patch<{ Params: { id: string } }>('/api/workflows/:id', async (request, reply) => {
+    const { id } = request.params;
+    const validation = UpdateWorkflowSchema.safeParse(request.body);
+    if (!validation.success) {
+      return reply.code(400).send({
+        error: 'Invalid request',
+        details: validation.error.issues,
+      });
     }
-  );
+
+    try {
+      const workflow = await updateWorkflowInstance(id, {
+        status: validation.data.status,
+        currentStepId: validation.data.current_step_id,
+        completedSteps: validation.data.completed_steps,
+        findings: validation.data.findings,
+        finalOutput: validation.data.final_output,
+      });
+
+      if (!workflow) {
+        return reply.code(404).send({ error: 'Workflow not found' });
+      }
+
+      return reply.send({
+        message: 'Workflow updated',
+        workflow,
+      });
+    } catch (error) {
+      fastify.log.error(error, 'Failed to update workflow');
+      return reply.code(500).send({ error: 'Failed to update workflow' });
+    }
+  });
 
   // POST /api/workflows/:id/step - Execute next step in workflow
-  fastify.post<{ Params: { id: string } }>(
-    '/api/workflows/:id/step',
-    async (request, reply) => {
-      const { id } = request.params;
-      
-      try {
-        const workflow = await getWorkflowInstance(id);
-        if (!workflow) {
-          return reply.code(404).send({ error: 'Workflow not found' });
-        }
+  fastify.post<{ Params: { id: string } }>('/api/workflows/:id/step', async (request, reply) => {
+    const { id } = request.params;
 
-        if (workflow.status !== 'active') {
-          return reply.code(400).send({ 
-            error: 'Workflow is not active',
-            status: workflow.status,
-          });
-        }
-
-        // Get template to find steps
-        let steps: Array<{ id: string; name: string }> = [];
-        if (workflow.template_id) {
-          const template = await getWorkflowTemplate(workflow.template_id);
-          if (template) {
-            steps = template.steps;
-          }
-        }
-
-        // Find next step
-        const completedSteps = workflow.completed_steps || [];
-        const nextStep = steps.find(s => !completedSteps.includes(s.id));
-
-        if (!nextStep) {
-          // All steps completed
-          await updateWorkflowInstance(id, {
-            status: 'completed',
-            currentStepId: null,
-          });
-          return reply.send({
-            message: 'Workflow completed',
-            workflow_id: id,
-            status: 'completed',
-          });
-        }
-
-        // Update current step
-        await updateWorkflowInstance(id, {
-          currentStepId: nextStep.id,
-        });
-
-        return reply.send({
-          message: 'Step started',
-          workflow_id: id,
-          current_step: nextStep,
-          remaining_steps: steps.filter(s => !completedSteps.includes(s.id) && s.id !== nextStep.id),
-        });
-      } catch (error) {
-        fastify.log.error(error, 'Failed to execute workflow step');
-        return reply.code(500).send({ error: 'Failed to execute step' });
+    try {
+      const workflow = await getWorkflowInstance(id);
+      if (!workflow) {
+        return reply.code(404).send({ error: 'Workflow not found' });
       }
+
+      if (workflow.status !== 'active') {
+        return reply.code(400).send({
+          error: 'Workflow is not active',
+          status: workflow.status,
+        });
+      }
+
+      // Get template to find steps
+      let steps: Array<{ id: string; name: string }> = [];
+      if (workflow.template_id) {
+        const template = await getWorkflowTemplate(workflow.template_id);
+        if (template) {
+          steps = template.steps;
+        }
+      }
+
+      // Find next step
+      const completedSteps = workflow.completed_steps || [];
+      const nextStep = steps.find((s) => !completedSteps.includes(s.id));
+
+      if (!nextStep) {
+        // All steps completed
+        await updateWorkflowInstance(id, {
+          status: 'completed',
+          currentStepId: null,
+        });
+        return reply.send({
+          message: 'Workflow completed',
+          workflow_id: id,
+          status: 'completed',
+        });
+      }
+
+      // Update current step
+      await updateWorkflowInstance(id, {
+        currentStepId: nextStep.id,
+      });
+
+      return reply.send({
+        message: 'Step started',
+        workflow_id: id,
+        current_step: nextStep,
+        remaining_steps: steps.filter(
+          (s) => !completedSteps.includes(s.id) && s.id !== nextStep.id
+        ),
+      });
+    } catch (error) {
+      fastify.log.error(error, 'Failed to execute workflow step');
+      return reply.code(500).send({ error: 'Failed to execute step' });
     }
-  );
+  });
 };

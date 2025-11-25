@@ -126,7 +126,7 @@ export function DocumentEditorPage() {
             <div key={chunk.id} className="card">
               {/* Chunk Header */}
               <div
-                className="flex items-center justify-between cursor-pointer"
+                className="flex items-center justify-between cursor-pointer w-full text-left"
                 onClick={() => !isEditing && toggleChunkExpanded(chunk.chunk_index)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !isEditing) {

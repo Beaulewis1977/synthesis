@@ -448,8 +448,14 @@ server.registerTool(
 const addRepoInput = z
   .object({
     collectionId: z.string().uuid().describe('The ID of the collection to add the repo to'),
-    repoUrl: z.string().url().describe('The Git repository URL (e.g., https://github.com/user/repo)'),
-    defaultBranch: z.string().default('main').describe('The default branch to sync (default: main)'),
+    repoUrl: z
+      .string()
+      .url()
+      .describe('The Git repository URL (e.g., https://github.com/user/repo)'),
+    defaultBranch: z
+      .string()
+      .default('main')
+      .describe('The default branch to sync (default: main)'),
     ignoredPaths: z
       .array(z.string())
       .optional()

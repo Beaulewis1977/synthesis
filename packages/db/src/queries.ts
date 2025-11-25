@@ -780,7 +780,14 @@ export async function applyTechStackTemplate(
        version_constraints = EXCLUDED.version_constraints,
        updated_at = NOW()
      RETURNING *`,
-    [collectionId, t.primary_language, t.primary_framework, t.database_type, t.frameworks, t.version_constraints]
+    [
+      collectionId,
+      t.primary_language,
+      t.primary_framework,
+      t.database_type,
+      JSON.stringify(t.frameworks),
+      JSON.stringify(t.version_constraints),
+    ]
   );
   return result.rows[0];
 }
@@ -956,10 +963,9 @@ export async function listWorkflowTemplates(
 }
 
 export async function getWorkflowTemplate(id: string): Promise<WorkflowTemplate | null> {
-  const result = await query<WorkflowTemplate>(
-    'SELECT * FROM workflow_templates WHERE id = $1',
-    [id]
-  );
+  const result = await query<WorkflowTemplate>('SELECT * FROM workflow_templates WHERE id = $1', [
+    id,
+  ]);
   return result.rows[0] || null;
 }
 
@@ -1034,10 +1040,9 @@ export async function updateWorkflowInstance(
 }
 
 export async function getWorkflowInstance(id: string): Promise<WorkflowInstance | null> {
-  const result = await query<WorkflowInstance>(
-    'SELECT * FROM workflow_instances WHERE id = $1',
-    [id]
-  );
+  const result = await query<WorkflowInstance>('SELECT * FROM workflow_instances WHERE id = $1', [
+    id,
+  ]);
   return result.rows[0] || null;
 }
 

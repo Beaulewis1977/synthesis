@@ -105,7 +105,7 @@ fastify.get('/health', async () => {
 try {
   await fastify.listen({ port: PORT, host: HOST });
   console.info(`🚀 Server listening on http://${HOST}:${PORT}`);
-  
+
   // Start background stale check scheduler (if enabled)
   if (process.env.ENABLE_STALE_CHECK !== 'false') {
     startStaleCheckScheduler();

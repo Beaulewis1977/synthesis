@@ -13,7 +13,13 @@ interface ResultCardProps {
   onClick?: () => void;
 }
 
-export function ResultCard({ result, collectionId, query, resultPosition, onClick }: ResultCardProps) {
+export function ResultCard({
+  result,
+  collectionId,
+  query,
+  resultPosition,
+  onClick,
+}: ResultCardProps) {
   const [showRelated, setShowRelated] = useState(false);
   const hasSimilarity = typeof result.similarity === 'number' && result.similarity > 0;
   const similarityPercent = hasSimilarity ? Math.round(result.similarity * 100) : null;

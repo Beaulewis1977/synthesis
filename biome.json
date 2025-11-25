@@ -12,7 +12,8 @@
       ".kilocode",
       ".gemini",
       "storage/**",
-      "**/fixtures/**"
+      "**/fixtures/**",
+      "**/release/**"
     ]
   },
   "linter": {
@@ -21,11 +22,16 @@
       "recommended": true,
       "suspicious": {
         "noExplicitAny": "error",
-        "noConsoleLog": "warn"
+        "noConsoleLog": "warn",
+        "noAssignInExpressions": "off"
       },
       "style": {
         "useConst": "error",
-        "noVar": "error"
+        "noVar": "error",
+        "useTemplate": "off"
+      },
+      "a11y": {
+        "useSemanticElements": "warn"
       }
     }
   },

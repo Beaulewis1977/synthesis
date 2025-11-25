@@ -319,9 +319,7 @@ class ApiClient {
    * Phase 16 feature.
    */
   async getDocument(documentId: string): Promise<{ document: Document }> {
-    return this.request<{ document: Document }>(
-      `/api/documents/${encodeURIComponent(documentId)}`
-    );
+    return this.request<{ document: Document }>(`/api/documents/${encodeURIComponent(documentId)}`);
   }
 
   /**
@@ -455,7 +453,9 @@ class ApiClient {
   // Feedback (Phase D)
   // ============================================
 
-  async submitSearchFeedback(data: SearchFeedbackRequest): Promise<{ message: string; feedback_id: string }> {
+  async submitSearchFeedback(
+    data: SearchFeedbackRequest
+  ): Promise<{ message: string; feedback_id: string }> {
     return this.request<{ message: string; feedback_id: string }>('/api/feedback/search', {
       method: 'POST',
       body: JSON.stringify(data),

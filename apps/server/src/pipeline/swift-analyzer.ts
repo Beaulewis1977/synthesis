@@ -58,12 +58,13 @@ function extractSwiftImports(content: string, ast: DartAST): void {
  */
 function extractSwiftFunctions(content: string, ast: DartAST): void {
   // Match function declarations
-  const funcRegex = /^((?:@\w+\s+)*)((?:private|public|internal|fileprivate|open|final|static|class|override|mutating|nonmutating|async|throws|rethrows|\s)*)\s*func\s+(\w+)(?:<[^>]+>)?\s*\(([^)]*)\)(?:\s*(?:async\s+)?(?:throws\s+)?->\s*([^{]+))?/gm;
-  
+  const funcRegex =
+    /^((?:@\w+\s+)*)((?:private|public|internal|fileprivate|open|final|static|class|override|mutating|nonmutating|async|throws|rethrows|\s)*)\s*func\s+(\w+)(?:<[^>]+>)?\s*\(([^)]*)\)(?:\s*(?:async\s+)?(?:throws\s+)?->\s*([^{]+))?/gm;
+
   let match: RegExpExecArray | null;
 
   while ((match = funcRegex.exec(content)) !== null) {
-    const attributes = match[1].trim();
+    // const attributes = match[1].trim(); // Reserved for future use
     const modifiers = match[2].trim();
     const name = match[3];
     const params = match[4];
@@ -96,12 +97,13 @@ function extractSwiftFunctions(content: string, ast: DartAST): void {
  */
 function extractSwiftTypes(content: string, ast: DartAST): void {
   // Match type declarations
-  const typeRegex = /^((?:@\w+\s+)*)((?:private|public|internal|fileprivate|open|final|\s)*)\s*(class|struct|enum|protocol|actor)\s+(\w+)(?:<[^>]+>)?(?:\s*:\s*([^{]+))?/gm;
+  const typeRegex =
+    /^((?:@\w+\s+)*)((?:private|public|internal|fileprivate|open|final|\s)*)\s*(class|struct|enum|protocol|actor)\s+(\w+)(?:<[^>]+>)?(?:\s*:\s*([^{]+))?/gm;
 
   let match: RegExpExecArray | null;
 
   while ((match = typeRegex.exec(content)) !== null) {
-    const modifiers = match[2].trim();
+    // const modifiers = match[2].trim(); // Reserved for future use
     const kind = match[3];
     const name = match[4];
     const inheritance = match[5]?.trim();
@@ -114,7 +116,7 @@ function extractSwiftTypes(content: string, ast: DartAST): void {
     const endLine = startLine + code.split('\n').length - 1;
 
     // Parse inheritance
-    const inheritanceList = inheritance?.split(',').map(s => s.trim()) || [];
+    const inheritanceList = inheritance?.split(',').map((s) => s.trim()) || [];
     const superclass = kind === 'class' ? inheritanceList[0] : undefined;
     const interfaces = kind === 'class' ? inheritanceList.slice(1) : inheritanceList;
 
@@ -147,7 +149,8 @@ function extractSwiftTypes(content: string, ast: DartAST): void {
  * Extract Swift extensions
  */
 function extractSwiftExtensions(content: string, ast: DartAST): void {
-  const extRegex = /^((?:@\w+\s+)*)((?:private|public|internal|fileprivate|\s)*)\s*extension\s+(\w+)(?:<[^>]+>)?(?:\s*:\s*([^{]+))?/gm;
+  const extRegex =
+    /^((?:@\w+\s+)*)((?:private|public|internal|fileprivate|\s)*)\s*extension\s+(\w+)(?:<[^>]+>)?(?:\s*:\s*([^{]+))?/gm;
 
   let match: RegExpExecArray | null;
 
@@ -171,7 +174,7 @@ function extractSwiftExtensions(content: string, ast: DartAST): void {
       methods,
       properties,
       superclass: name,
-      interfaces: protocols?.split(',').map(s => s.trim()) || [],
+      interfaces: protocols?.split(',').map((s) => s.trim()) || [],
       mixins: [],
       lineRange: [startLine, endLine],
       isAbstract: false,
@@ -189,7 +192,8 @@ function extractSwiftMethods(
   typeStartOffset: number
 ): DartAST['classes'][0]['methods'] {
   const methods: DartAST['classes'][0]['methods'] = [];
-  const methodRegex = /^\s+((?:@\w+\s+)*)((?:private|public|internal|fileprivate|open|final|static|class|override|mutating|nonmutating|async|throws|rethrows|\s)*)\s*func\s+(\w+)(?:<[^>]+>)?\s*\(([^)]*)\)(?:\s*(?:async\s+)?(?:throws\s+)?->\s*([^{]+))?/gm;
+  const methodRegex =
+    /^\s+((?:@\w+\s+)*)((?:private|public|internal|fileprivate|open|final|static|class|override|mutating|nonmutating|async|throws|rethrows|\s)*)\s*func\s+(\w+)(?:<[^>]+>)?\s*\(([^)]*)\)(?:\s*(?:async\s+)?(?:throws\s+)?->\s*([^{]+))?/gm;
 
   let match: RegExpExecArray | null;
 
@@ -227,11 +231,10 @@ function extractSwiftMethods(
 /**
  * Extract properties from a Swift type body
  */
-function extractSwiftProperties(
-  typeBody: string
-): DartAST['classes'][0]['properties'] {
+function extractSwiftProperties(typeBody: string): DartAST['classes'][0]['properties'] {
   const properties: DartAST['classes'][0]['properties'] = [];
-  const propRegex = /^\s+((?:@\w+\s+)*)((?:private|public|internal|fileprivate|open|final|static|class|lazy|weak|unowned|\s)*)\s*(let|var)\s+(\w+)(?:\s*:\s*([^={\n]+))?/gm;
+  const propRegex =
+    /^\s+((?:@\w+\s+)*)((?:private|public|internal|fileprivate|open|final|static|class|lazy|weak|unowned|\s)*)\s*(let|var)\s+(\w+)(?:\s*:\s*([^={\n]+))?/gm;
 
   let match: RegExpExecArray | null;
 
@@ -256,7 +259,8 @@ function extractSwiftProperties(
  * Extract top-level constants
  */
 function extractSwiftConstants(content: string, ast: DartAST): void {
-  const constRegex = /^((?:private|public|internal|fileprivate|\s)*)\s*(let|var)\s+(\w+)(?:\s*:\s*([^=\n]+))?\s*=\s*([^\n]+)/gm;
+  const constRegex =
+    /^((?:private|public|internal|fileprivate|\s)*)\s*(let|var)\s+(\w+)(?:\s*:\s*([^=\n]+))?\s*=\s*([^\n]+)/gm;
 
   let match: RegExpExecArray | null;
 
@@ -287,7 +291,7 @@ function extractSwiftConstants(content: string, ast: DartAST): void {
  */
 function extractSwiftBody(content: string, startIndex: number): string {
   let i = startIndex;
-  
+
   // Skip whitespace
   while (i < content.length && /\s/.test(content[i])) {
     i++;
@@ -323,7 +327,7 @@ function parseSwiftParameterNames(params: string): string[] {
   let match: RegExpExecArray | null;
   while ((match = paramRegex.exec(params)) !== null) {
     // Use internal name (match[2]) or external name if internal is _
-    result.push(match[2] === '_' ? (match[1] || '_') : match[2]);
+    result.push(match[2] === '_' ? match[1] || '_' : match[2]);
   }
 
   return result;
@@ -335,7 +339,7 @@ function parseSwiftParameterNames(params: string): string[] {
 function extractSwiftDocComment(content: string, declarationOffset: number): string | undefined {
   // Look backwards for /// or /** comments
   let i = declarationOffset - 1;
-  
+
   // Skip whitespace
   while (i >= 0 && /\s/.test(content[i])) {
     i--;
@@ -343,7 +347,7 @@ function extractSwiftDocComment(content: string, declarationOffset: number): str
 
   // Check for doc comments
   const beforeDecl = content.substring(Math.max(0, i - 500), i + 1);
-  
+
   // Match /// style comments
   const tripleSlashMatch = beforeDecl.match(/((?:\/\/\/[^\n]*\n\s*)+)$/);
   if (tripleSlashMatch) {

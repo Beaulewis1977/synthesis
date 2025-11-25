@@ -98,7 +98,6 @@ function extractPolicies(originalContent: string, cleanedContent: string): Funct
     /CREATE\s+POLICY\s+"?([^"\s]+)"?\s+ON\s+([^\s]+)\s+(?:AS\s+(\w+)\s+)?(?:FOR\s+(\w+)\s+)?(?:TO\s+([^\s]+)\s+)?(?:USING\s*\(([^)]+)\))?(?:\s+WITH\s+CHECK\s*\(([^)]+)\))?/gi;
 
   let match: RegExpExecArray | null;
-  // biome-ignore lint/suspicious/noAssignInExpressions: Standard regex iteration pattern
   while ((match = createPolicyRegex.exec(cleanedContent)) !== null) {
     const startIndex = match.index;
     const name = match[1];
@@ -374,7 +373,6 @@ function extractTables(originalContent: string, cleanedContent: string): TableDe
   const createTableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([^\s(]+)\s*\(/gi;
 
   let match: RegExpExecArray | null;
-  // biome-ignore lint/suspicious/noAssignInExpressions: Standard regex iteration pattern
   while ((match = createTableRegex.exec(cleanedContent)) !== null) {
     const startIndex = match.index;
     const tableRef = match[1];
@@ -806,7 +804,6 @@ function extractIndexes(originalContent: string, cleanedContent: string): IndexD
     /CREATE\s+(UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?([^\s]+)\s+ON\s+([^\s(]+)\s*(?:USING\s+(\w+)\s*)?\(([^)]+)\)(?:\s+WHERE\s+(.+?))?(?=;|$)/gi;
 
   let match: RegExpExecArray | null;
-  // biome-ignore lint/suspicious/noAssignInExpressions: Standard regex iteration pattern
   while ((match = createIndexRegex.exec(cleanedContent)) !== null) {
     const unique = !!match[1];
     const name = unquoteIdentifier(match[2]);
@@ -855,7 +852,6 @@ function extractFunctions(originalContent: string, cleanedContent: string): Func
     /CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\s+([^\s(]+)\s*\(/gi;
 
   let match: RegExpExecArray | null;
-  // biome-ignore lint/suspicious/noAssignInExpressions: Standard regex iteration pattern
   while ((match = createFunctionRegex.exec(cleanedContent)) !== null) {
     const startIndex = match.index;
     const funcRef = match[1];
@@ -907,7 +903,6 @@ function processAlterStatements(
     /ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?([^\s]+)\s+(ADD|DROP|ALTER)\s+(.+?)(?=;|$)/gi;
 
   let match: RegExpExecArray | null;
-  // biome-ignore lint/suspicious/noAssignInExpressions: Standard regex iteration pattern
   while ((match = alterTableRegex.exec(cleanedContent)) !== null) {
     const tableRef = parseTableReference(match[1]);
     const action = match[2].toUpperCase();

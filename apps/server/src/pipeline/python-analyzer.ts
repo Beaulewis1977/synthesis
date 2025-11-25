@@ -56,8 +56,8 @@ function extractPythonImports(content: string, ast: DartAST): void {
   const fromImportRegex = /^from\s+([\w.]+)\s+import\s+(.+)/gm;
   while ((match = fromImportRegex.exec(content)) !== null) {
     const module = match[1];
-    const imports = match[2].split(',').map(s => s.trim().split(' as ')[0].trim());
-    
+    const imports = match[2].split(',').map((s) => s.trim().split(' as ')[0].trim());
+
     for (const imp of imports) {
       if (imp && imp !== '*') {
         ast.imports.push({
@@ -77,8 +77,9 @@ function extractPythonImports(content: string, ast: DartAST): void {
  */
 function extractPythonFunctions(content: string, ast: DartAST): void {
   // Match function definitions with decorators
-  const funcRegex = /^((?:@[\w.]+(?:\([^)]*\))?\s*\n)*)(async\s+)?def\s+(\w+)\s*\(([^)]*)\)(?:\s*->\s*([^:]+))?:/gm;
-  
+  const funcRegex =
+    /^((?:@[\w.]+(?:\([^)]*\))?\s*\n)*)(async\s+)?def\s+(\w+)\s*\(([^)]*)\)(?:\s*->\s*([^:]+))?:/gm;
+
   let match: RegExpExecArray | null;
 
   while ((match = funcRegex.exec(content)) !== null) {
@@ -137,7 +138,11 @@ function extractPythonClasses(content: string, ast: DartAST): void {
     const endLine = startLine + code.split('\n').length - 1;
 
     // Parse base classes
-    const baseList = bases?.split(',').map(s => s.trim().split('(')[0].trim()).filter(Boolean) || [];
+    const baseList =
+      bases
+        ?.split(',')
+        .map((s) => s.trim().split('(')[0].trim())
+        .filter(Boolean) || [];
     const superclass = baseList[0];
     const interfaces = baseList.slice(1);
 
@@ -171,7 +176,8 @@ function extractPythonMethods(
   classStartOffset: number
 ): DartAST['classes'][0]['methods'] {
   const methods: DartAST['classes'][0]['methods'] = [];
-  const methodRegex = /^(\s+)((?:@[\w.]+(?:\([^)]*\))?\s*\n\s*)*)(async\s+)?def\s+(\w+)\s*\(([^)]*)\)(?:\s*->\s*([^:]+))?:/gm;
+  const methodRegex =
+    /^(\s+)((?:@[\w.]+(?:\([^)]*\))?\s*\n\s*)*)(async\s+)?def\s+(\w+)\s*\(([^)]*)\)(?:\s*->\s*([^:]+))?:/gm;
 
   let match: RegExpExecArray | null;
 
@@ -216,9 +222,7 @@ function extractPythonMethods(
 /**
  * Extract properties from a Python class body (class variables and __init__ assignments)
  */
-function extractPythonClassProperties(
-  classBody: string
-): DartAST['classes'][0]['properties'] {
+function extractPythonClassProperties(classBody: string): DartAST['classes'][0]['properties'] {
   const properties: DartAST['classes'][0]['properties'] = [];
   const seen = new Set<string>();
 
@@ -307,11 +311,11 @@ function extractPythonBody(content: string, startIndex: number): string {
 
   // Find the base indentation of the first non-empty line
   let baseIndent = -1;
-  let bodyLines: string[] = [];
+  const bodyLines: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    
+
     // Skip empty lines at the start
     if (line.trim() === '' && baseIndent === -1) {
       bodyLines.push(line);
@@ -332,7 +336,7 @@ function extractPythonBody(content: string, startIndex: number): string {
 
     // Check if this line is still part of the body
     const currentIndent = line.match(/^(\s*)/)?.[1].length || 0;
-    
+
     if (line.trim() === '') {
       // Empty lines are included
       bodyLines.push(line);
@@ -363,11 +367,11 @@ function parsePythonParameterNames(params: string): string[] {
   // Split by comma, handling nested parentheses
   let depth = 0;
   let current = '';
-  
+
   for (const char of params) {
     if (char === '(' || char === '[' || char === '{') depth++;
     if (char === ')' || char === ']' || char === '}') depth--;
-    
+
     if (char === ',' && depth === 0) {
       const param = current.trim().split(':')[0].split('=')[0].trim();
       if (param && param !== 'self' && param !== 'cls' && !param.startsWith('*')) {
@@ -378,7 +382,7 @@ function parsePythonParameterNames(params: string): string[] {
       current += char;
     }
   }
-  
+
   // Handle last parameter
   const param = current.trim().split(':')[0].split('=')[0].trim();
   if (param && param !== 'self' && param !== 'cls' && !param.startsWith('*')) {

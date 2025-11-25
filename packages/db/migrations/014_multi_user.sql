@@ -133,7 +133,10 @@ CREATE TABLE IF NOT EXISTS audit_log (
   details JSONB DEFAULT '{}'::jsonb,
   
   -- When
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Ensure audit trail has a source
+  CHECK (user_id IS NOT NULL OR api_key_id IS NOT NULL)
 );
 
 -- Session tokens (for stateful auth if needed)

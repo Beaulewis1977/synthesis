@@ -26,14 +26,14 @@ export function WorkflowsPage() {
   // Fetch collection details
   const { data: collectionData } = useQuery({
     queryKey: ['collection', collectionId],
-    queryFn: () => apiClient.fetchCollection(collectionId!),
+    queryFn: () => apiClient.fetchCollection(collectionId ?? ''),
     enabled: !!collectionId,
   });
 
   // Fetch workflows
   const { data: workflowsData, isLoading: workflowsLoading } = useQuery({
     queryKey: ['workflows', collectionId],
-    queryFn: () => apiClient.getWorkflows(collectionId!),
+    queryFn: () => apiClient.getWorkflows(collectionId ?? ''),
     enabled: !!collectionId,
   });
 
@@ -47,7 +47,7 @@ export function WorkflowsPage() {
   const createWorkflowMutation = useMutation({
     mutationFn: () =>
       apiClient.createWorkflow({
-        collection_id: collectionId!,
+        collection_id: collectionId ?? '',
         template_id: selectedTemplate || undefined,
         task_description: taskDescription,
       }),
@@ -113,7 +113,10 @@ export function WorkflowsPage() {
     <div>
       {/* Header */}
       <div className="mb-lg">
-        <Link to={`/collections/${collectionId}`} className="text-accent hover:underline mb-md inline-block">
+        <Link
+          to={`/collections/${collectionId}`}
+          className="text-accent hover:underline mb-md inline-block"
+        >
           ← Back to {collectionData?.name || 'Collection'}
         </Link>
         <div className="flex items-center justify-between">
@@ -144,9 +147,9 @@ export function WorkflowsPage() {
 
           {/* Template Selection */}
           <div className="mb-md">
-            <label className="block text-sm font-medium text-text-secondary mb-sm">
+            <span className="block text-sm font-medium text-text-secondary mb-sm">
               Select Template (optional)
-            </label>
+            </span>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-sm">
               {templates.map((template) => (
                 <button
@@ -170,10 +173,14 @@ export function WorkflowsPage() {
 
           {/* Task Description */}
           <div className="mb-md">
-            <label className="block text-sm font-medium text-text-secondary mb-sm">
+            <label
+              htmlFor="task-description"
+              className="block text-sm font-medium text-text-secondary mb-sm"
+            >
               Task Description *
             </label>
             <textarea
+              id="task-description"
               value={taskDescription}
               onChange={(e) => setTaskDescription(e.target.value)}
               placeholder="Describe what you want to accomplish..."
@@ -254,9 +261,7 @@ export function WorkflowsPage() {
                     {workflow.task_description.length > 100 ? '...' : ''}
                   </h3>
                   <div className="flex items-center gap-md text-sm text-text-secondary">
-                    <span>
-                      Started: {new Date(workflow.started_at).toLocaleDateString()}
-                    </span>
+                    <span>Started: {new Date(workflow.started_at).toLocaleDateString()}</span>
                     {workflow.completed_steps.length > 0 && (
                       <span>{workflow.completed_steps.length} steps completed</span>
                     )}

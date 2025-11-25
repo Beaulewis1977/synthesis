@@ -4,7 +4,7 @@
  */
 
 import crypto from 'node:crypto';
-import { getPool, type Document } from '@synthesis/db';
+import { type Document, getPool } from '@synthesis/db';
 
 // Configuration
 const BATCH_SIZE = Number.parseInt(process.env.STALE_CHECK_BATCH_SIZE || '500', 10);
@@ -41,11 +41,11 @@ async function waitForRateLimit(host: string): Promise<void> {
   const lastRequest = hostLastRequest.get(host) || 0;
   const minInterval = 1000 / RATE_LIMIT_PER_HOST;
   const waitTime = Math.max(0, lastRequest + minInterval - now);
-  
+
   if (waitTime > 0) {
-    await new Promise(resolve => setTimeout(resolve, waitTime));
+    await new Promise((resolve) => setTimeout(resolve, waitTime));
   }
-  
+
   hostLastRequest.set(host, Date.now());
 }
 
@@ -60,7 +60,7 @@ function getHostFromUrl(url: string): string {
 async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  
+
   try {
     const response = await fetch(url, {
       signal: controller.signal,
@@ -76,10 +76,7 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
 
 function normalizeContent(content: string): string {
   // Normalize: trim whitespace, lowercase headers, remove tracking params
-  return content
-    .trim()
-    .replace(/\r\n/g, '\n')
-    .replace(/\s+/g, ' ');
+  return content.trim().replace(/\r\n/g, '\n').replace(/\s+/g, ' ');
 }
 
 function computeContentHash(content: string): string {
@@ -97,11 +94,11 @@ async function checkDocument(doc: Document): Promise<StaleCheckResult> {
 
   try {
     const response = await fetchWithTimeout(doc.source_url, FETCH_TIMEOUT_MS);
-    
+
     // Classify HTTP errors
     if (!response.ok) {
       const status = response.status;
-      
+
       // Permanent failures (4xx except 429/408)
       if (status >= 400 && status < 500 && status !== 429 && status !== 408) {
         return {
@@ -111,7 +108,7 @@ async function checkDocument(doc: Document): Promise<StaleCheckResult> {
           errorType: 'permanent',
         };
       }
-      
+
       // Transient failures (5xx, 429, 408)
       return {
         documentId: doc.id,
@@ -123,10 +120,10 @@ async function checkDocument(doc: Document): Promise<StaleCheckResult> {
 
     const content = await response.text();
     const newHash = computeContentHash(content);
-    
+
     // Compare with stored hash
     const isStale = doc.source_url_hash !== null && doc.source_url_hash !== newHash;
-    
+
     return {
       documentId: doc.id,
       isStale,
@@ -134,7 +131,7 @@ async function checkDocument(doc: Document): Promise<StaleCheckResult> {
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    
+
     // Network errors are transient
     return {
       documentId: doc.id,
@@ -151,25 +148,25 @@ async function processDocumentBatch(
   onProgress?: (stats: JobStats) => void
 ): Promise<void> {
   const pool = getPool();
-  
+
   // Process in parallel with worker limit
   const chunks: Document[][] = [];
   for (let i = 0; i < documents.length; i += MAX_PARALLEL_WORKERS) {
     chunks.push(documents.slice(i, i + MAX_PARALLEL_WORKERS));
   }
-  
+
   for (const chunk of chunks) {
     const results = await Promise.all(chunk.map(checkDocument));
-    
+
     for (const result of results) {
       stats.checked++;
-      
+
       if (result.error) {
         stats.errors++;
-        
+
         // Log error but continue
         console.warn(`Stale check error for ${result.documentId}: ${result.error}`);
-        
+
         // Update document with error status if permanent
         if (result.errorType === 'permanent') {
           await pool.query(
@@ -183,7 +180,7 @@ async function processDocumentBatch(
         }
       } else if (result.isStale) {
         stats.stale++;
-        
+
         // Mark document as stale
         await pool.query(
           `UPDATE documents 
@@ -193,11 +190,11 @@ async function processDocumentBatch(
            WHERE id = $1`,
           [result.documentId]
         );
-        
+
         console.info(`Document ${result.documentId} marked as stale`);
       } else {
         stats.unchanged++;
-        
+
         // Update last_checked_at and hash
         await pool.query(
           `UPDATE documents 
@@ -210,7 +207,7 @@ async function processDocumentBatch(
         );
       }
     }
-    
+
     if (onProgress) {
       onProgress(stats);
     }
@@ -222,9 +219,7 @@ async function processDocumentBatch(
  * @param onProgress Optional callback for progress updates
  * @returns Job statistics
  */
-export async function runStaleCheckJob(
-  onProgress?: (stats: JobStats) => void
-): Promise<JobStats> {
+export async function runStaleCheckJob(onProgress?: (stats: JobStats) => void): Promise<JobStats> {
   const pool = getPool();
   const stats: JobStats = {
     total: 0,
@@ -240,15 +235,15 @@ export async function runStaleCheckJob(
   try {
     // Get total count of documents with source URLs
     const countResult = await pool.query(
-      `SELECT COUNT(*) as count FROM documents WHERE source_url IS NOT NULL`
+      'SELECT COUNT(*) as count FROM documents WHERE source_url IS NOT NULL'
     );
-    stats.total = parseInt(countResult.rows[0].count, 10);
-    
+    stats.total = Number.parseInt(countResult.rows[0].count, 10);
+
     console.info(`Found ${stats.total} documents with source URLs to check`);
 
     // Process in batches, ordered by last_checked_at (oldest first)
     let offset = 0;
-    
+
     while (offset < stats.total) {
       const batchResult = await pool.query<Document>(
         `SELECT * FROM documents 
@@ -257,18 +252,18 @@ export async function runStaleCheckJob(
          LIMIT $1 OFFSET $2`,
         [BATCH_SIZE, offset]
       );
-      
+
       if (batchResult.rows.length === 0) break;
-      
+
       await processDocumentBatch(batchResult.rows, stats, onProgress);
-      
+
       offset += batchResult.rows.length;
-      
+
       console.info(`Processed ${stats.checked}/${stats.total} documents`);
     }
 
     stats.endedAt = new Date();
-    
+
     console.info('Stale check job completed:', {
       total: stats.total,
       checked: stats.checked,
@@ -295,21 +290,27 @@ let scheduledJob: NodeJS.Timeout | null = null;
  */
 export function startStaleCheckScheduler(): void {
   const cronSchedule = process.env.STALE_CHECK_CRON || '0 2 * * *';
-  
+
   // Simple cron parser for daily jobs
   // Format: minute hour * * * (we only support daily for now)
   // Validate cron expression: must be "minute hour * * *"
   let minute = 0;
   let hour = 2;
   const cronParts = cronSchedule.trim().split(/\s+/);
-  
+
   if (cronParts.length === 5) {
     const parsedMinute = Number.parseInt(cronParts[0], 10);
     const parsedHour = Number.parseInt(cronParts[1], 10);
     if (
-      Number.isInteger(parsedMinute) && parsedMinute >= 0 && parsedMinute <= 59 &&
-      Number.isInteger(parsedHour) && parsedHour >= 0 && parsedHour <= 23 &&
-      cronParts[2] === '*' && cronParts[3] === '*' && cronParts[4] === '*'
+      Number.isInteger(parsedMinute) &&
+      parsedMinute >= 0 &&
+      parsedMinute <= 59 &&
+      Number.isInteger(parsedHour) &&
+      parsedHour >= 0 &&
+      parsedHour <= 23 &&
+      cronParts[2] === '*' &&
+      cronParts[3] === '*' &&
+      cronParts[4] === '*'
     ) {
       minute = parsedMinute;
       hour = parsedHour;
@@ -323,33 +324,33 @@ export function startStaleCheckScheduler(): void {
       `Invalid STALE_CHECK_CRON format: "${cronSchedule}". Falling back to default "0 2 * * *" (2:00 AM UTC daily).`
     );
   }
-  
+
   function scheduleNextRun() {
     const now = new Date();
     const next = new Date();
     next.setUTCHours(hour, minute, 0, 0);
-    
+
     // If we've passed today's run time, schedule for tomorrow
     if (next <= now) {
       next.setDate(next.getDate() + 1);
     }
-    
+
     const delay = next.getTime() - now.getTime();
-    
+
     console.info(`Next stale check scheduled for ${next.toISOString()}`);
-    
+
     scheduledJob = setTimeout(async () => {
       try {
         await runStaleCheckJob();
       } catch (error) {
         console.error('Scheduled stale check failed:', error);
       }
-      
+
       // Schedule next run
       scheduleNextRun();
     }, delay);
   }
-  
+
   scheduleNextRun();
 }
 
@@ -369,21 +370,21 @@ export function stopStaleCheckScheduler(): void {
  */
 export async function getStaleDocuments(collectionId?: string): Promise<Document[]> {
   const pool = getPool();
-  
+
   let sql = `
     SELECT * FROM documents 
     WHERE source_url IS NOT NULL 
     AND metadata->>'is_stale' = 'true'
   `;
   const params: string[] = [];
-  
+
   if (collectionId) {
-    sql += ` AND collection_id = $1`;
+    sql += ' AND collection_id = $1';
     params.push(collectionId);
   }
-  
-  sql += ` ORDER BY updated_at DESC`;
-  
+
+  sql += ' ORDER BY updated_at DESC';
+
   const result = await pool.query<Document>(sql, params);
   return result.rows;
 }

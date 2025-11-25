@@ -237,7 +237,7 @@ async function getChangedFiles(
 
     // Type guard for text files with insertions/deletions
     const isTextFile = 'insertions' in file && 'deletions' in file;
-    
+
     if (isTextFile) {
       const textFile = file as { insertions: number; deletions: number; binary?: boolean };
       if (textFile.insertions > 0 && textFile.deletions === 0 && !textFile.binary) {
@@ -318,9 +318,15 @@ export async function syncRepository(_db: Pool, repoSourceId: string): Promise<v
     }
 
     // Get changed files using git diff
-    const { added, modified, deleted } = await getChangedFiles(repoDir, previousCommit, currentCommit);
+    const { added, modified, deleted } = await getChangedFiles(
+      repoDir,
+      previousCommit,
+      currentCommit
+    );
 
-    console.info(`Changes detected: ${added.length} added, ${modified.length} modified, ${deleted.length} deleted`);
+    console.info(
+      `Changes detected: ${added.length} added, ${modified.length} modified, ${deleted.length} deleted`
+    );
 
     // Get existing documents for this repo
     const existingDocs = await listDocuments(repoSource.collection_id);
@@ -452,7 +458,9 @@ export async function syncRepository(_db: Pool, repoSourceId: string): Promise<v
     });
 
     console.info(`Successfully synced repository ${repoSource.repo_url}`);
-    console.info(`  Added: ${added.length}, Modified: ${modified.length}, Deleted: ${deleted.length}`);
+    console.info(
+      `  Added: ${added.length}, Modified: ${modified.length}, Deleted: ${deleted.length}`
+    );
   } catch (error) {
     console.error(`Failed to sync repository ${repoSourceId}:`, error);
     await updateRepoSyncStatus(repoSourceId, {

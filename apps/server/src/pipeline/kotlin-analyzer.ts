@@ -18,7 +18,8 @@ const CLASS_PATTERN =
 const PROPERTY_PATTERN =
   /(?:(?:public|private|protected|internal|open|override|const|lateinit)\s+)*(?:val|var)\s+(\w+)(?:\s*:\s*([^\s=]+))?(?:\s*=\s*([^;\n]+))?/g;
 
-const COMPANION_OBJECT_PATTERN = /companion\s+object\s*(?:\w+)?\s*\{/g;
+// TODO: Use for companion object extraction
+// const COMPANION_OBJECT_PATTERN = /companion\s+object\s*(?:\w+)?\s*\{/g;
 
 const KDOC_PATTERN = /\/\*\*[\s\S]*?\*\//g;
 const SINGLE_COMMENT_PATTERN = /\/\/.*$/gm;
@@ -92,7 +93,9 @@ function extractFunctions(content: string): DartAST['functions'] {
 
     const parameters = parseParameterNames(paramsStr);
     const docComment = extractDocComment(content, startOffset);
-    const isAsync = content.substring(Math.max(0, startOffset - 50), startOffset).includes('suspend');
+    const isAsync = content
+      .substring(Math.max(0, startOffset - 50), startOffset)
+      .includes('suspend');
 
     functions.push({
       name,
@@ -148,7 +151,9 @@ function extractClasses(content: string): DartAST['classes'] {
     const classBody = extractClassBody(content, startOffset);
     const methods = extractMethodsFromClass(classBody, startOffset);
     const properties = extractPropertiesFromClass(classBody);
-    const isAbstract = content.substring(Math.max(0, startOffset - 30), startOffset).includes('abstract');
+    const isAbstract = content
+      .substring(Math.max(0, startOffset - 30), startOffset)
+      .includes('abstract');
 
     classes.push({
       name,
@@ -195,7 +200,7 @@ function extractConstants(content: string): DartAST['constants'] {
 
 function parseParameterNames(paramsStr: string): string[] {
   if (!paramsStr.trim()) return [];
-  
+
   const params: string[] = [];
   const parts = splitParameters(paramsStr);
 
@@ -278,7 +283,10 @@ function extractClassBody(content: string, startIndex: number): string {
   return content.substring(bodyStart, bodyEnd);
 }
 
-function extractMethodsFromClass(classBody: string, classStartOffset: number): DartAST['classes'][0]['methods'] {
+function extractMethodsFromClass(
+  classBody: string,
+  classStartOffset: number
+): DartAST['classes'][0]['methods'] {
   const methods: DartAST['classes'][0]['methods'] = [];
   let match: RegExpExecArray | null;
 
@@ -295,7 +303,9 @@ function extractMethodsFromClass(classBody: string, classStartOffset: number): D
       parameters: parseParameterNames(match[2]),
       returnType: match[3] || 'Unit',
       lineRange,
-      isStatic: classBody.substring(Math.max(0, match.index - 30), match.index).includes('companion'),
+      isStatic: classBody
+        .substring(Math.max(0, match.index - 30), match.index)
+        .includes('companion'),
       isAsync: classBody.substring(Math.max(0, match.index - 50), match.index).includes('suspend'),
       startOffset,
       endOffset,
