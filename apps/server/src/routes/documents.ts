@@ -20,6 +20,10 @@ const UpdateDocumentMetadataSchema = z.object({
   metadata: z.record(z.unknown()).optional(),
 });
 
+const BatchDeleteSchema = z.object({
+  documentIds: z.array(z.string().uuid()).min(1).max(100),
+});
+
 export const documentRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /api/documents/:id - Get document details
   fastify.get<{ Params: { id: string } }>('/api/documents/:id', async (request, reply) => {
@@ -247,6 +251,59 @@ export const documentRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.log.error(error, 'Failed to start stale check');
       return reply.code(500).send({ error: 'Failed to start stale check' });
     }
+  });
+
+  // DELETE /api/documents/batch - Batch delete multiple documents
+  fastify.delete('/api/documents/batch', async (request, reply) => {
+    const validation = BatchDeleteSchema.safeParse(request.body);
+    if (!validation.success) {
+      return reply.code(400).send({
+        error: 'Invalid request',
+        details: validation.error.issues,
+      });
+    }
+
+    const { documentIds } = validation.data;
+    const pool = getPool();
+
+    const deleted: string[] = [];
+    const failed: Array<{ id: string; error: string }> = [];
+
+    // Process each document
+    for (const docId of documentIds) {
+      try {
+        const document = await getDocument(docId);
+
+        if (!document) {
+          failed.push({ id: docId, error: 'Document not found' });
+          continue;
+        }
+
+        // Delete chunks first
+        await pool.query('DELETE FROM chunks WHERE doc_id = $1', [docId]);
+
+        // Delete document
+        await pool.query('DELETE FROM documents WHERE id = $1', [docId]);
+
+        deleted.push(docId);
+      } catch (error) {
+        fastify.log.error({ error, docId }, 'Failed to delete document in batch');
+        failed.push({
+          id: docId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+
+    return reply.send({
+      deleted,
+      failed,
+      summary: {
+        total: documentIds.length,
+        deleted: deleted.length,
+        failed: failed.length,
+      },
+    });
   });
 
   // DELETE /api/documents/:id - Delete a single document

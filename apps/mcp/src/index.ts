@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { type JsonSchema7Type, zodToJsonSchema } from 'zod-to-json-schema';
 
 import { apiClient } from './api.js';
+import { getRateLimiter } from './rate-limiter.js';
 
 // Load environment variables
 dotenv.config();
@@ -622,16 +623,38 @@ async function main() {
 
       await server.connect(httpTransport);
 
+      // Initialize rate limiter
+      const rateLimiter = getRateLimiter();
+
       // Create HTTP server to handle requests
       const httpServer = http.createServer(async (req, res) => {
         // Enable CORS
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization');
+
+        // Add rate limit headers
+        const rateLimitHeaders = rateLimiter.getHeaders(req);
+        for (const [key, value] of Object.entries(rateLimitHeaders)) {
+          res.setHeader(key, value);
+        }
 
         if (req.method === 'OPTIONS') {
           res.writeHead(200);
           res.end();
+          return;
+        }
+
+        // Check rate limit
+        if (!rateLimiter.isAllowed(req)) {
+          res.writeHead(429, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              error: 'Too Many Requests',
+              message: 'Rate limit exceeded. Please try again later.',
+              retryAfter: 60,
+            })
+          );
           return;
         }
 
@@ -662,12 +685,16 @@ async function main() {
       });
 
       httpServer.listen(MCP_PORT, () => {
+        const stats = rateLimiter.getStats();
         console.error('🚀 Synthesis MCP Server started successfully');
         console.error('   Mode: HTTP/SSE');
         console.error(`   Port: ${MCP_PORT}`);
         console.error(`   URL: http://localhost:${MCP_PORT}`);
         console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
         console.error('   Tools: 10 available');
+        console.error(
+          `   Rate Limit: ${stats.config.refillRate}/min, burst ${stats.config.burstCapacity}`
+        );
         console.error('');
       });
 
