@@ -173,18 +173,22 @@ describe('ingestDocument', () => {
     );
   });
 
-  it('short-circuits embedding when no chunks are produced', async () => {
+  it('marks document as error when no chunks are produced', async () => {
     chunkTextMock.mockReturnValueOnce([]);
 
     const { ingestDocument } = await import('../orchestrator.js');
 
-    await ingestDocument('doc-123');
+    await expect(ingestDocument('doc-123')).rejects.toThrow('produced no chunks');
 
     expect(embedBatchMock).not.toHaveBeenCalled();
     expect(storeChunksMock).toHaveBeenCalledWith('doc-123', [], []);
     expect(updateDocumentStatusMock).toHaveBeenNthCalledWith(1, 'doc-123', 'extracting');
     expect(updateDocumentStatusMock).toHaveBeenNthCalledWith(2, 'doc-123', 'chunking');
-    expect(updateDocumentStatusMock).toHaveBeenLastCalledWith('doc-123', 'complete');
+    expect(updateDocumentStatusMock).toHaveBeenLastCalledWith(
+      'doc-123',
+      'error',
+      expect.stringContaining('produced no chunks')
+    );
   });
 
   it('marks document as error when any stage fails', async () => {
