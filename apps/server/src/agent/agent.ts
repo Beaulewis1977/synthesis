@@ -122,7 +122,7 @@ export async function runAgentChat(db: Pool, params: AgentChatParams): Promise<A
     turn++;
 
     const response = await anthropic.messages.create({
-      model: 'claude-3-7-sonnet-20250219',
+      model: 'claude-3-5-haiku-latest',
       max_tokens: 4096,
       system: systemPrompt,
       messages,
@@ -219,7 +219,7 @@ export async function runAgentChat(db: Pool, params: AgentChatParams): Promise<A
     // If this was the last turn, get one more response from Claude
     if (turn === maxTurns) {
       const finalResponse = await anthropic.messages.create({
-        model: 'claude-3-7-sonnet-20250219',
+        model: 'claude-3-5-haiku-latest',
         max_tokens: 4096,
         system: systemPrompt,
         messages,

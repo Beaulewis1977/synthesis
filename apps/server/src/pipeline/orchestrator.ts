@@ -88,9 +88,17 @@ export async function ingestDocument(
     }
 
     if (chunks.length === 0) {
+      const errorMsg =
+        `Document "${document.title}" produced no chunks. ` +
+        'The file may be empty, corrupted, or require OCR for scanned content.';
+      console.warn(
+        `[Ingest] WARNING: Document ${documentId} (${document.title}) produced 0 chunks after extraction. ` +
+          'This may indicate a problem with the source file (e.g., scanned PDF, empty file).'
+      );
       await storeChunks(documentId, [], []);
-      await updateDocumentStatus(documentId, 'complete');
-      return;
+      // Mark as error instead of complete when no chunks are produced
+      await updateDocumentStatus(documentId, 'error', errorMsg);
+      throw new Error(errorMsg);
     }
 
     const baseMetadata = (document.metadata ?? {}) as DocumentMetadata;

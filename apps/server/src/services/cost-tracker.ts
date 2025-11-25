@@ -36,8 +36,10 @@ export class CostTracker {
       'rerank-v3.5': 0.001, // per request
     },
     anthropic: {
-      'claude-3-haiku': 0.00025, // per 1K input tokens
-      'claude-3-haiku-20240307': 0.00025, // per 1K input tokens (alias)
+      'claude-3-haiku': 0.00025, // per 1K input tokens (legacy)
+      'claude-3-haiku-20240307': 0.00025, // per 1K input tokens (legacy)
+      'claude-3-5-haiku-latest': 0.0008, // per 1K input tokens
+      'claude-3-5-haiku-20241022': 0.0008, // per 1K input tokens
     },
   };
 

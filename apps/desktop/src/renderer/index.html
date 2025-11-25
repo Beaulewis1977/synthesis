@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+  <title>Synthesis Desktop</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1 class="title">
+        <span class="logo">S</span>
+        Synthesis
+      </h1>
+      <span class="version" id="version">v1.0.0</span>
+    </header>
+
+    <!-- Mode Selector -->
+    <section class="mode-selector">
+      <label class="mode-option">
+        <input type="radio" name="mode" value="docker" checked>
+        <span class="mode-label">
+          <span class="mode-icon">🐳</span>
+          Docker Mode
+        </span>
+      </label>
+      <label class="mode-option">
+        <input type="radio" name="mode" value="dev">
+        <span class="mode-label">
+          <span class="mode-icon">🔧</span>
+          Dev Mode
+        </span>
+      </label>
+    </section>
+
+    <!-- Status Dashboard -->
+    <section class="dashboard">
+      <h2 class="section-title">Services</h2>
+      <div class="services">
+        <div class="service" data-service="database">
+          <span class="service-indicator"></span>
+          <span class="service-name">PostgreSQL</span>
+          <span class="service-port">:5432</span>
+          <span class="service-status">Stopped</span>
+        </div>
+        <div class="service" data-service="server">
+          <span class="service-indicator"></span>
+          <span class="service-name">Server</span>
+          <span class="service-port">:3333</span>
+          <span class="service-status">Stopped</span>
+        </div>
+        <div class="service" data-service="web">
+          <span class="service-indicator"></span>
+          <span class="service-name">Web UI</span>
+          <span class="service-port">:5173</span>
+          <span class="service-status">Stopped</span>
+        </div>
+        <div class="service" data-service="ollama">
+          <span class="service-indicator"></span>
+          <span class="service-name">Ollama</span>
+          <span class="service-port">:11434</span>
+          <span class="service-status">Stopped</span>
+        </div>
+        <div class="service" data-service="redis">
+          <span class="service-indicator"></span>
+          <span class="service-name">Redis</span>
+          <span class="service-port">:6379</span>
+          <span class="service-status">Stopped</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Controls -->
+    <section class="controls">
+      <button id="start-btn" class="btn btn-primary">
+        <span class="btn-icon">▶</span>
+        Start Synthesis
+      </button>
+      <button id="stop-btn" class="btn btn-danger" disabled>
+        <span class="btn-icon">■</span>
+        Stop Synthesis
+      </button>
+      <button id="open-ui-btn" class="btn btn-secondary" disabled>
+        <span class="btn-icon">🌐</span>
+        Open Web UI
+      </button>
+    </section>
+
+    <!-- Error Display -->
+    <div id="error-display" class="error-display hidden">
+      <span class="error-icon">⚠️</span>
+      <span class="error-message"></span>
+      <button class="error-dismiss">×</button>
+    </div>
+
+    <!-- Log Viewer -->
+    <section class="log-viewer">
+      <div class="log-header">
+        <h2 class="section-title">Logs</h2>
+        <button id="clear-logs-btn" class="btn btn-small">Clear</button>
+      </div>
+      <div id="log-container" class="log-container">
+        <div class="log-entry log-info">
+          <span class="log-time">--:--:--</span>
+          <span class="log-message">Waiting for logs...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <a href="#" id="docs-link" class="footer-link">Documentation</a>
+      <span class="footer-separator">•</span>
+      <a href="#" id="github-link" class="footer-link">GitHub</a>
+    </footer>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

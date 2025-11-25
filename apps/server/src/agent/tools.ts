@@ -583,7 +583,7 @@ export function createSummarizeDocumentTool(_db: Pool): {
       });
 
       const response = await client.messages.create({
-        model: 'claude-3-7-sonnet-20250219',
+        model: 'claude-3-5-haiku-latest',
         max_tokens: 512,
         system:
           'You are a documentation assistant that summarizes technical documents concisely with key points and citations when possible.',
