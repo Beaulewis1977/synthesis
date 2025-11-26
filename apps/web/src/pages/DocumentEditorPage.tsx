@@ -125,18 +125,12 @@ export function DocumentEditorPage() {
           return (
             <div key={chunk.id} className="card">
               {/* Chunk Header */}
-              <div
-                className="flex items-center justify-between cursor-pointer w-full text-left"
-                onClick={() => !isEditing && toggleChunkExpanded(chunk.chunk_index)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !isEditing) {
-                    toggleChunkExpanded(chunk.chunk_index);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-              >
-                <div className="flex items-center gap-sm">
+              <div className="flex items-center justify-between w-full">
+                <button
+                  type="button"
+                  className="flex items-center gap-sm cursor-pointer text-left"
+                  onClick={() => !isEditing && toggleChunkExpanded(chunk.chunk_index)}
+                >
                   {isExpanded ? (
                     <ChevronDown className="text-text-secondary" size={20} />
                   ) : (
@@ -151,15 +145,12 @@ export function DocumentEditorPage() {
                       Embedded
                     </span>
                   )}
-                </div>
+                </button>
                 <div className="flex items-center gap-sm">
                   {!isEditing && (
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startEditing(chunk);
-                      }}
+                      onClick={() => startEditing(chunk)}
                       className="btn btn-sm flex items-center gap-xs"
                       title="Edit chunk"
                     >

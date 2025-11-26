@@ -1,5 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { getPool } from '@synthesis/db';
 import { PROVIDER_PRICING } from '../services/cost-tracker.js';
+import { getModelConfigService } from '../services/model-config-service.js';
 
 /**
  * Vision OCR Module
@@ -13,8 +15,25 @@ function getVisionOCRConfig() {
   return {
     enabled: process.env.VISION_OCR_ENABLED === 'true',
     maxPages: Number.parseInt(process.env.VISION_OCR_MAX_PAGES || '50', 10),
+    // Model is now fetched from ModelConfigService, but keep env fallback for backward compatibility
     model: process.env.VISION_OCR_MODEL || 'claude-3-5-haiku-20241022',
   };
+}
+
+/**
+ * Get OCR model from ModelConfigService (async)
+ * Falls back to environment/default if service unavailable
+ */
+async function getOCRModel(): Promise<string> {
+  try {
+    const db = getPool();
+    const modelConfigService = getModelConfigService(db);
+    const config = await modelConfigService.getOCRModelConfig();
+    return config.model;
+  } catch {
+    // Fall back to environment config if service unavailable
+    return getVisionOCRConfig().model;
+  }
 }
 
 // Anthropic client (lazy initialization)
@@ -129,7 +148,8 @@ export async function extractTextWithVision(
 
   const maxPages = options?.maxPages ?? config.maxPages;
   const scale = options?.scale ?? 2.0;
-  const model = options?.model ?? config.model;
+  // Use provided model, or fetch from config service, or fall back to env/default
+  const model = options?.model ?? (await getOCRModel());
 
   console.info('[Vision OCR] Starting PDF to image conversion...');
   console.info(`[Vision OCR] Config: maxPages=${maxPages}, scale=${scale}, model=${model}`);

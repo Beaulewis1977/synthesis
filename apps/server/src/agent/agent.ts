@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { ContentBlock, MessageParam, Tool } from '@anthropic-ai/sdk/resources/messages.js';
 import type { Pool } from 'pg';
+import { getModelConfigService } from '../services/model-config-service.js';
 import { buildAgentTools } from './tools.js';
 
 export interface AgentConversationMessage {
@@ -92,7 +93,12 @@ function convertHistoryToMessages(history: AgentConversationMessage[]): MessageP
 }
 
 export async function runAgentChat(db: Pool, params: AgentChatParams): Promise<AgentChatResult> {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  // Get chat model configuration
+  const modelConfigService = getModelConfigService(db);
+  const chatConfig = await modelConfigService.getChatModelConfig();
+
+  // Validate API key for the configured provider
+  if (chatConfig.provider === 'anthropic' && !process.env.ANTHROPIC_API_KEY) {
     throw new Error('ANTHROPIC_API_KEY environment variable must be set to use the agent.');
   }
 
@@ -122,7 +128,7 @@ export async function runAgentChat(db: Pool, params: AgentChatParams): Promise<A
     turn++;
 
     const response = await anthropic.messages.create({
-      model: 'claude-3-5-haiku-20241022',
+      model: chatConfig.model,
       max_tokens: 4096,
       system: systemPrompt,
       messages,
@@ -219,7 +225,7 @@ export async function runAgentChat(db: Pool, params: AgentChatParams): Promise<A
     // If this was the last turn, get one more response from Claude
     if (turn === maxTurns) {
       const finalResponse = await anthropic.messages.create({
-        model: 'claude-3-5-haiku-20241022',
+        model: chatConfig.model,
         max_tokens: 4096,
         system: systemPrompt,
         messages,

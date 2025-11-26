@@ -11,6 +11,7 @@ import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import { closePool, getPool } from '@synthesis/db';
 import Fastify from 'fastify';
+import { adminModelRoutes } from './routes/admin/models.js';
 import { agentIngestionRoutes } from './routes/agent-ingestion.js';
 import { agentRoutes } from './routes/agent.js';
 import { chatRoutes } from './routes/chat.js';
@@ -89,6 +90,7 @@ await fastify.register(repoRoutes);
 await fastify.register(techProfileRoutes);
 await fastify.register(feedbackRoutes);
 await fastify.register(workflowRoutes);
+await fastify.register(adminModelRoutes, { prefix: '/api/admin/models' });
 await registerMetricsRoute(fastify);
 
 /**
