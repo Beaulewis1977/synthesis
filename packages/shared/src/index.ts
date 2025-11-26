@@ -1,3 +1,6 @@
+// Phase 5: Embedding Profiles
+export * from './embedding-profiles.js';
+
 export type DocumentSourceQuality = 'official' | 'verified' | 'community';
 export type DocumentType =
   | 'official_doc'

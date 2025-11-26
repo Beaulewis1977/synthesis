@@ -7,6 +7,7 @@ import {
   updateDocumentStatus,
 } from '@synthesis/db';
 import type { DocumentMetadata } from '@synthesis/shared';
+import { getEmbeddingProfileService } from '../services/embedding-profile-service.js';
 import {
   type ContentContext,
   deriveContextFromMetadata,
@@ -56,11 +57,20 @@ export async function ingestDocument(
   documentId: string,
   options: IngestOptions = {}
 ): Promise<void> {
+  const db = getPool();
   const document = await getDocument(documentId);
   assertDocumentReady(document, documentId);
 
   try {
     const buffer = await fs.readFile(document.file_path);
+
+    // Phase 5: Get embedding profile for this collection
+    const profileService = getEmbeddingProfileService(db);
+    const profile = await profileService.getProfileForCollection(document.collection_id);
+    console.info(
+      `[Ingest] Using embedding profile '${profile.name}' for document ${documentId} ` +
+        `(provider: ${profile.provider}, model: ${profile.model}, chunk_size: ${profile.chunkSize})`
+    );
 
     await updateDocumentStatus(documentId, 'extracting');
     const extraction = await extract(buffer, document.content_type, document.title);
@@ -84,26 +94,35 @@ export async function ingestDocument(
     await updateDocumentStatus(documentId, 'chunking');
 
     // Check if this is a code file and code chunking is enabled
+    // Phase 5: Use profile's code_aware setting if CODE_CHUNKING env is not explicitly set
     const codeFile = isCodeFile(document.file_path);
-    const codeChunkingEnabled = process.env.CODE_CHUNKING === 'true';
+    const codeChunkingEnvSet = process.env.CODE_CHUNKING !== undefined;
+    const codeChunkingEnabled = codeChunkingEnvSet
+      ? process.env.CODE_CHUNKING === 'true'
+      : profile.codeAware;
 
     let chunks: Chunk[];
 
     if (codeFile && codeChunkingEnabled) {
       // Use code-aware chunking
-      // console.info(`Using code-aware chunking for ${document.file_path}`);
       const parsedEnvMaxChunk = Number.parseInt(process.env.CODE_MAX_CHUNK_LINES ?? '', 10);
       const maxChunkSize = Number.isNaN(parsedEnvMaxChunk) ? 100 : Math.max(parsedEnvMaxChunk, 1);
       chunks = await chunkCodeFile(document.file_path, extraction.text, {
         preserveImports: process.env.PRESERVE_IMPORTS === 'true',
         trackRelationships: process.env.TRACK_RELATIONSHIPS === 'true',
-        db: getPool(),
+        db,
         collectionId: document.collection_id,
         maxChunkSize,
       });
     } else {
-      // Use simple text chunking
-      chunks = chunkText(extraction.text, options.chunk, {
+      // Use simple text chunking with profile settings
+      // Phase 5: Apply profile chunk size and overlap
+      const chunkOptions: ChunkOptions = {
+        ...options.chunk,
+        maxSize: options.chunk?.maxSize ?? profile.chunkSize,
+        overlap: options.chunk?.overlap ?? profile.chunkOverlap,
+      };
+      chunks = chunkText(extraction.text, chunkOptions, {
         ...extraction.metadata,
         documentId,
       });
@@ -127,13 +146,14 @@ export async function ingestDocument(
     const contentContext = inferContentContext(document, baseMetadata);
 
     // Validate and split chunks that exceed token limits
-    const embeddingConfig = getProviderConfig(
-      options.embed?.provider ?? (contentContext.type === 'code' ? 'voyage' : 'ollama')
-    );
+    // Phase 5: Use profile's provider/model for token validation
+    const embeddingProvider = options.embed?.provider ?? profile.provider;
+    const embeddingModel = options.embed?.model ?? profile.model;
+    const embeddingConfig = getProviderConfig(embeddingProvider);
     const validatedChunks = validateAndSplitChunks(
       chunks,
       embeddingConfig.provider,
-      embeddingConfig.model
+      embeddingModel
     );
 
     if (validatedChunks.splitCount > 0) {
@@ -147,9 +167,18 @@ export async function ingestDocument(
     const chunksToEmbed: Chunk[] = validatedChunks.chunks;
 
     await updateDocumentStatus(documentId, 'embedding');
+    // Phase 5: Use profile's provider/model for embedding
+    const profileEmbedOptions: EmbedOptions = {
+      provider: embeddingConfig.provider,
+      model: embeddingModel,
+    };
     const embedResults = await embedBatch(
       chunksToEmbed.map((chunk) => chunk.text),
-      mergeEmbedOptions(options.embed, contentContext, chunksToEmbed.length)
+      mergeEmbedOptions(
+        { ...profileEmbedOptions, ...options.embed },
+        contentContext,
+        chunksToEmbed.length
+      )
     );
 
     const decoratedChunks = decorateChunksWithEmbeddingMetadata(chunksToEmbed, embedResults);
