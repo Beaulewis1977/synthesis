@@ -36,6 +36,52 @@ export type DocumentContentCategory =
 export type EmbeddingModel = 'nomic-embed-text' | 'text-embedding-3-large' | 'voyage-code-2';
 export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage';
 
+// Phase 3: Source type for metadata guarantees
+export type SourceType = 'url' | 'repo' | 'file';
+
+// Phase 3: Chunk type classification
+export type ChunkType = 'text' | 'code' | 'sql' | 'config' | 'heading' | 'list' | 'analysis';
+
+/**
+ * Required document metadata fields (Phase 3: Metadata Guarantees)
+ * These fields should be present on all new documents after ingestion.
+ */
+export interface RequiredDocumentMetadata {
+  /** The source URL, repository URL, or file path */
+  source: string;
+  /** Classification of the source */
+  source_type: SourceType;
+  /** Programming languages detected in the document */
+  languages: string[];
+  /** ISO timestamp when the document was ingested */
+  ingested_at: string;
+  /** Framework version if applicable (e.g., 'Flutter 3.24.5') */
+  framework_version?: string;
+  /** Git commit SHA for repository sources */
+  commit_sha?: string;
+}
+
+/**
+ * Required chunk metadata fields (Phase 3: Metadata Guarantees)
+ * These fields should be present on all chunks after chunking.
+ */
+export interface RequiredChunkMetadata {
+  /** Classification of the chunk content */
+  chunk_type: ChunkType;
+  /** Inclusive start offset within the source text */
+  startOffset: number;
+  /** Exclusive end offset within the source text */
+  endOffset: number;
+  /** Programming language of the chunk (for code chunks) */
+  language?: string;
+  /** Source file path */
+  file_path?: string;
+  /** Class name if chunk is part of a class */
+  class_name?: string;
+  /** Function name if chunk is a function */
+  function_name?: string;
+}
+
 export interface DocumentMetadata {
   doc_type?: DocumentType;
   source_url?: string;
@@ -57,11 +103,24 @@ export interface DocumentMetadata {
   published_date?: string | Date;
   tags?: string[];
   notes?: string;
+
+  // Phase 3: Required metadata fields (added to existing interface for compatibility)
+  /** The source URL, repository URL, or file path */
+  source?: string;
+  /** Classification of the source: 'url' | 'repo' | 'file' */
+  source_type?: SourceType;
+  /** Programming languages detected in the document */
+  languages?: string[];
+  /** ISO timestamp when the document was ingested */
+  ingested_at?: string;
+  /** Git commit SHA for repository sources */
+  commit_sha?: string;
+
   [key: string]: unknown;
 }
 
 export interface ChunkMetadata extends DocumentMetadata {
-  chunk_type?: 'text' | 'code' | 'heading' | 'list' | 'analysis';
+  chunk_type?: ChunkType;
   heading?: string;
   page?: number | string;
   line_range?: [number, number];

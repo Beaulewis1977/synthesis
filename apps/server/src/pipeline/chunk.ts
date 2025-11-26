@@ -7,7 +7,8 @@ export interface ChunkOptions {
   paragraphSeparator?: RegExp;
 }
 
-import type { ChunkMetadata as SharedChunkMetadata } from '@synthesis/shared';
+import type { ChunkType, ChunkMetadata as SharedChunkMetadata } from '@synthesis/shared';
+import { inferChunkType } from '../services/metadata-validator.js';
 
 export interface ChunkMetadata extends SharedChunkMetadata {
   /** Inclusive start offset within the source text. */
@@ -96,6 +97,11 @@ export function chunkText(
     const startOffset = start;
     const endOffset = end - trailingWhitespace;
 
+    // Phase 3: Infer chunk_type from content
+    const chunkType: ChunkType =
+      (documentMetadata.chunk_type as ChunkType) ||
+      inferChunkType(documentMetadata.file_path as string | undefined, trimmedChunk);
+
     const candidate: Chunk = {
       text: trimmedChunk,
       index: chunkIndex,
@@ -103,6 +109,8 @@ export function chunkText(
         ...documentMetadata,
         startOffset,
         endOffset,
+        // Phase 3: Always set chunk_type
+        chunk_type: chunkType,
         heading:
           extractHeading(trimmedChunk.trimStart()) ??
           (documentMetadata.heading as string | undefined),

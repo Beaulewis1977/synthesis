@@ -13,6 +13,7 @@ import {
   getProviderConfig,
 } from '../services/embedding-router.js';
 import { buildMetadata } from '../services/metadata-builder.js';
+import { inferLanguages } from '../services/metadata-validator.js';
 import { validateAndSplitChunks } from './chunk-splitter.js';
 import type { Chunk, ChunkOptions } from './chunk.js';
 import { chunkText } from './chunk.js';
@@ -170,10 +171,13 @@ export async function ingestDocument(
 
       metadataBuilder.setDocType(inferDocType(document, baseMetadata));
 
+      // Phase 3: Set source and source_type
       if (document.source_url) {
         metadataBuilder.setSourceUrl(document.source_url);
       } else if (baseMetadata.source_url) {
         metadataBuilder.setSourceUrl(baseMetadata.source_url);
+      } else if (document.file_path) {
+        metadataBuilder.setSource(document.file_path, 'file');
       }
 
       if (baseMetadata.source_quality) {
@@ -183,6 +187,13 @@ export async function ingestDocument(
       if (document.file_path) {
         metadataBuilder.setFilePath(document.file_path);
       }
+
+      // Phase 3: Set languages array
+      const languages = inferLanguages(document.file_path, extraction.text);
+      metadataBuilder.setLanguages(languages);
+
+      // Phase 3: Set ingested_at timestamp
+      metadataBuilder.setIngestedAt();
 
       if (baseMetadata.language) {
         metadataBuilder.setLanguage(baseMetadata.language);
@@ -194,6 +205,11 @@ export async function ingestDocument(
 
       if (baseMetadata.repo_name) {
         metadataBuilder.setRepo(baseMetadata.repo_name, baseMetadata.repo_stars);
+      }
+
+      // Phase 3: Set commit SHA if available
+      if (baseMetadata.commit_sha) {
+        metadataBuilder.setCommitSha(baseMetadata.commit_sha);
       }
 
       metadataBuilder.setEmbedding(firstResult.provider, firstResult.model, firstResult.dimensions);

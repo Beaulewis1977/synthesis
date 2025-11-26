@@ -1,4 +1,5 @@
-import type { DocumentMetadata } from '@synthesis/shared';
+import type { DocumentMetadata, SourceType } from '@synthesis/shared';
+import { inferSourceType as inferSourceTypeFromValidator } from './metadata-validator.js';
 
 const REPO_VERIFIED_STARS = 1000;
 
@@ -14,9 +15,58 @@ export class MetadataBuilder {
 
   setSourceUrl(url: string): this {
     this.metadata.source_url = url;
+    // Also set source and source_type for Phase 3 compatibility
+    if (!this.metadata.source) {
+      this.metadata.source = url;
+    }
+    if (!this.metadata.source_type) {
+      this.metadata.source_type = inferSourceTypeFromValidator(url);
+    }
     if (!this._inferredSourceQuality) {
       this._inferredSourceQuality = inferSourceQuality(url);
     }
+    return this;
+  }
+
+  /**
+   * Sets the source and source_type for Phase 3 metadata guarantees.
+   * @param source - The source URL, repository URL, or file path
+   * @param type - Optional explicit source type; inferred if not provided
+   */
+  setSource(source: string, type?: SourceType): this {
+    this.metadata.source = source;
+    this.metadata.source_type = type ?? inferSourceTypeFromValidator(source);
+    // Also set source_url for backward compatibility
+    if (!this.metadata.source_url && (source.startsWith('http') || source.includes('github.com'))) {
+      this.metadata.source_url = source;
+    }
+    return this;
+  }
+
+  /**
+   * Sets the languages array for Phase 3 metadata guarantees.
+   * @param languages - Array of programming languages in the document
+   */
+  setLanguages(languages: string[]): this {
+    this.metadata.languages = [...languages];
+    return this;
+  }
+
+  /**
+   * Sets the ingested_at timestamp for Phase 3 metadata guarantees.
+   * @param date - The ingestion timestamp; defaults to now
+   */
+  setIngestedAt(date: Date = new Date()): this {
+    this.metadata.ingested_at = date.toISOString();
+    return this;
+  }
+
+  /**
+   * Sets the commit SHA for repository sources.
+   * @param sha - The git commit SHA
+   */
+  setCommitSha(sha: string): this {
+    this.metadata.commit_sha = sha;
     return this;
   }
 
@@ -62,6 +112,18 @@ export class MetadataBuilder {
     this.metadata.file_path = path;
     if (!this.metadata.language) {
       this.metadata.language = inferLanguageFromPath(path);
+    }
+    // Also set source if not already set (for file-based documents)
+    if (!this.metadata.source) {
+      this.metadata.source = path;
+      this.metadata.source_type = 'file';
+    }
+    // Infer languages array if not set
+    if (!this.metadata.languages || this.metadata.languages.length === 0) {
+      const lang = inferLanguageFromPath(path);
+      if (lang) {
+        this.metadata.languages = [lang];
+      }
     }
     return this;
   }
@@ -135,6 +197,17 @@ export class MetadataBuilder {
       ...this.metadata,
     };
 
+    // Phase 3: Ensure required metadata fields have defaults
+    const source = combined.source ?? combined.source_url ?? combined.file_path ?? 'unknown';
+    const sourceType = combined.source_type ?? inferSourceTypeFromValidator(source);
+    const languages =
+      combined.languages && combined.languages.length > 0
+        ? combined.languages
+        : combined.language
+          ? [combined.language]
+          : ['text'];
+    const ingestedAt = combined.ingested_at ?? new Date().toISOString();
+
     return {
       ...combined,
       source_quality: finalSourceQuality,
@@ -142,6 +215,11 @@ export class MetadataBuilder {
       embedding_provider: embeddingProvider,
       embedding_dimensions: embeddingDimensions,
       doc_type: this.metadata.doc_type ?? defaults.doc_type ?? 'tutorial',
+      // Phase 3: Required metadata fields
+      source,
+      source_type: sourceType,
+      languages,
+      ingested_at: ingestedAt,
       ...(mergedTags ? { tags: mergedTags } : {}),
     };
   }
