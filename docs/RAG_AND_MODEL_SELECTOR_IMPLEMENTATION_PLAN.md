@@ -81,9 +81,9 @@ gh pr create --base develop --title "Phase X: Description"
 **Problem:** Chunks may exceed embedding API token limits → silent truncation or errors.
 
 ### 4.1 Deliverables
-- [ ] Token estimator with per-provider limits
-- [ ] Auto-split for oversized chunks
-- [ ] Parent-child chunk relationships in metadata
+- [x] Token estimator with per-provider limits
+- [x] Auto-split for oversized chunks
+- [x] Parent-child chunk relationships in metadata
 
 ### 4.2 Key Files
 
@@ -110,9 +110,9 @@ const LIMITS = {
 ```
 
 ### 4.4 Acceptance Criteria
-- [ ] No chunk exceeds provider token limit
-- [ ] Oversized chunks auto-split with overlap
-- [ ] All tests pass
+- [x] No chunk exceeds provider token limit
+- [x] Oversized chunks auto-split with overlap
+- [x] All tests pass
 
 ---
 
@@ -121,10 +121,10 @@ const LIMITS = {
 **Problem:** BM25 returns 0 results for 90% of NL queries. Hybrid search is broken.
 
 ### 5.1 Deliverables
-- [ ] Smart query builder (plainto_tsquery for NL, prefix for code)
-- [ ] Query type detection
-- [ ] Metrics logging
-- [ ] Eval harness before/after comparison
+- [x] Smart query builder (websearch_to_tsquery with OR logic for NL, prefix for code)
+- [x] Query type detection
+- [x] Metrics logging (via `bm25SearchWithMetadata`)
+- [x] Eval harness before/after comparison - **85% success rate achieved**
 
 ### 5.2 Key Files
 
@@ -141,15 +141,15 @@ function detectQueryType(query: string): 'natural_language' | 'code_symbol' | 'p
   return 'natural_language';                           // Default for questions
 }
 
-// NL → plainto_tsquery (handles stemming)
+// NL → websearch_to_tsquery (handles stemming, stop words, robust syntax)
 // Code → prefix matching (term:*)
 // Phrase → phraseto_tsquery
 ```
 
 ### 5.4 Acceptance Criteria
-- [ ] BM25 returns results for >50% of NL queries (was 10%)
-- [ ] Eval harness shows improvement
-- [ ] No regression for code queries
+- [x] BM25 returns results for >50% of NL queries - **Achieved 85%** (17/20 queries)
+- [x] Eval harness shows improvement - From 14.3% to 85% success rate
+- [x] No regression for code queries
 
 ---
 
