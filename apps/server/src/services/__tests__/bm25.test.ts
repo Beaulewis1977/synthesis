@@ -87,6 +87,13 @@ describe('buildSmartTsQuery', () => {
     expect(result.tsQuery).toBe('manage or state');
   });
 
+  it('preserves explicit boolean operators in advanced queries', () => {
+    const result = buildSmartTsQuery('state or props', 'natural_language');
+    expect(result.tsFunction).toBe('websearch_to_tsquery');
+    // Explicit "or" is kept so users can craft advanced queries
+    expect(result.tsQuery).toBe('state or props');
+  });
+
   it('sanitizes phrase queries', () => {
     const result = buildSmartTsQuery('"test & query"', 'phrase');
     expect(result.tsQuery).toBe('test query');

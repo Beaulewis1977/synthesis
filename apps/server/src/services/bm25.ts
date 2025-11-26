@@ -275,7 +275,19 @@ function buildBM25Query(tsFunction: TsQueryFunction): string {
   // Map function names to their SQL representations
   // Note: websearch_to_tsquery and phraseto_tsquery take the query directly
   // to_tsquery expects pre-formatted query with operators
-  const functionCall = `${tsFunction}($1::regconfig, $2)`;
+  const allowedFunctions: Record<TsQueryFunction, string> = {
+    to_tsquery: 'to_tsquery',
+    plainto_tsquery: 'plainto_tsquery',
+    websearch_to_tsquery: 'websearch_to_tsquery',
+    phraseto_tsquery: 'phraseto_tsquery',
+  };
+
+  const fn = allowedFunctions[tsFunction];
+  if (!fn) {
+    throw new Error(`Invalid tsquery function: ${tsFunction}`);
+  }
+
+  const functionCall = `${fn}($1::regconfig, $2)`;
 
   return `
     SELECT
@@ -345,16 +357,21 @@ function sanitizeForWebsearch(input: string): string {
     return '';
   }
 
+  const rawTokens = cleaned.split(/\s+/).filter((word) => word.length > 0);
+
+  // If the user is explicitly using boolean operators, treat this as an
+  // advanced websearch query and do not rewrite it into OR logic.
+  if (rawTokens.some((token) => /^(or|and|not)$/i.test(token))) {
+    return cleaned;
+  }
+
   // Split into words and filter out empty/short terms
-  const words = cleaned
-    .split(/\s+/)
-    .filter((word) => word.length > 0)
-    .filter(
-      (word) =>
-        !/^(the|a|an|is|are|was|were|be|been|being|have|has|had|do|does|did|will|would|could|should|may|might|must|shall|can|need|dare|ought|used|to|of|in|for|on|with|at|by|from|as|into|through|during|before|after|above|below|between|under|again|further|then|once|here|there|when|where|why|how|all|each|few|more|most|other|some|such|no|nor|not|only|own|same|so|than|too|very|just|and|but|if|or|because|until|while|although|though|even|what|which|who|whom|this|that|these|those|i|you|he|she|it|we|they|me|him|her|us|them|my|your|his|its|our|their)$/i.test(
-          word
-        )
-    );
+  const words = rawTokens.filter(
+    (word) =>
+      !/^(the|a|an|is|are|was|were|be|been|being|have|has|had|do|does|did|will|would|could|should|may|might|must|shall|can|need|dare|ought|used|to|of|in|for|on|with|at|by|from|as|into|through|during|before|after|above|below|between|under|again|further|then|once|here|there|when|where|why|how|all|each|few|more|most|other|some|such|no|nor|not|only|own|same|so|than|too|very|just|and|but|because|until|while|although|though|even|what|which|who|whom|this|that|these|those|i|you|he|she|it|we|they|me|him|her|us|them|my|your|his|its|our|their)$/i.test(
+        word
+      )
+  );
 
   if (words.length === 0) {
     // If all words were filtered out, use the original cleaned input
