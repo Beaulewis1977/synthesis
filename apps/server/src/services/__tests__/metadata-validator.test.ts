@@ -108,8 +108,8 @@ describe('metadata-validator', () => {
       expect(inferLanguages(undefined, content)).toContain('sql');
     });
 
-    it('returns text as default when no language detected', () => {
-      expect(inferLanguages()).toEqual(['text']);
+    it("returns 'unknown' as default when no language detected", () => {
+      expect(inferLanguages()).toEqual(['unknown']);
     });
 
     it('combines languages from path and content', () => {

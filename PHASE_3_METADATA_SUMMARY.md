@@ -32,6 +32,7 @@ Implemented metadata validation and inference to ensure all documents and chunks
 ## 📁 Files Changed
 
 ### Created
+
 | File | Purpose |
 |------|---------|
 | `apps/server/src/services/metadata-validator.ts` | Zod schemas, validation, and inference functions |
@@ -39,6 +40,7 @@ Implemented metadata validation and inference to ensure all documents and chunks
 | `packages/db/migrations/017_metadata_guarantees.sql` | DB columns and indexes |
 
 ### Modified
+
 | File | Changes |
 |------|---------|
 | `packages/shared/src/index.ts` | Added `SourceType`, `ChunkType`, `RequiredDocumentMetadata`, `RequiredChunkMetadata` types |
@@ -62,7 +64,7 @@ Implemented metadata validation and inference to ensure all documents and chunks
   - Utility functions
 
 ### Test Results
-```
+```text
  ✓ src/services/__tests__/metadata-validator.test.ts (56)
    ✓ inferSourceType (7)
    ✓ inferLanguageFromPath (8)

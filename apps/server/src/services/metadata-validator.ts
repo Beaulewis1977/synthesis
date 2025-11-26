@@ -185,6 +185,9 @@ const EXTENSION_TO_LANGUAGE: Record<string, string> = {
   '.yaml': 'yaml',
   '.yml': 'yaml',
   '.json': 'json',
+  '.toml': 'toml',
+  '.ini': 'ini',
+  '.env': 'env',
   '.md': 'markdown',
   '.markdown': 'markdown',
   '.html': 'html',
@@ -235,7 +238,12 @@ export function inferLanguageFromPath(filePath: string): string | undefined {
     return undefined;
   }
 
-  const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase();
+  const lastDot = filePath.lastIndexOf('.');
+  if (lastDot === -1) {
+    return undefined;
+  }
+
+  const ext = filePath.slice(lastDot).toLowerCase();
   return EXTENSION_TO_LANGUAGE[ext];
 }
 
@@ -255,6 +263,8 @@ export function inferLanguages(filePath?: string, content?: string): string[] {
 
   // Infer from content patterns (basic heuristics)
   if (content) {
+    const normalized = content.toUpperCase();
+
     // Detect common language patterns
     if (content.includes("import 'package:flutter")) {
       languages.add('dart');
@@ -262,17 +272,26 @@ export function inferLanguages(filePath?: string, content?: string): string[] {
     if (content.includes('import React') || content.includes("from 'react'")) {
       languages.add('typescript');
     }
-    if (content.includes('CREATE TABLE') || content.includes('SELECT ')) {
+
+    // SQL detection: look for strong SQL keywords and patterns
+    if (
+      /\bCREATE\s+TABLE\b/.test(normalized) ||
+      /\bALTER\s+TABLE\b/.test(normalized) ||
+      /\bINSERT\s+INTO\b/.test(normalized) ||
+      (/\bSELECT\b/.test(normalized) && /\bFROM\b/.test(normalized))
+    ) {
       languages.add('sql');
     }
-    if (content.includes('def ') && content.includes(':')) {
+
+    // Python detection: function definition pattern
+    if (/\bdef\s+\w+\s*\(.*\)\s*:/m.test(content)) {
       languages.add('python');
     }
   }
 
-  // Default to 'text' if no language detected
+  // Default to 'unknown' if no language detected
   if (languages.size === 0) {
-    languages.add('text');
+    languages.add('unknown');
   }
 
   return Array.from(languages);
@@ -283,7 +302,8 @@ export function inferLanguages(filePath?: string, content?: string): string[] {
  */
 export function inferChunkType(filePath?: string, content?: string): ChunkType {
   if (filePath) {
-    const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase();
+    const lastDot = filePath.lastIndexOf('.');
+    const ext = lastDot === -1 ? '' : filePath.slice(lastDot).toLowerCase();
 
     // SQL files
     if (ext === '.sql') {
@@ -296,18 +316,25 @@ export function inferChunkType(filePath?: string, content?: string): ChunkType {
     }
 
     // Code files
-    if (EXTENSION_TO_LANGUAGE[ext] && !['markdown', 'text'].includes(EXTENSION_TO_LANGUAGE[ext])) {
+    const lang = EXTENSION_TO_LANGUAGE[ext];
+    const isCodeLanguage = (value: string | undefined): boolean =>
+      !!value && !['markdown', 'text'].includes(value);
+
+    if (isCodeLanguage(lang)) {
       return 'code';
     }
   }
 
   // Check content for patterns
   if (content) {
+    const normalized = content.toUpperCase();
+
     // SQL content
     if (
-      content.includes('CREATE TABLE') ||
-      content.includes('ALTER TABLE') ||
-      content.includes('INSERT INTO')
+      /\bCREATE\s+TABLE\b/.test(normalized) ||
+      /\bALTER\s+TABLE\b/.test(normalized) ||
+      /\bINSERT\s+INTO\b/.test(normalized) ||
+      (/\bSELECT\b/.test(normalized) && /\bFROM\b/.test(normalized))
     ) {
       return 'sql';
     }

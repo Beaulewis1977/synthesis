@@ -174,10 +174,8 @@ export async function ingestDocument(
       // Phase 3: Set source and source_type
       if (document.source_url) {
         metadataBuilder.setSourceUrl(document.source_url);
-        metadataBuilder.setSource(document.source_url);
       } else if (baseMetadata.source_url) {
         metadataBuilder.setSourceUrl(baseMetadata.source_url);
-        metadataBuilder.setSource(baseMetadata.source_url);
       } else if (document.file_path) {
         metadataBuilder.setSource(document.file_path, 'file');
       }

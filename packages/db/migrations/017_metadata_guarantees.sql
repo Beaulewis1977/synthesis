@@ -81,7 +81,8 @@ SET source_type = CASE
   WHEN file_path IS NOT NULL THEN 'file'
   ELSE 'file'
 END
-WHERE source_type IS NULL;
+WHERE source_type IS NULL
+  AND (source_url IS NOT NULL OR file_path IS NOT NULL);
 
 -- Set ingested_at from processed_at for existing documents
 UPDATE documents 
