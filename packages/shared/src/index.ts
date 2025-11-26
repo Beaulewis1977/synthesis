@@ -399,7 +399,7 @@ export const DEFAULT_MODEL_CONFIGS: Record<ModelFeature, Omit<ModelConfig, 'sour
     feature: 'reranker',
     provider: 'bge',
     model: 'BAAI/bge-reranker-base',
-    localOnly: true,
+    localOnly: false,
     enabled: true,
   },
   contradiction: {
@@ -416,16 +416,25 @@ export const DEFAULT_MODEL_CONFIGS: Record<ModelFeature, Omit<ModelConfig, 'sour
  */
 export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   anthropic: {
-    models: ['claude-3-5-haiku-20241022', 'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'],
+    models: [
+      'claude-3-5-haiku-20241022',
+      'claude-3-5-sonnet-20241022',
+      'claude-3-opus-20240229',
+      'claude-sonnet-4-20250514',
+    ],
     requiresApiKey: true,
     apiKeyEnvVar: 'ANTHROPIC_API_KEY',
     isLocal: false,
   },
   openai: {
     models: [
+      // Chat models
       'gpt-4o',
       'gpt-4o-mini',
       'gpt-4-turbo',
+      'gpt-5-mini-2025-08-07',
+      'gpt-5-nano-2025-08-07',
+      // Embedding models
       'text-embedding-3-large',
       'text-embedding-3-small',
     ],
@@ -434,12 +443,32 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
     isLocal: false,
   },
   ollama: {
-    models: ['nomic-embed-text', 'llama3.2', 'mistral', 'codellama', 'phi3'],
+    models: [
+      // Embedding models
+      'nomic-embed-text',
+      // Chat models
+      'llama3.2',
+      'mistral',
+      'codellama',
+      'phi3',
+      'gpt-oss-20b',
+    ],
     requiresApiKey: false,
     isLocal: true,
   },
   google: {
-    models: ['gemini-1.5-pro', 'gemini-1.5-flash', 'text-embedding-004'],
+    models: [
+      // Chat models
+      'gemini-1.5-pro',
+      'gemini-1.5-flash',
+      'gemini-2.5-flash-lite',
+      'gemini-2.5-flash',
+      // Vision models
+      'gemini-2.5-flash-image',
+      // Embedding models
+      'text-embedding-004',
+      'gemini-embedding-001',
+    ],
     requiresApiKey: true,
     apiKeyEnvVar: 'GOOGLE_API_KEY',
     isLocal: false,

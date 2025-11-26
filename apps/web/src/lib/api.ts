@@ -2,6 +2,7 @@ import type {
   AgentChatRequest,
   AgentChatResponse,
   ApiError,
+  ApiKeysResponse,
   ChatMessage,
   ChatSession,
   Collection,
@@ -13,8 +14,14 @@ import type {
   DocumentChunksResponse,
   DocumentQualityScore,
   DocumentsResponse,
+  EmbeddingProfile,
+  EmbeddingProfilesResponse,
   IngestionJob,
   IngestionJobStatusResponse,
+  ModelConfig,
+  ModelConfigResponse,
+  ModelConfigUpdate,
+  ModelFeature,
   RelatedFilesResponse,
   RepositorySource,
   RepositorySourcesResponse,
@@ -558,6 +565,177 @@ class ApiClient {
     return this.request(`/api/workflows/${encodeURIComponent(workflowId)}/step`, {
       method: 'POST',
     });
+  }
+
+  // ============================================
+  // Model Configuration (Phase 6)
+  // ============================================
+
+  /**
+   * Get all model configurations with provider metadata.
+   */
+  async getModelConfigs(): Promise<ModelConfigResponse> {
+    return this.request<ModelConfigResponse>('/api/admin/models');
+  }
+
+  /**
+   * Get configuration for a specific feature.
+   */
+  async getModelConfig(
+    feature: ModelFeature
+  ): Promise<{ config: ModelConfig; apiKeyConfigured: boolean }> {
+    return this.request<{ config: ModelConfig; apiKeyConfigured: boolean }>(
+      `/api/admin/models/${encodeURIComponent(feature)}`
+    );
+  }
+
+  /**
+   * Update configuration for a specific feature.
+   */
+  async updateModelConfig(
+    feature: ModelFeature,
+    update: ModelConfigUpdate
+  ): Promise<{ config: ModelConfig; apiKeyConfigured: boolean; message: string }> {
+    return this.request<{ config: ModelConfig; apiKeyConfigured: boolean; message: string }>(
+      `/api/admin/models/${encodeURIComponent(feature)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(update),
+      }
+    );
+  }
+
+  /**
+   * Reset a specific feature to default configuration.
+   */
+  async resetModelConfig(feature: ModelFeature): Promise<{ config: ModelConfig; message: string }> {
+    return this.request<{ config: ModelConfig; message: string }>(
+      `/api/admin/models/${encodeURIComponent(feature)}`,
+      {
+        method: 'DELETE',
+      }
+    );
+  }
+
+  /**
+   * Reset all model configurations to defaults.
+   */
+  async resetAllModelConfigs(): Promise<ModelConfigResponse & { message: string }> {
+    return this.request<ModelConfigResponse & { message: string }>('/api/admin/models/reset', {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Validate a configuration without saving it.
+   */
+  async validateModelConfig(
+    feature: ModelFeature,
+    update: ModelConfigUpdate
+  ): Promise<{ valid: boolean; errors?: string[]; message?: string }> {
+    return this.request<{ valid: boolean; errors?: string[]; message?: string }>(
+      '/api/admin/models/validate',
+      {
+        method: 'POST',
+        body: JSON.stringify({ feature, ...update }),
+      }
+    );
+  }
+
+  // ============================================
+  // Embedding Profiles (Phase 6)
+  // ============================================
+
+  /**
+   * Get all embedding profiles.
+   */
+  async getEmbeddingProfiles(): Promise<EmbeddingProfilesResponse> {
+    return this.request<EmbeddingProfilesResponse>('/api/admin/profiles');
+  }
+
+  /**
+   * Get a specific embedding profile.
+   */
+  async getEmbeddingProfile(id: string): Promise<EmbeddingProfile> {
+    return this.request<EmbeddingProfile>(`/api/admin/profiles/${encodeURIComponent(id)}`);
+  }
+
+  /**
+   * Get the embedding profile for a collection.
+   */
+  async getCollectionProfile(
+    collectionId: string
+  ): Promise<{ collectionId: string; profile: EmbeddingProfile; isDefault: boolean }> {
+    return this.request<{ collectionId: string; profile: EmbeddingProfile; isDefault: boolean }>(
+      `/api/admin/collections/${encodeURIComponent(collectionId)}/profile`
+    );
+  }
+
+  /**
+   * Set the embedding profile for a collection.
+   */
+  async setCollectionProfile(
+    collectionId: string,
+    profileId: string | null
+  ): Promise<{ collectionId: string; profile: EmbeddingProfile; message: string }> {
+    return this.request<{ collectionId: string; profile: EmbeddingProfile; message: string }>(
+      `/api/admin/collections/${encodeURIComponent(collectionId)}/profile`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ profileId }),
+      }
+    );
+  }
+
+  // ============================================
+  // API Key Management (Phase 6)
+  // ============================================
+
+  /**
+   * Get status of all API keys (configured or not).
+   */
+  async getApiKeyStatus(): Promise<ApiKeysResponse> {
+    return this.request<ApiKeysResponse>('/api/admin/api-keys');
+  }
+
+  /**
+   * Set or update an API key for a provider.
+   */
+  async setApiKey(
+    provider: string,
+    apiKey: string
+  ): Promise<{ message: string; provider: string; configured: boolean }> {
+    return this.request<{ message: string; provider: string; configured: boolean }>(
+      '/api/admin/api-keys',
+      {
+        method: 'POST',
+        body: JSON.stringify({ provider, apiKey }),
+      }
+    );
+  }
+
+  /**
+   * Delete an API key for a provider.
+   */
+  async deleteApiKey(provider: string): Promise<{ message: string; provider: string }> {
+    return this.request<{ message: string; provider: string }>(
+      `/api/admin/api-keys/${encodeURIComponent(provider)}`,
+      {
+        method: 'DELETE',
+      }
+    );
+  }
+
+  /**
+   * Test an API key by making a simple request to the provider.
+   */
+  async testApiKey(provider: string): Promise<{ valid: boolean; message: string }> {
+    return this.request<{ valid: boolean; message: string }>(
+      `/api/admin/api-keys/${encodeURIComponent(provider)}/test`,
+      {
+        method: 'POST',
+      }
+    );
   }
 }
 

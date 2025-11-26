@@ -26,6 +26,9 @@ const DocumentEditorPage = lazy(() =>
 const WorkflowsPage = lazy(() =>
   import('./pages/WorkflowsPage').then((m) => ({ default: m.WorkflowsPage }))
 );
+const ModelsPage = lazy(() =>
+  import('./pages/settings/ModelsPage').then((m) => ({ default: m.ModelsPage }))
+);
 
 function AppRoutes() {
   const navigate = useNavigate();
@@ -49,6 +52,7 @@ function AppRoutes() {
             <Route path="agent/ingest" element={<AgentIngestionPage />} />
             <Route path="documents/:id/edit" element={<DocumentEditorPage />} />
             <Route path="workflows/:collectionId" element={<WorkflowsPage />} />
+            <Route path="settings/models" element={<ModelsPage />} />
           </Route>
         </Routes>
       </Suspense>
