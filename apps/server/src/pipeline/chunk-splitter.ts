@@ -366,8 +366,8 @@ export function getChunkStatistics(
     total: chunks.length,
     oversized,
     avgTokens: chunks.length > 0 ? Math.round(total / chunks.length) : 0,
-    maxTokens: Math.max(...tokenCounts, 0),
-    minTokens: Math.min(...tokenCounts, 0),
+    maxTokens: chunks.length > 0 ? Math.max(...tokenCounts) : 0,
+    minTokens: chunks.length > 0 ? Math.min(...tokenCounts) : 0,
     tokenLimit,
   };
 }
