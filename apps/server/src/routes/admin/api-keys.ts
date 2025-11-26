@@ -76,7 +76,7 @@ export async function apiKeyRoutes(fastify: FastifyInstance): Promise<void> {
       try {
         await apiKeyService.setKey(provider, apiKey);
 
-        fastify.log.info(`API key set for provider: ${provider}`);
+        fastify.log.info('API key configuration updated');
 
         return reply.send({
           message: `API key for ${provider} saved successfully`,

@@ -15,17 +15,39 @@ import crypto from 'node:crypto';
 import { PROVIDER_INFO } from '@synthesis/shared';
 import type { Pool } from 'pg';
 
-// Encryption key from environment (should be 32 bytes for AES-256)
-const ENCRYPTION_KEY = process.env.API_KEY_ENCRYPTION_KEY || 'default-key-change-in-production!';
+// Minimum key length for security (16 bytes = 128 bits)
+const MIN_KEY_LENGTH = 16;
 
-// Ensure key is exactly 32 bytes
+/**
+ * Get and validate encryption key from environment.
+ * Throws an error if the key is missing or too short.
+ */
 function getEncryptionKey(): Buffer {
-  const key = Buffer.from(ENCRYPTION_KEY);
-  if (key.length === 32) return key;
-  // Pad or truncate to 32 bytes
-  const result = Buffer.alloc(32);
-  key.copy(result);
-  return result;
+  const keyEnv = process.env.API_KEY_ENCRYPTION_KEY;
+
+  if (!keyEnv) {
+    throw new Error(
+      'API_KEY_ENCRYPTION_KEY environment variable is required for secure API key storage. ' +
+        'Generate one with: openssl rand -hex 32'
+    );
+  }
+
+  // Support both hex-encoded (64 chars = 32 bytes) and raw keys
+  const key = keyEnv.length === 64 ? Buffer.from(keyEnv, 'hex') : Buffer.from(keyEnv);
+
+  if (key.length < MIN_KEY_LENGTH) {
+    throw new Error(
+      `API_KEY_ENCRYPTION_KEY must be at least ${MIN_KEY_LENGTH} bytes. ` +
+        `Current key is ${key.length} bytes. Generate a secure key with: openssl rand -hex 32`
+    );
+  }
+
+  if (key.length === 32) {
+    return key;
+  }
+
+  // Derive a 32-byte key using SHA-256 if not exactly 32 bytes
+  return crypto.createHash('sha256').update(key).digest();
 }
 
 /**

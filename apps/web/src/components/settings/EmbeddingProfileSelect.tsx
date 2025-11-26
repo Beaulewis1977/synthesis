@@ -78,6 +78,7 @@ export function EmbeddingProfileSelect({
       <button
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
+        onKeyDown={(e) => e.key === 'Escape' && setIsOpen(false)}
         disabled={disabled}
         className={`w-full flex items-center justify-between p-md border rounded-lg transition-all ${
           isOpen ? 'border-accent ring-2 ring-accent/20' : 'border-border hover:border-accent/50'
@@ -114,12 +115,8 @@ export function EmbeddingProfileSelect({
       {isOpen && (
         <>
           {/* Backdrop to close dropdown */}
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setIsOpen(false)}
-            onKeyDown={(e) => e.key === 'Escape' && setIsOpen(false)}
-            role="presentation"
-          />
+          {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop is decorative, keyboard handled by button */}
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} aria-hidden="true" />
 
           {/* Dropdown Content */}
           <div

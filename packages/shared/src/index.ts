@@ -480,7 +480,7 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
     isLocal: false,
   },
   cohere: {
-    models: ['rerank-english-v3.0', 'rerank-multilingual-v3.0'],
+    models: ['rerank-v3.5', 'rerank-english-v3.0', 'rerank-multilingual-v3.0'],
     requiresApiKey: true,
     apiKeyEnvVar: 'COHERE_API_KEY',
     isLocal: false,

@@ -17,8 +17,7 @@ CREATE TABLE IF NOT EXISTS provider_api_keys (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Index for provider lookups
-CREATE INDEX IF NOT EXISTS idx_provider_api_keys_provider ON provider_api_keys(provider);
+-- Note: No explicit index needed for provider - the UNIQUE constraint creates one automatically
 
 -- Comment on table
 COMMENT ON TABLE provider_api_keys IS 'Stores encrypted API keys for AI providers (Phase 6)';

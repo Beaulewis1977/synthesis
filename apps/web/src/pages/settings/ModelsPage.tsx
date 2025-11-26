@@ -277,7 +277,11 @@ export function ModelsPage() {
             profiles={profiles}
             selectedId={defaultProfileId}
             defaultProfileId={defaultProfileId}
-            onSelect={() => {}}
+            onSelect={() => {
+              // TODO: Implement global default profile selection
+              // For now, profiles are set per-collection in the collection settings
+            }}
+            disabled
           />
         </div>
 

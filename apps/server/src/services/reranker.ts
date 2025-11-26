@@ -141,7 +141,8 @@ export async function rerankResults<T extends RerankCandidate>(
     return [];
   }
 
-  const provider = selectRerankerProvider(options.provider);
+  // Use async provider selection to get config from ModelConfigService (UI settings)
+  const provider = await selectRerankerProviderAsync(options.provider);
   const topK = Math.min(
     clampPositiveInt(options.topK, results.length, defaultTopK),
     HARD_RERANK_CAP
