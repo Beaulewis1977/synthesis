@@ -73,7 +73,7 @@ CREATE TRIGGER embedding_profiles_updated_at_trigger
 -- Valid provider names
 ALTER TABLE embedding_profiles DROP CONSTRAINT IF EXISTS embedding_profiles_provider_check;
 ALTER TABLE embedding_profiles ADD CONSTRAINT embedding_profiles_provider_check
-  CHECK (provider IN ('ollama', 'openai', 'voyage', 'google', 'bge'));
+  CHECK (provider IN ('ollama', 'openai', 'voyage'));
 
 -- Valid cost tiers
 ALTER TABLE embedding_profiles DROP CONSTRAINT IF EXISTS embedding_profiles_cost_tier_check;
@@ -151,7 +151,7 @@ ON CONFLICT (name) DO UPDATE SET
 COMMENT ON TABLE embedding_profiles IS 'Embedding configuration profiles that bundle provider, model, and chunking settings. Phase 5.';
 COMMENT ON COLUMN embedding_profiles.name IS 'Unique identifier for the profile (e.g., fast-cheap, balanced)';
 COMMENT ON COLUMN embedding_profiles.display_name IS 'Human-readable name for UI display';
-COMMENT ON COLUMN embedding_profiles.provider IS 'Embedding provider: ollama, openai, voyage, google, bge';
+COMMENT ON COLUMN embedding_profiles.provider IS 'Embedding provider: ollama, openai, voyage';
 COMMENT ON COLUMN embedding_profiles.model IS 'Provider-specific model identifier';
 COMMENT ON COLUMN embedding_profiles.chunk_size IS 'Target chunk size in characters (100-10000)';
 COMMENT ON COLUMN embedding_profiles.chunk_overlap IS 'Overlap between chunks in characters';

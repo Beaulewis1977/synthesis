@@ -5,12 +5,9 @@
  */
 
 import { getPool } from '@synthesis/db';
-import type {
-  CreateEmbeddingProfileInput,
-  EmbeddingProfilesResponse,
-  UpdateEmbeddingProfileInput,
-} from '@synthesis/shared';
+import type { EmbeddingProfilesResponse } from '@synthesis/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
 import { getEmbeddingProfileService } from '../../services/embedding-profile-service.js';
 
 // Request type definitions
@@ -25,6 +22,39 @@ interface SetCollectionProfileParams {
 interface SetCollectionProfileBody {
   profileId: string | null;
 }
+
+const BaseEmbeddingProfileSchema = z.object({
+  name: z
+    .string()
+    .regex(/^[a-z0-9-]+$/)
+    .min(2)
+    .max(50),
+  displayName: z.string().min(1),
+  description: z.string().optional(),
+  provider: z.enum(['ollama', 'openai', 'voyage']),
+  model: z.string().min(1),
+  chunkSize: z.number().int().min(100).max(10000).optional(),
+  chunkOverlap: z.number().int().min(0).optional(),
+  codeAware: z.boolean().optional(),
+  costTier: z.enum(['free', 'low', 'medium', 'high']).optional(),
+});
+
+const CreateEmbeddingProfileSchema = BaseEmbeddingProfileSchema.refine(
+  (data) =>
+    data.chunkOverlap === undefined ||
+    data.chunkSize === undefined ||
+    data.chunkOverlap < data.chunkSize,
+  {
+    message: 'Chunk overlap must be less than chunk size',
+    path: ['chunkOverlap'],
+  }
+);
+
+type CreateEmbeddingProfileBody = z.infer<typeof CreateEmbeddingProfileSchema>;
+
+const UpdateEmbeddingProfileSchema = BaseEmbeddingProfileSchema.partial().omit({ name: true });
+
+type UpdateEmbeddingProfileBody = z.infer<typeof UpdateEmbeddingProfileSchema>;
 
 /**
  * Register embedding profile admin routes
@@ -74,18 +104,19 @@ export async function registerProfileRoutes(fastify: FastifyInstance): Promise<v
   );
 
   // POST /api/admin/profiles - Create new profile
-  fastify.post<{ Body: CreateEmbeddingProfileInput }>(
+  fastify.post<{ Body: CreateEmbeddingProfileBody }>(
     '/profiles',
-    async (request: FastifyRequest<{ Body: CreateEmbeddingProfileInput }>, reply: FastifyReply) => {
+    async (request: FastifyRequest<{ Body: CreateEmbeddingProfileBody }>, reply: FastifyReply) => {
       try {
-        const input = request.body;
-
-        // Validate required fields
-        if (!input.name || !input.displayName || !input.provider || !input.model) {
+        const parseResult = CreateEmbeddingProfileSchema.safeParse(request.body);
+        if (!parseResult.success) {
           return reply.status(400).send({
-            error: 'Missing required fields: name, displayName, provider, model',
+            error: 'Invalid request body',
+            details: parseResult.error.issues,
           });
         }
+
+        const input = parseResult.data;
 
         const profile = await profileService.createProfile(input);
         return reply.status(201).send(profile);
@@ -104,15 +135,23 @@ export async function registerProfileRoutes(fastify: FastifyInstance): Promise<v
   );
 
   // PUT /api/admin/profiles/:id - Update profile
-  fastify.put<{ Params: GetProfileParams; Body: UpdateEmbeddingProfileInput }>(
+  fastify.put<{ Params: GetProfileParams; Body: UpdateEmbeddingProfileBody }>(
     '/profiles/:id',
     async (
-      request: FastifyRequest<{ Params: GetProfileParams; Body: UpdateEmbeddingProfileInput }>,
+      request: FastifyRequest<{ Params: GetProfileParams; Body: UpdateEmbeddingProfileBody }>,
       reply: FastifyReply
     ) => {
       try {
         const { id } = request.params;
-        const input = request.body;
+        const parseResult = UpdateEmbeddingProfileSchema.safeParse(request.body);
+        if (!parseResult.success) {
+          return reply.status(400).send({
+            error: 'Invalid request body',
+            details: parseResult.error.issues,
+          });
+        }
+
+        const input = parseResult.data;
 
         const profile = await profileService.updateProfile(id, input);
         return reply.send(profile);

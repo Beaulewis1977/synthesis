@@ -198,7 +198,7 @@ export function validateProfileInput(
   }
 
   if ('provider' in input && input.provider) {
-    const validProviders = ['ollama', 'openai', 'voyage', 'google', 'bge'];
+    const validProviders = ['ollama', 'openai', 'voyage'];
     if (!validProviders.includes(input.provider)) {
       errors.push(`Invalid provider. Must be one of: ${validProviders.join(', ')}`);
     }

@@ -260,6 +260,14 @@ export class EmbeddingProfileService {
       }
     }
 
+    // Validate chunk overlap against effective chunk size when updating
+    if (input.chunkOverlap !== undefined) {
+      const effectiveChunkSize = input.chunkSize ?? existing.chunkSize;
+      if (input.chunkOverlap >= effectiveChunkSize) {
+        throw new Error('Invalid profile input: Chunk overlap must be less than chunk size');
+      }
+    }
+
     // Validate input
     const errors = validateProfileInput(input);
     if (errors.length > 0) {

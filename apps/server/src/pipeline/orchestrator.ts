@@ -118,9 +118,9 @@ export async function ingestDocument(
       // Use simple text chunking with profile settings
       // Phase 5: Apply profile chunk size and overlap
       const chunkOptions: ChunkOptions = {
+        ...options.chunk,
         maxSize: options.chunk?.maxSize ?? profile.chunkSize,
         overlap: options.chunk?.overlap ?? profile.chunkOverlap,
-        ...options.chunk,
       };
       chunks = chunkText(extraction.text, chunkOptions, {
         ...extraction.metadata,
@@ -168,9 +168,8 @@ export async function ingestDocument(
 
     await updateDocumentStatus(documentId, 'embedding');
     // Phase 5: Use profile's provider/model for embedding
-    // Cast provider to EmbeddingProvider type (validated by profile service)
     const profileEmbedOptions: EmbedOptions = {
-      provider: embeddingProvider as EmbedOptions['provider'],
+      provider: embeddingConfig.provider,
       model: embeddingModel,
     };
     const embedResults = await embedBatch(
