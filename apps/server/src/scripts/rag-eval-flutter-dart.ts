@@ -16,6 +16,20 @@ interface EvalConfig {
   queries: EvalQuery[];
 }
 
+interface ModeResult {
+  results: unknown[];
+  metadata?: unknown;
+}
+
+interface QueryEvalResult {
+  queryId: number;
+  query: string;
+  vector?: ModeResult;
+  bm25?: { results: unknown[] };
+  hybrid?: ModeResult;
+  hybrid_rerank?: ModeResult;
+}
+
 async function loadConfig(): Promise<EvalConfig> {
   const configPath = resolve(process.cwd(), 'perf/rag_eval_flutter_dart.json');
   const raw = await readFile(configPath, 'utf8');
@@ -26,10 +40,10 @@ async function main(): Promise<void> {
   const config = await loadConfig();
   const pool = getPool();
 
-  const allResults: unknown[] = [];
+  const allResults: QueryEvalResult[] = [];
 
   for (const query of config.queries) {
-    const entry: Record<string, unknown> = {
+    const entry: QueryEvalResult = {
       queryId: query.id,
       query: query.text,
     };
@@ -96,8 +110,8 @@ async function main(): Promise<void> {
   console.info(`Wrote Flutter/Dart eval results to ${outPath}`);
 }
 
-main().catch((err) => {
-  // eslint-disable-next-line no-console
-  console.error('RAG Flutter/Dart eval harness failed', err);
+main().catch((err: unknown) => {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`RAG Flutter/Dart eval harness failed: ${message}`, err);
   process.exitCode = 1;
 });

@@ -64,16 +64,16 @@ async function loadLatestResults(pathArg?: string): Promise<QueryEvalEntry[]> {
   return JSON.parse(raw) as QueryEvalEntry[];
 }
 
-function extractTopDocTitle(bucket?: ModeBucket): string {
+function extractTopDocTitle(bucket?: ModeBucket): string | null {
   const top = bucket?.results?.[0];
-  if (!top) return '';
-  const title =
-    (typeof top.docTitle === 'string' && top.docTitle.length > 0
-      ? top.docTitle
-      : typeof top.doc_title === 'string'
-        ? top.doc_title
-        : null) ?? '';
-  return title;
+  if (!top) return null;
+  if (typeof top.docTitle === 'string' && top.docTitle.length > 0) {
+    return top.docTitle;
+  }
+  if (typeof top.doc_title === 'string' && top.doc_title.length > 0) {
+    return top.doc_title;
+  }
+  return null;
 }
 
 function extractTopText(bucket?: ModeBucket): string {
@@ -115,7 +115,7 @@ function buildMarkdown(entries: QueryEvalEntry[]): string {
         continue;
       }
 
-      const title = extractTopDocTitle(bucket).replace(/\|/g, '\\|');
+      const title = (extractTopDocTitle(bucket) ?? '').replace(/\|/g, '\\|');
       const text = extractTopText(bucket);
       const flag = containsExpectedSnippet(entry.queryId, text);
 
@@ -141,8 +141,8 @@ async function main(): Promise<void> {
   console.info(`Wrote Flutter/Dart eval summary to ${outPath}`);
 }
 
-main().catch((err) => {
-  // eslint-disable-next-line no-console
-  console.error('Failed to generate Flutter/Dart eval summary', err);
+main().catch((err: unknown) => {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`Failed to generate Flutter/Dart eval summary: ${message}`, err);
   process.exitCode = 1;
 });

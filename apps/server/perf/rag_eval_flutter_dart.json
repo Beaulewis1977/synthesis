@@ -1,4 +1,5 @@
 {
+  "$comment": "The collectionId below is a placeholder/test UUID. Update this value to match the actual collection ID in your target environment.",
   "collectionId": "00000000-0000-0000-0000-000000000002",
   "topK": 10,
   "modes": ["vector", "bm25", "hybrid", "hybrid_rerank"],

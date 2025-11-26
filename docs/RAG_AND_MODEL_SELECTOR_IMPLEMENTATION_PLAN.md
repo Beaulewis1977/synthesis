@@ -1,6 +1,6 @@
 # RAG & Model Selector Implementation Plan
 
-**Version:** 1.0 | **Created:** November 25, 2025
+**Version:** 1.0 | **Created:** November 2025
 
 **Source Documents:** `RAG_SYSTEM_ANALYSIS_REPORT_GPT.MD`, `docs/MODEL_SELECTOR_BUILD_PLAN.md`
 
@@ -95,6 +95,8 @@ gh pr create --base develop --title "Phase X: Description"
 | `apps/server/src/pipeline/store.ts` | MODIFY - accurate token counts |
 
 ### 4.3 Token Limits
+
+> **Note:** These token limits should be kept in sync with provider documentation and may need updates as providers change their APIs.
 
 ```typescript
 const LIMITS = {

@@ -74,7 +74,8 @@ For each of the following features, the user can view and change the active conf
 ### 2.5 Multi-model embeddings & chunking profiles
 
 - The model selector must support **multiple embedding models** per use-case (docs, code, writing) with clear trade-offs:
-  - Dimensions, provider, and approximate cost characteristics (referencing up-to-date provider docs rather than hard-coding prices). We still need to add explicit pricing metadata for all supported models (e.g. Anthropic Claude variants, OpenAI `gpt-5-nano`, `gpt-5-mini`, `text-embedding-3-small`, Google Gemini `gemini-2.5-flash`, `text-embedding-004`, local Ollama models like `gpt-oss-20b`, and BGE models like `bge-m3`), as a follow-up task, using provider docs as the source of truth.
+  - Dimensions, provider, and approximate cost characteristics (referencing up-to-date provider docs rather than hard-coding prices).
+  - We still need to add explicit pricing metadata for all supported models (e.g. Anthropic Claude variants, OpenAI `gpt-5-nano`, `gpt-5-mini`, `text-embedding-3-small`, Google Gemini `gemini-2.5-flash`, `text-embedding-004`, local Ollama models like `gpt-oss-20b`, and BGE models like `bge-m3`) as a follow-up task, using provider docs as the source of truth.
   - Per-collection defaults (e.g. Flutter/Dart vs Node/TS vs Supabase/Postgres collections).
 - Users should be able to choose **embedding profiles** that bundle together:
   - Embedding model choice.
