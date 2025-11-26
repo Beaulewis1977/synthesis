@@ -415,7 +415,8 @@ export function inferChunkMetadata(
   const endOffset = Math.max(rawEndOffset, startOffset);
 
   // Infer language if not provided
-  const inferredLanguage = inferLanguageFromPath(context.filePath || '');
+  const pathToUse = partialMetadata.file_path || context.filePath || '';
+  const inferredLanguage = inferLanguageFromPath(pathToUse);
 
   return {
     ...partialMetadata,

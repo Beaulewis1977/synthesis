@@ -445,6 +445,23 @@ describe('metadata-validator', () => {
       expect(result.startOffset).toBe(100);
       expect(result.endOffset).toBe(100);
     });
+
+    it('prefers partialMetadata.file_path when inferring language', () => {
+      const result = inferChunkMetadata(
+        {
+          file_path: 'src/app.ts',
+        },
+        {
+          filePath: 'migrations/001.sql',
+          content: 'const x = 1;',
+          startOffset: 0,
+          endOffset: 12,
+        }
+      );
+
+      expect(result.language).toBe('typescript');
+      expect(result.file_path).toBe('src/app.ts');
+    });
   });
 
   describe('hasRequiredDocumentMetadata', () => {
