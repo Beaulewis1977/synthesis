@@ -7,8 +7,13 @@ import {
   updateDocumentStatus,
 } from '@synthesis/db';
 import type { DocumentMetadata } from '@synthesis/shared';
-import { type ContentContext, deriveContextFromMetadata } from '../services/embedding-router.js';
+import {
+  type ContentContext,
+  deriveContextFromMetadata,
+  getProviderConfig,
+} from '../services/embedding-router.js';
 import { buildMetadata } from '../services/metadata-builder.js';
+import { validateAndSplitChunks } from './chunk-splitter.js';
 import type { Chunk, ChunkOptions } from './chunk.js';
 import { chunkText } from './chunk.js';
 import { chunkCodeFile } from './code-chunker.js';
@@ -120,13 +125,33 @@ export async function ingestDocument(
     const baseMetadata = (document.metadata ?? {}) as DocumentMetadata;
     const contentContext = inferContentContext(document, baseMetadata);
 
-    await updateDocumentStatus(documentId, 'embedding');
-    const embedResults = await embedBatch(
-      chunks.map((chunk) => chunk.text),
-      mergeEmbedOptions(options.embed, contentContext, chunks.length)
+    // Validate and split chunks that exceed token limits
+    const embeddingConfig = getProviderConfig(
+      options.embed?.provider ?? (contentContext.type === 'code' ? 'voyage' : 'ollama')
+    );
+    const validatedChunks = validateAndSplitChunks(
+      chunks,
+      embeddingConfig.provider,
+      embeddingConfig.model
     );
 
-    const decoratedChunks = decorateChunksWithEmbeddingMetadata(chunks, embedResults);
+    if (validatedChunks.splitCount > 0) {
+      console.info(
+        `[Ingest] Document ${documentId}: ${validatedChunks.splitCount} chunks were split due to token limits, ` +
+          `${validatedChunks.newChunksCreated} new chunks created`
+      );
+    }
+
+    // Use validated chunks for embedding
+    const chunksToEmbed: Chunk[] = validatedChunks.chunks;
+
+    await updateDocumentStatus(documentId, 'embedding');
+    const embedResults = await embedBatch(
+      chunksToEmbed.map((chunk) => chunk.text),
+      mergeEmbedOptions(options.embed, contentContext, chunksToEmbed.length)
+    );
+
+    const decoratedChunks = decorateChunksWithEmbeddingMetadata(chunksToEmbed, embedResults);
     const firstResult = embedResults[0];
 
     await storeChunks(

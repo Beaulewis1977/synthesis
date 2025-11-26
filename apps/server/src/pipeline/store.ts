@@ -1,5 +1,6 @@
 import { deleteDocumentChunks, upsertChunk, withTransaction } from '@synthesis/db';
 import type { Chunk } from './chunk.js';
+import { estimateTokens } from './token-estimator.js';
 
 const DEFAULT_MAX_CONCURRENT_UPSERTS = 10;
 
@@ -12,10 +13,6 @@ export interface StoreChunksOptions {
   embeddingDimensions?: number;
   /** Optional cap on concurrent upsert operations; defaults to 10 when invalid or unspecified. */
   maxConcurrentUpserts?: number;
-}
-
-function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
 }
 
 export async function storeChunks(
@@ -87,6 +84,12 @@ export async function storeChunks(
         const embedding = embeddings[currentIndex];
         const metadata = { ...chunk.metadata };
 
+        const parentChunkId =
+          typeof metadata.parent_chunk_id === 'string' ? metadata.parent_chunk_id : null;
+        const splitIndex = typeof metadata.split_index === 'number' ? metadata.split_index : null;
+        const totalSplits =
+          typeof metadata.total_splits === 'number' ? metadata.total_splits : null;
+
         if (embedding) {
           const resolvedModel =
             (typeof metadata.embedding_model === 'string' && metadata.embedding_model.length > 0
@@ -123,6 +126,9 @@ export async function storeChunks(
                 embedding && typeof metadata.embedding_model === 'string'
                   ? metadata.embedding_model
                   : undefined,
+              parent_chunk_id: parentChunkId,
+              split_index: splitIndex,
+              total_splits: totalSplits,
               metadata,
             },
             client

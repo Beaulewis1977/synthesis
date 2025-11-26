@@ -47,6 +47,9 @@ export interface Chunk {
   token_count: number | null;
   embedding: number[] | null;
   embedding_model: string | null;
+  parent_chunk_id: string | null;
+  split_index: number | null;
+  total_splits: number | null;
   // biome-ignore lint/suspicious/noExplicitAny: Metadata can be any shape
   metadata: Record<string, any>;
   created_at: Date;
@@ -317,6 +320,9 @@ export async function upsertChunk(
     token_count?: number;
     embedding?: number[];
     embedding_model?: string;
+    parent_chunk_id?: string | null;
+    split_index?: number | null;
+    total_splits?: number | null;
     // biome-ignore lint/suspicious/noExplicitAny: Metadata can be any shape
     metadata?: Record<string, any>;
   },
@@ -324,15 +330,18 @@ export async function upsertChunk(
 ): Promise<Chunk> {
   const queryFn = client ? client.query.bind(client) : query;
   const result = await queryFn(
-    `INSERT INTO chunks (doc_id, chunk_index, text, token_count, embedding, embedding_model, metadata)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO chunks (doc_id, chunk_index, text, token_count, embedding, embedding_model, metadata, parent_chunk_id, split_index, total_splits)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      ON CONFLICT (doc_id, chunk_index)
      DO UPDATE SET
        text = EXCLUDED.text,
        token_count = EXCLUDED.token_count,
        embedding = EXCLUDED.embedding,
        embedding_model = EXCLUDED.embedding_model,
-       metadata = EXCLUDED.metadata
+       metadata = EXCLUDED.metadata,
+       parent_chunk_id = EXCLUDED.parent_chunk_id,
+       split_index = EXCLUDED.split_index,
+       total_splits = EXCLUDED.total_splits
      RETURNING *`,
     [
       chunk.doc_id,
@@ -342,6 +351,9 @@ export async function upsertChunk(
       chunk.embedding ? `[${chunk.embedding.join(',')}]` : null,
       chunk.embedding_model ?? null,
       JSON.stringify(chunk.metadata || {}),
+      chunk.parent_chunk_id ?? null,
+      chunk.split_index ?? null,
+      chunk.total_splits ?? null,
     ]
   );
   return result.rows[0] as Chunk;
