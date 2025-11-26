@@ -18,9 +18,17 @@ import type { Pool } from 'pg';
 // Minimum key length for security (16 bytes = 128 bits)
 const MIN_KEY_LENGTH = 16;
 
+// HKDF parameters (salt/info are not secret but should be consistent across environments)
+const HKDF_SALT = process.env.API_KEY_ENCRYPTION_SALT ?? 'synthesis-api-key-encryption-salt';
+const HKDF_INFO = process.env.API_KEY_ENCRYPTION_INFO ?? 'synthesis-api-key-encryption-info';
+
 /**
  * Get and validate encryption key from environment.
  * Throws an error if the key is missing or too short.
+ *
+ * The value of API_KEY_ENCRYPTION_KEY is used as input keying material (IKM)
+ * for HKDF-SHA256, combined with a configurable salt/info, to derive the
+ * 32-byte AES-256-GCM key used for encrypting API keys.
  */
 function getEncryptionKey(): Buffer {
   const keyEnv = process.env.API_KEY_ENCRYPTION_KEY;
@@ -32,22 +40,24 @@ function getEncryptionKey(): Buffer {
     );
   }
 
-  // Support both hex-encoded (64 chars = 32 bytes) and raw keys
-  const key = keyEnv.length === 64 ? Buffer.from(keyEnv, 'hex') : Buffer.from(keyEnv);
+  // Support both hex-encoded (64 chars = 32 bytes) and raw keys as input keying material
+  const ikm = keyEnv.length === 64 ? Buffer.from(keyEnv, 'hex') : Buffer.from(keyEnv);
 
-  if (key.length < MIN_KEY_LENGTH) {
+  if (ikm.length < MIN_KEY_LENGTH) {
     throw new Error(
       `API_KEY_ENCRYPTION_KEY must be at least ${MIN_KEY_LENGTH} bytes. ` +
-        `Current key is ${key.length} bytes. Generate a secure key with: openssl rand -hex 32`
+        `Current key is ${ikm.length} bytes. Generate a secure key with: openssl rand -hex 32`
     );
   }
 
-  if (key.length === 32) {
-    return key;
-  }
+  const salt = Buffer.from(HKDF_SALT, 'utf8');
+  const info = Buffer.from(HKDF_INFO, 'utf8');
 
-  // Derive a 32-byte key using SHA-256 if not exactly 32 bytes
-  return crypto.createHash('sha256').update(key).digest();
+  // Derive a stable 32-byte key using HKDF-SHA256.
+  const derived = crypto.hkdfSync('sha256', ikm, salt, info, 32);
+  // hkdfSync may be typed as returning ArrayBuffer in some environments; Buffer.from
+  // accepts ArrayBuffer and produces a Node.js Buffer suitable for AES-256-GCM.
+  return Buffer.from(derived as ArrayBuffer);
 }
 
 /**

@@ -235,7 +235,7 @@ curl http://localhost:11434/api/tags
 cp .env.example .env
 ```
 
-**.env file:**
+**.env file (core subset):**
 ```bash
 # Database
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/synthesis
@@ -257,7 +257,49 @@ USE_LOCAL_LLM=false  # false = Claude, true = Ollama
 SERVER_PORT=3333
 WEB_PORT=5173
 NODE_ENV=development
+```
 
+#### API_KEY_ENCRYPTION_KEY (required)
+
+- **Purpose**: Master key for encrypting provider API keys at rest using **AES-256-GCM**.
+- **Format**: 32-byte hex string (64 hex characters).
+- **Generate** (recommended):
+
+  ```bash
+  # Generate a 32-byte (256-bit) hex key
+  openssl rand -hex 32
+  ```
+
+- **Usage**:
+  - Set this in your root `.env` (or secret manager) **before first deployment**.
+  - Required in all environments that use the Model Selector / API Key Admin UI.
+  - Must also be configured in CI/CD secrets so migrations and tests that touch
+    API keys can run.
+
+- **Security**:
+  - Treat this like any other high-value secret (similar to database password).
+  - **Do NOT commit** the value to git or check it into any repo.
+  - The server will **fail fast on startup** if `API_KEY_ENCRYPTION_KEY` is
+    missing or too short, to avoid accidentally running with weak encryption.
+
+- **How it is used internally**:
+  - The value of `API_KEY_ENCRYPTION_KEY` is used as input keying material for
+    an **HKDF-SHA256** derivation, combined with a configurable salt/info, to
+    produce a 32-byte AES key.
+  - Optional overrides:
+    - `API_KEY_ENCRYPTION_SALT` — HKDF salt (non-secret, must be consistent
+      across environments that need to decrypt the same data).
+    - `API_KEY_ENCRYPTION_INFO` — HKDF info string used for domain separation.
+  - By keeping the key + salt/info stable, encryption remains reproducible and
+    secure across deployments.
+
+Example `.env` entry:
+
+```bash
+API_KEY_ENCRYPTION_KEY=your-32-byte-hex-key-here
+```
+
+```bash
 # Storage
 STORAGE_PATH=./storage
 
