@@ -25,8 +25,8 @@ This feature should be implemented **after current testing** stabilizes the defa
 For each of the following features, the user can view and change the active configuration via UI:
 
 - **Chat / Agent**
-  - Provider: Anthropic | Ollama (future) | (optionally others later)
-  - Model: e.g. `claude-3-5-haiku-20241022`, `claude-3-opus-20240229`, etc.
+  - Provider: Anthropic | Ollama (future) | OpenAI | Google (Gemini) | (optionally others later)
+  - Model: e.g. `claude-3-5-haiku-20241022`, `claude-3-opus-20240229`, `claude-haiku-4-5-20251001`, `claude-3-7-sonnet-20250219`, `gpt-oss-20b` (Ollama), `gpt-5-nano`, `gpt-5-mini`, `gemini-2.5-flash`, etc.
 
 - **Document Summarization Tool**
   - Provider: Anthropic (initially)
@@ -41,9 +41,10 @@ For each of the following features, the user can view and change the active conf
   - Model: `VISION_OCR_MODEL` compatible models (starting with `claude-3-5-haiku-20241022`).
 
 - **Embeddings**
-  - Docs/general: provider + model (currently `DOC_EMBEDDING_PROVIDER` → Ollama/OpenAI/Voyage).
-  - Code: provider + model (currently `CODE_EMBEDDING_PROVIDER` → typically Voyage).
-  - Writing/personal: provider + model (currently `WRITING_EMBEDDING_PROVIDER` → typically OpenAI).
+  - Docs/general: provider + model (currently `DOC_EMBEDDING_PROVIDER` → Ollama/OpenAI/Voyage), with planned support for local `bge-m3` and cloud embeddings like `text-embedding-004` (Gemini) and `text-embedding-3-small` (OpenAI).
+  - Code: provider + model (currently `CODE_EMBEDDING_PROVIDER` → typically Voyage), with an option to use `bge-m3` as a local high-quality embedding model.
+  - Writing/personal: provider + model (currently `WRITING_EMBEDDING_PROVIDER` → typically OpenAI), including small/cheap options like `text-embedding-3-small`.
+  - Embedding profiles: user-selectable presets (e.g. *fast/cheap*, *balanced*, *high-accuracy*) that map to specific provider/model/dimension choices and chunking strategies.
 
 - **Search Reranker**
   - Provider: `none` | `bge` (local) | `cohere` (cloud).
@@ -69,6 +70,45 @@ For each of the following features, the user can view and change the active conf
 - Initial scope: **global configuration only** (one set of settings for the whole deployment).
 - Future scope (out-of-scope but design-aware): per-collection or per-user model overrides.
 - No secrets (API keys) are ever stored in DB or visible in the UI; only provider/model choices.
+
+### 2.5 Multi-model embeddings & chunking profiles
+
+- The model selector must support **multiple embedding models** per use-case (docs, code, writing) with clear trade-offs:
+  - Dimensions, provider, and approximate cost characteristics (referencing up-to-date provider docs rather than hard-coding prices).
+  - We still need to add explicit pricing metadata for all supported models (e.g. Anthropic Claude variants, OpenAI `gpt-5-nano`, `gpt-5-mini`, `text-embedding-3-small`, Google Gemini `gemini-2.5-flash`, `text-embedding-004`, local Ollama models like `gpt-oss-20b`, and BGE models like `bge-m3`) as a follow-up task, using provider docs as the source of truth.
+  - Per-collection defaults (e.g. Flutter/Dart vs Node/TS vs Supabase/Postgres collections).
+- Users should be able to choose **embedding profiles** that bundle together:
+  - Embedding model choice.
+  - Chunk size/overlap parameters.
+  - Any language- or stack-specific chunking heuristics (e.g. code-aware vs plain text).
+- These profiles should be stored in config so agents and ingestion pipelines can apply them consistently when embedding/re-embedding documents.
+
+### 2.6 Document & chunk metadata guarantees
+
+- Every **document** must have high-level metadata, including at least:
+  - Collection and source (e.g. Flutter official docs, Supabase docs, GitHub repo URL).
+  - Language(s) and frameworks (e.g. `dart`, `typescript`, `sql`, `supabase`, `postgres`, `redis`, `firebase`).
+  - Version or release tags where applicable (e.g. Flutter 3.24.5, Supabase 2.46.1, Postgres 16.4).
+  - Ingestion timestamps and, for repos, commit/branch information.
+- Every **chunk** must have metadata that makes it usable for code intelligence:
+  - Document ID, file path, language, and chunk type (code/text/sql/config).
+  - Symbol-level info where available (e.g. class/function name, table name, route path).
+  - Line ranges and character offsets for reliable linking back into source.
+- The model selector + ingestion configuration should treat these metadata guarantees as **hard requirements**, so that embeddings and chunking strategies cannot be selected without preserving or enriching metadata.
+
+### 2.7 Collection lifecycle & versioning requirements
+
+- Collections must support:
+  - **Delete and batch delete** operations that cascade to documents, chunks, embeddings, relationships, and any derived indexes.
+  - Safe-guarded UX (confirmation dialogs, counts of impacted documents/chunks).
+- Document and repo **versioning** must be modeled explicitly:
+  - Official docs (e.g. Flutter/Dart, Supabase, Redis, Postgres):
+    - Store doc-level version metadata (e.g. `framework_version`, `doc_version`).
+    - Support ingesting a new version and marking older docs as archived or superseded, with an option to fully remove them from search.
+  - Repos:
+    - Track `repo_url`, branch, and `commit_sha` per ingest run.
+    - Allow collections to be refreshed at a new commit while keeping a history of previous ingests if desired.
+- The UI and APIs should allow filtering documents by version and seeing which versions are currently active in each collection.
 
 ---
 

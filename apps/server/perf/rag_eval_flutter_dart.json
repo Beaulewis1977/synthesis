@@ -1,0 +1,34 @@
+{
+  "$comment": "The collectionId below is a placeholder/test UUID. Update this value to match the actual collection ID in your target environment.",
+  "collectionId": "00000000-0000-0000-0000-000000000002",
+  "topK": 10,
+  "modes": ["vector", "bm25", "hybrid", "hybrid_rerank"],
+  "queries": [
+    {
+      "id": 1,
+      "text": "What is the difference between stateless and stateful widgets in Flutter?"
+    },
+    { "id": 2, "text": "How do you manage state in a Flutter application using Provider?" },
+    {
+      "id": 3,
+      "text": "Explain the widget lifecycle in Flutter (create, build, update, dispose)."
+    },
+    { "id": 4, "text": "What are the key differences between const and final in Dart?" },
+    { "id": 5, "text": "How do you implement navigation between screens in Flutter?" },
+    { "id": 6, "text": "What is the purpose of the BuildContext in Flutter?" },
+    { "id": 7, "text": "Explain the concept of async/await in Dart and provide an example." },
+    { "id": 8, "text": "How do you handle error cases in Dart using try-catch blocks?" },
+    { "id": 9, "text": "What is the difference between == and equals() in Dart?" },
+    { "id": 10, "text": "How do you create custom widgets in Flutter?" },
+    { "id": 11, "text": "Explain the concept of inheritance in Dart with an example." },
+    { "id": 12, "text": "What are Flutter packages, and how do you add them to a project?" },
+    { "id": 13, "text": "How do you perform HTTP requests in a Flutter application?" },
+    { "id": 14, "text": "What is the purpose of the key parameter in Flutter widgets?" },
+    { "id": 15, "text": "Explain the difference between ListView and ListView.builder()." },
+    { "id": 16, "text": "How do you implement responsive design in Flutter?" },
+    { "id": 17, "text": "What are mixins in Dart, and how are they used?" },
+    { "id": 18, "text": "How do you handle platform-specific code in Flutter?" },
+    { "id": 19, "text": "Explain the concept of stream programming in Dart." },
+    { "id": 20, "text": "What are the different types of constructors in Dart?" }
+  ]
+}
