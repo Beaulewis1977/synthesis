@@ -40,7 +40,24 @@ function getTokenizerEncode(): TokenEncoder | null {
         if (typeof length === 'number' && Number.isFinite(length) && length >= 0) {
           return length;
         }
-        return 0;
+
+        const tokenSample =
+          Array.isArray(tokens) || tokens instanceof Uint32Array
+            ? Array.from(tokens as number[] | Uint32Array).slice(0, 16)
+            : tokens;
+        const textSample = text.length > 200 ? `${text.slice(0, 200)}…` : text;
+
+        console.warn(
+          '[TokenEstimator] gpt-tokenizer returned invalid token result, falling back to simple estimation',
+          {
+            tokenType: typeof tokens,
+            tokenLength: (tokens as { length?: unknown }).length,
+            tokenSample,
+            textSample,
+          }
+        );
+
+        return Math.ceil(text.length / CHARS_PER_TOKEN);
       };
     } else {
       tokenizerEncode = null;
