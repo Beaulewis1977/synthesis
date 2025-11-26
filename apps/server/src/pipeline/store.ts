@@ -1,5 +1,6 @@
 import { deleteDocumentChunks, upsertChunk, withTransaction } from '@synthesis/db';
 import type { Chunk } from './chunk.js';
+import { estimateTokens } from './token-estimator.js';
 
 const DEFAULT_MAX_CONCURRENT_UPSERTS = 10;
 
@@ -12,10 +13,6 @@ export interface StoreChunksOptions {
   embeddingDimensions?: number;
   /** Optional cap on concurrent upsert operations; defaults to 10 when invalid or unspecified. */
   maxConcurrentUpserts?: number;
-}
-
-function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
 }
 
 export async function storeChunks(
