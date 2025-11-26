@@ -158,9 +158,9 @@ function detectQueryType(query: string): 'natural_language' | 'code_symbol' | 'p
 **Problem:** Inconsistent metadata breaks filtering, versioning, and MODEL_SELECTOR.
 
 ### 6.1 Deliverables
-- [ ] Metadata validation functions
-- [ ] Required fields enforcement
-- [ ] DB migration for new columns
+- [x] Metadata validation functions
+- [x] Required fields enforcement
+- [x] DB migration for new columns
 
 ### 6.2 Required Fields
 
@@ -206,10 +206,10 @@ interface RequiredChunkMetadata {
 **Problem:** Model selection scattered across env vars and hard-coded values.
 
 ### 7.1 Deliverables
-- [ ] `model_configs` DB table
-- [ ] `ModelConfigService` (env → DB → default precedence)
-- [ ] Admin API: `GET/PUT /api/admin/models`
-- [ ] Wire all backend features to use service
+- [x] `model_configs` DB table
+- [x] `ModelConfigService` (env → DB → default precedence)
+- [x] Admin API: `GET/PUT /api/admin/models`
+- [x] Wire all backend features to use service
 
 ### 7.2 Database Schema
 
@@ -255,10 +255,10 @@ class ModelConfigService {
 **Problem:** No way to configure chunking + embedding per collection.
 
 ### 8.1 Deliverables
-- [ ] Profile presets: *fast/cheap*, *balanced*, *high-accuracy*
-- [ ] `embedding_profiles` DB table
-- [ ] Per-collection profile override
-- [ ] Integration with token chunking
+- [x] Profile presets: *fast/cheap*, *balanced*, *high-accuracy*
+- [x] `embedding_profiles` DB table
+- [x] Per-collection profile override
+- [x] Integration with token chunking
 
 ### 8.2 Profile Presets
 
@@ -272,9 +272,18 @@ class ModelConfigService {
 
 | File | Action |
 |------|--------|
-| `packages/db/migrations/XXX_profiles.sql` | **CREATE** |
-| `apps/server/src/services/embedding-profile.ts` | **CREATE** |
-| `apps/server/src/pipeline/orchestrator.ts` | MODIFY - use profiles |
+| `packages/db/migrations/019_embedding_profiles.sql` | **CREATED** |
+| `packages/shared/src/embedding-profiles.ts` | **CREATED** |
+| `apps/server/src/services/embedding-profile-service.ts` | **CREATED** |
+| `apps/server/src/routes/admin/profiles.ts` | **CREATED** |
+| `apps/server/src/pipeline/orchestrator.ts` | MODIFIED - uses profiles |
+
+### 8.4 Acceptance Criteria
+- [x] 3 system profiles seeded on migration
+- [x] Collections can have a profile assigned
+- [x] Profile settings applied during ingestion
+- [x] Admin API for CRUD operations
+- [x] System profiles cannot be deleted
 
 ---
 
