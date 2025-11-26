@@ -22,6 +22,10 @@ const MIN_KEY_LENGTH = 16;
 const HKDF_SALT = process.env.API_KEY_ENCRYPTION_SALT ?? 'synthesis-api-key-encryption-salt';
 const HKDF_INFO = process.env.API_KEY_ENCRYPTION_INFO ?? 'synthesis-api-key-encryption-info';
 
+// Anthropic model used for API key validation. Configurable so updates are easy.
+const ANTHROPIC_TEST_MODEL =
+  process.env.ANTHROPIC_TEST_MODEL || 'claude-3-5-haiku-20241022';
+
 /**
  * Get and validate encryption key from environment.
  * Throws an error if the key is missing or too short.
@@ -143,10 +147,19 @@ export class ApiKeyService {
     const statuses: ApiKeyStatus[] = [];
 
     // Get stored keys from database
-    const result = await this.db.query<{ provider: string; encrypted_key: string }>(
-      'SELECT provider, encrypted_key FROM provider_api_keys'
-    );
-    const storedKeys = new Map(result.rows.map((r) => [r.provider, r.encrypted_key]));
+    let storedKeys: Map<string, string> = new Map();
+    try {
+      const result = await this.db.query<{ provider: string; encrypted_key: string }>(
+        'SELECT provider, encrypted_key FROM provider_api_keys'
+      );
+      storedKeys = new Map(result.rows.map((r) => [r.provider, r.encrypted_key]));
+    } catch (error) {
+      // If the DB is unavailable or the table is missing, log and fall back to treating
+      // all providers as having no stored keys so the UI can still render statuses.
+      // eslint-disable-next-line no-console
+      console.error('Failed to load stored API keys from database', error);
+      storedKeys = new Map();
+    }
 
     // Check each provider that requires an API key
     for (const [provider, info] of Object.entries(PROVIDER_INFO)) {
@@ -305,7 +318,7 @@ export class ApiKeyService {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
+        model: ANTHROPIC_TEST_MODEL,
         max_tokens: 1,
         messages: [{ role: 'user', content: 'Hi' }],
       }),
