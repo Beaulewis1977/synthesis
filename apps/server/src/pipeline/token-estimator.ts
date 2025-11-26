@@ -78,7 +78,6 @@ const PROVIDER_TOKEN_LIMITS: Record<string, Omit<TokenLimitConfig, 'effectiveLim
   },
 
   // OpenAI models keep a 1-token buffer (8191 vs 8192) to avoid off-by-one failures from tokenizer/API quirks.
-  // OpenAI models
   'openai/text-embedding-3-large': {
     provider: 'openai',
     model: 'text-embedding-3-large',
@@ -172,7 +171,7 @@ const DEFAULT_SAFETY_MARGIN = 0.1;
  *
  * We use 3.5 as a conservative estimate.
  */
-const CHARS_PER_TOKEN = 3.5;
+export const CHARS_PER_TOKEN = 3.5;
 
 /**
  * Get the configured token estimation method.

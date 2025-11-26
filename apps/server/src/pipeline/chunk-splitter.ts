@@ -10,6 +10,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Chunk, ChunkMetadata } from './chunk.js';
 import {
+  CHARS_PER_TOKEN,
   type TokenLimitConfig,
   estimateTokens,
   getTokenLimit,
@@ -29,7 +30,7 @@ export interface SplitChunk extends Chunk {
     total_splits?: number;
     /** Whether this chunk was created by splitting */
     is_split?: boolean;
-    /** Original chunk ID before splitting */
+    /** Stable identifier for the original unsplit chunk/group across re-splits */
     original_chunk_id?: string;
   };
 }
@@ -107,11 +108,16 @@ export function splitOversizedChunk(chunk: Chunk, options: SplitOptions = {}): S
   };
 
   const text = chunk.text;
-  const parentId = randomUUID();
+  const existingOriginalId =
+    typeof chunk.metadata.original_chunk_id === 'string'
+      ? chunk.metadata.original_chunk_id
+      : undefined;
+
+  const parentId = existingOriginalId ?? randomUUID();
 
   // Calculate target size in characters based on token limit
   // Use a conservative ratio to ensure we stay under the limit
-  const targetChars = Math.floor(config.maxTokens * 3.5);
+  const targetChars = Math.floor(config.maxTokens * CHARS_PER_TOKEN);
 
   if (text.length <= targetChars) {
     // No split needed
@@ -198,12 +204,9 @@ export function findSemanticBoundary(text: string, start: number, targetEnd: num
   const searchText = text.slice(searchStart, targetEnd);
 
   // Priority 1: Paragraph break (double newline)
-  const paragraphMatch = searchText.match(/\n\n[^\n]/g);
-  if (paragraphMatch) {
-    const lastMatch = searchText.lastIndexOf('\n\n');
-    if (lastMatch !== -1) {
-      return searchStart + lastMatch + 2; // After the double newline
-    }
+  const lastParagraphBreak = searchText.lastIndexOf('\n\n');
+  if (lastParagraphBreak !== -1 && searchStart + lastParagraphBreak > start) {
+    return searchStart + lastParagraphBreak + 2; // After the double newline
   }
 
   // Priority 2: Sentence end (. ! ? followed by space or newline)
@@ -292,7 +295,7 @@ export function validateAndSplitChunks(
       result.newChunksCreated += splits.length - 1; // -1 because original is replaced
 
       // Log warning about the split
-      const warning = `Chunk ${chunk.index} exceeded token limit (${validation.tokenCount}/${validation.effectiveLimit}), split into ${splits.length} parts`;
+      const warning = `Chunk ${chunk.index} (original index) exceeded token limit (${validation.tokenCount}/${validation.effectiveLimit}), split into ${splits.length} parts`;
       result.warnings.push(warning);
       console.info(`[ChunkSplitter] ${warning}`);
 
@@ -330,8 +333,9 @@ export function estimateSplitCount(text: string, provider: string, model: string
   }
 
   // Account for overlap when estimating splits
-  const overlapTokens = Math.ceil(getOverlapChars() / 3.5);
-  const effectiveChunkSize = tokenLimit.effectiveLimit - overlapTokens;
+  const overlapTokens = Math.ceil(getOverlapChars() / CHARS_PER_TOKEN);
+  const rawEffectiveChunkSize = tokenLimit.effectiveLimit - overlapTokens;
+  const effectiveChunkSize = Math.max(1, rawEffectiveChunkSize);
 
   return Math.ceil(tokenCount / effectiveChunkSize);
 }
