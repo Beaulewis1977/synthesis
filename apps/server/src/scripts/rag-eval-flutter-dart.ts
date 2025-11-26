@@ -1,5 +1,4 @@
-import { writeFile } from 'node:fs/promises';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { getPool } from '@synthesis/db';
 import { bm25Search } from '../services/bm25.js';
