@@ -1,10 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Tool } from '@anthropic-ai/sdk/resources/messages.js';
-import { createDocument, getDocument, getDocumentChunks } from '@synthesis/db';
+import { createDocument, getDocument, getDocumentChunks, getPool } from '@synthesis/db';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { ingestDocument } from '../pipeline/orchestrator.js';
 import { deleteDocumentById, fetchWebContent } from '../services/documentOperations.js';
+import { getModelConfigService } from '../services/model-config-service.js';
 import { smartSearch } from '../services/search.js';
 import {
   type RemoteDownloadResult,
@@ -559,7 +560,14 @@ export function createSummarizeDocumentTool(_db: Pool): {
     },
     executor: async (args: unknown) => {
       const parsed = inputSchema.parse(args);
-      if (!process.env.ANTHROPIC_API_KEY) {
+
+      // Get summary model configuration
+      const db = getPool();
+      const modelConfigService = getModelConfigService(db);
+      const summaryConfig = await modelConfigService.getSummaryModelConfig();
+
+      // Validate API key for the configured provider
+      if (summaryConfig.provider === 'anthropic' && !process.env.ANTHROPIC_API_KEY) {
         return createToolResponse(
           'Summarization unavailable: ANTHROPIC_API_KEY environment variable is not set.'
         );
@@ -583,7 +591,7 @@ export function createSummarizeDocumentTool(_db: Pool): {
       });
 
       const response = await client.messages.create({
-        model: 'claude-3-5-haiku-20241022',
+        model: summaryConfig.model,
         max_tokens: 512,
         system:
           'You are a documentation assistant that summarizes technical documents concisely with key points and citations when possible.',

@@ -33,11 +33,16 @@ vi.mock('../../services/search.js', () => ({
   smartSearch: smartSearchMock,
 }));
 
+const mockPool = {
+  query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
+};
+
 vi.mock('@synthesis/db', () => ({
   __esModule: true,
   createDocument: createDocumentMock,
   getDocument: getDocumentMock,
   getDocumentChunks: getDocumentChunksMock,
+  getPool: () => mockPool,
 }));
 
 vi.mock('../../pipeline/orchestrator.js', () => ({

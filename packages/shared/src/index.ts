@@ -242,3 +242,239 @@ export interface BackendAST {
   functions: FunctionDefinition[];
   constraints: ConstraintDefinition[];
 }
+
+// =============================================================================
+// Phase 4: Model Config Service Types
+// =============================================================================
+
+/**
+ * Feature identifiers for model configuration
+ */
+export type ModelFeature =
+  | 'chat'
+  | 'summary'
+  | 'ocr'
+  | 'embedding_docs'
+  | 'embedding_code'
+  | 'embedding_writing'
+  | 'reranker'
+  | 'contradiction';
+
+/**
+ * LLM providers
+ */
+export type LLMProvider = 'anthropic' | 'openai' | 'ollama' | 'google';
+
+/**
+ * Reranker providers
+ */
+export type RerankerProvider = 'bge' | 'cohere' | 'none';
+
+/**
+ * All supported providers
+ */
+export type ModelProvider = LLMProvider | EmbeddingProvider | RerankerProvider;
+
+/**
+ * Source of the configuration (for UI display)
+ */
+export type ConfigSource = 'env' | 'db' | 'default';
+
+/**
+ * Model configuration for a feature
+ */
+export interface ModelConfig {
+  /** Feature this config applies to */
+  feature: ModelFeature;
+  /** Provider for this feature */
+  provider: string;
+  /** Model identifier (provider-specific) */
+  model: string;
+  /** Restrict to local models only */
+  localOnly: boolean;
+  /** Whether this config is enabled */
+  enabled: boolean;
+  /** Where this config came from */
+  source: ConfigSource;
+}
+
+/**
+ * Database row for model_configs table
+ */
+export interface ModelConfigRow {
+  id: string;
+  feature: ModelFeature;
+  provider: string;
+  model: string;
+  local_only: boolean;
+  enabled: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Input for updating a model config
+ */
+export interface ModelConfigUpdate {
+  provider?: string;
+  model?: string;
+  localOnly?: boolean;
+  enabled?: boolean;
+}
+
+/**
+ * Provider metadata for UI
+ */
+export interface ProviderInfo {
+  /** Available models for this provider */
+  models: string[];
+  /** Whether this provider requires an API key */
+  requiresApiKey: boolean;
+  /** Environment variable name for API key (if required) */
+  apiKeyEnvVar?: string;
+  /** Whether this is a local provider (ollama, bge) */
+  isLocal: boolean;
+}
+
+/**
+ * Response from GET /api/admin/models
+ */
+export interface ModelConfigResponse {
+  /** All feature configurations */
+  configs: ModelConfig[];
+  /** Available providers with metadata */
+  availableProviders: Record<string, ProviderInfo>;
+}
+
+/**
+ * Default model configurations per feature
+ */
+export const DEFAULT_MODEL_CONFIGS: Record<ModelFeature, Omit<ModelConfig, 'source'>> = {
+  chat: {
+    feature: 'chat',
+    provider: 'anthropic',
+    model: 'claude-3-5-haiku-20241022',
+    localOnly: false,
+    enabled: true,
+  },
+  summary: {
+    feature: 'summary',
+    provider: 'anthropic',
+    model: 'claude-3-5-haiku-20241022',
+    localOnly: false,
+    enabled: true,
+  },
+  ocr: {
+    feature: 'ocr',
+    provider: 'anthropic',
+    model: 'claude-3-5-haiku-20241022',
+    localOnly: false,
+    enabled: true,
+  },
+  embedding_docs: {
+    feature: 'embedding_docs',
+    provider: 'ollama',
+    model: 'nomic-embed-text',
+    localOnly: false,
+    enabled: true,
+  },
+  embedding_code: {
+    feature: 'embedding_code',
+    provider: 'voyage',
+    model: 'voyage-code-2',
+    localOnly: false,
+    enabled: true,
+  },
+  embedding_writing: {
+    feature: 'embedding_writing',
+    provider: 'openai',
+    model: 'text-embedding-3-large',
+    localOnly: false,
+    enabled: true,
+  },
+  reranker: {
+    feature: 'reranker',
+    provider: 'bge',
+    model: 'BAAI/bge-reranker-base',
+    localOnly: true,
+    enabled: true,
+  },
+  contradiction: {
+    feature: 'contradiction',
+    provider: 'anthropic',
+    model: 'claude-3-5-haiku-20241022',
+    localOnly: false,
+    enabled: false,
+  },
+};
+
+/**
+ * Provider information for all supported providers
+ */
+export const PROVIDER_INFO: Record<string, ProviderInfo> = {
+  anthropic: {
+    models: ['claude-3-5-haiku-20241022', 'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'],
+    requiresApiKey: true,
+    apiKeyEnvVar: 'ANTHROPIC_API_KEY',
+    isLocal: false,
+  },
+  openai: {
+    models: [
+      'gpt-4o',
+      'gpt-4o-mini',
+      'gpt-4-turbo',
+      'text-embedding-3-large',
+      'text-embedding-3-small',
+    ],
+    requiresApiKey: true,
+    apiKeyEnvVar: 'OPENAI_API_KEY',
+    isLocal: false,
+  },
+  ollama: {
+    models: ['nomic-embed-text', 'llama3.2', 'mistral', 'codellama', 'phi3'],
+    requiresApiKey: false,
+    isLocal: true,
+  },
+  google: {
+    models: ['gemini-1.5-pro', 'gemini-1.5-flash', 'text-embedding-004'],
+    requiresApiKey: true,
+    apiKeyEnvVar: 'GOOGLE_API_KEY',
+    isLocal: false,
+  },
+  voyage: {
+    models: ['voyage-code-2', 'voyage-large-2', 'voyage-2'],
+    requiresApiKey: true,
+    apiKeyEnvVar: 'VOYAGE_API_KEY',
+    isLocal: false,
+  },
+  cohere: {
+    models: ['rerank-english-v3.0', 'rerank-multilingual-v3.0'],
+    requiresApiKey: true,
+    apiKeyEnvVar: 'COHERE_API_KEY',
+    isLocal: false,
+  },
+  bge: {
+    models: ['BAAI/bge-reranker-base', 'BAAI/bge-reranker-large'],
+    requiresApiKey: false,
+    isLocal: true,
+  },
+  none: {
+    models: [],
+    requiresApiKey: false,
+    isLocal: true,
+  },
+};
+
+/**
+ * Environment variable mappings for features
+ */
+export const FEATURE_ENV_VARS: Record<ModelFeature, { provider?: string; model?: string }> = {
+  chat: { provider: 'CHAT_PROVIDER', model: 'CHAT_MODEL' },
+  summary: { provider: 'SUMMARY_PROVIDER', model: 'SUMMARY_MODEL' },
+  ocr: { provider: 'OCR_PROVIDER', model: 'VISION_OCR_MODEL' },
+  embedding_docs: { provider: 'DOC_EMBEDDING_PROVIDER', model: 'DOC_EMBEDDING_MODEL' },
+  embedding_code: { provider: 'CODE_EMBEDDING_PROVIDER', model: 'CODE_EMBEDDING_MODEL' },
+  embedding_writing: { provider: 'WRITING_EMBEDDING_PROVIDER', model: 'WRITING_EMBEDDING_MODEL' },
+  reranker: { provider: 'RERANKER_PROVIDER', model: 'RERANKER_MODEL' },
+  contradiction: { provider: 'CONTRADICTION_PROVIDER', model: 'CONTRADICTION_MODEL' },
+};

@@ -57,8 +57,8 @@ export function Modal({
       />
 
       {/* Modal Content */}
-      <div
-        role="dialog"
+      <dialog
+        open
         aria-modal="true"
         aria-labelledby="modal-title"
         className={`relative bg-bg-primary rounded-lg shadow-xl w-full ${sizeClasses[size]} mx-4 animate-in fade-in zoom-in-95 duration-200`}
@@ -81,7 +81,7 @@ export function Modal({
 
         {/* Body */}
         <div className="p-4">{children}</div>
-      </div>
+      </dialog>
     </div>
   );
 }

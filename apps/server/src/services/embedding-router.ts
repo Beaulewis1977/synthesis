@@ -1,4 +1,6 @@
+import { getPool } from '@synthesis/db';
 import type { DocumentMetadata } from '@synthesis/shared';
+import { getModelConfigService } from './model-config-service.js';
 
 export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage';
 
@@ -42,6 +44,10 @@ export function getProviderConfig(
   return PROVIDER_CONFIGS[provider];
 }
 
+/**
+ * Select embedding provider synchronously (legacy, uses env vars)
+ * @deprecated Use selectEmbeddingProviderAsync for ModelConfigService support
+ */
 export function selectEmbeddingProvider(
   content: string,
   context?: ContentContext
@@ -59,6 +65,50 @@ export function selectEmbeddingProvider(
   }
 
   return getConfigFromEnv('DOC_EMBEDDING_PROVIDER', 'ollama');
+}
+
+/**
+ * Select embedding provider using ModelConfigService (async)
+ * This is the preferred method for new code
+ */
+export async function selectEmbeddingProviderAsync(
+  content: string,
+  context?: ContentContext
+): Promise<EmbeddingConfig> {
+  try {
+    const db = getPool();
+    const modelConfigService = getModelConfigService(db);
+
+    let configType: 'docs' | 'code' | 'writing' = 'docs';
+
+    if (context?.type === 'code') {
+      configType = 'code';
+    } else if (context?.type === 'personal' || context?.isPersonalCollection) {
+      configType = 'writing';
+    } else if (isCodeContent(content, context?.language)) {
+      configType = 'code';
+    }
+
+    const config = await modelConfigService.getEmbeddingConfig(configType);
+
+    // Map to EmbeddingConfig format
+    const provider = config.provider as EmbeddingProvider;
+    if (!isEmbeddingProvider(provider)) {
+      // Fall back to default if provider is not valid
+      return PROVIDER_CONFIGS[
+        configType === 'code' ? 'voyage' : configType === 'writing' ? 'openai' : 'ollama'
+      ];
+    }
+
+    return {
+      provider,
+      model: config.model,
+      dimensions: PROVIDER_CONFIGS[provider]?.dimensions ?? 768,
+    };
+  } catch {
+    // Fall back to synchronous method if service unavailable
+    return selectEmbeddingProvider(content, context);
+  }
 }
 
 function getConfigFromEnv(envVar: string, defaultProvider: EmbeddingProvider): EmbeddingConfig {

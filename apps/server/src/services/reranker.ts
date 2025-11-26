@@ -10,6 +10,7 @@ import {
 } from './cache/rerank-cache.js';
 import { getCostTracker } from './cost-tracker.js';
 import { observeRerankLatency } from './metrics.js';
+import { getModelConfigService } from './model-config-service.js';
 import { createSnippet } from './snippet.js';
 
 export type RerankerProvider = 'cohere' | 'bge' | 'none';
@@ -58,6 +59,10 @@ function getConfiguredProvider(): RerankerProvider {
   return parseProvider(process.env.RERANKER_PROVIDER) ?? 'none';
 }
 
+/**
+ * Select reranker provider synchronously (legacy, uses env vars)
+ * @deprecated Use selectRerankerProviderAsync for ModelConfigService support
+ */
 export function selectRerankerProvider(override?: RerankerProvider): RerankerProvider {
   const envOverride = parseProvider(process.env.RERANKER_PROVIDER_OVERRIDE);
   const provider = override ?? envOverride ?? getConfiguredProvider();
@@ -69,6 +74,51 @@ export function selectRerankerProvider(override?: RerankerProvider): RerankerPro
     (!cohereKey || cohereKey.length === 0 || cohereKey.toLowerCase() === 'undefined')
   ) {
     return FALLBACK_PROVIDER;
+  }
+
+  return provider;
+}
+
+/**
+ * Select reranker provider using ModelConfigService (async)
+ * This is the preferred method for new code
+ */
+export async function selectRerankerProviderAsync(
+  override?: RerankerProvider
+): Promise<RerankerProvider> {
+  // If override is provided, use it directly
+  if (override) {
+    return validateRerankerProvider(override);
+  }
+
+  try {
+    const db = getPool();
+    const modelConfigService = getModelConfigService(db);
+    const config = await modelConfigService.getRerankerConfig();
+
+    const provider = parseProvider(config.provider);
+    if (!provider || provider === 'none') {
+      return 'none';
+    }
+
+    return validateRerankerProvider(provider);
+  } catch {
+    // Fall back to synchronous method if service unavailable
+    return selectRerankerProvider(override);
+  }
+}
+
+/**
+ * Validate reranker provider and check API key availability
+ */
+function validateRerankerProvider(provider: RerankerProvider): RerankerProvider {
+  if (provider === 'cohere') {
+    const cohereKeyRaw = process.env.COHERE_API_KEY;
+    const cohereKey = cohereKeyRaw ? cohereKeyRaw.trim() : '';
+
+    if (!cohereKey || cohereKey.length === 0 || cohereKey.toLowerCase() === 'undefined') {
+      return FALLBACK_PROVIDER;
+    }
   }
 
   return provider;
