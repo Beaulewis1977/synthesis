@@ -410,7 +410,9 @@ export function inferChunkMetadata(
   const chunkType = partialMetadata.chunk_type || inferChunkType(context.filePath, context.content);
 
   const startOffset = partialMetadata.startOffset ?? context.startOffset ?? 0;
-  const endOffset = partialMetadata.endOffset ?? context.endOffset ?? context.content?.length ?? 0;
+  const rawEndOffset =
+    partialMetadata.endOffset ?? context.endOffset ?? context.content?.length ?? 0;
+  const endOffset = Math.max(rawEndOffset, startOffset);
 
   // Infer language if not provided
   const inferredLanguage = inferLanguageFromPath(context.filePath || '');

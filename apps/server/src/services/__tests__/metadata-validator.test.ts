@@ -430,6 +430,21 @@ describe('metadata-validator', () => {
 
       expect(result.endOffset).toBe(content.length);
     });
+
+    it('clamps endOffset to be at least startOffset when context is inconsistent', () => {
+      const result = inferChunkMetadata(
+        {},
+        {
+          filePath: 'src/app.ts',
+          content: 'const x = 1;',
+          startOffset: 100,
+          endOffset: 50,
+        }
+      );
+
+      expect(result.startOffset).toBe(100);
+      expect(result.endOffset).toBe(100);
+    });
   });
 
   describe('hasRequiredDocumentMetadata', () => {

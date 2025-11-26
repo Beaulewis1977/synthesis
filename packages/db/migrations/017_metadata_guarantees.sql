@@ -15,9 +15,9 @@ ALTER TABLE documents
 ADD COLUMN IF NOT EXISTS source_type TEXT;
 
 -- Add ingested_at timestamp for tracking when document was processed
--- Defaults to NOW() for new documents
+-- Added as nullable for existing rows; default applied after backfill
 ALTER TABLE documents 
-ADD COLUMN IF NOT EXISTS ingested_at TIMESTAMPTZ DEFAULT NOW();
+ADD COLUMN IF NOT EXISTS ingested_at TIMESTAMPTZ;
 
 -- Add languages array for storing detected programming languages
 -- Stored as TEXT[] for efficient array operations
@@ -88,6 +88,10 @@ WHERE source_type IS NULL
 UPDATE documents 
 SET ingested_at = COALESCE(processed_at, created_at)
 WHERE ingested_at IS NULL;
+
+-- Ensure new documents default ingested_at to NOW()
+ALTER TABLE documents 
+ALTER COLUMN ingested_at SET DEFAULT NOW();
 
 -- Set default chunk_type for existing chunks based on metadata
 UPDATE chunks 
