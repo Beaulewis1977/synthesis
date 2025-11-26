@@ -7,7 +7,50 @@
  * @module pipeline/token-estimator
  */
 
+import { createRequire } from 'node:module';
 import type { EmbeddingProvider } from '../services/embedding-router.js';
+
+const require = createRequire(import.meta.url);
+
+type TokenEncoder = (text: string) => number;
+
+let tokenizerInitDone = false;
+let tokenizerEncode: TokenEncoder | null = null;
+
+type TokenizerModule = {
+  encode?: (text: string) => { length: number } | number[] | Uint32Array;
+  default?: {
+    encode?: (text: string) => { length: number } | number[] | Uint32Array;
+  };
+};
+
+function getTokenizerEncode(): TokenEncoder | null {
+  if (tokenizerInitDone) {
+    return tokenizerEncode;
+  }
+  tokenizerInitDone = true;
+
+  try {
+    const mod = require('gpt-tokenizer') as TokenizerModule;
+    const encodeImpl = mod.encode ?? mod.default?.encode;
+    if (typeof encodeImpl === 'function') {
+      tokenizerEncode = (text: string) => {
+        const tokens = encodeImpl(text);
+        const length = (tokens as { length?: number }).length;
+        if (typeof length === 'number' && Number.isFinite(length) && length >= 0) {
+          return length;
+        }
+        return 0;
+      };
+    } else {
+      tokenizerEncode = null;
+    }
+  } catch {
+    tokenizerEncode = null;
+  }
+
+  return tokenizerEncode;
+}
 
 /**
  * Token limit configuration for an embedding provider/model combination.
@@ -209,6 +252,18 @@ export function getSafetyMargin(): number {
 export function estimateTokens(text: string, _model?: string): number {
   if (!text || text.length === 0) {
     return 0;
+  }
+
+  if (getEstimationMethod() === 'accurate') {
+    const encodeFn = getTokenizerEncode();
+    if (encodeFn) {
+      try {
+        const count = encodeFn(text);
+        if (Number.isFinite(count) && count >= 0) {
+          return count;
+        }
+      } catch {}
+    }
   }
 
   // Simple estimation: divide character count by chars-per-token ratio

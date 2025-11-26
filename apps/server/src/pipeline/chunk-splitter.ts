@@ -131,6 +131,7 @@ export function splitOversizedChunk(chunk: Chunk, options: SplitOptions = {}): S
   while (start < text.length) {
     // Calculate end position
     let end = Math.min(start + targetChars, text.length);
+    const isLastChunk = end === text.length;
 
     // If not at the end, try to find a semantic boundary
     if (end < text.length && config.preserveSemanticBoundaries) {
@@ -143,7 +144,11 @@ export function splitOversizedChunk(chunk: Chunk, options: SplitOptions = {}): S
     // Extract the split text
     const splitText = text.slice(start, end).trim();
 
-    if (splitText.length >= config.minChunkChars || splits.length === 0) {
+    if (
+      splitText.length >= config.minChunkChars ||
+      splits.length === 0 ||
+      (isLastChunk && splitText.length > 0)
+    ) {
       const splitChunk: SplitChunk = {
         text: splitText,
         index: chunk.index, // Will be re-indexed later
