@@ -8,7 +8,11 @@ import {
   setCachedSearchResponse,
 } from '../services/cache/search-cache.js';
 import { observeSearchLatency } from '../services/metrics.js';
-import { type SmartSearchResponse, smartSearch } from '../services/search.js';
+import {
+  type SearchDiagnostics,
+  type SmartSearchResponse,
+  smartSearch,
+} from '../services/search.js';
 import { createSnippet } from '../services/snippet.js';
 
 interface SearchRouteResponse {
@@ -48,6 +52,8 @@ interface SearchRouteResponse {
       total_results: number;
       total_pages: number;
     };
+    /** Hybrid search diagnostics (only present in hybrid mode) */
+    diagnostics?: SearchDiagnostics | null;
   };
 }
 
@@ -254,6 +260,7 @@ function mapToRouteResponse(result: SmartSearchResponse): SearchRouteResponse {
       embedding_provider: result.metadata.embeddingProvider ?? null,
       reranked: result.metadata.reranked ?? false,
       rerank_provider: result.metadata.rerankProvider ?? 'none',
+      diagnostics: result.metadata.diagnostics ?? null,
     },
   };
 }

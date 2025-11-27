@@ -3,7 +3,12 @@ import type { Pool } from 'pg';
 import type { ContentContext, EmbeddingProvider } from './embedding-router.js';
 import { deriveContextFromMetadata, isEmbeddingProvider } from './embedding-router.js';
 import { type RelatedFiles, getRelatedFiles } from './file-relationships.js';
-import { type HybridSearchParams, type HybridSearchResult, hybridSearch } from './hybrid.js';
+import {
+  type HybridDiagnostics,
+  type HybridSearchParams,
+  type HybridSearchResult,
+  hybridSearch,
+} from './hybrid.js';
 import {
   type RerankedResult,
   type RerankerProvider,
@@ -44,6 +49,44 @@ export interface SmartSearchResult extends SearchResult {
   relatedFiles?: RelatedFiles | null;
 }
 
+/**
+ * Diagnostics exposed in API response (snake_case for API consistency)
+ */
+export interface SearchDiagnostics {
+  /** Vector search score statistics */
+  vector_scores: {
+    avg: number;
+    max: number;
+    min: number;
+  };
+  /** BM25 search score statistics */
+  bm25_scores: {
+    avg: number;
+    max: number;
+    min: number;
+  };
+  /** Number of results found by both methods */
+  both_source_count: number;
+  /** Timing breakdown in milliseconds */
+  timing: {
+    vector_ms: number;
+    bm25_ms: number;
+    fusion_ms: number;
+    total_ms: number;
+  };
+  /** BM25 query type classification */
+  bm25_query_type: string;
+  /** PostgreSQL tsquery function used */
+  bm25_ts_function: string;
+  /** Weights used for fusion */
+  weights: {
+    vector: number;
+    bm25: number;
+  };
+  /** RRF constant used */
+  rrf_k: number;
+}
+
 export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
   results: SmartSearchResult[];
   metadata: {
@@ -55,6 +98,8 @@ export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
     trustScoringApplied?: boolean;
     reranked?: boolean;
     rerankProvider?: RerankerProvider;
+    /** Hybrid search diagnostics (only present in hybrid mode) */
+    diagnostics?: SearchDiagnostics;
   };
 }
 
@@ -86,7 +131,7 @@ export async function smartSearch(
         )
       : baseTopK;
     const hybridTopK = rerankRequested ? Math.max(candidateCap, baseTopK) : baseTopK;
-    const { results, elapsedMs, vectorCount, bm25Count } = await hybridSearch(db, {
+    const { results, elapsedMs, vectorCount, bm25Count, diagnostics } = await hybridSearch(db, {
       query: params.query,
       collectionId: params.collectionId,
       topK: hybridTopK,
@@ -141,6 +186,7 @@ export async function smartSearch(
           trustScoringApplied: trustApplied,
           reranked: true,
           rerankProvider: rankedResults[0]?.rerankProvider ?? params.rerankProvider ?? 'none',
+          diagnostics: mapDiagnostics(diagnostics),
         },
       };
     }
@@ -168,6 +214,7 @@ export async function smartSearch(
         trustScoringApplied: trustApplied,
         reranked: false,
         rerankProvider: params.rerankProvider ?? 'none',
+        diagnostics: mapDiagnostics(diagnostics),
       },
     };
   }
@@ -442,4 +489,36 @@ function parseTimestamp(value: string | Date | undefined): Date | null {
 
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
+ * Maps internal HybridDiagnostics to API-friendly SearchDiagnostics (snake_case)
+ */
+function mapDiagnostics(diagnostics: HybridDiagnostics): SearchDiagnostics {
+  return {
+    vector_scores: {
+      avg: diagnostics.vectorScores.avg,
+      max: diagnostics.vectorScores.max,
+      min: diagnostics.vectorScores.min,
+    },
+    bm25_scores: {
+      avg: diagnostics.bm25Scores.avg,
+      max: diagnostics.bm25Scores.max,
+      min: diagnostics.bm25Scores.min,
+    },
+    both_source_count: diagnostics.bothSourceCount,
+    timing: {
+      vector_ms: diagnostics.timing.vectorMs,
+      bm25_ms: diagnostics.timing.bm25Ms,
+      fusion_ms: diagnostics.timing.fusionMs,
+      total_ms: diagnostics.timing.totalMs,
+    },
+    bm25_query_type: diagnostics.bm25QueryType,
+    bm25_ts_function: diagnostics.bm25TsFunction,
+    weights: {
+      vector: diagnostics.weights.vector,
+      bm25: diagnostics.weights.bm25,
+    },
+    rrf_k: diagnostics.rrfK,
+  };
 }

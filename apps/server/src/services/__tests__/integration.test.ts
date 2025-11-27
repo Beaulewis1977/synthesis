@@ -1,5 +1,22 @@
 import type { Pool, QueryResult } from 'pg';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { HybridDiagnostics } from '../hybrid.js';
+
+// Default diagnostics for mocked hybrid search responses
+const createMockDiagnostics = (overrides?: Partial<HybridDiagnostics>): HybridDiagnostics => ({
+  vectorResultCount: 10,
+  bm25ResultCount: 10,
+  fusedResultCount: 10,
+  bothSourceCount: 5,
+  vectorScores: { avg: 0.75, max: 0.9, min: 0.5 },
+  bm25Scores: { avg: 0.65, max: 0.85, min: 0.4 },
+  timing: { vectorMs: 50, bm25Ms: 20, fusionMs: 5, totalMs: 75 },
+  bm25QueryType: 'natural_language',
+  bm25TsFunction: 'websearch_to_tsquery',
+  weights: { vector: 0.7, bm25: 0.3 },
+  rrfK: 60,
+  ...overrides,
+});
 
 // Hoist mocks so they can be configured per test while keeping other exports intact.
 const hybridSearchMock = vi.hoisted(() => vi.fn());
@@ -98,6 +115,7 @@ describe('Phase 12 integration scenarios', () => {
     ];
 
     hybridSearchMock.mockResolvedValue({
+      diagnostics: createMockDiagnostics(),
       results: baselineResults,
       elapsedMs: 120,
       vectorCount: 15,
@@ -179,6 +197,7 @@ describe('Phase 12 integration scenarios', () => {
     ];
 
     hybridSearchMock.mockResolvedValue({
+      diagnostics: createMockDiagnostics(),
       results: baselineResults,
       elapsedMs: 110,
       vectorCount: 10,
@@ -438,6 +457,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       ];
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: baselineResults,
         elapsedMs: 120,
         vectorCount: 10,
@@ -486,6 +506,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       ];
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: baselineResults,
         elapsedMs: 100,
         vectorCount: 5,
@@ -520,6 +541,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       const { smartSearch } = await import('../search.js');
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: [],
         elapsedMs: 350,
         vectorCount: 10,
@@ -565,6 +587,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       ];
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: codeResults,
         elapsedMs: 200,
         vectorCount: 5,
@@ -597,6 +620,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       const { smartSearch } = await import('../search.js');
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: [
           {
             id: 'code-1',
@@ -647,6 +671,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       const { smartSearch } = await import('../search.js');
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: Array(10)
           .fill(null)
           .map((_, i) => ({
@@ -691,6 +716,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       ];
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: filteredResults,
         elapsedMs: 180,
         vectorCount: 5,
@@ -712,6 +738,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       const { smartSearch } = await import('../search.js');
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: [
           {
             id: 'postgres-1',
@@ -750,6 +777,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       const { smartSearch } = await import('../search.js');
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: [],
         elapsedMs: 220,
         vectorCount: 5,
@@ -795,6 +823,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       ];
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: codeResults,
         elapsedMs: 150,
         vectorCount: 5,
@@ -858,6 +887,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       const { smartSearch } = await import('../search.js');
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: [
           {
             id: 'dart-1',
@@ -894,6 +924,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       const { smartSearch } = await import('../search.js');
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: [
           {
             id: 'flutter-auth',
@@ -966,6 +997,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       ];
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: fullPipelineResults,
         elapsedMs: 280,
         vectorCount: 8,
@@ -1057,6 +1089,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       const { smartSearch } = await import('../search.js');
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: [
           {
             id: 'result-1',
@@ -1139,6 +1172,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       const { smartSearch } = await import('../search.js');
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: [
           {
             id: 'a',
@@ -1177,6 +1211,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       const { smartSearch } = await import('../search.js');
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: [
           {
             id: 'fallback-1',
@@ -1212,6 +1247,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
 
       // Mock hybrid search to work even if tech_stack filtering has issues
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: [
           {
             id: 'all-1',
@@ -1285,6 +1321,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
       ];
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: codeSearchResults,
         elapsedMs: 280,
         vectorCount: 15,
@@ -1426,6 +1463,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
         }));
 
       hybridSearchMock.mockResolvedValue({
+        diagnostics: createMockDiagnostics(),
         results: largeResultSet.slice(0, 15), // Return top 15
         elapsedMs: 420, // Simulated time for large dataset
         vectorCount: 50,
