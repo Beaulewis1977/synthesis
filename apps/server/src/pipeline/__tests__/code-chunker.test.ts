@@ -509,4 +509,185 @@ ${methods}
       expect(method0?.metadata.language).toBe('typescript');
     });
   });
+
+  describe('Phase 9: Hierarchical Code Chunking', () => {
+    it('creates overview chunk for large Dart class', async () => {
+      // Create a large Dart class (>100 lines)
+      const methods = Array.from(
+        { length: 30 },
+        (_, i) => `
+  void method${i}() {
+    // Method ${i} implementation
+    print('method${i}');
+  }
+`
+      ).join('\n');
+
+      const code = `
+class LargeWidget extends StatelessWidget {
+  final String title;
+  final int count;
+
+${methods}
+}
+`;
+
+      const chunks = await chunkCodeFile('large_widget.dart', code, { maxChunkSize: 50 });
+
+      // Should have overview chunk
+      const overviewChunk = chunks.find((c) => c.metadata.chunk_hierarchy === 'overview');
+      expect(overviewChunk).toBeDefined();
+      expect(overviewChunk?.metadata.class_name).toBe('LargeWidget');
+      expect(overviewChunk?.metadata.sibling_count).toBeGreaterThan(0);
+
+      // Overview should contain class signature and method signatures
+      expect(overviewChunk?.text).toContain('class LargeWidget');
+      expect(overviewChunk?.text).toContain('// Methods');
+
+      // Should have detail chunks for methods
+      const detailChunks = chunks.filter((c) => c.metadata.chunk_hierarchy === 'detail');
+      expect(detailChunks.length).toBeGreaterThan(0);
+
+      // All detail chunks should reference the same parent
+      const parentId = overviewChunk?.metadata.parent_chunk_id;
+      expect(parentId).toBeDefined();
+      for (const detail of detailChunks) {
+        expect(detail.metadata.parent_chunk_id).toBe(parentId);
+        expect(detail.metadata.class_context).toBe('LargeWidget');
+      }
+    });
+
+    it('creates overview chunk for large TypeScript class', async () => {
+      const methods = Array.from(
+        { length: 30 },
+        (_, i) => `
+  method${i}(): void {
+    console.log('Method ${i}');
+  }
+`
+      ).join('\n');
+
+      const code = `
+class LargeService extends BaseService implements IService {
+  private db: Database;
+  public cache: Cache;
+
+${methods}
+}
+`;
+
+      const chunks = await chunkCodeFile('large_service.ts', code, { maxChunkSize: 50 });
+
+      // Should have overview chunk
+      const overviewChunk = chunks.find((c) => c.metadata.chunk_hierarchy === 'overview');
+      expect(overviewChunk).toBeDefined();
+      expect(overviewChunk?.metadata.class_name).toBe('LargeService');
+      expect(overviewChunk?.metadata.extends).toBe('BaseService');
+      expect(overviewChunk?.metadata.implements).toContain('IService');
+
+      // Should have detail chunks
+      const detailChunks = chunks.filter((c) => c.metadata.chunk_hierarchy === 'detail');
+      expect(detailChunks.length).toBeGreaterThan(0);
+    });
+
+    it('does not create hierarchical chunks for small classes', async () => {
+      const code = `
+class SmallWidget extends StatelessWidget {
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(title);
+  }
+}
+`;
+
+      const chunks = await chunkCodeFile('small_widget.dart', code);
+
+      // Should NOT have overview/detail hierarchy
+      const overviewChunk = chunks.find((c) => c.metadata.chunk_hierarchy === 'overview');
+      expect(overviewChunk).toBeUndefined();
+
+      // Should have single class chunk
+      const classChunk = chunks.find((c) => c.metadata.class_name === 'SmallWidget');
+      expect(classChunk).toBeDefined();
+      expect(classChunk?.metadata.chunk_hierarchy).toBeUndefined();
+    });
+
+    it('can disable hierarchical chunking', async () => {
+      const methods = Array.from(
+        { length: 30 },
+        (_, i) => `
+  void method${i}() {
+    print('method${i}');
+  }
+`
+      ).join('\n');
+
+      const code = `
+class LargeClass {
+${methods}
+}
+`;
+
+      const chunks = await chunkCodeFile('large.dart', code, {
+        maxChunkSize: 50,
+        hierarchicalChunking: false,
+      });
+
+      // Should NOT have overview chunk
+      const overviewChunk = chunks.find((c) => c.metadata.chunk_hierarchy === 'overview');
+      expect(overviewChunk).toBeUndefined();
+
+      // Should have method chunks with class_context but no hierarchy
+      const methodChunks = chunks.filter((c) => c.metadata.class_context === 'LargeClass');
+      expect(methodChunks.length).toBeGreaterThan(0);
+      for (const chunk of methodChunks) {
+        expect(chunk.metadata.chunk_hierarchy).toBeUndefined();
+      }
+    });
+  });
+
+  describe('Phase 9: Language-Aware Simple Chunking', () => {
+    it('uses simple chunking for Java files with boundary detection', async () => {
+      const code = `
+public class UserService {
+    private Database db;
+
+    public User getUser(String id) {
+        return db.findById(id);
+    }
+
+    public void createUser(User user) {
+        db.save(user);
+    }
+}
+
+public class OrderService {
+    public Order getOrder(String id) {
+        return null;
+    }
+}
+`;
+
+      const chunks = await chunkCodeFile('services.java', code);
+
+      // Should produce chunks (simple chunking fallback)
+      expect(chunks.length).toBeGreaterThan(0);
+      expect(chunks[0].metadata.chunk_type).toBe('text');
+    });
+
+    it('uses simple chunking for unsupported file types', async () => {
+      const code = `
+Some random content
+that spans multiple lines
+and should be chunked
+`;
+
+      const chunks = await chunkCodeFile('readme.txt', code);
+
+      expect(chunks.length).toBeGreaterThan(0);
+      expect(chunks[0].metadata.chunk_type).toBe('text');
+    });
+  });
 });
