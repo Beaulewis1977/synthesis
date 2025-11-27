@@ -223,6 +223,58 @@ const FILE_EXTENSIONS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Common sentence starters that should NOT be confused with proper names.
+ * Used to prevent false positives in initial detection (e.g., "X. The" should split).
+ */
+const SENTENCE_STARTERS: ReadonlySet<string> = new Set([
+  'the',
+  'this',
+  'that',
+  'these',
+  'those',
+  'it',
+  'he',
+  'she',
+  'they',
+  'we',
+  'you',
+  'i',
+  'a',
+  'an',
+  'my',
+  'our',
+  'your',
+  'his',
+  'her',
+  'its',
+  'their',
+  'there',
+  'here',
+  'what',
+  'when',
+  'where',
+  'why',
+  'how',
+  'which',
+  'who',
+  'whom',
+  'if',
+  'but',
+  'and',
+  'or',
+  'so',
+  'as',
+  'for',
+  'on',
+  'in',
+  'to',
+  'with',
+  'by',
+  'from',
+  'at',
+]);
+
+/**
  * Checks if a period at the given position is likely an abbreviation or initial.
  */
 function isAbbreviationPeriod(
@@ -275,7 +327,11 @@ function isAbbreviationPeriod(
     // Check if the next word looks like a name (capitalized but not all caps)
     const nextWordMatch = afterPeriod.match(/^\s+([A-Z][a-z]+)/);
     if (nextWordMatch) {
-      return true; // Likely "J.K. Rowling" pattern
+      // Exclude common sentence starters to avoid false positives
+      const nextWord = nextWordMatch[1].toLowerCase();
+      if (!SENTENCE_STARTERS.has(nextWord)) {
+        return true; // Likely "J.K. Rowling" pattern
+      }
     }
 
     // Single letter followed by space and another single uppercase letter with period
@@ -442,7 +498,11 @@ function isInsideProtectedPattern(
             // If next word is a capitalized word followed by lowercase (like "Rowling"), it's a name
             const nameMatch = afterTrimmed.match(/^([A-Z][a-z]+)/);
             if (nameMatch) {
-              return true; // Likely "J.K. Rowling" pattern
+              // Exclude common sentence starters to avoid false positives
+              const nextWord = nameMatch[1].toLowerCase();
+              if (!SENTENCE_STARTERS.has(nextWord)) {
+                return true; // Likely "J.K. Rowling" pattern
+              }
             }
             // If next char is lowercase, it's definitely continuation
             if (/[a-z]/.test(afterTrimmed[0])) {
@@ -515,6 +575,17 @@ export function findLastSentenceBoundary(
   const window = text.slice(start, limit);
   let lastBoundary = -1;
 
+  // Track code block state incrementally to avoid O(n²) re-scanning
+  const codeBlockState: CodeBlockState = {
+    position: 0,
+    backtickCount: 0,
+    fenceCount: 0,
+  };
+  // Initialize state up to the start position
+  if (preserveCodeBlocks && start > 0) {
+    updateCodeBlockState(text, codeBlockState, start);
+  }
+
   // Match sentence-ending punctuation followed by optional closing quotes/brackets and whitespace
   const punctuationMatches = window.matchAll(/[.!?]["')\]]*\s+/g);
 
@@ -523,8 +594,13 @@ export function findLastSentenceBoundary(
     const absoluteIndex = start + matchIndex;
     const punct = match[0][0];
 
+    // Update code block state incrementally from last position to current match
+    if (preserveCodeBlocks) {
+      updateCodeBlockState(text, codeBlockState, absoluteIndex);
+    }
+
     // Skip if inside protected pattern
-    if (isInsideProtectedPattern(text, absoluteIndex, preserveCodeBlocks)) {
+    if (isInsideProtectedPattern(text, absoluteIndex, preserveCodeBlocks, codeBlockState)) {
       continue;
     }
 
@@ -573,6 +649,18 @@ export function findFirstSentenceBoundary(
       : ABBREVIATIONS;
 
   const window = text.slice(rangeStart, rangeEnd);
+
+  // Track code block state incrementally to avoid O(n²) re-scanning
+  const codeBlockState: CodeBlockState = {
+    position: 0,
+    backtickCount: 0,
+    fenceCount: 0,
+  };
+  // Initialize state up to the rangeStart position
+  if (preserveCodeBlocks && rangeStart > 0) {
+    updateCodeBlockState(text, codeBlockState, rangeStart);
+  }
+
   const punctuationMatches = window.matchAll(/[.!?]["')\]]*\s+/g);
 
   for (const match of punctuationMatches) {
@@ -580,8 +668,13 @@ export function findFirstSentenceBoundary(
     const absoluteIndex = rangeStart + matchIndex;
     const punct = match[0][0];
 
+    // Update code block state incrementally from last position to current match
+    if (preserveCodeBlocks) {
+      updateCodeBlockState(text, codeBlockState, absoluteIndex);
+    }
+
     // Skip if inside protected pattern
-    if (isInsideProtectedPattern(text, absoluteIndex, preserveCodeBlocks)) {
+    if (isInsideProtectedPattern(text, absoluteIndex, preserveCodeBlocks, codeBlockState)) {
       continue;
     }
 

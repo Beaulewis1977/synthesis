@@ -282,6 +282,15 @@ describe('sentence-splitter', () => {
       expect(sentences).toHaveLength(2);
       expect(sentences[0]).toBe('Visit the U.S.A. next year.');
     });
+
+    it('splits correctly when single letter precedes sentence starter', () => {
+      // "X." followed by "The" should split - "The" is a sentence starter, not a name
+      const text = 'Download file X. The next step is important.';
+      const sentences = splitIntoSentences(text);
+      expect(sentences).toHaveLength(2);
+      expect(sentences[0]).toBe('Download file X.');
+      expect(sentences[1]).toBe('The next step is important.');
+    });
   });
 
   describe('ellipsis handling', () => {
