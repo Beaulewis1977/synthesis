@@ -225,26 +225,44 @@ export class ApiKeyService {
 
     const encrypted = encryptKey(apiKey.trim());
 
-    await this.db.query(
-      `INSERT INTO provider_api_keys (provider, encrypted_key, updated_at)
-       VALUES ($1, $2, NOW())
-       ON CONFLICT (provider) DO UPDATE SET
-         encrypted_key = EXCLUDED.encrypted_key,
-         updated_at = NOW()`,
-      [provider, encrypted]
-    );
+    try {
+      await this.db.query(
+        `INSERT INTO provider_api_keys (provider, encrypted_key, updated_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (provider) DO UPDATE SET
+           encrypted_key = EXCLUDED.encrypted_key,
+           updated_at = NOW()`,
+        [provider, encrypted]
+      );
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(`Failed to set API key for provider ${provider}:`, error);
+      // Re-throw with context so callers can handle the failure
+      throw new Error(
+        `Failed to store API key for provider ${provider}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   }
 
   /**
    * Delete an API key for a provider
    */
   async deleteKey(provider: string): Promise<void> {
-    const result = await this.db.query('DELETE FROM provider_api_keys WHERE provider = $1', [
-      provider,
-    ]);
+    try {
+      const result = await this.db.query('DELETE FROM provider_api_keys WHERE provider = $1', [
+        provider,
+      ]);
 
-    if (result.rowCount === 0) {
-      throw new Error(`No stored API key found for provider: ${provider}`);
+      if (result.rowCount === 0) {
+        throw new Error(`No stored API key found for provider: ${provider}`);
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(`Failed to delete API key for provider ${provider}:`, error);
+      // Re-throw with context to preserve original error details
+      throw new Error(
+        `Failed to delete API key for provider ${provider}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -261,18 +279,26 @@ export class ApiKeyService {
     }
 
     // Check database
-    const result = await this.db.query<{ encrypted_key: string }>(
-      'SELECT encrypted_key FROM provider_api_keys WHERE provider = $1',
-      [provider]
-    );
-
-    if (result.rows.length === 0) {
-      return null;
-    }
-
     try {
-      return decryptKey(result.rows[0].encrypted_key);
-    } catch {
+      const result = await this.db.query<{ encrypted_key: string }>(
+        'SELECT encrypted_key FROM provider_api_keys WHERE provider = $1',
+        [provider]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      // Keep existing try/catch around decryptKey as-is
+      try {
+        return decryptKey(result.rows[0].encrypted_key);
+      } catch {
+        return null;
+      }
+    } catch (error) {
+      // Log database error and fail gracefully by returning null
+      // eslint-disable-next-line no-console
+      console.error(`Failed to retrieve API key for provider ${provider}:`, error);
       return null;
     }
   }
