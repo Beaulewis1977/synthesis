@@ -13,7 +13,9 @@ describe('Code Chunker', () => {
       const samplePath = join(__dirname, 'fixtures', 'sample.dart');
       const content = readFileSync(samplePath, 'utf-8');
 
-      const chunks = await chunkCodeFile('sample.dart', content);
+      // Phase 10: chunkCodeFile now returns CodeChunkResult
+      const result = await chunkCodeFile('sample.dart', content);
+      const chunks = result.chunks;
 
       // Should have: 1 top-level function + 3 methods (login, logout, formatToken) + 1 class + 2 constants
       expect(chunks.length).toBeGreaterThanOrEqual(3);
@@ -46,7 +48,8 @@ class SmallWidget extends StatelessWidget {
 }
 `;
 
-      const chunks = await chunkCodeFile('small_widget.dart', code);
+      const result = await chunkCodeFile('small_widget.dart', code);
+      const chunks = result.chunks;
 
       // Should have whole class as one chunk
       const classChunk = chunks.find((c) => c.metadata.class_name === 'SmallWidget');
@@ -75,7 +78,8 @@ ${methods}
 }
 `;
 
-      const chunks = await chunkCodeFile('large_class.dart', code, { maxChunkSize: 50 });
+      const result = await chunkCodeFile('large_class.dart', code, { maxChunkSize: 50 });
+      const chunks = result.chunks;
 
       // Should have individual method chunks, not a single class chunk
       const methodChunks = chunks.filter((c) => c.metadata.function_name?.startsWith('method'));
@@ -87,7 +91,8 @@ ${methods}
       expect(method0?.metadata.class_context).toBe('LargeClass');
     });
 
-    it('preserves imports when enabled', async () => {
+    // Phase 10: Imports are now stored at file level, not per chunk
+    it('returns file-level imports when preserveImports enabled', async () => {
       const code = `
 import 'package:flutter/material.dart';
 import '../models/user.dart';
@@ -97,16 +102,22 @@ void greet() {
 }
 `;
 
-      const chunks = await chunkCodeFile('greet.dart', code, { preserveImports: true });
+      const result = await chunkCodeFile('greet.dart', code, { preserveImports: true });
+      const chunks = result.chunks;
 
       const greetChunk = chunks.find((c) => c.metadata.function_name === 'greet');
       expect(greetChunk).toBeDefined();
-      expect(greetChunk?.metadata.imports).toBeDefined();
-      expect(greetChunk?.metadata.imports).toContain('package:flutter/material.dart');
-      expect(greetChunk?.metadata.imports).toContain('../models/user.dart');
+      // Phase 10: Imports no longer stored per chunk
+      expect(greetChunk?.metadata.imports).toBeUndefined();
+      // Phase 10: First chunk has has_file_imports flag
+      expect(chunks[0].metadata.has_file_imports).toBe(true);
+      // Phase 10: Imports returned at file level
+      expect(result.fileImports).toBeDefined();
+      expect(result.fileImports).toContain('package:flutter/material.dart');
+      expect(result.fileImports).toContain('../models/user.dart');
     });
 
-    it('excludes imports when not enabled', async () => {
+    it('excludes file imports when not enabled', async () => {
       const code = `
 import 'package:flutter/material.dart';
 
@@ -115,11 +126,15 @@ void greet() {
 }
 `;
 
-      const chunks = await chunkCodeFile('greet.dart', code, { preserveImports: false });
+      const result = await chunkCodeFile('greet.dart', code, { preserveImports: false });
+      const chunks = result.chunks;
 
       const greetChunk = chunks.find((c) => c.metadata.function_name === 'greet');
       expect(greetChunk).toBeDefined();
       expect(greetChunk?.metadata.imports).toBeUndefined();
+      // Phase 10: No file imports when preserveImports is false
+      expect(result.fileImports).toBeUndefined();
+      expect(chunks[0].metadata.has_file_imports).toBeUndefined();
     });
 
     it('includes rich metadata in chunks', async () => {
@@ -130,7 +145,8 @@ Future<User> login(String email, String password) async {
 }
 `;
 
-      const chunks = await chunkCodeFile('auth.dart', code);
+      const result = await chunkCodeFile('auth.dart', code);
+      const chunks = result.chunks;
 
       const loginChunk = chunks.find((c) => c.metadata.function_name === 'login');
       expect(loginChunk).toBeDefined();
@@ -154,7 +170,8 @@ class MyApp extends StatefulWidget {
 }
 `;
 
-      const chunks = await chunkCodeFile('app.dart', code);
+      const result = await chunkCodeFile('app.dart', code);
+      const chunks = result.chunks;
 
       const appChunk = chunks.find((c) => c.metadata.class_name === 'MyApp');
       expect(appChunk).toBeDefined();
@@ -168,7 +185,8 @@ const int MAX_RETRIES = 3;
 final String apiKey = 'sk_test_123';
 `;
 
-      const chunks = await chunkCodeFile('config.dart', code);
+      const result = await chunkCodeFile('config.dart', code);
+      const chunks = result.chunks;
 
       const maxRetriesChunk = chunks.find((c) => c.metadata.constant_name === 'MAX_RETRIES');
       expect(maxRetriesChunk).toBeDefined();
@@ -184,7 +202,8 @@ final String apiKey = 'sk_test_123';
   describe('File Type Routing', () => {
     it('routes .dart files to Dart chunker', async () => {
       const code = 'void test() {}';
-      const chunks = await chunkCodeFile('test.dart', code);
+      const result = await chunkCodeFile('test.dart', code);
+      const chunks = result.chunks;
 
       expect(chunks.length).toBeGreaterThan(0);
       expect(chunks[0].metadata.language).toBe('dart');
@@ -192,7 +211,8 @@ final String apiKey = 'sk_test_123';
 
     it('routes .ts files to TypeScript chunker', async () => {
       const code = 'function test() {}';
-      const chunks = await chunkCodeFile('test.ts', code);
+      const result = await chunkCodeFile('test.ts', code);
+      const chunks = result.chunks;
 
       // Should use TypeScript chunker
       expect(chunks.length).toBeGreaterThan(0);
@@ -202,7 +222,8 @@ final String apiKey = 'sk_test_123';
 
     it('routes .tsx files to TypeScript chunker', async () => {
       const code = 'export const Component = () => <div>test</div>;';
-      const chunks = await chunkCodeFile('Component.tsx', code);
+      const result = await chunkCodeFile('Component.tsx', code);
+      const chunks = result.chunks;
 
       // Should use TypeScript chunker for TSX
       expect(chunks.length).toBeGreaterThan(0);
@@ -212,7 +233,8 @@ final String apiKey = 'sk_test_123';
 
     it('routes .js files to JavaScript chunker', async () => {
       const code = 'function test() {}';
-      const chunks = await chunkCodeFile('test.js', code);
+      const result = await chunkCodeFile('test.js', code);
+      const chunks = result.chunks;
 
       // Should use JavaScript chunker (via TypeScript parser)
       expect(chunks.length).toBeGreaterThan(0);
@@ -222,7 +244,8 @@ final String apiKey = 'sk_test_123';
 
     it('uses simple chunking for unsupported extensions', async () => {
       const code = 'Some random text content';
-      const chunks = await chunkCodeFile('readme.txt', code);
+      const result = await chunkCodeFile('readme.txt', code);
+      const chunks = result.chunks;
 
       expect(chunks.length).toBeGreaterThan(0);
       expect(chunks[0].metadata.chunk_type).toBe('text');
@@ -240,7 +263,8 @@ Line 5`;
       // Should not throw
       await expect(chunkCodeFile('broken.dart', invalidCode)).resolves.toBeDefined();
 
-      const chunks = await chunkCodeFile('broken.dart', invalidCode);
+      const result = await chunkCodeFile('broken.dart', invalidCode);
+      const chunks = result.chunks;
 
       // Should return chunks (simple chunking fallback)
       expect(Array.isArray(chunks)).toBe(true);
@@ -250,7 +274,8 @@ Line 5`;
     });
 
     it('handles empty files gracefully', async () => {
-      const chunks = await chunkCodeFile('empty.dart', '');
+      const result = await chunkCodeFile('empty.dart', '');
+      const chunks = result.chunks;
 
       // Empty file returns no chunks (or single empty chunk)
       expect(chunks.length).toBe(0);
@@ -262,7 +287,8 @@ Line 5`;
 /* More comments */
 /// Doc comments
 `;
-      const chunks = await chunkCodeFile('comments.dart', code);
+      const result = await chunkCodeFile('comments.dart', code);
+      const chunks = result.chunks;
 
       // Should either return no chunks or simple text chunks
       expect(Array.isArray(chunks)).toBe(true);
@@ -276,7 +302,8 @@ void func1() {}
 void func2() {}
 void func3() {}
 `;
-      const chunks = await chunkCodeFile('funcs.dart', code);
+      const result = await chunkCodeFile('funcs.dart', code);
+      const chunks = result.chunks;
 
       expect(chunks.length).toBe(3);
       expect(chunks[0].index).toBe(0);
@@ -286,11 +313,13 @@ void func3() {}
   });
 
   describe('Real Sample File', () => {
-    it('chunks sample.dart fixture correctly', async () => {
+    // Phase 10: Updated to test file-level imports
+    it('chunks sample.dart fixture correctly with file-level imports', async () => {
       const samplePath = join(__dirname, 'fixtures', 'sample.dart');
       const content = readFileSync(samplePath, 'utf-8');
 
-      const chunks = await chunkCodeFile('sample.dart', content, { preserveImports: true });
+      const result = await chunkCodeFile('sample.dart', content, { preserveImports: true });
+      const chunks = result.chunks;
 
       // Verify we have expected chunks from sample.dart
       expect(chunks.length).toBeGreaterThan(0);
@@ -305,14 +334,16 @@ void func3() {}
       );
       expect(authRelated.length).toBeGreaterThan(0);
 
-      // Should have imports preserved
-      const withImports = chunks.filter((c) => c.metadata.imports && c.metadata.imports.length > 0);
-      expect(withImports.length).toBeGreaterThan(0);
+      // Phase 10: Imports should be at file level, not per chunk
+      expect(result.fileImports).toBeDefined();
+      expect(result.fileImports?.some((imp: string) => imp.includes('flutter'))).toBe(true);
 
-      // Verify import content
-      const firstChunk = chunks[0];
-      if (firstChunk.metadata.imports) {
-        expect(firstChunk.metadata.imports.some((imp) => imp.includes('flutter'))).toBe(true);
+      // First chunk should have has_file_imports flag
+      expect(chunks[0].metadata.has_file_imports).toBe(true);
+
+      // No chunk should have imports array (Phase 10 change)
+      for (const chunk of chunks) {
+        expect(chunk.metadata.imports).toBeUndefined();
       }
     });
   });
@@ -322,7 +353,8 @@ void func3() {}
       const samplePath = join(__dirname, 'fixtures', 'sample.ts');
       const content = readFileSync(samplePath, 'utf-8');
 
-      const chunks = await chunkCodeFile('sample.ts', content);
+      const result = await chunkCodeFile('sample.ts', content);
+      const chunks = result.chunks;
 
       // Should have functions, classes, methods, and constants
       expect(chunks.length).toBeGreaterThanOrEqual(5);
@@ -355,7 +387,8 @@ void func3() {}
       const samplePath = join(__dirname, 'fixtures', 'sample.tsx');
       const content = readFileSync(samplePath, 'utf-8');
 
-      const chunks = await chunkCodeFile('sample.tsx', content);
+      const result = await chunkCodeFile('sample.tsx', content);
+      const chunks = result.chunks;
 
       // Check functional component
       const appChunk = chunks.find((c) => c.metadata.function_name === 'App');
@@ -390,7 +423,8 @@ void func3() {}
       expect(formatChunk?.metadata.is_component).toBeUndefined();
     });
 
-    it('preserves TypeScript imports when enabled', async () => {
+    // Phase 10: Updated to test file-level imports
+    it('returns file-level imports for TypeScript when enabled', async () => {
       const code = `
 import { Request } from 'express';
 import * as fs from 'fs';
@@ -401,14 +435,20 @@ export function handleRequest(req: Request): void {
 }
 `;
 
-      const chunks = await chunkCodeFile('handler.ts', code, { preserveImports: true });
+      const result = await chunkCodeFile('handler.ts', code, { preserveImports: true });
+      const chunks = result.chunks;
 
       const handlerChunk = chunks.find((c) => c.metadata.function_name === 'handleRequest');
       expect(handlerChunk).toBeDefined();
-      expect(handlerChunk?.metadata.imports).toBeDefined();
-      expect(handlerChunk?.metadata.imports).toContain('express');
-      expect(handlerChunk?.metadata.imports).toContain('fs');
-      expect(handlerChunk?.metadata.imports).toContain('http');
+      // Phase 10: Imports no longer stored per chunk
+      expect(handlerChunk?.metadata.imports).toBeUndefined();
+      // Phase 10: Imports returned at file level
+      expect(result.fileImports).toBeDefined();
+      expect(result.fileImports).toContain('express');
+      expect(result.fileImports).toContain('fs');
+      expect(result.fileImports).toContain('http');
+      // First chunk has has_file_imports flag
+      expect(chunks[0].metadata.has_file_imports).toBe(true);
     });
 
     it('handles JavaScript files with TypeScript parser', async () => {
@@ -432,7 +472,8 @@ class Service {
 const API_URL = 'https://api.example.com';
 `;
 
-      const chunks = await chunkCodeFile('example.js', jsCode);
+      const result = await chunkCodeFile('example.js', jsCode);
+      const chunks = result.chunks;
 
       // Should process JS files correctly
       const componentChunk = chunks.find((c) => c.metadata.function_name === 'Component');
@@ -467,7 +508,8 @@ const Card = ({ title, content }) => (
 );
 `;
 
-      const chunks = await chunkCodeFile('components.jsx', jsxCode);
+      const result = await chunkCodeFile('components.jsx', jsxCode);
+      const chunks = result.chunks;
 
       const buttonChunk = chunks.find((c) => c.metadata.function_name === 'Button');
       expect(buttonChunk).toBeDefined();
@@ -496,7 +538,8 @@ ${methods}
 }
 `;
 
-      const chunks = await chunkCodeFile('large.ts', code, { maxChunkSize: 50 });
+      const result = await chunkCodeFile('large.ts', code, { maxChunkSize: 50 });
+      const chunks = result.chunks;
 
       // Should have individual method chunks
       const methodChunks = chunks.filter((c) => c.metadata.function_name?.startsWith('method'));
@@ -532,7 +575,8 @@ ${methods}
 }
 `;
 
-      const chunks = await chunkCodeFile('large_widget.dart', code, { maxChunkSize: 50 });
+      const result = await chunkCodeFile('large_widget.dart', code, { maxChunkSize: 50 });
+      const chunks = result.chunks;
 
       // Should have overview chunk
       const overviewChunk = chunks.find((c) => c.metadata.chunk_hierarchy === 'overview');
@@ -576,7 +620,8 @@ ${methods}
 }
 `;
 
-      const chunks = await chunkCodeFile('large_service.ts', code, { maxChunkSize: 50 });
+      const result = await chunkCodeFile('large_service.ts', code, { maxChunkSize: 50 });
+      const chunks = result.chunks;
 
       // Should have overview chunk
       const overviewChunk = chunks.find((c) => c.metadata.chunk_hierarchy === 'overview');
@@ -602,7 +647,8 @@ class SmallWidget extends StatelessWidget {
 }
 `;
 
-      const chunks = await chunkCodeFile('small_widget.dart', code);
+      const result = await chunkCodeFile('small_widget.dart', code);
+      const chunks = result.chunks;
 
       // Should NOT have overview/detail hierarchy
       const overviewChunk = chunks.find((c) => c.metadata.chunk_hierarchy === 'overview');
@@ -630,10 +676,11 @@ ${methods}
 }
 `;
 
-      const chunks = await chunkCodeFile('large.dart', code, {
+      const result = await chunkCodeFile('large.dart', code, {
         maxChunkSize: 50,
         hierarchicalChunking: false,
       });
+      const chunks = result.chunks;
 
       // Should NOT have overview chunk
       const overviewChunk = chunks.find((c) => c.metadata.chunk_hierarchy === 'overview');
@@ -670,7 +717,8 @@ public class OrderService {
 }
 `;
 
-      const chunks = await chunkCodeFile('services.java', code);
+      const result = await chunkCodeFile('services.java', code);
+      const chunks = result.chunks;
 
       // Should produce chunks (simple chunking fallback)
       expect(chunks.length).toBeGreaterThan(0);
@@ -684,7 +732,8 @@ that spans multiple lines
 and should be chunked
 `;
 
-      const chunks = await chunkCodeFile('readme.txt', code);
+      const result = await chunkCodeFile('readme.txt', code);
+      const chunks = result.chunks;
 
       expect(chunks.length).toBeGreaterThan(0);
       expect(chunks[0].metadata.chunk_type).toBe('text');

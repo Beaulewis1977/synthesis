@@ -448,9 +448,9 @@ The search API now includes diagnostics in hybrid mode:
 **Problem:** `PRESERVE_IMPORTS=true` duplicates full imports in every chunk metadata.
 
 ### 13.1 Deliverables
-- [ ] Store imports once per file in document metadata
-- [ ] Remove per-chunk import duplication
-- [ ] Add import reference in first chunk only
+- [x] Store imports once per file in document metadata
+- [x] Remove per-chunk import duplication
+- [x] Add import reference in first chunk only
 
 ### 13.2 Key Files
 

@@ -103,17 +103,23 @@ export async function ingestDocument(
 
     let chunks: Chunk[];
 
+    // Phase 10: File-level imports (stored in document metadata, not per chunk)
+    let fileImports: string[] | undefined;
+
     if (codeFile && codeChunkingEnabled) {
       // Use code-aware chunking
       const parsedEnvMaxChunk = Number.parseInt(process.env.CODE_MAX_CHUNK_LINES ?? '', 10);
       const maxChunkSize = Number.isNaN(parsedEnvMaxChunk) ? 100 : Math.max(parsedEnvMaxChunk, 1);
-      chunks = await chunkCodeFile(document.file_path, extraction.text, {
+      const codeResult = await chunkCodeFile(document.file_path, extraction.text, {
         preserveImports: process.env.PRESERVE_IMPORTS === 'true',
         trackRelationships: process.env.TRACK_RELATIONSHIPS === 'true',
         db,
         collectionId: document.collection_id,
         maxChunkSize,
       });
+      // Phase 10: Extract chunks and file-level imports from result
+      chunks = codeResult.chunks;
+      fileImports = codeResult.fileImports;
     } else {
       // Use simple text chunking with profile settings
       // Phase 5: Apply profile chunk size and overlap
@@ -243,7 +249,11 @@ export async function ingestDocument(
 
       metadataBuilder.setEmbedding(firstResult.provider, firstResult.model, firstResult.dimensions);
 
+      // Phase 10: Add file-level imports to document metadata
       const mergedMetadata = metadataBuilder.build(baseMetadata);
+      if (fileImports && fileImports.length > 0) {
+        mergedMetadata.file_imports = fileImports;
+      }
 
       await updateDocumentMetadata(documentId, mergedMetadata);
     }
