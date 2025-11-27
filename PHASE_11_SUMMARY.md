@@ -1,200 +1,211 @@
-# Phase Summary: Phase 8 – Hybrid Search & Multi-Model Embeddings
+# Phase 11 Summary: Text Chunking Heuristics
 
-**Date:** 2025-10-13  
-**Agent:** Codex (GPT-5)  
-**Duration:** 4 days
-
----
-
-## 📋 Overview
-
-Phase 8 delivers end-to-end hybrid search that fuses semantic vectors with BM25, introduces intelligent routing across multiple embedding providers, adds richer metadata and trust scoring, and surfaces the new signals in the UI. The backend now captures provider-specific embedding telemetry, while the frontend exposes trust and freshness indicators for search results.
+**Date:** November 27, 2025  
+**Branch:** `feature/phase-11-text-chunking`  
+**Status:** Complete
 
 ---
 
-## ✅ Features Implemented
+## Overview
 
-- [x] Hybrid search service with Reciprocal Rank Fusion, trust scoring, and API wiring
-- [x] Multi-provider embedding pipeline (Ollama, OpenAI, Voyage) with metadata capture
-- [x] Frontend result presentation with trust/recency badges and updated typings
+Phase 11 improves text chunking by implementing robust sentence boundary detection that correctly handles abbreviations, version numbers, decimal numbers, URLs, inline code, and other edge cases that previously caused incorrect sentence splits.
 
----
+## Problem Statement
 
-## 📁 Files Changed
+The original sentence boundary detection used a simple regex:
+```typescript
+const punctuationMatches = window.matchAll(/[.!?]["')\]]*\s+/g);
+```
 
-### Added
-- `packages/db/migrations/004_hybrid_search.sql` – Enables pg_trgm, text indexes, and generated metadata columns
-- `apps/server/src/services/bm25.ts` – Standalone BM25 lexical search service
-- `apps/server/src/services/hybrid.ts` – Hybrid fusion service with RRF scoring
-- `apps/server/src/services/embedding-router.ts` – Provider selection heuristics and env overrides
-- `apps/server/src/services/metadata-builder.ts` – Fluent builder for document metadata enrichment
-- `apps/server/src/services/__tests__/bm25.test.ts` – Unit tests covering query normalization and ranking
-- `apps/server/src/services/__tests__/hybrid.test.ts` – Fusion algorithm and hybrid search tests
-- `apps/server/src/services/__tests__/embedding-router.test.ts` – Routing heuristics coverage
-- `apps/server/src/services/__tests__/metadata-builder.test.ts` – Builder behavior and defaults
-- `apps/web/src/components/TrustBadge.tsx` – Frontend trust indicator component
-- `apps/web/src/components/RecencyBadge.tsx` – Frontend content freshness badge
-- `apps/web/src/components/ResultCard.tsx` – Frontend search card consuming new metadata
+This caused incorrect splits on:
+- **Abbreviations**: "Dr. Smith went..." split at "Dr."
+- **Version numbers**: "Flutter 3.24.5 is..." split at each decimal
+- **Decimal numbers**: "The value is 3.14 which..." split at "3."
+- **URLs**: "Visit https://example.com. Then..." split mid-URL
+- **Inline code**: Code blocks with periods got split
+- **Initials**: "J.K. Rowling" split at each initial
 
-### Modified
-- `apps/server/src/pipeline/embed.ts` – Routes requests via router, adds Voyage/OpenAI clients, enriched responses
-- `apps/server/src/pipeline/orchestrator.ts` – Propagates content context, stores embedding metadata, updates document metadata
-- `apps/server/src/pipeline/store.ts` – Persists provider/model/dimension into chunk metadata
-- `apps/server/src/services/search.ts` – Adds smartSearch wrapper, trust scoring, environment-driven weights
-- `apps/server/src/routes/search.ts` – Uses smartSearch and returns trust metadata
-- `apps/server/src/agent/tools.ts` – Delegates MCP search tool to smartSearch (Day 2)
-- `packages/shared/src/index.ts` – Shared DocumentMetadata/ChunkMetadata types
-- `.env.example`, `apps/server/.env.example` – New search and provider configuration variables
-- `apps/web/src/types/index.ts` – Aligns front-end types with enriched search response
-- `docs/phases/phase-8/09_FRONTEND_UPDATES.md` – Extended implementation guide for UI components
+## Solution
 
-### Deleted
-- None
+Created a new `sentence-splitter.ts` module with:
 
----
+1. **Comprehensive abbreviation list** (~100 common abbreviations)
+2. **Protected pattern detection** for URLs, versions, code blocks
+3. **Intelligent sentence boundary validation**
+4. **Three modes**: `regex` (improved), `nlp` (optional), `legacy` (backwards compatible)
 
-## 🧪 Tests Added
+## Features Implemented
 
-### Unit Tests
-- `apps/server/src/services/__tests__/bm25.test.ts` – 5 tests for lexical search normalization and validation
-- `apps/server/src/services/__tests__/hybrid.test.ts` – 3 tests covering RRF merging and weight tuning
-- `apps/server/src/services/__tests__/embedding-router.test.ts` – 6 tests exercising routing heuristics
-- `apps/server/src/services/__tests__/metadata-builder.test.ts` – 7 tests validating builder defaults and auto-detection
-- `apps/server/src/pipeline/__tests__/embed.test.ts` – Expanded to 8 tests for multi-provider flows & fallback
-- `apps/server/src/pipeline/__tests__/orchestrator.test.ts` – Updated expectations for metadata and routing
+### 1. New Sentence Splitter Module
 
-### Integration Tests
-- Existing route/agent Vitest suites updated to exercise smartSearch responses
+```typescript
+// apps/server/src/pipeline/sentence-splitter.ts
+
+export type SentenceSplitMode = 'regex' | 'nlp';
+
+export interface SentenceSplitOptions {
+  mode?: SentenceSplitMode;
+  preserveCodeBlocks?: boolean;
+  customAbbreviations?: string[];
+}
+
+// Main functions
+export function findLastSentenceBoundary(text, start, limit, options);
+export function findFirstSentenceBoundary(text, start, limit, options);
+export function splitIntoSentences(text, options);
+```
+
+### 2. Updated ChunkOptions
+
+```typescript
+export interface ChunkOptions {
+  maxSize?: number;
+  overlap?: number;
+  paragraphSeparator?: RegExp;
+  // NEW Phase 11 options:
+  sentenceSplitMode?: 'regex' | 'nlp' | 'legacy';
+  preserveCodeBlocks?: boolean;
+  customAbbreviations?: string[];
+}
+```
+
+### 3. Environment Variable Support
+
+```bash
+# Set default sentence split mode
+TEXT_CHUNKING_MODE=regex  # or 'nlp' for NLP-based splitting
+```
+
+### 4. Abbreviations Handled
+
+| Category | Examples |
+|----------|----------|
+| Titles | Mr., Mrs., Ms., Dr., Prof., Sr., Jr. |
+| Academic | Ph.D., M.D., B.A., M.A. |
+| Latin | e.g., i.e., etc., vs., cf. |
+| Months | Jan., Feb., Mar., etc. |
+| Business | Inc., Ltd., Corp., Co. |
+| Address | St., Ave., Blvd., Rd. |
+| Measurements | ft., in., oz., lb., kg. |
+
+### 5. Protected Patterns
+
+- **URLs**: `https://example.com`, `www.example.com`
+- **Version numbers**: `3.24.5`, `v2.0.1`, `14.3.0-canary.87`
+- **Decimal numbers**: `3.14`, `-2.5`, `0.95`
+- **Inline code**: `` `foo.bar()` ``
+- **Fenced code blocks**: ` ```...``` `
+- **File paths**: `src/main.ts`, `config.json`
+- **Initials**: `J.K.`, `U.S.`, `U.S.A.`
+- **Ellipsis**: `...`
+
+## Files Changed
+
+| File | Action | Description |
+|------|--------|-------------|
+| `apps/server/src/pipeline/sentence-splitter.ts` | **CREATE** | New sentence boundary detection module |
+| `apps/server/src/pipeline/chunk.ts` | MODIFY | Integrated new sentence splitter |
+| `apps/server/src/pipeline/__tests__/sentence-splitter.test.ts` | **CREATE** | 50 comprehensive tests |
+| `apps/server/src/pipeline/__tests__/chunk.test.ts` | MODIFY | Added 14 Phase 11 edge case tests |
+| `scripts/benchmark-phase11.ts` | **CREATE** | Benchmark suite for performance comparison |
+
+## API Changes
+
+### Before (Phase 10)
+```typescript
+const chunks = chunkText(text, { maxSize: 800, overlap: 150 });
+// Would incorrectly split on "Dr." or "3.14"
+```
+
+### After (Phase 11)
+```typescript
+// Default: improved regex mode
+const chunks = chunkText(text, { maxSize: 800, overlap: 150 });
+// Correctly handles abbreviations, versions, etc.
+
+// Legacy mode for backwards compatibility
+const chunks = chunkText(text, { 
+  maxSize: 800, 
+  overlap: 150,
+  sentenceSplitMode: 'legacy' 
+});
+
+// Custom abbreviations
+const chunks = chunkText(text, {
+  maxSize: 800,
+  overlap: 150,
+  customAbbreviations: ['Ref', 'Fig']
+});
+```
+
+## Test Results
+
+```
+✓ src/pipeline/__tests__/sentence-splitter.test.ts (50 tests)
+✓ src/pipeline/__tests__/chunk.test.ts (19 tests)
+Total: 69 tests passed
+```
 
 ### Test Coverage
-- Overall coverage: maintained from prior phase (no regressions)
-- New code coverage: ~90% across new services and utilities
 
-### Test Results
-```
-✓ pnpm --filter @synthesis/server test (61 passed, 0 failed)
-✓ pnpm --filter @synthesis/web typecheck
-✓ No console errors or warnings
-```
+- Abbreviation handling (15 tests)
+- Version number handling (4 tests)
+- Decimal number handling (3 tests)
+- URL handling (3 tests)
+- Code handling (4 tests)
+- Initials handling (3 tests)
+- Ellipsis handling (2 tests)
+- Edge cases (6 tests)
+- Integration tests (3 tests)
+- Validation tests (1 test)
+- Phase 11 chunk tests (14 tests)
 
----
+## Acceptance Criteria
 
-## 🎯 Acceptance Criteria
+- [x] No splits on common abbreviations (Mr., Dr., etc.)
+- [x] No splits on version numbers (3.24.5)
+- [x] Embedded code blocks preserved
+- [x] Performance within 10% of legacy (verified via benchmark)
+- [x] Legacy mode available for backwards compatibility
+- [x] All existing tests pass
 
-- [x] **Hybrid search returns combined vector + BM25 results** – Verified via unit tests and API route wiring.
-- [x] **Embedding pipeline supports multiple providers with routing** – Provider selection, fallbacks, and metadata captured.
-- [x] **Metadata tracks source quality, embedding telemetry, and trust signals** – Builder and store updates ensure persistence.
-- [x] **Frontend surfaces trust and recency metadata without regressions** – New badges and result card components in place.
+## Known Issues
 
----
+None identified.
 
-## ⚠️ Known Issues
+## Breaking Changes
 
-None identified during Phase 8. All new functionality ships behind configuration flags with safe defaults.
+**No** - The default behavior is improved, but the `legacy` mode is available for exact backwards compatibility.
 
----
+## Dependencies for Next Phase
 
-## 💥 Breaking Changes
+Phase 12 (Query Intent Detection) can proceed independently. The improved chunking will provide better quality chunks for search.
 
-### None
-✅ No breaking API or data model changes; new behavior is opt-in via configuration.
+## Performance Impact
 
----
+- **Improved mode**: Slightly more computation for pattern detection
+- **Legacy mode**: Identical to previous implementation
+- **Benchmark**: Run `pnpm --filter @synthesis/server exec tsx ../../scripts/benchmark-phase11.ts`
 
-## 📦 Dependencies Added/Updated
+## Configuration
 
-### New Dependencies
-```json
-{
-  "@voyageai/voyageai": "npm:voyageai@^0.0.8"
-}
-```
+### Environment Variables
 
-**Rationale:** Provides the official Voyage embedding client for server-side requests while preserving Ollama (default) and OpenAI support.
+| Variable | Values | Default | Description |
+|----------|--------|---------|-------------|
+| `TEXT_CHUNKING_MODE` | `regex`, `nlp` | `regex` | Default sentence split mode |
 
-### Updated Dependencies
-```json
-{
-  "openai": "^4.20.0"
-}
-```
+### ChunkOptions
 
-**Reason:** Aligns the server with the latest OpenAI SDK used by the embedding router.
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `sentenceSplitMode` | `'regex' \| 'nlp' \| 'legacy'` | `'regex'` | Sentence splitting algorithm |
+| `preserveCodeBlocks` | `boolean` | `true` | Keep code blocks as single units |
+| `customAbbreviations` | `string[]` | `[]` | Additional abbreviations to recognize |
 
----
+## Notes
 
-## 🔗 Dependencies for Next Phase
-
-1. **Trust metadata in clients:** Phase 9 UI/agent work should consume `trust_scoring_applied`, `trustWeight`, and `recencyWeight`.
-2. **Metadata builder extensibility:** Downstream ingestion phases can extend the builder without re-implementing heuristics.
-3. **Hybrid search configuration:** Future phases can tune weights via `HYBRID_VECTOR_WEIGHT` / `HYBRID_BM25_WEIGHT` without code changes.
-
----
-
-## 📊 Metrics
-
-### Performance
-- Hybrid search latency: ~400 ms average (vector + BM25 in parallel observed locally) – acceptable.
-- Embedding generation throughput: unchanged for Ollama; external providers gated by API keys/timeouts.
-- Database impact: GIN and trigram indexes keep BM25 queries performant.
-
-### Code Quality
-- Lines added: ~1,150  
-- Lines removed: ~120  
-- Code complexity: Medium – concentrated in search orchestration.
-- Linting issues: 0 (Vitest/typecheck clean)
-
-### Testing
-- Tests added: 20  
-- Test execution time: ~2 s (`pnpm --filter @synthesis/server test`)
-- Code coverage: maintained (no drops flagged by reporters)
-
----
-
-## 🔍 Review Checklist
-
-### Code Quality
-- [x] Code follows TypeScript best practices
-- [x] Functions remain focused with clear responsibilities
-- [x] Descriptive naming and minimal magic numbers
-- [x] Errors surfaced with actionable messages
-- [x] No stray console logging in production paths
-- [x] Comments explain intent where logic is non-obvious
-
-### Testing
-- [x] Unit tests cover new services and edge cases
-- [x] Error and fallback paths validated
-- [x] Tests run quickly (<5 s)
-- [x] External services mocked or abstracted
-
-### Security
-- [x] No secrets committed; env vars documented
-- [x] Query parameters are parameterized (SQL safety)
-- [x] Input validation enforced via zod and service checks
-- [x] Trust scoring guarded by configuration
-
-### Performance
-- [x] No N+1 query regressions introduced
-- [x] Database indexes applied for new access patterns
-- [x] Embedding batch operations reuse existing batching logic
-- [x] Timeouts and retries present for external providers
-
-### Documentation
-- [x] Environment variables updated
-- [x] Phase 8 docs extended (backend & frontend)
-- [x] Migration file documented in code comments
-- [x] Frontend component usage captured in phase docs
-
----
-
-## 📝 Notes for Reviewers
-
-- Hybrid mode is opt-in via `SEARCH_MODE=hybrid`; vector-only remains default.  
-- Trust scoring can be toggled with `ENABLE_TRUST_SCORING`; weights are exposed as env overrides.  
-- Configure `OPENAI_API_KEY` and `VOYAGE_API_KEY` only if those providers should be active—otherwise the system gracefully falls back to Ollama.
-
-### Testing Instructions
-1. **Install dependencies:** `pnpm install`
-2. **Run backend tests:** `pnpm --filter @synthesis/server test`
-3. **Typecheck frontend:** `pnpm --filter @synthesis/web typecheck`
-4. **Manual verification (optional):** Set `SEARCH_MODE=hybrid`, ingest a document, and hit `POST /api/search` to observe fused scores and metadata.
+- The `nlp` mode requires the optional `sbd` npm package. If not installed, it falls back to `regex` mode with a warning.
+- The abbreviation list is comprehensive but can be extended via `customAbbreviations`.
+- File extension detection covers common programming languages.
+- The implementation prioritizes correctness over performance, but remains efficient for typical document sizes.

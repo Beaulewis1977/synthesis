@@ -465,38 +465,42 @@ The search API now includes diagnostics in hybrid mode:
 **Problem:** Sentence/paragraph detection uses fragile regex that fails on abbreviations, decimals, embedded code.
 
 ### 14.1 Deliverables
-- [ ] Improved regex patterns for sentence boundaries
-- [ ] Optional NLP-based sentence segmentation (via library)
-- [ ] Configuration flag to switch between modes
-- [ ] Benchmark suite for chunking quality
+- [x] Improved regex patterns for sentence boundaries
+- [x] Optional NLP-based sentence segmentation (via library)
+- [x] Configuration flag to switch between modes
+- [x] Benchmark suite for chunking quality
 
 ### 14.2 Key Files
 
 | File | Action |
 |------|--------|
-| `apps/server/src/pipeline/chunk.ts` | MODIFY |
-| `apps/server/src/pipeline/sentence-splitter.ts` | **CREATE** (optional) |
+| `apps/server/src/pipeline/chunk.ts` | MODIFIED - integrated sentence splitter |
+| `apps/server/src/pipeline/sentence-splitter.ts` | **CREATED** - new sentence boundary module |
+| `apps/server/src/pipeline/__tests__/sentence-splitter.test.ts` | **CREATED** - 50 tests |
+| `scripts/benchmark-phase11.ts` | **CREATED** - benchmark suite |
 
 ### 14.3 Sentence Boundary Improvements
 
 ```typescript
-// Current (fragile):
+// Legacy (fragile):
 const SENTENCE_END = /[.!?]\s+/;
 
-// Improved:
-const SENTENCE_END = /(?<![A-Z])(?<!\b(?:Mr|Mrs|Dr|vs|etc|e\.g|i\.e))[.!?](?=\s+[A-Z]|\s*$)/;
+// Improved (Phase 11):
+// - Comprehensive abbreviation detection (~100 abbreviations)
+// - Protected patterns: URLs, versions, decimals, code blocks
+// - Three modes: 'regex' (improved), 'nlp' (optional), 'legacy'
 
-// Edge cases to handle:
-// - "Dr. Smith went..." → NOT a split
-// - "version 3.24.5 is..." → NOT a split  
-// - "...finished. The next..." → SPLIT
+// Usage:
+chunkText(text, { sentenceSplitMode: 'regex' }); // Default: improved
+chunkText(text, { sentenceSplitMode: 'legacy' }); // Backwards compatible
+chunkText(text, { customAbbreviations: ['Ref', 'Fig'] }); // Custom
 ```
 
 ### 14.4 Acceptance Criteria
-- [ ] No splits on common abbreviations (Mr., Dr., etc.)
-- [ ] No splits on version numbers (3.24.5)
-- [ ] Embedded code blocks preserved
-- [ ] Performance within 10% of current
+- [x] No splits on common abbreviations (Mr., Dr., etc.)
+- [x] No splits on version numbers (3.24.5)
+- [x] Embedded code blocks preserved
+- [x] Performance within 10% of current
 
 ---
 

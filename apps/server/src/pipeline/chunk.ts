@@ -1,3 +1,11 @@
+import {
+  type SentenceSplitMode,
+  type SentenceSplitOptions,
+  findFirstSentenceBoundary as findFirstSentenceBoundaryImproved,
+  findLastSentenceBoundary as findLastSentenceBoundaryImproved,
+  getDefaultSentenceSplitMode,
+} from './sentence-splitter.js';
+
 export interface ChunkOptions {
   /** Maximum number of characters per chunk (default: 800). */
   maxSize?: number;
@@ -5,6 +13,25 @@ export interface ChunkOptions {
   overlap?: number;
   /** Custom paragraph separator detection (default: two or more newlines). */
   paragraphSeparator?: RegExp;
+  /**
+   * Sentence splitting mode for boundary detection.
+   * - 'regex': Fast, rule-based splitting with abbreviation handling (default)
+   * - 'nlp': More accurate NLP-based splitting (requires optional sbd dependency)
+   * - 'legacy': Original simple regex (for backwards compatibility)
+   * @default 'regex'
+   */
+  sentenceSplitMode?: SentenceSplitMode | 'legacy';
+  /**
+   * Whether to preserve code blocks as single units during sentence splitting.
+   * Only applies when sentenceSplitMode is 'regex' or 'nlp'.
+   * @default true
+   */
+  preserveCodeBlocks?: boolean;
+  /**
+   * Custom abbreviations to add to the default set.
+   * Only applies when sentenceSplitMode is 'regex' or 'nlp'.
+   */
+  customAbbreviations?: string[];
 }
 
 import type { ChunkType, ChunkMetadata as SharedChunkMetadata } from '@synthesis/shared';
@@ -37,12 +64,21 @@ interface NormalisedOptions {
   maxSize: number;
   overlap: number;
   paragraphSeparator: RegExp;
+  sentenceSplitMode: SentenceSplitMode | 'legacy';
+  sentenceSplitOptions: SentenceSplitOptions;
 }
 
-const DEFAULTS: NormalisedOptions = {
+const DEFAULTS: Omit<NormalisedOptions, 'sentenceSplitOptions'> & {
+  sentenceSplitOptions: SentenceSplitOptions;
+} = {
   maxSize: 800,
   overlap: 150,
   paragraphSeparator: /\n{2,}/g,
+  sentenceSplitMode: getDefaultSentenceSplitMode(),
+  sentenceSplitOptions: {
+    preserveCodeBlocks: true,
+    customAbbreviations: [],
+  },
 };
 
 /**
@@ -59,10 +95,19 @@ export function chunkText(
     return [];
   }
 
+  const sentenceSplitMode = options.sentenceSplitMode ?? DEFAULTS.sentenceSplitMode;
   const config: NormalisedOptions = {
     maxSize: options.maxSize ?? DEFAULTS.maxSize,
     overlap: options.overlap ?? DEFAULTS.overlap,
     paragraphSeparator: options.paragraphSeparator ?? DEFAULTS.paragraphSeparator,
+    sentenceSplitMode,
+    sentenceSplitOptions: {
+      mode: sentenceSplitMode === 'legacy' ? 'regex' : sentenceSplitMode,
+      preserveCodeBlocks:
+        options.preserveCodeBlocks ?? DEFAULTS.sentenceSplitOptions.preserveCodeBlocks,
+      customAbbreviations:
+        options.customAbbreviations ?? DEFAULTS.sentenceSplitOptions.customAbbreviations,
+    },
   };
 
   if (config.maxSize <= 0) {
@@ -157,14 +202,14 @@ function determineChunkEnd(
     return { end: paragraphBreak, hardLimit };
   }
 
-  const sentenceBoundary = findLastSentenceBoundary(text, start, hardLimit);
+  const sentenceBoundary = findSentenceBoundary(text, start, hardLimit, config, 'last');
   if (sentenceBoundary > start) {
     return { end: sentenceBoundary, hardLimit };
   }
 
   const extendedLimit = Math.min(start + config.maxSize + config.overlap, text.length);
   if (extendedLimit > hardLimit) {
-    const forwardBoundary = findFirstSentenceBoundary(text, hardLimit, extendedLimit);
+    const forwardBoundary = findSentenceBoundary(text, hardLimit, extendedLimit, config, 'first');
     if (forwardBoundary > hardLimit) {
       return { end: forwardBoundary, hardLimit: extendedLimit };
     }
@@ -201,7 +246,34 @@ function findParagraphBreak(
   return candidate + separatorLength;
 }
 
-function findLastSentenceBoundary(text: string, start: number, limit: number): number {
+/**
+ * Unified sentence boundary finder that delegates to the appropriate implementation.
+ */
+function findSentenceBoundary(
+  text: string,
+  start: number,
+  limit: number,
+  config: NormalisedOptions,
+  direction: 'first' | 'last'
+): number {
+  if (config.sentenceSplitMode === 'legacy') {
+    // Use original simple regex for backwards compatibility
+    return direction === 'last'
+      ? findLastSentenceBoundaryLegacy(text, start, limit)
+      : findFirstSentenceBoundaryLegacy(text, start, limit);
+  }
+
+  // Use improved sentence boundary detection
+  return direction === 'last'
+    ? findLastSentenceBoundaryImproved(text, start, limit, config.sentenceSplitOptions)
+    : findFirstSentenceBoundaryImproved(text, start, limit, config.sentenceSplitOptions);
+}
+
+/**
+ * Legacy sentence boundary detection (original implementation).
+ * Kept for backwards compatibility when sentenceSplitMode is 'legacy'.
+ */
+function findLastSentenceBoundaryLegacy(text: string, start: number, limit: number): number {
   if (limit <= start) {
     return -1;
   }
@@ -220,7 +292,15 @@ function findLastSentenceBoundary(text: string, start: number, limit: number): n
   return boundary;
 }
 
-function findFirstSentenceBoundary(text: string, rangeStart: number, rangeEnd: number): number {
+/**
+ * Legacy first sentence boundary detection (original implementation).
+ * Kept for backwards compatibility when sentenceSplitMode is 'legacy'.
+ */
+function findFirstSentenceBoundaryLegacy(
+  text: string,
+  rangeStart: number,
+  rangeEnd: number
+): number {
   if (rangeEnd <= rangeStart) {
     return -1;
   }
