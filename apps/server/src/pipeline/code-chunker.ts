@@ -1094,6 +1094,7 @@ function simpleChunking(
   lineEndOffsets.push(content.length);
 
   // Phase 9: Find function boundaries for smarter chunking
+  // Pre-sorted array for efficient binary search
   const functionBoundaries: number[] = [];
   if (respectBoundaries) {
     for (let i = 0; i < lines.length; i++) {
@@ -1103,6 +1104,9 @@ function simpleChunking(
     }
   }
 
+  // Track current position in boundaries array for O(n+m) efficiency instead of O(n*m)
+  let boundaryIndex = 0;
+
   let i = 0;
   while (i < lines.length) {
     let endLine = Math.min(i + chunkSize, lines.length);
@@ -1111,11 +1115,25 @@ function simpleChunking(
     if (respectBoundaries && functionBoundaries.length > 0) {
       // Look for a function boundary within the last 20% of the chunk
       const searchStart = Math.floor(i + chunkSize * 0.8);
-      const nearbyBoundary = functionBoundaries.find(
-        (b) => b > searchStart && b <= endLine && b > i
-      );
-      if (nearbyBoundary !== undefined) {
-        endLine = nearbyBoundary;
+
+      // Advance boundaryIndex to first boundary >= searchStart (binary search optimization)
+      while (
+        boundaryIndex < functionBoundaries.length &&
+        functionBoundaries[boundaryIndex] < searchStart
+      ) {
+        boundaryIndex++;
+      }
+
+      // Find first boundary in range [searchStart, endLine] that is > i
+      let searchIdx = boundaryIndex;
+      while (searchIdx < functionBoundaries.length) {
+        const b = functionBoundaries[searchIdx];
+        if (b > endLine) break; // Past our range
+        if (b > i && b > searchStart) {
+          endLine = b;
+          break;
+        }
+        searchIdx++;
       }
     }
 
@@ -1123,22 +1141,26 @@ function simpleChunking(
     const text = chunkLines.join('\n');
 
     if (text.trim().length > 0) {
+      // Use endLine for accurate line_range since boundary detection may have adjusted it
+      const actualEndLine = i + chunkLines.length;
       chunks.push({
         text,
         index: chunkIndex++,
         metadata: {
           chunk_type: 'text',
-          line_range: [i + 1, i + chunkLines.length],
+          line_range: [i + 1, actualEndLine],
           startOffset: lineStartOffsets[i] ?? 0,
-          endOffset: lineEndOffsets[i + chunkLines.length - 1] ?? lineStartOffsets[i] + text.length,
+          endOffset: lineEndOffsets[actualEndLine - 1] ?? lineStartOffsets[i] + text.length,
         },
       });
     }
 
     // Move to next chunk with overlap
     const nextStart = endLine - overlap;
+    // Prevent infinite loop: occurs when chunk is smaller than overlap
+    // (e.g., endLine - i <= overlap, meaning we'd go backwards or stay in place)
     if (nextStart <= i) {
-      i = endLine; // Prevent infinite loop
+      i = endLine;
     } else {
       i = nextStart;
     }

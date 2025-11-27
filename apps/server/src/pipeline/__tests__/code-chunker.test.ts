@@ -548,11 +548,11 @@ ${methods}
       const detailChunks = chunks.filter((c) => c.metadata.chunk_hierarchy === 'detail');
       expect(detailChunks.length).toBeGreaterThan(0);
 
-      // All detail chunks should reference the same parent
-      const parentId = overviewChunk?.metadata.parent_chunk_id;
-      expect(parentId).toBeDefined();
+      // All detail chunks should reference the overview via parent_chunk_id
+      const overviewId = overviewChunk?.metadata.overview_chunk_id;
+      expect(overviewId).toBeDefined();
       for (const detail of detailChunks) {
-        expect(detail.metadata.parent_chunk_id).toBe(parentId);
+        expect(detail.metadata.parent_chunk_id).toBe(overviewId);
         expect(detail.metadata.class_context).toBe('LargeWidget');
       }
     });

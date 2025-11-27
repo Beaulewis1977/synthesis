@@ -184,6 +184,8 @@ export function chunkClassHierarchically(
   const parentChunkId = randomUUID();
 
   // Create overview chunk
+  // Note: Overview chunk does NOT have parent_chunk_id - only child chunks reference the parent
+  // The parentChunkId is used as a linking ID that children reference
   const overviewText = generateClassOverview(cls, options);
   const overviewMetadata: ChunkMetadata = {
     chunk_type: 'code',
@@ -196,7 +198,8 @@ export function chunkClassHierarchically(
     startOffset: cls.startOffset,
     endOffset: cls.endOffset,
     // Phase 9: Hierarchical metadata
-    parent_chunk_id: parentChunkId,
+    // overview_chunk_id is used by children to reference this overview chunk
+    overview_chunk_id: parentChunkId,
     chunk_hierarchy: 'overview' as ChunkHierarchy,
     sibling_count: cls.methods.length,
   };

@@ -132,8 +132,10 @@ export interface ChunkMetadata extends DocumentMetadata {
   line_range?: [number, number];
 
   // Phase 9: Hierarchical chunking fields
-  /** UUID of parent chunk (for method chunks linking to class overview) */
+  /** UUID of parent/overview chunk (for method chunks linking to class overview) */
   parent_chunk_id?: string;
+  /** UUID identifying this overview chunk (set on overview chunks, referenced by children) */
+  overview_chunk_id?: string;
   /** Hierarchy level: 'overview' for class summaries, 'detail' for methods */
   chunk_hierarchy?: ChunkHierarchy;
   /** Number of sibling/child chunks (for overview chunks) */

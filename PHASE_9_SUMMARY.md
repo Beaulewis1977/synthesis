@@ -77,15 +77,15 @@ interface CodeChunkOptions {
 ## Example Output
 
 ### Before (large class)
-```
+```typescript
 Chunk 1: method1() { ... }  // class_context: MyClass
 Chunk 2: method2() { ... }  // class_context: MyClass
 Chunk 3: method3() { ... }  // class_context: MyClass
 ```
 
 ### After (large class with hierarchical chunking)
-```
-Chunk 1: class MyClass { ... signatures ... }  // chunk_hierarchy: overview, sibling_count: 3
+```typescript
+Chunk 1: class MyClass { ... signatures ... }  // chunk_hierarchy: overview, overview_chunk_id: <uuid>
 Chunk 2: method1() { ... }  // chunk_hierarchy: detail, parent_chunk_id: <uuid>
 Chunk 3: method2() { ... }  // chunk_hierarchy: detail, parent_chunk_id: <uuid>
 Chunk 4: method3() { ... }  // chunk_hierarchy: detail, parent_chunk_id: <uuid>

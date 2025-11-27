@@ -134,20 +134,22 @@ describe('Hierarchical Chunker (Phase 9)', () => {
       expect(overview.metadata.chunk_hierarchy).toBe('overview');
       expect(overview.metadata.class_name).toBe('LargeService');
       expect(overview.metadata.sibling_count).toBe(2);
-      expect(overview.metadata.parent_chunk_id).toBeDefined();
+      // Overview chunk has overview_chunk_id (not parent_chunk_id)
+      expect(overview.metadata.overview_chunk_id).toBeDefined();
+      expect(overview.metadata.parent_chunk_id).toBeUndefined();
 
-      // Check method chunks
+      // Check method chunks - they reference the overview via parent_chunk_id
       const method1 = result.chunks[1];
       expect(method1.metadata.chunk_hierarchy).toBe('detail');
       expect(method1.metadata.function_name).toBe('method1');
       expect(method1.metadata.class_context).toBe('LargeService');
-      expect(method1.metadata.parent_chunk_id).toBe(overview.metadata.parent_chunk_id);
+      expect(method1.metadata.parent_chunk_id).toBe(overview.metadata.overview_chunk_id);
 
       const method2 = result.chunks[2];
       expect(method2.metadata.chunk_hierarchy).toBe('detail');
       expect(method2.metadata.function_name).toBe('method2');
       expect(method2.metadata.is_static).toBe(true);
-      expect(method2.metadata.parent_chunk_id).toBe(overview.metadata.parent_chunk_id);
+      expect(method2.metadata.parent_chunk_id).toBe(overview.metadata.overview_chunk_id);
     });
 
     it('returns empty result for small class', () => {
