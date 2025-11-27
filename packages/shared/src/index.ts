@@ -122,11 +122,26 @@ export interface DocumentMetadata {
   [key: string]: unknown;
 }
 
+// Phase 9: Chunk hierarchy type for hierarchical code chunking
+export type ChunkHierarchy = 'overview' | 'detail';
+
 export interface ChunkMetadata extends DocumentMetadata {
   chunk_type?: ChunkType;
   heading?: string;
   page?: number | string;
   line_range?: [number, number];
+
+  // Phase 9: Hierarchical chunking fields
+  /** UUID of parent/overview chunk (for method chunks linking to class overview) */
+  parent_chunk_id?: string;
+  /** UUID identifying this overview chunk (set on overview chunks, referenced by children) */
+  overview_chunk_id?: string;
+  /** Hierarchy level: 'overview' for class summaries, 'detail' for methods */
+  chunk_hierarchy?: ChunkHierarchy;
+  /** Number of sibling/child chunks (for overview chunks) */
+  sibling_count?: number;
+  /** Class context for method chunks (existing field, now also used for hierarchy) */
+  class_context?: string;
 
   // Code intelligence fields (Phase 13)
   function_name?: string;

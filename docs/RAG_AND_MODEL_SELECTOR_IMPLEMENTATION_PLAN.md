@@ -421,22 +421,25 @@ The search API now includes diagnostics in hybrid mode:
 **Problem:** Large classes split per-method lose context; non-AST languages use coarse line-based chunking.
 
 ### 12.1 Deliverables
-- [ ] Hierarchical chunks (class overview + method chunks)
-- [ ] Improved `simpleChunking` with language-aware defaults
-- [ ] Parent-child chunk relationships
-- [ ] Metadata linking (class_name, parent_chunk_id)
+- [x] Hierarchical chunks (class overview + method chunks)
+- [x] Improved `simpleChunking` with language-aware defaults
+- [x] Parent-child chunk relationships
+- [x] Metadata linking (class_name, parent_chunk_id)
 
 ### 12.2 Key Files
 
 | File | Action |
 |------|--------|
-| `apps/server/src/pipeline/code-chunker.ts` | MODIFY |
-| `apps/server/src/pipeline/orchestrator.ts` | MODIFY |
+| `packages/shared/src/index.ts` | MODIFIED - Added ChunkHierarchy type and metadata fields |
+| `apps/server/src/pipeline/hierarchical-chunker.ts` | **CREATED** - Hierarchical chunking module |
+| `apps/server/src/pipeline/code-chunker.ts` | MODIFIED - Integrated hierarchical chunking |
+| `apps/server/src/pipeline/__tests__/hierarchical-chunker.test.ts` | **CREATED** - Unit tests |
+| `apps/server/src/pipeline/__tests__/code-chunker.test.ts` | MODIFIED - Phase 9 tests |
 
 ### 12.3 Acceptance Criteria
-- [ ] Large classes have overview + method chunks
-- [ ] Chunks reference parent via metadata
-- [ ] Line-based chunking respects function boundaries when detectable
+- [x] Large classes have overview + method chunks
+- [x] Chunks reference parent via metadata
+- [x] Line-based chunking respects function boundaries when detectable
 
 ---
 
