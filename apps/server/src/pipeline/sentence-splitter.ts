@@ -289,26 +289,88 @@ function isAbbreviationPeriod(
 }
 
 /**
- * Checks if the position is inside a protected pattern (URL, version, code, etc.)
+ * Pre-computed code block state for efficient checking.
+ * Avoids O(n²) re-scanning by tracking state incrementally.
  */
-function isInsideProtectedPattern(text: string, index: number, preserveCodeBlocks = true): boolean {
-  if (preserveCodeBlocks) {
-    // Check if inside inline code (`...`)
-    let backtickCount = 0;
-    for (let i = 0; i < index; i++) {
-      if (text[i] === '`' && (i === 0 || text[i - 1] !== '\\')) {
-        backtickCount++;
+interface CodeBlockState {
+  /** Current position in text that state is computed up to */
+  position: number;
+  /** Number of unescaped backticks seen (odd = inside inline code) */
+  backtickCount: number;
+  /** Number of fence markers (```) seen (odd = inside fenced block) */
+  fenceCount: number;
+}
+
+/**
+ * Updates code block state from lastPosition to newPosition.
+ * Call this incrementally as you process the text to maintain O(n) complexity.
+ */
+function updateCodeBlockState(text: string, state: CodeBlockState, newPosition: number): void {
+  // Scan from current position to new position
+  for (let i = state.position; i < newPosition; i++) {
+    const char = text[i];
+    if (char === '`') {
+      // Check for fence (```)
+      if (i + 2 < text.length && text[i + 1] === '`' && text[i + 2] === '`') {
+        // Only count if not escaped
+        if (i === 0 || text[i - 1] !== '\\') {
+          state.fenceCount++;
+          // Skip the next two backticks
+          i += 2;
+        }
+      } else {
+        // Single backtick - only count if not escaped and not inside fence
+        if ((i === 0 || text[i - 1] !== '\\') && state.fenceCount % 2 === 0) {
+          state.backtickCount++;
+        }
       }
     }
-    if (backtickCount % 2 === 1) {
-      return true; // Inside inline code
-    }
+  }
+  state.position = newPosition;
+}
 
-    // Check if inside fenced code block (```...```)
-    const beforeIndex = text.slice(0, index);
-    const fenceMatches = beforeIndex.match(/```/g);
-    if (fenceMatches && fenceMatches.length % 2 === 1) {
-      return true; // Inside fenced code block
+/**
+ * Checks if currently inside a code block based on pre-computed state.
+ */
+function isInsideCodeBlock(state: CodeBlockState): boolean {
+  return state.backtickCount % 2 === 1 || state.fenceCount % 2 === 1;
+}
+
+/**
+ * Checks if the position is inside a protected pattern (URL, version, code, etc.)
+ * @param codeBlockState - Optional pre-computed state for O(1) code block check
+ */
+function isInsideProtectedPattern(
+  text: string,
+  index: number,
+  preserveCodeBlocks = true,
+  codeBlockState?: CodeBlockState
+): boolean {
+  if (preserveCodeBlocks) {
+    // Use pre-computed state if available (O(1)), otherwise fall back to scan (O(n))
+    if (codeBlockState) {
+      if (isInsideCodeBlock(codeBlockState)) {
+        return true;
+      }
+    } else {
+      // Fallback for callers that don't track state (e.g., findLastSentenceBoundary)
+      // Check if inside inline code (`...`)
+      let backtickCount = 0;
+      for (let i = 0; i < index; i++) {
+        if (text[i] === '`' && (i === 0 || text[i - 1] !== '\\')) {
+          backtickCount++;
+        }
+      }
+      if (backtickCount % 2 === 1) {
+        return true; // Inside inline code
+      }
+
+      // Check if inside fenced code block (```...```)
+      const beforeIndex = text.slice(0, index);
+      const fenceMatches = beforeIndex.match(/```/g);
+      if (fenceMatches && fenceMatches.length % 2 === 1) {
+        return true; // Inside fenced code block
+      }
     }
   }
 
@@ -551,6 +613,7 @@ let nlpFallbackWarned = false;
 /**
  * Internal implementation of regex-based sentence splitting.
  * Used by both splitIntoSentences and as NLP fallback.
+ * Uses incremental code block state tracking for O(n) complexity.
  */
 function splitWithRegexImpl(
   text: string,
@@ -560,6 +623,13 @@ function splitWithRegexImpl(
   const sentences: string[] = [];
   let currentStart = 0;
 
+  // Track code block state incrementally to avoid O(n²) re-scanning
+  const codeBlockState: CodeBlockState = {
+    position: 0,
+    backtickCount: 0,
+    fenceCount: 0,
+  };
+
   // Find all potential sentence boundaries
   const punctuationMatches = [...text.matchAll(/[.!?]["')\]]*\s+/g)];
 
@@ -567,8 +637,13 @@ function splitWithRegexImpl(
     const matchIndex = match.index ?? 0;
     const punct = match[0][0];
 
-    // Skip if inside protected pattern
-    if (isInsideProtectedPattern(text, matchIndex, preserveCodeBlocks)) {
+    // Update code block state incrementally from last position to current match
+    if (preserveCodeBlocks) {
+      updateCodeBlockState(text, codeBlockState, matchIndex);
+    }
+
+    // Skip if inside protected pattern (uses pre-computed code block state)
+    if (isInsideProtectedPattern(text, matchIndex, preserveCodeBlocks, codeBlockState)) {
       continue;
     }
 
