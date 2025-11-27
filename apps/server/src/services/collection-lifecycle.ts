@@ -80,6 +80,37 @@ export interface CollectionVersionStats {
 }
 
 // ============================================
+// Error Helpers
+// ============================================
+
+/**
+ * Custom error class for document not found errors.
+ */
+export class DocumentNotFoundError extends Error {
+  public readonly documentId: string;
+  public readonly statusCode = 404;
+
+  constructor(documentId: string) {
+    super(`Document not found: ${documentId}`);
+    this.name = 'DocumentNotFoundError';
+    this.documentId = documentId;
+  }
+}
+
+/**
+ * Custom error class for lifecycle operation errors.
+ */
+export class LifecycleOperationError extends Error {
+  public readonly statusCode: number;
+
+  constructor(message: string, statusCode = 500) {
+    super(message);
+    this.name = 'LifecycleOperationError';
+    this.statusCode = statusCode;
+  }
+}
+
+// ============================================
 // Archive Operations
 // ============================================
 
@@ -94,45 +125,64 @@ export async function archiveDocument(
   const pool = getPool();
   const queryFn = client ? client.query.bind(client) : pool.query.bind(pool);
 
-  // Get current status
-  const currentResult = await queryFn('SELECT lifecycle_status FROM documents WHERE id = $1', [
-    documentId,
-  ]);
+  try {
+    // Get current status and archived_at (for already-archived case)
+    const currentResult = await queryFn(
+      'SELECT lifecycle_status, archived_at FROM documents WHERE id = $1',
+      [documentId]
+    );
 
-  if (currentResult.rows.length === 0) {
-    throw new Error(`Document not found: ${documentId}`);
-  }
+    if (currentResult.rows.length === 0) {
+      throw new DocumentNotFoundError(documentId);
+    }
 
-  const previousStatus = currentResult.rows[0].lifecycle_status as LifecycleStatus;
+    const previousStatus = currentResult.rows[0].lifecycle_status as LifecycleStatus;
+    const existingArchivedAt = currentResult.rows[0].archived_at;
 
-  if (previousStatus === 'archived') {
+    // If already archived, return existing archived_at timestamp
+    if (previousStatus === 'archived') {
+      return {
+        success: true,
+        document_id: documentId,
+        previous_status: previousStatus,
+        new_status: 'archived',
+        archived_at: existingArchivedAt || new Date(),
+      };
+    }
+
+    // Archive the document
+    const result = await queryFn(
+      `UPDATE documents 
+       SET lifecycle_status = 'archived', 
+           archived_at = NOW(), 
+           updated_at = NOW() 
+       WHERE id = $1 
+       RETURNING archived_at`,
+      [documentId]
+    );
+
+    // Handle race condition: document was deleted between SELECT and UPDATE
+    if (!result.rowCount || result.rowCount === 0) {
+      throw new DocumentNotFoundError(documentId);
+    }
+
     return {
       success: true,
       document_id: documentId,
       previous_status: previousStatus,
       new_status: 'archived',
-      archived_at: new Date(),
+      archived_at: result.rows[0].archived_at,
     };
+  } catch (error) {
+    // Re-throw our custom errors
+    if (error instanceof DocumentNotFoundError || error instanceof LifecycleOperationError) {
+      throw error;
+    }
+    // Convert pg errors to domain errors
+    throw new LifecycleOperationError(
+      `Failed to archive document ${documentId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
-
-  // Archive the document
-  const result = await queryFn(
-    `UPDATE documents 
-     SET lifecycle_status = 'archived', 
-         archived_at = NOW(), 
-         updated_at = NOW() 
-     WHERE id = $1 
-     RETURNING archived_at`,
-    [documentId]
-  );
-
-  return {
-    success: true,
-    document_id: documentId,
-    previous_status: previousStatus,
-    new_status: 'archived',
-    archived_at: result.rows[0].archived_at,
-  };
 }
 
 /**
@@ -147,44 +197,59 @@ export async function supersedeDocument(
   const pool = getPool();
   const queryFn = client ? client.query.bind(client) : pool.query.bind(pool);
 
-  // Verify both documents exist
-  const docsResult = await queryFn(
-    'SELECT id, lifecycle_status FROM documents WHERE id = ANY($1)',
-    [[oldDocumentId, newDocumentId]]
-  );
+  try {
+    // Verify both documents exist
+    const docsResult = await queryFn(
+      'SELECT id, lifecycle_status FROM documents WHERE id = ANY($1)',
+      [[oldDocumentId, newDocumentId]]
+    );
 
-  if (docsResult.rows.length !== 2) {
-    const foundIds = docsResult.rows.map((r: { id: string }) => r.id);
-    const missingId = [oldDocumentId, newDocumentId].find((id) => !foundIds.includes(id));
-    throw new Error(`Document not found: ${missingId}`);
-  }
+    if (docsResult.rows.length !== 2) {
+      const foundIds = docsResult.rows.map((r: { id: string }) => r.id);
+      const missingId = [oldDocumentId, newDocumentId].find((id) => !foundIds.includes(id));
+      throw new DocumentNotFoundError(missingId || oldDocumentId);
+    }
 
-  const oldDoc = docsResult.rows.find((r: { id: string }) => r.id === oldDocumentId);
-  if (oldDoc.lifecycle_status === 'superseded') {
+    const oldDoc = docsResult.rows.find((r: { id: string }) => r.id === oldDocumentId);
+    if (oldDoc.lifecycle_status === 'superseded') {
+      return {
+        success: false,
+        old_document_id: oldDocumentId,
+        new_document_id: newDocumentId,
+        message: 'Document is already superseded',
+      };
+    }
+
+    // Supersede the old document
+    const result = await queryFn(
+      `UPDATE documents 
+       SET lifecycle_status = 'superseded', 
+           superseded_by = $2, 
+           updated_at = NOW() 
+       WHERE id = $1
+       RETURNING id`,
+      [oldDocumentId, newDocumentId]
+    );
+
+    // Handle race condition: document was deleted between SELECT and UPDATE
+    if (!result.rowCount || result.rowCount === 0) {
+      throw new DocumentNotFoundError(oldDocumentId);
+    }
+
     return {
-      success: false,
+      success: true,
       old_document_id: oldDocumentId,
       new_document_id: newDocumentId,
-      message: 'Document is already superseded',
+      message: 'Document superseded successfully',
     };
+  } catch (error) {
+    if (error instanceof DocumentNotFoundError || error instanceof LifecycleOperationError) {
+      throw error;
+    }
+    throw new LifecycleOperationError(
+      `Failed to supersede document ${oldDocumentId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
-
-  // Supersede the old document
-  await queryFn(
-    `UPDATE documents 
-     SET lifecycle_status = 'superseded', 
-         superseded_by = $2, 
-         updated_at = NOW() 
-     WHERE id = $1`,
-    [oldDocumentId, newDocumentId]
-  );
-
-  return {
-    success: true,
-    old_document_id: oldDocumentId,
-    new_document_id: newDocumentId,
-    message: 'Document superseded successfully',
-  };
 }
 
 /**
@@ -197,43 +262,58 @@ export async function restoreDocument(
   const pool = getPool();
   const queryFn = client ? client.query.bind(client) : pool.query.bind(pool);
 
-  // Get current status
-  const currentResult = await queryFn('SELECT lifecycle_status FROM documents WHERE id = $1', [
-    documentId,
-  ]);
+  try {
+    // Get current status
+    const currentResult = await queryFn('SELECT lifecycle_status FROM documents WHERE id = $1', [
+      documentId,
+    ]);
 
-  if (currentResult.rows.length === 0) {
-    throw new Error(`Document not found: ${documentId}`);
-  }
+    if (currentResult.rows.length === 0) {
+      throw new DocumentNotFoundError(documentId);
+    }
 
-  const previousStatus = currentResult.rows[0].lifecycle_status as LifecycleStatus;
+    const previousStatus = currentResult.rows[0].lifecycle_status as LifecycleStatus;
 
-  if (previousStatus === 'active') {
+    if (previousStatus === 'active') {
+      return {
+        success: true,
+        document_id: documentId,
+        previous_status: previousStatus,
+        new_status: 'active',
+      };
+    }
+
+    // Restore the document
+    const result = await queryFn(
+      `UPDATE documents 
+       SET lifecycle_status = 'active', 
+           archived_at = NULL, 
+           superseded_by = NULL, 
+           updated_at = NOW() 
+       WHERE id = $1
+       RETURNING id`,
+      [documentId]
+    );
+
+    // Handle race condition: document was deleted between SELECT and UPDATE
+    if (!result.rowCount || result.rowCount === 0) {
+      throw new DocumentNotFoundError(documentId);
+    }
+
     return {
       success: true,
       document_id: documentId,
       previous_status: previousStatus,
       new_status: 'active',
     };
+  } catch (error) {
+    if (error instanceof DocumentNotFoundError || error instanceof LifecycleOperationError) {
+      throw error;
+    }
+    throw new LifecycleOperationError(
+      `Failed to restore document ${documentId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
-
-  // Restore the document
-  await queryFn(
-    `UPDATE documents 
-     SET lifecycle_status = 'active', 
-         archived_at = NULL, 
-         superseded_by = NULL, 
-         updated_at = NOW() 
-     WHERE id = $1`,
-    [documentId]
-  );
-
-  return {
-    success: true,
-    document_id: documentId,
-    previous_status: previousStatus,
-    new_status: 'active',
-  };
 }
 
 // ============================================

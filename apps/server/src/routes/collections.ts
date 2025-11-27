@@ -16,6 +16,8 @@ import { z } from 'zod';
 import { deleteFileIfExists } from '../agent/utils/storage.js';
 import { ingestDocument } from '../pipeline/orchestrator.js';
 import {
+  DocumentNotFoundError,
+  LifecycleOperationError,
   type LifecycleStatus,
   archiveDocument,
   batchArchiveByFrameworkVersion,
@@ -439,8 +441,11 @@ export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.send(result);
     } catch (error) {
       fastify.log.error(error, 'Failed to archive document');
-      if (error instanceof Error && error.message.includes('not found')) {
+      if (error instanceof DocumentNotFoundError) {
         return reply.code(404).send({ error: error.message });
+      }
+      if (error instanceof LifecycleOperationError) {
+        return reply.code(error.statusCode).send({ error: error.message });
       }
       return reply.code(500).send({ error: 'Failed to archive document' });
     }
@@ -454,8 +459,11 @@ export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.send(result);
     } catch (error) {
       fastify.log.error(error, 'Failed to restore document');
-      if (error instanceof Error && error.message.includes('not found')) {
+      if (error instanceof DocumentNotFoundError) {
         return reply.code(404).send({ error: error.message });
+      }
+      if (error instanceof LifecycleOperationError) {
+        return reply.code(error.statusCode).send({ error: error.message });
       }
       return reply.code(500).send({ error: 'Failed to restore document' });
     }
@@ -490,8 +498,11 @@ export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.send(result);
       } catch (error) {
         fastify.log.error(error, 'Failed to supersede document');
-        if (error instanceof Error && error.message.includes('not found')) {
+        if (error instanceof DocumentNotFoundError) {
           return reply.code(404).send({ error: error.message });
+        }
+        if (error instanceof LifecycleOperationError) {
+          return reply.code(error.statusCode).send({ error: error.message });
         }
         return reply.code(500).send({ error: 'Failed to supersede document' });
       }

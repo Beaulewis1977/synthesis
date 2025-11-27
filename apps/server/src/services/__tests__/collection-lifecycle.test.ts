@@ -18,6 +18,7 @@ vi.mock('@synthesis/db', () => ({
 
 import { getPool } from '@synthesis/db';
 import {
+  DocumentNotFoundError,
   archiveDocument,
   batchArchiveByFrameworkVersion,
   batchArchiveDocuments,
@@ -54,10 +55,11 @@ describe('Collection Lifecycle Service', () => {
 
       mockPool.query
         .mockResolvedValueOnce({
-          rows: [{ lifecycle_status: 'active' }],
+          rows: [{ lifecycle_status: 'active', archived_at: null }],
         })
         .mockResolvedValueOnce({
           rows: [{ archived_at: archivedAt }],
+          rowCount: 1,
         });
 
       const result = await archiveDocument(documentId);
@@ -71,9 +73,10 @@ describe('Collection Lifecycle Service', () => {
 
     it('should return success without update if already archived', async () => {
       const documentId = 'doc-123';
+      const existingArchivedAt = new Date('2024-01-01');
 
       mockPool.query.mockResolvedValueOnce({
-        rows: [{ lifecycle_status: 'archived' }],
+        rows: [{ lifecycle_status: 'archived', archived_at: existingArchivedAt }],
       });
 
       const result = await archiveDocument(documentId);
@@ -81,6 +84,7 @@ describe('Collection Lifecycle Service', () => {
       expect(result.success).toBe(true);
       expect(result.previous_status).toBe('archived');
       expect(result.new_status).toBe('archived');
+      expect(result.archived_at).toBe(existingArchivedAt);
       expect(mockPool.query).toHaveBeenCalledTimes(1);
     });
 
@@ -91,7 +95,22 @@ describe('Collection Lifecycle Service', () => {
         rows: [],
       });
 
-      await expect(archiveDocument(documentId)).rejects.toThrow('Document not found');
+      await expect(archiveDocument(documentId)).rejects.toThrow(DocumentNotFoundError);
+    });
+
+    it('should throw error if document deleted during archive (race condition)', async () => {
+      const documentId = 'doc-123';
+
+      mockPool.query
+        .mockResolvedValueOnce({
+          rows: [{ lifecycle_status: 'active', archived_at: null }],
+        })
+        .mockResolvedValueOnce({
+          rows: [],
+          rowCount: 0,
+        });
+
+      await expect(archiveDocument(documentId)).rejects.toThrow(DocumentNotFoundError);
     });
   });
 
@@ -104,7 +123,8 @@ describe('Collection Lifecycle Service', () => {
           rows: [{ lifecycle_status: 'archived' }],
         })
         .mockResolvedValueOnce({
-          rows: [],
+          rows: [{ id: documentId }],
+          rowCount: 1,
         });
 
       const result = await restoreDocument(documentId);
@@ -123,7 +143,8 @@ describe('Collection Lifecycle Service', () => {
           rows: [{ lifecycle_status: 'superseded' }],
         })
         .mockResolvedValueOnce({
-          rows: [],
+          rows: [{ id: documentId }],
+          rowCount: 1,
         });
 
       const result = await restoreDocument(documentId);
@@ -162,7 +183,8 @@ describe('Collection Lifecycle Service', () => {
           ],
         })
         .mockResolvedValueOnce({
-          rows: [],
+          rows: [{ id: oldDocId }],
+          rowCount: 1,
         });
 
       const result = await supersedeDocument(oldDocId, newDocId);
