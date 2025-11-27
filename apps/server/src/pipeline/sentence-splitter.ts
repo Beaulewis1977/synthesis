@@ -17,8 +17,9 @@
  * Sentence splitting mode.
  * - 'regex': Fast, rule-based splitting (default)
  * - 'nlp': More accurate but requires optional sbd dependency
+ * - 'legacy': Original simple regex for backwards compatibility
  */
-export type SentenceSplitMode = 'regex' | 'nlp';
+export type SentenceSplitMode = 'regex' | 'nlp' | 'legacy';
 
 export interface SentenceSplitOptions {
   /** Splitting mode: 'regex' (default) or 'nlp' */
@@ -186,6 +187,42 @@ const ABBREVIATIONS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Known file extensions that should NOT trigger sentence splits.
+ * Extracted to module level for maintainability and potential future configurability.
+ */
+const FILE_EXTENSIONS: ReadonlySet<string> = new Set([
+  'ts',
+  'js',
+  'tsx',
+  'jsx',
+  'py',
+  'java',
+  'go',
+  'rs',
+  'rb',
+  'php',
+  'css',
+  'html',
+  'json',
+  'yaml',
+  'yml',
+  'md',
+  'txt',
+  'xml',
+  'sql',
+  'sh',
+  'c',
+  'cpp',
+  'h',
+  'cs',
+  'swift',
+  'kt',
+  'dart',
+  'vue',
+  'svelte',
+]);
+
+/**
  * Checks if a period at the given position is likely an abbreviation or initial.
  */
 function isAbbreviationPeriod(
@@ -248,11 +285,6 @@ function isAbbreviationPeriod(
     }
   }
 
-  // Check for single uppercase letter initials like "U" in "U.S"
-  if (/^[A-Z]$/.test(word)) {
-    return true;
-  }
-
   return false;
 }
 
@@ -313,10 +345,9 @@ function isInsideProtectedPattern(text: string, index: number, preserveCodeBlock
     fileEnd++;
   }
   const potentialFile = text.slice(fileStart, fileEnd);
-  // Pattern: filename.ext where ext is a known extension
-  const fileExtPattern =
-    /\.(ts|js|tsx|jsx|py|java|go|rs|rb|php|css|html|json|yaml|yml|md|txt|xml|sql|sh|c|cpp|h|cs|swift|kt|dart|vue|svelte)$/i;
-  if (fileExtPattern.test(potentialFile)) {
+  // Check if the extension after the period is a known file extension
+  const extMatch = potentialFile.match(/\.([a-zA-Z0-9]+)$/);
+  if (extMatch && FILE_EXTENSIONS.has(extMatch[1].toLowerCase())) {
     return true;
   }
 
@@ -514,26 +545,18 @@ export function findFirstSentenceBoundary(
   return -1;
 }
 
+// Module-level flag to prevent repeated warnings about missing sbd library
+let nlpFallbackWarned = false;
+
 /**
- * Splits text into sentences using improved heuristics.
+ * Internal implementation of regex-based sentence splitting.
+ * Used by both splitIntoSentences and as NLP fallback.
  */
-export function splitIntoSentences(text: string, options: SentenceSplitOptions = {}): string[] {
-  const { mode = 'regex', customAbbreviations = [], preserveCodeBlocks = true } = options;
-
-  if (!text.trim()) {
-    return [];
-  }
-
-  if (mode === 'nlp') {
-    return splitWithNLP(text, options);
-  }
-
-  // Build abbreviation set with custom additions
-  const abbreviations =
-    customAbbreviations.length > 0
-      ? new Set([...ABBREVIATIONS, ...customAbbreviations.map((a) => a.toLowerCase())])
-      : ABBREVIATIONS;
-
+function splitWithRegexImpl(
+  text: string,
+  abbreviations: ReadonlySet<string>,
+  preserveCodeBlocks: boolean
+): string[] {
   const sentences: string[] = [];
   let currentStart = 0;
 
@@ -583,8 +606,28 @@ export function splitIntoSentences(text: string, options: SentenceSplitOptions =
   return sentences;
 }
 
-// Module-level flag to prevent repeated warnings about missing sbd library
-let nlpFallbackWarned = false;
+/**
+ * Splits text into sentences using improved heuristics.
+ */
+export function splitIntoSentences(text: string, options: SentenceSplitOptions = {}): string[] {
+  const { mode = 'regex', customAbbreviations = [], preserveCodeBlocks = true } = options;
+
+  if (!text.trim()) {
+    return [];
+  }
+
+  if (mode === 'nlp') {
+    return splitWithNLP(text, options);
+  }
+
+  // Build abbreviation set with custom additions
+  const abbreviations =
+    customAbbreviations.length > 0
+      ? new Set([...ABBREVIATIONS, ...customAbbreviations.map((a) => a.toLowerCase())])
+      : ABBREVIATIONS;
+
+  return splitWithRegexImpl(text, abbreviations, preserveCodeBlocks);
+}
 
 /**
  * Splits text using NLP-based sentence boundary detection.
@@ -612,82 +655,26 @@ function splitWithNLP(text: string, options: SentenceSplitOptions): string[] {
           'Install with: npm install sbd'
       );
     }
-    return splitIntoSentencesRegex(text, options);
+    // Build abbreviation set and call implementation directly to avoid recursion
+    const { customAbbreviations = [], preserveCodeBlocks = true } = options;
+    const abbreviations =
+      customAbbreviations.length > 0
+        ? new Set([...ABBREVIATIONS, ...customAbbreviations.map((a) => a.toLowerCase())])
+        : ABBREVIATIONS;
+    return splitWithRegexImpl(text, abbreviations, preserveCodeBlocks);
   }
-}
-
-/**
- * Internal regex-based sentence splitting to avoid recursion from NLP fallback.
- */
-function splitIntoSentencesRegex(text: string, options: SentenceSplitOptions): string[] {
-  const { customAbbreviations = [], preserveCodeBlocks = true } = options;
-
-  if (!text.trim()) {
-    return [];
-  }
-
-  // Build abbreviation set with custom additions
-  const abbreviations =
-    customAbbreviations.length > 0
-      ? new Set([...ABBREVIATIONS, ...customAbbreviations.map((a) => a.toLowerCase())])
-      : ABBREVIATIONS;
-
-  const sentences: string[] = [];
-  let currentStart = 0;
-
-  // Find all potential sentence boundaries
-  const punctuationMatches = [...text.matchAll(/[.!?]["')\]]*\s+/g)];
-
-  for (const match of punctuationMatches) {
-    const matchIndex = match.index ?? 0;
-    const punct = match[0][0];
-
-    // Skip if inside protected pattern
-    if (isInsideProtectedPattern(text, matchIndex, preserveCodeBlocks)) {
-      continue;
-    }
-
-    // For periods, check if it's an abbreviation
-    if (punct === '.') {
-      if (isAbbreviationPeriod(text, matchIndex, abbreviations)) {
-        continue;
-      }
-    }
-
-    // Check if this looks like a real sentence end
-    if (!isLikelySentenceEnd(text, matchIndex)) {
-      continue;
-    }
-
-    // Extract sentence
-    const sentenceEnd = matchIndex + match[0].length;
-    const sentence = text.slice(currentStart, sentenceEnd).trim();
-
-    if (sentence) {
-      sentences.push(sentence);
-    }
-
-    currentStart = sentenceEnd;
-  }
-
-  // Add remaining text as final sentence
-  if (currentStart < text.length) {
-    const sentence = text.slice(currentStart).trim();
-    if (sentence) {
-      sentences.push(sentence);
-    }
-  }
-
-  return sentences;
 }
 
 /**
  * Gets the default sentence split mode from environment variable.
  */
 export function getDefaultSentenceSplitMode(): SentenceSplitMode {
-  const envMode = process.env.TEXT_CHUNKING_MODE?.toLowerCase();
+  const envMode = process.env.TEXT_CHUNKING_MODE?.toLowerCase()?.trim();
   if (envMode === 'nlp') {
     return 'nlp';
+  }
+  if (envMode === 'legacy') {
+    return 'legacy';
   }
   return 'regex';
 }
