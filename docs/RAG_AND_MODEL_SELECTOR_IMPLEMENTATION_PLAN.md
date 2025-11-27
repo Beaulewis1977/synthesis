@@ -346,20 +346,22 @@ class ModelConfigService {
 **Problem:** No way to track document versions or manage lifecycle.
 
 ### 10.1 Deliverables
-- [ ] Version fields on documents (`framework_version`, `doc_version`)
-- [ ] Repo tracking (`commit_sha`, `branch`)
-- [ ] Archive/supersede old docs
-- [ ] Cascade delete for collections
-- [ ] UI: Version filter, active versions display
+- [x] Version fields on documents (`framework_version`, `doc_version`)
+- [x] Repo tracking (`commit_sha`, `branch`)
+- [x] Archive/supersede old docs
+- [x] Cascade delete for collections (already existed via FK constraints)
+- [x] UI: Version filter, active versions display
 
 ### 10.2 Key Files
 
 | File | Action |
 |------|--------|
-| `packages/db/migrations/XXX_versioning.sql` | **CREATE** |
-| `apps/server/src/services/collection-lifecycle.ts` | **CREATE** |
-| `apps/server/src/routes/collections.ts` | MODIFY |
-| `apps/web/src/components/collections/VersionFilter.tsx` | **CREATE** |
+| `packages/db/migrations/021_collection_versioning.sql` | **CREATED** |
+| `apps/server/src/services/collection-lifecycle.ts` | **CREATED** |
+| `apps/server/src/routes/collections.ts` | MODIFIED |
+| `apps/web/src/components/collections/VersionFilter.tsx` | **CREATED** |
+| `apps/web/src/components/collections/LifecycleBadge.tsx` | **CREATED** |
+| `apps/web/src/components/collections/DocumentActions.tsx` | **CREATED** |
 
 ---
 

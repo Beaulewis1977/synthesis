@@ -8,6 +8,9 @@ export interface Collection {
   updated_at: string;
 }
 
+// Phase 7: Lifecycle status for document versioning
+export type LifecycleStatus = 'active' | 'archived' | 'superseded';
+
 export interface Document {
   id: string;
   collection_id: string;
@@ -25,6 +28,12 @@ export interface Document {
   version: number;
   source_url_hash: string | null;
   last_checked_at: string | null;
+  // Phase 7: Versioning fields
+  lifecycle_status: LifecycleStatus;
+  superseded_by: string | null;
+  doc_version: string | null;
+  branch: string | null;
+  archived_at: string | null;
 }
 
 // Search-related types for Phase 8
@@ -518,4 +527,91 @@ export interface WorkflowInstance {
   final_output: string | null;
   started_at: string;
   completed_at: string | null;
+}
+
+// ============================================
+// Phase 7: Collection Versioning Types
+// ============================================
+
+export interface VersionedDocument {
+  id: string;
+  title: string;
+  lifecycle_status: LifecycleStatus;
+  doc_version: string | null;
+  framework_version: string | null;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  superseded_by: string | null;
+}
+
+export interface VersionedDocumentsResponse {
+  documents: VersionedDocument[];
+}
+
+export interface DocumentVersion {
+  id: string;
+  title: string;
+  doc_version: string | null;
+  lifecycle_status: LifecycleStatus;
+  created_at: string;
+  superseded_by: string | null;
+  framework_version: string | null;
+}
+
+export interface VersionHistoryResponse {
+  document_id: string;
+  source_url_hash: string | null;
+  versions: DocumentVersion[];
+}
+
+export interface FrameworkVersionInfo {
+  framework_version: string;
+  document_count: number;
+  active_count: number;
+  archived_count: number;
+}
+
+export interface CollectionVersionStats {
+  collection_id: string;
+  total_documents: number;
+  active_documents: number;
+  archived_documents: number;
+  superseded_documents: number;
+  framework_versions: FrameworkVersionInfo[];
+}
+
+export interface ArchiveResult {
+  success: boolean;
+  document_id: string;
+  previous_status: LifecycleStatus;
+  new_status: LifecycleStatus;
+  archived_at: string;
+}
+
+export interface RestoreResult {
+  success: boolean;
+  document_id: string;
+  previous_status: LifecycleStatus;
+  new_status: LifecycleStatus;
+}
+
+export interface SupersedeResult {
+  success: boolean;
+  old_document_id: string;
+  new_document_id: string;
+  message: string;
+}
+
+export interface BatchArchiveResult {
+  success: boolean;
+  archived_count: number;
+  archived_ids: string[];
+  failed_ids: string[];
+  message: string;
+}
+
+export interface BatchRestoreResult {
+  restored_count: number;
+  restored_ids: string[];
 }

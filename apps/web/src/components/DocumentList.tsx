@@ -8,6 +8,7 @@ import {
   getFileTypeLabel,
 } from '../lib/utils';
 import type { Document } from '../types';
+import { LifecycleBadge, VersionBadge } from './collections';
 
 interface DocumentListProps {
   documents: Document[];
@@ -113,6 +114,24 @@ function DocumentItem({
             {document.error_message && (
               <p className="text-sm text-error mt-xs">{document.error_message}</p>
             )}
+            {/* Phase 7: Lifecycle and Version badges */}
+            <div className="flex flex-wrap items-center gap-xs mt-xs">
+              {document.lifecycle_status && document.lifecycle_status !== 'active' && (
+                <LifecycleBadge status={document.lifecycle_status} size="sm" />
+              )}
+              <VersionBadge
+                version={document.doc_version}
+                frameworkVersion={
+                  document.metadata &&
+                  typeof document.metadata === 'object' &&
+                  'framework_version' in document.metadata
+                    ? String(document.metadata.framework_version)
+                    : null
+                }
+                branch={document.branch}
+                size="sm"
+              />
+            </div>
             {/* Vision OCR indicator */}
             {document.metadata &&
               typeof document.metadata === 'object' &&
