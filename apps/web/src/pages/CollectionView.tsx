@@ -210,6 +210,7 @@ export function CollectionView() {
       {!isLoading && !isError && data && filteredDocuments && (
         <DocumentList
           documents={filteredDocuments}
+          collectionId={id ?? ''}
           onDelete={handleDelete}
           onBatchDelete={handleBatchDelete}
           onRefresh={handleRefresh}

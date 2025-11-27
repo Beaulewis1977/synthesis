@@ -33,13 +33,20 @@ export function DocumentActions({
   const [showMenu, setShowMenu] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
 
   const archiveMutation = useMutation({
     mutationFn: () => apiClient.archiveDocument(documentId),
     onSuccess: () => {
+      addToast('success', 'Document archived successfully');
       queryClient.invalidateQueries({ queryKey: ['documents', collectionId] });
       queryClient.invalidateQueries({ queryKey: ['versioned-documents', collectionId] });
       queryClient.invalidateQueries({ queryKey: ['version-stats', collectionId] });
+      setShowMenu(false);
+    },
+    onError: (error) => {
+      console.error('Archive failed', error);
+      addToast('error', 'Failed to archive document. Please try again.');
       setShowMenu(false);
     },
   });
@@ -47,9 +54,15 @@ export function DocumentActions({
   const restoreMutation = useMutation({
     mutationFn: () => apiClient.restoreDocument(documentId),
     onSuccess: () => {
+      addToast('success', 'Document restored successfully');
       queryClient.invalidateQueries({ queryKey: ['documents', collectionId] });
       queryClient.invalidateQueries({ queryKey: ['versioned-documents', collectionId] });
       queryClient.invalidateQueries({ queryKey: ['version-stats', collectionId] });
+      setShowMenu(false);
+    },
+    onError: (error) => {
+      console.error('Restore failed', error);
+      addToast('error', 'Failed to restore document. Please try again.');
       setShowMenu(false);
     },
   });
@@ -196,7 +209,15 @@ export function BatchActions({ selectedIds, collectionId, onClearSelection }: Ba
 
   const batchArchiveMutation = useMutation({
     mutationFn: () => apiClient.batchArchiveDocuments(selectedIds),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result.success) {
+        addToast('success', `Successfully archived ${result.archived_count} documents`);
+      } else {
+        addToast(
+          'warning',
+          `Archived ${result.archived_count} documents. ${result.failed_ids.length} failed.`
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ['documents', collectionId] });
       queryClient.invalidateQueries({ queryKey: ['versioned-documents', collectionId] });
       queryClient.invalidateQueries({ queryKey: ['version-stats', collectionId] });
@@ -204,19 +225,17 @@ export function BatchActions({ selectedIds, collectionId, onClearSelection }: Ba
     },
     onError: (error) => {
       console.error('Batch archive failed', error);
-      addToast(
-        'error',
-        'Could not archive all selected documents. Some items may not have changed. Please retry.'
-      );
-      queryClient.invalidateQueries({ queryKey: ['documents', collectionId] });
-      queryClient.invalidateQueries({ queryKey: ['versioned-documents', collectionId] });
-      queryClient.invalidateQueries({ queryKey: ['version-stats', collectionId] });
+      addToast('error', 'Failed to archive documents. Please try again.');
     },
   });
 
   const batchRestoreMutation = useMutation({
     mutationFn: () => apiClient.batchRestoreDocuments(selectedIds),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      // Note: batchRestore returns { restored_count, restored_ids } but not a success flag in the same way
+      // We can infer success if restored_count matches selectedIds.length, or just show count.
+      addToast('success', `Successfully restored ${result.restored_count} documents`);
+
       queryClient.invalidateQueries({ queryKey: ['documents', collectionId] });
       queryClient.invalidateQueries({ queryKey: ['versioned-documents', collectionId] });
       queryClient.invalidateQueries({ queryKey: ['version-stats', collectionId] });
@@ -224,13 +243,7 @@ export function BatchActions({ selectedIds, collectionId, onClearSelection }: Ba
     },
     onError: (error) => {
       console.error('Batch restore failed', error);
-      addToast(
-        'error',
-        'Could not restore all selected documents. Some items may not have changed. Please retry.'
-      );
-      queryClient.invalidateQueries({ queryKey: ['documents', collectionId] });
-      queryClient.invalidateQueries({ queryKey: ['versioned-documents', collectionId] });
-      queryClient.invalidateQueries({ queryKey: ['version-stats', collectionId] });
+      addToast('error', 'Failed to restore documents. Please try again.');
     },
   });
 

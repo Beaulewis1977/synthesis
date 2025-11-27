@@ -291,7 +291,6 @@ export async function batchArchiveDocuments(
          archived_at = NOW(), 
          updated_at = NOW() 
      WHERE id = ANY($1) 
-       AND lifecycle_status = 'active'
      RETURNING id`,
     [documentIds]
   );
@@ -325,7 +324,6 @@ export async function batchRestoreDocuments(
          superseded_by = NULL, 
          updated_at = NOW() 
      WHERE id = ANY($1) 
-       AND lifecycle_status IN ('archived', 'superseded')
      RETURNING id`,
     [documentIds]
   );

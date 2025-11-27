@@ -3,6 +3,7 @@ import { AlertCircle, CheckSquare, Folder, Loader2, Plus, Square, Trash2, X } fr
 import { useState } from 'react';
 import { AddCollectionModal } from '../components/AddCollectionModal';
 import { CollectionCard } from '../components/CollectionCard';
+import { useToast } from '../components/Toast';
 import { apiClient } from '../lib/api';
 
 export function Dashboard() {
@@ -11,6 +12,7 @@ export function Dashboard() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showConfirmBatchDelete, setShowConfirmBatchDelete] = useState(false);
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['collections'],
@@ -19,10 +21,23 @@ export function Dashboard() {
 
   const batchDeleteMutation = useMutation({
     mutationFn: (ids: string[]) => apiClient.batchDeleteCollections(ids),
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['collections'] });
       setSelectedIds(new Set());
       setSelectionMode(false);
+      setShowConfirmBatchDelete(false);
+      if (result.failed_ids.length > 0) {
+        addToast(
+          'warning',
+          `Deleted ${result.deleted_count} collections. ${result.failed_ids.length} failed.`
+        );
+      } else {
+        addToast('success', `Successfully deleted ${result.deleted_count} collections`);
+      }
+    },
+    onError: (error) => {
+      console.error('Batch delete collections failed', error);
+      addToast('error', 'Failed to delete collections. Please try again.');
       setShowConfirmBatchDelete(false);
     },
   });

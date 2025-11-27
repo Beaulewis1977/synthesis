@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { formatRelativeTime } from '../lib/utils';
 import type { Collection } from '../types';
+import { useToast } from './Toast';
 
 interface CollectionCardProps {
   collection: Collection;
@@ -23,12 +24,19 @@ export function CollectionCard({
   const queryClient = useQueryClient();
   const [showMenu, setShowMenu] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const { addToast } = useToast();
 
   const deleteMutation = useMutation({
     mutationFn: () => apiClient.deleteCollection(collection.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['collections'] });
       setShowMenu(false);
+      setShowConfirmDelete(false);
+      addToast('success', `Collection "${collection.name}" deleted successfully`);
+    },
+    onError: (error) => {
+      console.error('Delete collection failed', error);
+      addToast('error', `Failed to delete "${collection.name}". Please try again.`);
       setShowConfirmDelete(false);
     },
   });
