@@ -223,20 +223,33 @@ function isAbbreviationPeriod(
   if (/^[A-Z]$/.test(beforePeriod)) {
     // Single uppercase letter - check what follows
     const afterPeriod = text.slice(periodIndex + 1);
-    // If followed by space and lowercase, or another initial, it's an initial
-    if (/^\s+[a-z]/.test(afterPeriod) || /^\s*[A-Z]\./.test(afterPeriod)) {
+
+    // If followed by another initial (letter + period), it's definitely an initial
+    if (/^[A-Z]\./.test(afterPeriod)) {
       return true;
     }
+
+    // If followed by space and lowercase, it's an initial
+    if (/^\s+[a-z]/.test(afterPeriod)) {
+      return true;
+    }
+
     // If followed by space and uppercase that's part of a name (not sentence start)
     // Check if the next word looks like a name (capitalized but not all caps)
     const nextWordMatch = afterPeriod.match(/^\s+([A-Z][a-z]+)/);
     if (nextWordMatch) {
       return true; // Likely "J.K. Rowling" pattern
     }
+
+    // Single letter followed by space and another single uppercase letter with period
+    // e.g., "J. K." pattern
+    if (/^\s+[A-Z]\./.test(afterPeriod)) {
+      return true;
+    }
   }
 
-  // Check for multi-letter initials like "Ph.D" or "U.S"
-  if (/^[A-Za-z]$/.test(word)) {
+  // Check for single uppercase letter initials like "U" in "U.S"
+  if (/^[A-Z]$/.test(word)) {
     return true;
   }
 
@@ -290,13 +303,20 @@ function isInsideProtectedPattern(text: string, index: number, preserveCodeBlock
   }
 
   // Check if this period is part of a file extension
-  // Pattern: word.ext where ext is a known extension
+  // Extract the token surrounding the period by expanding left/right until whitespace or punctuation
+  let fileStart = index;
+  while (fileStart > 0 && !/[\s<>"'()\[\]{}]/.test(text[fileStart - 1])) {
+    fileStart--;
+  }
+  let fileEnd = index + 1;
+  while (fileEnd < text.length && !/[\s<>"'()\[\]{}]/.test(text[fileEnd])) {
+    fileEnd++;
+  }
+  const potentialFile = text.slice(fileStart, fileEnd);
+  // Pattern: filename.ext where ext is a known extension
   const fileExtPattern =
     /\.(ts|js|tsx|jsx|py|java|go|rs|rb|php|css|html|json|yaml|yml|md|txt|xml|sql|sh|c|cpp|h|cs|swift|kt|dart|vue|svelte)$/i;
-  const beforeWord = text.slice(Math.max(0, index - 20), index + 10);
-  const spaceIndex = beforeWord.indexOf(' ');
-  const sliceEnd = spaceIndex === -1 ? undefined : spaceIndex;
-  if (fileExtPattern.test(beforeWord.slice(0, sliceEnd))) {
+  if (fileExtPattern.test(potentialFile)) {
     return true;
   }
 
@@ -316,13 +336,25 @@ function isInsideProtectedPattern(text: string, index: number, preserveCodeBlock
       const initialsPattern = /(?:^|[^A-Za-z])([A-Z]\.)+$/;
       const beforeText2 = text.slice(Math.max(0, index - 10), index + 1);
       if (initialsPattern.test(beforeText2)) {
-        // Check what comes after - if it's another initial or lowercase, it's initials
+        // Check what comes after
         const afterChar = text[index + 1];
-        if (afterChar && (/[A-Z]/.test(afterChar) || /\s/.test(afterChar))) {
-          // Check if the next non-space char is uppercase (new sentence) or lowercase (continuation)
+        // If followed by another uppercase letter (another initial), it's initials
+        if (afterChar && /[A-Z]/.test(afterChar)) {
+          return true;
+        }
+        // If followed by whitespace, check if next word looks like a name (not a sentence start)
+        if (afterChar && /\s/.test(afterChar)) {
           const afterTrimmed = text.slice(index + 1).trimStart();
-          if (afterTrimmed.length > 0 && /[a-z]/.test(afterTrimmed[0])) {
-            return true; // Continuation after initials
+          if (afterTrimmed.length > 0) {
+            // If next word is a capitalized word followed by lowercase (like "Rowling"), it's a name
+            const nameMatch = afterTrimmed.match(/^([A-Z][a-z]+)/);
+            if (nameMatch) {
+              return true; // Likely "J.K. Rowling" pattern
+            }
+            // If next char is lowercase, it's definitely continuation
+            if (/[a-z]/.test(afterTrimmed[0])) {
+              return true;
+            }
           }
         }
       }
@@ -352,8 +384,8 @@ function isLikelySentenceEnd(text: string, punctIndex: number): boolean {
 
   const nextChar = match[1];
 
-  // Next sentence should start with uppercase, quote, or opening bracket
-  if (/[A-Z"'(\[{]/.test(nextChar)) {
+  // Next sentence should start with uppercase, quote, opening bracket, or backtick (for inline code)
+  if (/[A-Z"'(\[{`]/.test(nextChar)) {
     return true;
   }
 
@@ -551,6 +583,9 @@ export function splitIntoSentences(text: string, options: SentenceSplitOptions =
   return sentences;
 }
 
+// Module-level flag to prevent repeated warnings about missing sbd library
+let nlpFallbackWarned = false;
+
 /**
  * Splits text using NLP-based sentence boundary detection.
  * Falls back to regex mode if the sbd library is not available.
@@ -569,12 +604,81 @@ function splitWithNLP(text: string, options: SentenceSplitOptions): string[] {
     });
   } catch {
     // Fall back to regex mode if sbd is not installed
-    console.warn(
-      'NLP mode requested but sbd library not available. Falling back to regex mode. ' +
-        'Install with: npm install sbd'
-    );
-    return splitIntoSentences(text, { ...options, mode: 'regex' });
+    // Only warn once to avoid log spam in high-concurrency environments
+    if (!nlpFallbackWarned) {
+      nlpFallbackWarned = true;
+      console.warn(
+        'NLP mode requested but sbd library not available. Falling back to regex mode. ' +
+          'Install with: npm install sbd'
+      );
+    }
+    return splitIntoSentencesRegex(text, options);
   }
+}
+
+/**
+ * Internal regex-based sentence splitting to avoid recursion from NLP fallback.
+ */
+function splitIntoSentencesRegex(text: string, options: SentenceSplitOptions): string[] {
+  const { customAbbreviations = [], preserveCodeBlocks = true } = options;
+
+  if (!text.trim()) {
+    return [];
+  }
+
+  // Build abbreviation set with custom additions
+  const abbreviations =
+    customAbbreviations.length > 0
+      ? new Set([...ABBREVIATIONS, ...customAbbreviations.map((a) => a.toLowerCase())])
+      : ABBREVIATIONS;
+
+  const sentences: string[] = [];
+  let currentStart = 0;
+
+  // Find all potential sentence boundaries
+  const punctuationMatches = [...text.matchAll(/[.!?]["')\]]*\s+/g)];
+
+  for (const match of punctuationMatches) {
+    const matchIndex = match.index ?? 0;
+    const punct = match[0][0];
+
+    // Skip if inside protected pattern
+    if (isInsideProtectedPattern(text, matchIndex, preserveCodeBlocks)) {
+      continue;
+    }
+
+    // For periods, check if it's an abbreviation
+    if (punct === '.') {
+      if (isAbbreviationPeriod(text, matchIndex, abbreviations)) {
+        continue;
+      }
+    }
+
+    // Check if this looks like a real sentence end
+    if (!isLikelySentenceEnd(text, matchIndex)) {
+      continue;
+    }
+
+    // Extract sentence
+    const sentenceEnd = matchIndex + match[0].length;
+    const sentence = text.slice(currentStart, sentenceEnd).trim();
+
+    if (sentence) {
+      sentences.push(sentence);
+    }
+
+    currentStart = sentenceEnd;
+  }
+
+  // Add remaining text as final sentence
+  if (currentStart < text.length) {
+    const sentence = text.slice(currentStart).trim();
+    if (sentence) {
+      sentences.push(sentence);
+    }
+  }
+
+  return sentences;
 }
 
 /**

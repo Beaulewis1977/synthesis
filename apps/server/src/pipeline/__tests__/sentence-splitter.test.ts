@@ -262,11 +262,11 @@ describe('sentence-splitter', () => {
   });
 
   describe('initials handling', () => {
-    it('does not split on initials', () => {
-      const text = 'The author wrote Harry Potter. It was popular.';
+    it('does not split on initials in middle of sentence', () => {
+      const text = 'The author J.K. Rowling wrote books. They were popular.';
       const sentences = splitIntoSentences(text);
       expect(sentences).toHaveLength(2);
-      expect(sentences[0]).toBe('The author wrote Harry Potter.');
+      expect(sentences[0]).toBe('The author J.K. Rowling wrote books.');
     });
 
     it('does not split on U.S.', () => {
@@ -285,18 +285,18 @@ describe('sentence-splitter', () => {
   });
 
   describe('ellipsis handling', () => {
-    it('handles ellipsis', () => {
-      const text = 'Wait and see. The story goes on.';
+    it('handles ellipsis at sentence boundary', () => {
+      const text = 'Wait... and see. The story goes on.';
       const sentences = splitIntoSentences(text);
       expect(sentences).toHaveLength(2);
-      expect(sentences[0]).toBe('Wait and see.');
+      expect(sentences[0]).toBe('Wait... and see.');
     });
 
-    it('handles ellipsis in text', () => {
-      const text = 'The story continues and then it ended. That was nice.';
+    it('handles ellipsis mid-sentence', () => {
+      const text = 'The story continues... and then it ended. That was nice.';
       const sentences = splitIntoSentences(text);
       expect(sentences).toHaveLength(2);
-      expect(sentences[0]).toBe('The story continues and then it ended.');
+      expect(sentences[0]).toBe('The story continues... and then it ended.');
     });
   });
 
@@ -348,8 +348,6 @@ describe('sentence-splitter', () => {
   describe('validateSentenceSplitter', () => {
     it('passes all validation tests', () => {
       const result = validateSentenceSplitter();
-      if (!result.passed) {
-      }
       expect(result.passed).toBe(true);
       expect(result.failures).toHaveLength(0);
     });
