@@ -15,6 +15,7 @@ import { getPool } from '@synthesis/db';
 import type { ModelFeature } from '@synthesis/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { getApiKeyService } from '../../services/api-key-service.js';
 import {
   getModelConfigService,
   isValidFeature,
@@ -43,6 +44,7 @@ interface FeatureParams {
 export async function adminModelRoutes(fastify: FastifyInstance): Promise<void> {
   const db = getPool();
   const modelConfigService = getModelConfigService(db);
+  const apiKeyService = getApiKeyService(db);
 
   /**
    * GET /api/admin/models
@@ -52,8 +54,9 @@ export async function adminModelRoutes(fastify: FastifyInstance): Promise<void> 
     try {
       const response = await modelConfigService.getModelConfigResponse();
 
-      // Add API key status for each provider
-      const missingApiKeys = modelConfigService.getMissingApiKeys();
+      // Get API key status from the API key service (checks both env and DB)
+      const keyStatuses = await apiKeyService.getAllKeyStatus();
+      const missingApiKeys = keyStatuses.filter((k) => !k.configured).map((k) => k.provider);
 
       return reply.send({
         ...response,

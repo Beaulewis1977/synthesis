@@ -406,6 +406,89 @@ export interface DocumentQualityScore {
   negative_ratings: number;
 }
 
+// Phase 6: Model Configuration Types
+export type ModelFeature =
+  | 'chat'
+  | 'summary'
+  | 'ocr'
+  | 'embedding_docs'
+  | 'embedding_code'
+  | 'embedding_writing'
+  | 'reranker'
+  | 'contradiction';
+
+export type ConfigSource = 'env' | 'db' | 'default';
+
+export interface ModelConfig {
+  feature: ModelFeature;
+  provider: string;
+  model: string;
+  localOnly: boolean;
+  enabled: boolean;
+  source: ConfigSource;
+}
+
+export interface ProviderInfo {
+  models: string[];
+  requiresApiKey: boolean;
+  apiKeyEnvVar?: string;
+  isLocal: boolean;
+}
+
+export interface ModelConfigResponse {
+  configs: ModelConfig[];
+  availableProviders: Record<string, ProviderInfo>;
+  missingApiKeys: string[];
+}
+
+export interface ModelConfigUpdate {
+  provider?: string;
+  model?: string;
+  localOnly?: boolean;
+  enabled?: boolean;
+}
+
+// Phase 6: Embedding Profile Types
+export type CostTier = 'free' | 'low' | 'medium' | 'high';
+
+export interface EmbeddingProfile {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string | null;
+  provider: string;
+  model: string;
+  chunkSize: number;
+  chunkOverlap: number;
+  codeAware: boolean;
+  costTier: CostTier;
+  isSystem: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmbeddingProfilesResponse {
+  profiles: EmbeddingProfile[];
+  defaultProfileId: string | null;
+}
+
+// Phase 6: API Key Management Types
+export interface ApiKeyStatus {
+  provider: string;
+  configured: boolean;
+  envVar: string;
+  maskedValue?: string;
+}
+
+export interface ApiKeysResponse {
+  keys: ApiKeyStatus[];
+}
+
+export interface SetApiKeyRequest {
+  provider: string;
+  apiKey: string;
+}
+
 // Phase F: Workflows
 export interface WorkflowTemplate {
   id: string;

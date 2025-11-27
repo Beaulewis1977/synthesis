@@ -29,6 +29,12 @@ export function Layout() {
               >
                 🤖 Agent
               </Link>
+              <Link
+                to="/settings/models"
+                className="text-text-secondary hover:text-text-primary transition-colors"
+              >
+                ⚙️ Settings
+              </Link>
             </nav>
           </div>
         </div>

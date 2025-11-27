@@ -5,12 +5,20 @@
  * @module server
  */
 
-import 'dotenv/config';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
+
+// Load .env from monorepo root (2 levels up from apps/server/src)
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootEnvPath = path.resolve(__dirname, '../../../.env');
+dotenv.config({ path: rootEnvPath });
 import compress from '@fastify/compress';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import { closePool, getPool } from '@synthesis/db';
 import Fastify from 'fastify';
+import { apiKeyRoutes } from './routes/admin/api-keys.js';
 import { adminModelRoutes } from './routes/admin/models.js';
 import { registerProfileRoutes } from './routes/admin/profiles.js';
 import { agentIngestionRoutes } from './routes/agent-ingestion.js';
@@ -93,6 +101,7 @@ await fastify.register(feedbackRoutes);
 await fastify.register(workflowRoutes);
 await fastify.register(adminModelRoutes, { prefix: '/api/admin/models' });
 await fastify.register(registerProfileRoutes, { prefix: '/api/admin' });
+await fastify.register(apiKeyRoutes, { prefix: '/api/admin/api-keys' });
 await registerMetricsRoute(fastify);
 
 /**

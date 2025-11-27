@@ -292,12 +292,12 @@ class ModelConfigService {
 **Problem:** No UI for runtime model configuration.
 
 ### 9.1 Deliverables
-- [ ] `/settings/models` page
-- [ ] Feature config cards (Chat, Embeddings, Reranker, etc.)
-- [ ] Provider/model dropdowns
-- [ ] Local-only toggle
-- [ ] Validation error display
-- [ ] Embedding profile selector
+- [x] `/settings/models` page
+- [x] Feature config cards (Chat, Embeddings, Reranker, etc.)
+- [x] Provider/model dropdowns
+- [x] Local-only toggle
+- [x] Validation error display
+- [x] Embedding profile selector
 
 ### 9.2 UI Components
 
@@ -332,12 +332,12 @@ class ModelConfigService {
 
 ### 9.4 UX Requirements
 
-- [ ] Show current source (env/DB/default) for each setting
-- [ ] Disable cloud providers when local-only is on
-- [ ] Show warning if API key missing for selected provider
-- [ ] Optimistic updates with error rollback
-- [ ] Confirmation dialog for changes affecting existing embeddings
-- [ ] Loading states for all async operations
+- [x] Show current source (env/DB/default) for each setting
+- [x] Disable cloud providers when local-only is on
+- [x] Show warning if API key missing for selected provider
+- [x] Optimistic updates with error rollback
+- [x] Confirmation dialog for changes affecting existing embeddings
+- [x] Loading states for all async operations
 
 ---
 
