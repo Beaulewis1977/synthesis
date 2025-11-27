@@ -3,9 +3,13 @@ import type {
   AgentChatResponse,
   ApiError,
   ApiKeysResponse,
+  ArchiveResult,
+  BatchArchiveResult,
+  BatchRestoreResult,
   ChatMessage,
   ChatSession,
   Collection,
+  CollectionVersionStats,
   CollectionsResponse,
   CostAlertsResponse,
   CostHistoryResponse,
@@ -16,8 +20,10 @@ import type {
   DocumentsResponse,
   EmbeddingProfile,
   EmbeddingProfilesResponse,
+  FrameworkVersionInfo,
   IngestionJob,
   IngestionJobStatusResponse,
+  LifecycleStatus,
   ModelConfig,
   ModelConfigResponse,
   ModelConfigUpdate,
@@ -25,12 +31,16 @@ import type {
   RelatedFilesResponse,
   RepositorySource,
   RepositorySourcesResponse,
+  RestoreResult,
   SearchFeedbackRequest,
   SearchResponse,
+  SupersedeResult,
   SynthesisResponse,
   TechStackProfile,
   TechStackTemplate,
   UpdateChunkResponse,
+  VersionHistoryResponse,
+  VersionedDocument,
   WorkflowInstance,
   WorkflowTemplate,
 } from '../types';
@@ -138,12 +148,40 @@ class ApiClient {
   }
 
   /**
-   * Delete a document by its identifier.
+   * Delete a document from a collection.
    */
-  async deleteDocument(documentId: string): Promise<{ success: boolean; message: string }> {
-    return this.request(`/api/documents/${encodeURIComponent(documentId)}`, {
+  async deleteDocument(documentId: string): Promise<void> {
+    await this.request<void>(`/api/documents/${encodeURIComponent(documentId)}`, {
       method: 'DELETE',
     });
+  }
+
+  /**
+   * Delete a collection and all its documents.
+   * Uses cascade delete - all documents and chunks are automatically removed.
+   */
+  async deleteCollection(
+    collectionId: string
+  ): Promise<{ message: string; collection_id: string; collection_name: string }> {
+    return this.request<{ message: string; collection_id: string; collection_name: string }>(
+      `/api/collections/${encodeURIComponent(collectionId)}`,
+      { method: 'DELETE' }
+    );
+  }
+
+  /**
+   * Delete multiple collections.
+   */
+  async batchDeleteCollections(
+    collectionIds: string[]
+  ): Promise<{ deleted_count: number; deleted_ids: string[]; failed_ids: string[] }> {
+    return this.request<{ deleted_count: number; deleted_ids: string[]; failed_ids: string[] }>(
+      '/api/collections/batch/delete',
+      {
+        method: 'POST',
+        body: JSON.stringify({ collection_ids: collectionIds }),
+      }
+    );
   }
 
   /**
@@ -734,6 +772,123 @@ class ApiClient {
       `/api/admin/api-keys/${encodeURIComponent(provider)}/test`,
       {
         method: 'POST',
+      }
+    );
+  }
+
+  // ============================================
+  // Collection Versioning (Phase 7)
+  // ============================================
+
+  /**
+   * Get documents with lifecycle status filtering.
+   */
+  async getVersionedDocuments(
+    collectionId: string,
+    status?: LifecycleStatus | 'all',
+    frameworkVersion?: string
+  ): Promise<{ documents: VersionedDocument[] }> {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (frameworkVersion) params.set('framework_version', frameworkVersion);
+    const query = params.toString();
+    return this.request<{ documents: VersionedDocument[] }>(
+      `/api/collections/${encodeURIComponent(collectionId)}/documents/versioned${query ? `?${query}` : ''}`
+    );
+  }
+
+  /**
+   * Get version statistics for a collection.
+   */
+  async getCollectionVersionStats(collectionId: string): Promise<CollectionVersionStats> {
+    return this.request<CollectionVersionStats>(
+      `/api/collections/${encodeURIComponent(collectionId)}/versions`
+    );
+  }
+
+  /**
+   * Get unique framework versions in a collection.
+   */
+  async getFrameworkVersions(
+    collectionId: string
+  ): Promise<{ framework_versions: FrameworkVersionInfo[] }> {
+    return this.request<{ framework_versions: FrameworkVersionInfo[] }>(
+      `/api/collections/${encodeURIComponent(collectionId)}/framework-versions`
+    );
+  }
+
+  /**
+   * Get version history for a document.
+   */
+  async getDocumentVersionHistory(documentId: string): Promise<VersionHistoryResponse> {
+    return this.request<VersionHistoryResponse>(
+      `/api/documents/${encodeURIComponent(documentId)}/version-history`
+    );
+  }
+
+  /**
+   * Archive a document.
+   */
+  async archiveDocument(documentId: string): Promise<ArchiveResult> {
+    return this.request<ArchiveResult>(`/api/documents/${encodeURIComponent(documentId)}/archive`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Restore an archived or superseded document.
+   */
+  async restoreDocument(documentId: string): Promise<RestoreResult> {
+    return this.request<RestoreResult>(`/api/documents/${encodeURIComponent(documentId)}/restore`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Supersede a document with a new one.
+   */
+  async supersedeDocument(oldDocumentId: string, newDocumentId: string): Promise<SupersedeResult> {
+    return this.request<SupersedeResult>(
+      `/api/documents/${encodeURIComponent(oldDocumentId)}/supersede`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ new_document_id: newDocumentId }),
+      }
+    );
+  }
+
+  /**
+   * Archive multiple documents.
+   */
+  async batchArchiveDocuments(documentIds: string[]): Promise<BatchArchiveResult> {
+    return this.request<BatchArchiveResult>('/api/documents/batch/archive', {
+      method: 'POST',
+      body: JSON.stringify({ document_ids: documentIds }),
+    });
+  }
+
+  /**
+   * Restore multiple documents.
+   */
+  async batchRestoreDocuments(documentIds: string[]): Promise<BatchRestoreResult> {
+    return this.request<BatchRestoreResult>('/api/documents/batch/restore', {
+      method: 'POST',
+      body: JSON.stringify({ document_ids: documentIds }),
+    });
+  }
+
+  /**
+   * Archive all documents with a specific framework version.
+   */
+  async archiveByFrameworkVersion(
+    collectionId: string,
+    frameworkVersion: string
+  ): Promise<BatchArchiveResult> {
+    return this.request<BatchArchiveResult>(
+      `/api/collections/${encodeURIComponent(collectionId)}/archive-by-version`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ framework_version: frameworkVersion }),
       }
     );
   }

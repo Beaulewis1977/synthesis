@@ -1,4 +1,4 @@
-import { CheckCircle, Clock, Edit2, Eye, RefreshCw, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle, Clock, Edit2, Eye, RefreshCw, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -8,9 +8,11 @@ import {
   getFileTypeLabel,
 } from '../lib/utils';
 import type { Document } from '../types';
+import { BatchActions, DocumentActions, LifecycleBadge, VersionBadge } from './collections';
 
 interface DocumentListProps {
   documents: Document[];
+  collectionId: string;
   onDelete: (documentId: string) => void;
   onBatchDelete?: (documentIds: string[]) => void;
   onRefresh?: (documentId: string) => void;
@@ -22,6 +24,7 @@ interface DocumentListProps {
 
 interface DocumentItemProps {
   document: Document;
+  collectionId: string;
   onDelete: (documentId: string) => void;
   onRefresh?: (documentId: string) => void;
   isDeleting?: boolean;
@@ -33,6 +36,7 @@ interface DocumentItemProps {
 
 function DocumentItem({
   document,
+  collectionId,
   onDelete,
   onRefresh,
   isDeleting,
@@ -41,13 +45,7 @@ function DocumentItem({
   onToggleSelect,
   showCheckbox,
 }: DocumentItemProps) {
-  const [showConfirm, setShowConfirm] = useState(false);
   const FileIcon = getFileTypeIcon(document.content_type ?? '');
-
-  const handleDelete = () => {
-    onDelete(document.id);
-    setShowConfirm(false);
-  };
 
   const handleRefresh = () => {
     if (onRefresh) {
@@ -113,6 +111,24 @@ function DocumentItem({
             {document.error_message && (
               <p className="text-sm text-error mt-xs">{document.error_message}</p>
             )}
+            {/* Phase 7: Lifecycle and Version badges */}
+            <div className="flex flex-wrap items-center gap-xs mt-xs">
+              {document.lifecycle_status && document.lifecycle_status !== 'active' && (
+                <LifecycleBadge status={document.lifecycle_status} size="sm" />
+              )}
+              <VersionBadge
+                version={document.doc_version}
+                frameworkVersion={
+                  document.metadata &&
+                  typeof document.metadata === 'object' &&
+                  'framework_version' in document.metadata
+                    ? String(document.metadata.framework_version)
+                    : null
+                }
+                branch={document.branch}
+                size="sm"
+              />
+            </div>
             {/* Vision OCR indicator */}
             {document.metadata &&
               typeof document.metadata === 'object' &&
@@ -156,37 +172,15 @@ function DocumentItem({
                   <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
                 </button>
               )}
-              {!showConfirm ? (
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm(true)}
-                  className="text-text-secondary hover:text-error transition-colors"
-                  title="Delete document"
-                  aria-label="Delete document"
-                  disabled={isDeleting || isRefreshing}
-                >
-                  <Trash2 size={18} />
-                </button>
-              ) : (
-                <div className="flex gap-xs">
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    className="btn btn-danger text-xs py-1 px-2"
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? 'Deleting...' : 'Confirm'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirm(false)}
-                    className="btn btn-secondary text-xs py-1 px-2"
-                    disabled={isDeleting}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
+
+              {/* Document Actions (Archive, Restore, Delete, History) */}
+              <DocumentActions
+                documentId={document.id}
+                collectionId={collectionId}
+                lifecycleStatus={document.lifecycle_status || 'active'}
+                onDelete={onDelete}
+                isDeleting={isDeleting}
+              />
             </>
           )}
         </div>
@@ -197,6 +191,7 @@ function DocumentItem({
 
 export function DocumentList({
   documents,
+  collectionId,
   onDelete,
   onBatchDelete,
   onRefresh,
@@ -245,12 +240,11 @@ export function DocumentList({
   }
 
   const showBatchMode = !!onBatchDelete;
-  const hasSelection = selectedIds.size > 0;
 
   return (
     <div className="space-y-md">
       {showBatchMode && (
-        <div className="flex items-center justify-between gap-md p-sm bg-bg-secondary rounded-lg">
+        <div className="flex items-center justify-between gap-md p-sm bg-bg-secondary rounded-lg flex-wrap">
           <div className="flex items-center gap-md">
             <input
               type="checkbox"
@@ -265,37 +259,47 @@ export function DocumentList({
                 : 'Select documents'}
             </span>
           </div>
-          {hasSelection && !showBatchConfirm && (
-            <button
-              type="button"
-              onClick={() => setShowBatchConfirm(true)}
-              className="btn btn-danger text-sm"
-              disabled={isBatchDeleting}
-            >
-              <Trash2 size={16} className="mr-xs" />
-              Delete Selected ({selectedIds.size})
-            </button>
-          )}
-          {showBatchConfirm && (
-            <div className="flex gap-xs">
+
+          <div className="flex items-center gap-sm">
+            {/* Batch Archive/Restore Actions */}
+            <BatchActions
+              selectedIds={Array.from(selectedIds)}
+              collectionId={collectionId}
+              onClearSelection={() => setSelectedIds(new Set())}
+            />
+
+            {/* Batch Delete Action */}
+            {selectedIds.size > 0 && !showBatchConfirm && (
               <button
                 type="button"
-                onClick={handleBatchDelete}
+                onClick={() => setShowBatchConfirm(true)}
                 className="btn btn-danger text-sm"
                 disabled={isBatchDeleting}
               >
-                {isBatchDeleting ? 'Deleting...' : 'Confirm Delete'}
+                Delete
               </button>
-              <button
-                type="button"
-                onClick={() => setShowBatchConfirm(false)}
-                className="btn btn-secondary text-sm"
-                disabled={isBatchDeleting}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
+            )}
+            {showBatchConfirm && (
+              <div className="flex gap-xs">
+                <button
+                  type="button"
+                  onClick={handleBatchDelete}
+                  className="btn btn-danger text-sm"
+                  disabled={isBatchDeleting}
+                >
+                  {isBatchDeleting ? 'Deleting...' : 'Confirm'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowBatchConfirm(false)}
+                  className="btn btn-secondary text-sm"
+                  disabled={isBatchDeleting}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
       <div className="space-y-sm">
@@ -303,6 +307,7 @@ export function DocumentList({
           <DocumentItem
             key={document.id}
             document={document}
+            collectionId={collectionId}
             onDelete={onDelete}
             onRefresh={onRefresh}
             isDeleting={isDeleting}

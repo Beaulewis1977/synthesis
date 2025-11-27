@@ -3,13 +3,19 @@ import { AlertCircle, Loader2, MessageSquare, Search, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DocumentList } from '../components/DocumentList';
+import { VersionFilter, VersionStats } from '../components/collections';
 import { apiClient } from '../lib/api';
+import type { LifecycleStatus } from '../types';
 
 export function CollectionView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [refreshingDocId, setRefreshingDocId] = useState<string | null>(null);
+
+  // Phase 7: Version filtering state
+  const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleStatus | 'all'>('all');
+  const [frameworkVersionFilter, setFrameworkVersionFilter] = useState<string | null>(null);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['documents', id],
@@ -18,6 +24,25 @@ export function CollectionView() {
       return apiClient.fetchDocuments(id);
     },
     enabled: !!id,
+  });
+
+  // Filter documents based on lifecycle status and framework version
+  const filteredDocuments = data?.documents.filter((doc) => {
+    // Filter by lifecycle status
+    if (lifecycleFilter !== 'all' && doc.lifecycle_status !== lifecycleFilter) {
+      return false;
+    }
+    // Filter by framework version
+    if (frameworkVersionFilter) {
+      const docFrameworkVersion =
+        doc.metadata && typeof doc.metadata === 'object' && 'framework_version' in doc.metadata
+          ? String(doc.metadata.framework_version)
+          : null;
+      if (docFrameworkVersion !== frameworkVersionFilter) {
+        return false;
+      }
+    }
+    return true;
   });
 
   const deleteMutation = useMutation({
@@ -133,10 +158,28 @@ export function CollectionView() {
             </button>
           </div>
         </div>
-        {data && (
-          <p className="text-text-secondary">
-            {data.documents.length} document{data.documents.length !== 1 ? 's' : ''}
-          </p>
+
+        {/* Phase 7: Version stats and filter */}
+        {id && (
+          <div className="flex flex-col gap-sm mt-md">
+            <div className="flex items-center justify-between">
+              <VersionStats collectionId={id} />
+              {data && (
+                <p className="text-text-secondary text-sm">
+                  {filteredDocuments?.length ?? 0} of {data.documents.length} document
+                  {data.documents.length !== 1 ? 's' : ''}
+                  {lifecycleFilter !== 'all' || frameworkVersionFilter ? ' (filtered)' : ''}
+                </p>
+              )}
+            </div>
+            <VersionFilter
+              collectionId={id}
+              selectedStatus={lifecycleFilter}
+              selectedFrameworkVersion={frameworkVersionFilter}
+              onStatusChange={setLifecycleFilter}
+              onFrameworkVersionChange={setFrameworkVersionFilter}
+            />
+          </div>
         )}
       </div>
 
@@ -164,9 +207,10 @@ export function CollectionView() {
       )}
 
       {/* Document List */}
-      {!isLoading && !isError && data && (
+      {!isLoading && !isError && data && filteredDocuments && (
         <DocumentList
-          documents={data.documents}
+          documents={filteredDocuments}
+          collectionId={id ?? ''}
           onDelete={handleDelete}
           onBatchDelete={handleBatchDelete}
           onRefresh={handleRefresh}
