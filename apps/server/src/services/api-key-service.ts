@@ -23,8 +23,7 @@ const HKDF_SALT = process.env.API_KEY_ENCRYPTION_SALT ?? 'synthesis-api-key-encr
 const HKDF_INFO = process.env.API_KEY_ENCRYPTION_INFO ?? 'synthesis-api-key-encryption-info';
 
 // Anthropic model used for API key validation. Configurable so updates are easy.
-const ANTHROPIC_TEST_MODEL =
-  process.env.ANTHROPIC_TEST_MODEL || 'claude-3-5-haiku-20241022';
+const ANTHROPIC_TEST_MODEL = process.env.ANTHROPIC_TEST_MODEL || 'claude-3-5-haiku-20241022';
 
 /**
  * Get and validate encryption key from environment.
