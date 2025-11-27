@@ -201,14 +201,13 @@ describe('Hierarchical Chunker (Phase 9)', () => {
         properties: [],
       };
 
-      const result = chunkClassHierarchically(cls, 'service.ts', 'typescript', 0, {
-        preserveImports: true,
-        imports: ['express', 'lodash'],
-      });
+      // Phase 10: Imports are now stored at file level, not passed to hierarchical chunker
+      const result = chunkClassHierarchically(cls, 'service.ts', 'typescript', 0);
 
       expect(result.wasHierarchical).toBe(true);
-      expect(result.chunks[0].metadata.imports).toEqual(['express', 'lodash']);
-      expect(result.chunks[1].metadata.imports).toEqual(['express', 'lodash']);
+      // Phase 10: Imports no longer stored per chunk - they're at document level
+      expect(result.chunks[0].metadata.imports).toBeUndefined();
+      expect(result.chunks[1].metadata.imports).toBeUndefined();
     });
 
     it('assigns sequential chunk indices', () => {

@@ -119,6 +119,10 @@ export interface DocumentMetadata {
   /** Git commit SHA for repository sources */
   commit_sha?: string;
 
+  // Phase 10: File-level imports (stored once per file, not per chunk)
+  /** Import statements extracted from the file (stored at document level to avoid duplication) */
+  file_imports?: string[];
+
   [key: string]: unknown;
 }
 
@@ -130,6 +134,10 @@ export interface ChunkMetadata extends DocumentMetadata {
   heading?: string;
   page?: number | string;
   line_range?: [number, number];
+
+  // Phase 10: Import reference flag (only on first chunk when file has imports)
+  /** Indicates this chunk's file has imports stored at document level */
+  has_file_imports?: boolean;
 
   // Phase 9: Hierarchical chunking fields
   /** UUID of parent/overview chunk (for method chunks linking to class overview) */

@@ -24,7 +24,12 @@ import { parseTypeScriptFile } from './ts-analyzer.js';
 export interface CodeChunkOptions {
   /** Maximum number of lines per chunk (default: 100). */
   maxChunkSize?: number;
-  /** Include imports array in chunk metadata (default: false). */
+  /**
+   * Phase 10: Extract imports for file-level storage (default: false).
+   * When true, imports are returned separately in CodeChunkResult.fileImports
+   * and the first chunk gets has_file_imports: true flag.
+   * @deprecated The old behavior of storing imports in every chunk is removed.
+   */
   preserveImports?: boolean;
   /** Track file relationships for dependency graph (Day 3 feature, default: false). */
   trackRelationships?: boolean;
@@ -37,15 +42,29 @@ export interface CodeChunkOptions {
 }
 
 /**
+ * Phase 10: Result from code chunking that includes file-level imports.
+ * Imports are stored once per file in document metadata, not duplicated per chunk.
+ */
+export interface CodeChunkResult {
+  /** The generated chunks */
+  chunks: Chunk[];
+  /** File-level imports extracted from the AST (stored in document metadata, not per chunk) */
+  fileImports?: string[];
+}
+
+/**
  * Main entry point for code-aware chunking.
  * Routes to appropriate language-specific chunker based on file extension.
  * Falls back to simple text chunking on parse errors or unsupported types.
+ *
+ * Phase 10: Returns CodeChunkResult with file-level imports separated from chunks.
+ * When preserveImports is true, imports are returned in fileImports (not duplicated per chunk).
  */
 export async function chunkCodeFile(
   filePath: string,
   content: string,
   options: CodeChunkOptions = {}
-): Promise<Chunk[]> {
+): Promise<CodeChunkResult> {
   const extension = filePath.split('.').pop()?.toLowerCase();
 
   try {
@@ -60,7 +79,7 @@ export async function chunkCodeFile(
       case 'js':
       case 'jsx': {
         // First, get standard chunks
-        const chunks =
+        const result =
           extension === 'js' || extension === 'jsx'
             ? await chunkJavaScriptCode(filePath, content, options)
             : await chunkTypeScriptCode(filePath, content, options);
@@ -68,16 +87,16 @@ export async function chunkCodeFile(
         // Enhance with Redis analysis if enabled
         const redisAnalysisEnabled = process.env.REDIS_ANALYSIS === 'true';
         if (!redisAnalysisEnabled) {
-          return chunks;
+          return result;
         }
 
         try {
           const redisChunks = await analyzeRedisUsage(content, filePath);
-          return [...chunks, ...redisChunks];
+          return { ...result, chunks: [...result.chunks, ...redisChunks] };
         } catch (err) {
           // Use console.warn for non-fatal analysis errors
           console.warn('Redis analysis failed, skipping', err);
-          return chunks;
+          return result;
         }
       }
       case 'sql':
@@ -85,7 +104,7 @@ export async function chunkCodeFile(
           return await chunkSQLCode(filePath, content, options);
         }
         console.warn('BACKEND_PARSING=false, using simple chunking for SQL file');
-        return simpleChunking(content, filePath);
+        return { chunks: simpleChunking(content, filePath) };
       case 'yaml':
       case 'yml':
       case 'json':
@@ -93,7 +112,7 @@ export async function chunkCodeFile(
           return await chunkConfigCode(filePath, content, options);
         }
         console.warn('BACKEND_PARSING=false, using simple chunking for config file');
-        return simpleChunking(content, filePath);
+        return { chunks: simpleChunking(content, filePath) };
       case 'kt':
       case 'kts':
         return await chunkKotlinCode(filePath, content, options);
@@ -105,31 +124,32 @@ export async function chunkCodeFile(
         // TODO: Implement dedicated Java analyzer - Java syntax differs from Kotlin
         // For now, use simple chunking to avoid incorrect metadata
         console.warn('Java AST parsing not yet implemented, using simple chunking');
-        return simpleChunking(content, filePath);
+        return { chunks: simpleChunking(content, filePath) };
       default:
         console.warn(`Unsupported file type: ${extension}, using simple chunking`);
-        return simpleChunking(content, filePath);
+        return { chunks: simpleChunking(content, filePath) };
     }
   } catch (error) {
     console.error(`AST parsing failed for ${filePath}, falling back to simple chunking`, error);
-    return simpleChunking(content, filePath);
+    return { chunks: simpleChunking(content, filePath) };
   }
 }
 
 /**
  * Chunks Dart code using the AST parser from Day 1.
  * Extracts complete functions and classes with rich metadata.
+ * Phase 10: Returns CodeChunkResult with file-level imports.
  */
 async function chunkDartCode(
   filePath: string,
   content: string,
   options: CodeChunkOptions
-): Promise<Chunk[]> {
+): Promise<CodeChunkResult> {
   const ast = await parseDartFile(content, filePath);
   const chunks: Chunk[] = [];
   let chunkIndex = 0;
 
-  // Extract import URIs for preservation
+  // Phase 10: Extract import URIs for file-level storage (not per-chunk)
   const imports = ast.imports.map((i) => i.uri);
 
   // Chunk top-level functions
@@ -149,9 +169,6 @@ async function chunkDartCode(
     // Add optional fields
     if (func.docComment) {
       metadata.doc_comment = func.docComment;
-    }
-    if (options.preserveImports && imports.length > 0) {
-      metadata.imports = imports;
     }
 
     chunks.push({
@@ -209,10 +226,6 @@ async function chunkDartCode(
         metadata.is_stateful = true;
       }
 
-      if (options.preserveImports && imports.length > 0) {
-        metadata.imports = imports;
-      }
-
       chunks.push({
         text: cls.code,
         index: chunkIndex++,
@@ -249,10 +262,9 @@ async function chunkDartCode(
         })),
       };
 
+      // Phase 10: Don't pass imports to hierarchical chunker - they're stored at file level
       const hierarchicalOptions: HierarchicalChunkOptions = {
         maxChunkSize: maxSize,
-        preserveImports: options.preserveImports,
-        imports,
       };
 
       const result = chunkClassHierarchically(
@@ -303,9 +315,6 @@ async function chunkDartCode(
         if (method.isStatic) {
           metadata.is_static = method.isStatic;
         }
-        if (options.preserveImports && imports.length > 0) {
-          metadata.imports = imports;
-        }
 
         chunks.push({
           text: method.code,
@@ -329,10 +338,6 @@ async function chunkDartCode(
       endOffset: constant.endOffset,
     };
 
-    if (options.preserveImports && imports.length > 0) {
-      metadata.imports = imports;
-    }
-
     chunks.push({
       text: constant.code,
       index: chunkIndex++,
@@ -345,23 +350,30 @@ async function chunkDartCode(
     await buildFileRelationships(options.db, options.collectionId, filePath, ast);
   }
 
-  return chunks;
+  // Phase 10: Add has_file_imports flag to first chunk and return file-level imports
+  if (options.preserveImports && imports.length > 0 && chunks.length > 0) {
+    chunks[0].metadata.has_file_imports = true;
+    return { chunks, fileImports: imports };
+  }
+
+  return { chunks };
 }
 
 /**
  * Chunks TypeScript/TSX code using the AST parser.
  * Extracts complete functions, classes, and interfaces with rich metadata.
+ * Phase 10: Returns CodeChunkResult with file-level imports.
  */
 async function chunkTypeScriptCode(
   filePath: string,
   content: string,
   options: CodeChunkOptions
-): Promise<Chunk[]> {
+): Promise<CodeChunkResult> {
   const ast = await parseTypeScriptFile(content, filePath);
   const chunks: Chunk[] = [];
   let chunkIndex = 0;
 
-  // Extract import URIs for preservation
+  // Phase 10: Extract import URIs for file-level storage (not per-chunk)
   const imports = ast.imports.map((i) => i.uri);
 
   // Chunk top-level functions
@@ -381,9 +393,6 @@ async function chunkTypeScriptCode(
     // Add optional fields
     if (func.docComment) {
       metadata.doc_comment = func.docComment;
-    }
-    if (options.preserveImports && imports.length > 0) {
-      metadata.imports = imports;
     }
 
     // React component detection for TSX files
@@ -460,10 +469,6 @@ async function chunkTypeScriptCode(
         }
       }
 
-      if (options.preserveImports && imports.length > 0) {
-        metadata.imports = imports;
-      }
-
       chunks.push({
         text: cls.code,
         index: chunkIndex++,
@@ -498,10 +503,9 @@ async function chunkTypeScriptCode(
         })),
       };
 
+      // Phase 10: Don't pass imports to hierarchical chunker - they're stored at file level
       const hierarchicalOptions: HierarchicalChunkOptions = {
         maxChunkSize: tsMaxSize,
-        preserveImports: options.preserveImports,
-        imports,
       };
 
       const result = chunkClassHierarchically(
@@ -547,9 +551,6 @@ async function chunkTypeScriptCode(
         if (method.isStatic) {
           metadata.is_static = method.isStatic;
         }
-        if (options.preserveImports && imports.length > 0) {
-          metadata.imports = imports;
-        }
 
         chunks.push({
           text: method.code,
@@ -577,10 +578,6 @@ async function chunkTypeScriptCode(
       metadata.is_enum = true;
     }
 
-    if (options.preserveImports && imports.length > 0) {
-      metadata.imports = imports;
-    }
-
     chunks.push({
       text: constant.code,
       index: chunkIndex++,
@@ -593,24 +590,31 @@ async function chunkTypeScriptCode(
     await buildFileRelationships(options.db, options.collectionId, filePath, ast);
   }
 
-  return chunks;
+  // Phase 10: Add has_file_imports flag to first chunk and return file-level imports
+  if (options.preserveImports && imports.length > 0 && chunks.length > 0) {
+    chunks[0].metadata.has_file_imports = true;
+    return { chunks, fileImports: imports };
+  }
+
+  return { chunks };
 }
 
 /**
  * Chunks JavaScript/JSX code using the TypeScript parser.
  * JavaScript is parsed as TypeScript since JS is a subset of TS.
+ * Phase 10: Returns CodeChunkResult with file-level imports.
  */
 async function chunkJavaScriptCode(
   filePath: string,
   content: string,
   options: CodeChunkOptions
-): Promise<Chunk[]> {
+): Promise<CodeChunkResult> {
   // Use TypeScript parser for JavaScript (JS is subset of TS)
   const ast = await parseTypeScriptFile(content, filePath);
   const chunks: Chunk[] = [];
   let chunkIndex = 0;
 
-  // Extract import URIs for preservation
+  // Phase 10: Extract import URIs for file-level storage (not per-chunk)
   const imports = ast.imports.map((i) => i.uri);
 
   // Chunk top-level functions
@@ -630,9 +634,6 @@ async function chunkJavaScriptCode(
     // Add optional fields
     if (func.docComment) {
       metadata.doc_comment = func.docComment;
-    }
-    if (options.preserveImports && imports.length > 0) {
-      metadata.imports = imports;
     }
 
     // React component detection for JSX files
@@ -698,10 +699,6 @@ async function chunkJavaScriptCode(
         }
       }
 
-      if (options.preserveImports && imports.length > 0) {
-        metadata.imports = imports;
-      }
-
       chunks.push({
         text: cls.code,
         index: chunkIndex++,
@@ -726,9 +723,6 @@ async function chunkJavaScriptCode(
         if (method.isStatic) {
           metadata.is_static = method.isStatic;
         }
-        if (options.preserveImports && imports.length > 0) {
-          metadata.imports = imports;
-        }
 
         chunks.push({
           text: method.code,
@@ -752,10 +746,6 @@ async function chunkJavaScriptCode(
       endOffset: constant.endOffset,
     };
 
-    if (options.preserveImports && imports.length > 0) {
-      metadata.imports = imports;
-    }
-
     chunks.push({
       text: constant.code,
       index: chunkIndex++,
@@ -768,18 +758,25 @@ async function chunkJavaScriptCode(
     await buildFileRelationships(options.db, options.collectionId, filePath, ast);
   }
 
-  return chunks;
+  // Phase 10: Add has_file_imports flag to first chunk and return file-level imports
+  if (options.preserveImports && imports.length > 0 && chunks.length > 0) {
+    chunks[0].metadata.has_file_imports = true;
+    return { chunks, fileImports: imports };
+  }
+
+  return { chunks };
 }
 
 /**
  * Chunks SQL code using the SQL parser (Phase 13.5).
  * Extracts tables, indexes, and functions with rich metadata.
+ * Phase 10: Returns CodeChunkResult (SQL files don't have imports).
  */
 async function chunkSQLCode(
   filePath: string,
   content: string,
   _options: CodeChunkOptions
-): Promise<Chunk[]> {
+): Promise<CodeChunkResult> {
   const ast = await parseSQLFile(content, filePath);
   const chunks: Chunk[] = [];
   let chunkIndex = 0;
@@ -900,18 +897,19 @@ async function chunkSQLCode(
     });
   }
 
-  return chunks;
+  return { chunks };
 }
 
 /**
  * Chunks config files (YAML/JSON) using the config parser (Phase 13.5).
  * Extracts sections and nested key paths with metadata.
+ * Phase 10: Returns CodeChunkResult (config files don't have imports).
  */
 async function chunkConfigCode(
   filePath: string,
   content: string,
   _options: CodeChunkOptions
-): Promise<Chunk[]> {
+): Promise<CodeChunkResult> {
   const ast = await parseConfigFile(content, filePath);
   const chunks: Chunk[] = [];
   let chunkIndex = 0;
@@ -979,7 +977,7 @@ async function chunkConfigCode(
     });
   }
 
-  return chunks;
+  return { chunks };
 }
 
 /**
@@ -1172,16 +1170,18 @@ function simpleChunking(
 /**
  * Chunks Kotlin code using the AST parser.
  * Extracts complete functions and classes with rich metadata.
+ * Phase 10: Returns CodeChunkResult with file-level imports.
  */
 async function chunkKotlinCode(
   filePath: string,
   content: string,
   options: CodeChunkOptions
-): Promise<Chunk[]> {
+): Promise<CodeChunkResult> {
   const ast = await parseKotlinFile(content, filePath);
   const chunks: Chunk[] = [];
   let chunkIndex = 0;
 
+  // Phase 10: Extract import URIs for file-level storage (not per-chunk)
   const imports = ast.imports.map((i) => i.uri);
 
   for (const func of ast.functions) {
@@ -1203,9 +1203,6 @@ async function chunkKotlinCode(
     if (func.isAsync) {
       metadata.is_async = func.isAsync;
     }
-    if (options.preserveImports && imports.length > 0) {
-      metadata.imports = imports;
-    }
 
     chunks.push({ text: func.code, index: chunkIndex++, metadata });
   }
@@ -1230,7 +1227,6 @@ async function chunkKotlinCode(
       if (cls.superclass) metadata.extends = cls.superclass;
       if (cls.interfaces?.length > 0) metadata.implements = cls.interfaces;
       if (cls.isAbstract) metadata.is_abstract = cls.isAbstract;
-      if (options.preserveImports && imports.length > 0) metadata.imports = imports;
 
       chunks.push({ text: cls.code, index: chunkIndex++, metadata });
     } else {
@@ -1250,7 +1246,6 @@ async function chunkKotlinCode(
 
         if (method.isStatic) metadata.is_static = method.isStatic;
         if (method.isAsync) metadata.is_async = method.isAsync;
-        if (options.preserveImports && imports.length > 0) metadata.imports = imports;
 
         chunks.push({ text: method.code, index: chunkIndex++, metadata });
       }
@@ -1274,21 +1269,29 @@ async function chunkKotlinCode(
     });
   }
 
-  return chunks;
+  // Phase 10: Add has_file_imports flag to first chunk and return file-level imports
+  if (options.preserveImports && imports.length > 0 && chunks.length > 0) {
+    chunks[0].metadata.has_file_imports = true;
+    return { chunks, fileImports: imports };
+  }
+
+  return { chunks };
 }
 
 /**
  * Chunks Swift code using the AST parser.
+ * Phase 10: Returns CodeChunkResult with file-level imports.
  */
 async function chunkSwiftCode(
   filePath: string,
   content: string,
   options: CodeChunkOptions
-): Promise<Chunk[]> {
+): Promise<CodeChunkResult> {
   const ast = await parseSwiftFile(content, filePath);
   const chunks: Chunk[] = [];
   let chunkIndex = 0;
 
+  // Phase 10: Extract import URIs for file-level storage (not per-chunk)
   const imports = ast.imports.map((i) => i.uri);
 
   for (const func of ast.functions) {
@@ -1306,7 +1309,6 @@ async function chunkSwiftCode(
 
     if (func.docComment) metadata.doc_comment = func.docComment;
     if (func.isAsync) metadata.is_async = func.isAsync;
-    if (options.preserveImports && imports.length > 0) metadata.imports = imports;
 
     chunks.push({ text: func.code, index: chunkIndex++, metadata });
   }
@@ -1331,7 +1333,6 @@ async function chunkSwiftCode(
       if (cls.superclass) metadata.extends = cls.superclass;
       if (cls.interfaces?.length > 0) metadata.implements = cls.interfaces;
       if (cls.isAbstract) metadata.is_abstract = cls.isAbstract;
-      if (options.preserveImports && imports.length > 0) metadata.imports = imports;
 
       chunks.push({ text: cls.code, index: chunkIndex++, metadata });
     } else {
@@ -1351,7 +1352,6 @@ async function chunkSwiftCode(
 
         if (method.isStatic) metadata.is_static = method.isStatic;
         if (method.isAsync) metadata.is_async = method.isAsync;
-        if (options.preserveImports && imports.length > 0) metadata.imports = imports;
 
         chunks.push({ text: method.code, index: chunkIndex++, metadata });
       }
@@ -1375,21 +1375,29 @@ async function chunkSwiftCode(
     });
   }
 
-  return chunks;
+  // Phase 10: Add has_file_imports flag to first chunk and return file-level imports
+  if (options.preserveImports && imports.length > 0 && chunks.length > 0) {
+    chunks[0].metadata.has_file_imports = true;
+    return { chunks, fileImports: imports };
+  }
+
+  return { chunks };
 }
 
 /**
  * Chunks Python code using the AST parser.
+ * Phase 10: Returns CodeChunkResult with file-level imports.
  */
 async function chunkPythonCode(
   filePath: string,
   content: string,
   options: CodeChunkOptions
-): Promise<Chunk[]> {
+): Promise<CodeChunkResult> {
   const ast = await parsePythonFile(content, filePath);
   const chunks: Chunk[] = [];
   let chunkIndex = 0;
 
+  // Phase 10: Extract import URIs for file-level storage (not per-chunk)
   const imports = ast.imports.map((i) => i.uri);
 
   for (const func of ast.functions) {
@@ -1408,7 +1416,6 @@ async function chunkPythonCode(
     if (func.docComment) metadata.doc_comment = func.docComment;
     if (func.isAsync) metadata.is_async = func.isAsync;
     if (func.isGenerator) metadata.is_generator = func.isGenerator;
-    if (options.preserveImports && imports.length > 0) metadata.imports = imports;
 
     chunks.push({ text: func.code, index: chunkIndex++, metadata });
   }
@@ -1433,7 +1440,6 @@ async function chunkPythonCode(
       if (cls.superclass) metadata.extends = cls.superclass;
       if (cls.interfaces?.length > 0) metadata.implements = cls.interfaces;
       if (cls.isAbstract) metadata.is_abstract = cls.isAbstract;
-      if (options.preserveImports && imports.length > 0) metadata.imports = imports;
 
       chunks.push({ text: cls.code, index: chunkIndex++, metadata });
     } else {
@@ -1453,7 +1459,6 @@ async function chunkPythonCode(
 
         if (method.isStatic) metadata.is_static = method.isStatic;
         if (method.isAsync) metadata.is_async = method.isAsync;
-        if (options.preserveImports && imports.length > 0) metadata.imports = imports;
 
         chunks.push({ text: method.code, index: chunkIndex++, metadata });
       }
@@ -1477,5 +1482,11 @@ async function chunkPythonCode(
     });
   }
 
-  return chunks;
+  // Phase 10: Add has_file_imports flag to first chunk and return file-level imports
+  if (options.preserveImports && imports.length > 0 && chunks.length > 0) {
+    chunks[0].metadata.has_file_imports = true;
+    return { chunks, fileImports: imports };
+  }
+
+  return { chunks };
 }

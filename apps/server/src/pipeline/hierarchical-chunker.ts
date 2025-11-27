@@ -13,6 +13,7 @@ import type { Chunk, ChunkMetadata } from './chunk.js';
 
 /**
  * Options for hierarchical chunking.
+ * Phase 10: Import handling removed - imports are now stored at file level in document metadata.
  */
 export interface HierarchicalChunkOptions {
   /** Maximum lines before a class is split hierarchically (default: 100) */
@@ -21,10 +22,6 @@ export interface HierarchicalChunkOptions {
   includeMethodSignatures?: boolean;
   /** Include property declarations in overview (default: true) */
   includeProperties?: boolean;
-  /** Preserve imports in metadata (default: false) */
-  preserveImports?: boolean;
-  /** Import URIs to include if preserveImports is true */
-  imports?: string[];
 }
 
 /**
@@ -82,11 +79,10 @@ export interface HierarchicalChunkResult {
   detailCount: number;
 }
 
-const DEFAULT_OPTIONS: Required<Omit<HierarchicalChunkOptions, 'imports'>> = {
+const DEFAULT_OPTIONS: Required<HierarchicalChunkOptions> = {
   maxChunkSize: 100,
   includeMethodSignatures: true,
   includeProperties: true,
-  preserveImports: false,
 };
 
 /**
@@ -210,9 +206,7 @@ export function chunkClassHierarchically(
     overviewMetadata.implements = cls.interfaces;
   }
   if (cls.isAbstract) overviewMetadata.is_abstract = cls.isAbstract;
-  if (config.preserveImports && options.imports && options.imports.length > 0) {
-    overviewMetadata.imports = options.imports;
-  }
+  // Phase 10: Imports are now stored at file level in document metadata, not per chunk
 
   chunks.push({
     text: overviewText,
@@ -242,9 +236,7 @@ export function chunkClassHierarchically(
     if (method.isStatic) methodMetadata.is_static = method.isStatic;
     if (method.isAsync) methodMetadata.is_async = method.isAsync;
     if (method.docComment) methodMetadata.doc_comment = method.docComment;
-    if (config.preserveImports && options.imports && options.imports.length > 0) {
-      methodMetadata.imports = options.imports;
-    }
+    // Phase 10: Imports are now stored at file level in document metadata, not per chunk
 
     chunks.push({
       text: method.code,
