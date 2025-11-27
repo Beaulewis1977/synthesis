@@ -27,6 +27,15 @@ This document lists all environment variables used in the Synthesis RAG applicat
 |----------|-------------|---------|---------|
 | `STORAGE_PATH` | Document storage directory | `./storage` | Server |
 
+### Search & Hybrid Mode
+
+| Variable | Description | Default | Used In |
+|----------|-------------|---------|---------|
+| `SEARCH_MODE` | Default search mode (`vector` or `hybrid`) | `vector` | Server |
+| `HYBRID_VECTOR_WEIGHT` | Vector weight in hybrid search (0-1) | `0.7` | Server |
+| `HYBRID_BM25_WEIGHT` | BM25 weight in hybrid search (0-1) | `0.3` | Server |
+| `HYBRID_DIAGNOSTICS_LOG` | Enable structured JSON logging for hybrid search diagnostics | `false` | Server |
+
 ### Performance & Caching
 
 | Variable | Description | Default | Used In |

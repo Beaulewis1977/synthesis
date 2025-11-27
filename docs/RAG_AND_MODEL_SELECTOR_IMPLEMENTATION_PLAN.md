@@ -370,16 +370,49 @@ class ModelConfigService {
 **Problem:** No visibility into BM25 vs vector contributions in hybrid search.
 
 ### 11.1 Deliverables
-- [ ] Extended search metadata (BM25 count, avg scores)
-- [ ] Per-collection weight config
-- [ ] Diagnostic logging
+- [x] Extended search metadata (BM25 count, avg/max/min scores, timing breakdown)
+- [x] Per-request weight configuration with normalization
+- [x] Diagnostic logging (structured JSON, env-controlled)
+- [x] BM25 query type and tsquery function exposed in diagnostics
 
 ### 11.2 Key Files
 
 | File | Action |
 |------|--------|
-| `apps/server/src/services/hybrid.ts` | MODIFY |
-| `apps/server/src/services/search.ts` | MODIFY |
+| `apps/server/src/services/hybrid.ts` | MODIFIED - Added HybridDiagnostics, ScoreStats, HybridTiming interfaces |
+| `apps/server/src/services/search.ts` | MODIFIED - Added SearchDiagnostics, mapDiagnostics function |
+| `apps/server/src/routes/search.ts` | MODIFIED - Exposed diagnostics in API response |
+| `apps/server/src/services/__tests__/hybrid.test.ts` | MODIFIED - Added diagnostics tests |
+
+### 11.3 API Response Enhancement
+
+The search API now includes diagnostics in hybrid mode:
+
+```json
+{
+  "metadata": {
+    "search_mode": "hybrid",
+    "diagnostics": {
+      "vector_scores": { "avg": 0.72, "max": 0.91, "min": 0.45 },
+      "bm25_scores": { "avg": 0.65, "max": 0.88, "min": 0.32 },
+      "both_source_count": 5,
+      "timing": { "vector_ms": 45, "bm25_ms": 12, "fusion_ms": 2, "total_ms": 59 },
+      "bm25_query_type": "natural_language",
+      "bm25_ts_function": "websearch_to_tsquery",
+      "weights": { "vector": 0.7, "bm25": 0.3 },
+      "rrf_k": 60
+    }
+  }
+}
+```
+
+### 11.4 Acceptance Criteria
+- [x] Diagnostics included in hybrid search response
+- [x] Score statistics (avg/max/min) for both vector and BM25
+- [x] Timing breakdown shows vector vs BM25 latency
+- [x] BM25 query type from Phase 2 exposed
+- [x] Structured logging via `HYBRID_DIAGNOSTICS_LOG=true`
+- [x] All tests pass
 
 ---
 
