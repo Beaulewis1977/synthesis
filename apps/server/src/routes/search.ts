@@ -9,6 +9,7 @@ import {
 } from '../services/cache/search-cache.js';
 import { observeSearchLatency } from '../services/metrics.js';
 import {
+  type IntentInfo,
   type SearchDiagnostics,
   type SmartSearchResponse,
   smartSearch,
@@ -54,6 +55,8 @@ interface SearchRouteResponse {
     };
     /** Hybrid search diagnostics (only present in hybrid mode) */
     diagnostics?: SearchDiagnostics | null;
+    /** Query intent information (when autoIntent is enabled) */
+    intent?: IntentInfo | null;
   };
 }
 
@@ -91,6 +94,20 @@ const SearchBodySchema = z
     pageSize: z.number().int().min(1).max(50).optional(),
     include_related_files: z.boolean().optional(),
     includeRelatedFiles: z.boolean().optional(),
+    /** Enable automatic query intent detection (default: true) */
+    auto_intent: z.boolean().optional(),
+    autoIntent: z.boolean().optional(),
+    /** Override detected intent with explicit intent */
+    intent: z
+      .enum([
+        'code_symbol',
+        'natural_language',
+        'error_message',
+        'api_lookup',
+        'conceptual',
+        'comparison',
+      ])
+      .optional(),
   })
   .strict()
   .refine((data) => Boolean(data.collection_id ?? data.collectionId), {
@@ -132,6 +149,9 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       pageSize: camelPageSize,
       include_related_files: snakeIncludeRelated,
       includeRelatedFiles: camelIncludeRelated,
+      auto_intent: snakeAutoIntent,
+      autoIntent: camelAutoIntent,
+      intent,
     } = validation.data;
 
     const collectionId = (camelCollectionId ?? snakeCollectionId) as string;
@@ -141,6 +161,7 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
     // Normalize tech_stack to lowercase for case-insensitive matching
     const techStack = tech_stack?.map((tag) => tag.toLowerCase());
     const includeRelatedFiles = camelIncludeRelated ?? snakeIncludeRelated ?? false;
+    const autoIntent = camelAutoIntent ?? snakeAutoIntent;
     const page = normalizePage(requestPage);
     const pageSize = normalizePageSize(camelPageSize ?? snakePageSize ?? DEFAULT_PAGE_SIZE);
 
@@ -199,6 +220,8 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
         rerankProvider,
         techStack,
         includeRelatedFiles,
+        autoIntent,
+        intent,
       });
 
       const responsePayload = mapToRouteResponse(result);
@@ -261,6 +284,7 @@ function mapToRouteResponse(result: SmartSearchResponse): SearchRouteResponse {
       reranked: result.metadata.reranked ?? false,
       rerank_provider: result.metadata.rerankProvider ?? 'none',
       diagnostics: result.metadata.diagnostics ?? null,
+      intent: result.metadata.intent ?? null,
     },
   };
 }
