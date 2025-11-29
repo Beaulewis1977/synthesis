@@ -10,6 +10,7 @@ import {
 import { observeSearchLatency } from '../services/metrics.js';
 import {
   type IntentInfo,
+  type MMRInfo,
   type SearchDiagnostics,
   type SmartSearchResponse,
   smartSearch,
@@ -57,6 +58,8 @@ interface SearchRouteResponse {
     diagnostics?: SearchDiagnostics | null;
     /** Query intent information (when autoIntent is enabled) */
     intent?: IntentInfo | null;
+    /** MMR diversification info (when mmrEnabled is true) */
+    mmr?: MMRInfo | null;
   };
 }
 
@@ -108,6 +111,12 @@ const SearchBodySchema = z
         'comparison',
       ])
       .optional(),
+    /** Enable MMR diversification (default: false, or env MMR_DEFAULT_ENABLED) */
+    mmr_enabled: z.boolean().optional(),
+    mmrEnabled: z.boolean().optional(),
+    /** MMR lambda parameter: 0.0 = max diversity, 1.0 = max relevance (default: 0.7) */
+    mmr_lambda: z.number().min(0).max(1).optional(),
+    mmrLambda: z.number().min(0).max(1).optional(),
   })
   .strict()
   .refine((data) => Boolean(data.collection_id ?? data.collectionId), {
@@ -152,7 +161,15 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       auto_intent: snakeAutoIntent,
       autoIntent: camelAutoIntent,
       intent,
+      mmr_enabled: snakeMmrEnabled,
+      mmrEnabled: camelMmrEnabled,
+      mmr_lambda: snakeMmrLambda,
+      mmrLambda: camelMmrLambda,
     } = validation.data;
+
+    // Resolve MMR options
+    const mmrEnabled = camelMmrEnabled ?? snakeMmrEnabled;
+    const mmrLambda = camelMmrLambda ?? snakeMmrLambda;
 
     const collectionId = (camelCollectionId ?? snakeCollectionId) as string;
     const topK = camelTopK ?? snakeTopK;
@@ -222,6 +239,8 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
         includeRelatedFiles,
         autoIntent,
         intent,
+        mmrEnabled,
+        mmrLambda,
       });
 
       const responsePayload = mapToRouteResponse(result);
@@ -285,6 +304,7 @@ function mapToRouteResponse(result: SmartSearchResponse): SearchRouteResponse {
       rerank_provider: result.metadata.rerankProvider ?? 'none',
       diagnostics: result.metadata.diagnostics ?? null,
       intent: result.metadata.intent ?? null,
+      mmr: result.metadata.mmr ?? null,
     },
   };
 }
