@@ -17,7 +17,7 @@
  * - error_message: Hybrid search with high BM25 weight (0.6), reranking disabled
  * - api_lookup: Vector-only search, reranking enabled
  * - conceptual: Vector-only search, reranking enabled
- * - comparison: Vector search with slight BM25 (0.1), reranking enabled
+ * - comparison: Hybrid search with slight BM25 (0.1), reranking enabled
  */
 export type QueryIntent =
   | 'code_symbol'
@@ -243,8 +243,8 @@ const CODE_SYMBOL_PATTERNS = {
   // Array/index access
   arrayAccess: /\w+\s*\[/,
 
-  // Import/require statements
-  importStatement: /\b(?:import|require|from|export)\b.*['"`]/,
+  // Import/require statements (limited match to prevent catastrophic backtracking)
+  importStatement: /\b(?:import|require|from|export)\b[^'"`]{0,100}['"`]/,
 
   // File paths with extensions
   filePath:
@@ -634,8 +634,10 @@ export function detectQueryIntent(query: string): QueryIntentResult {
     topResult.intent === 'code_symbol'
   ) {
     // Check if the query is asking ABOUT the code symbol rather than searching FOR it
-    const isAskingAbout = /^(?:what|how|why|when|explain|describe|tell me about)/i.test(trimmed);
-    if (isAskingAbout) {
+    // Uses same pattern as line 515 for consistency
+    const isAskingAboutCode =
+      /^(?:what|how|why|when|where|explain|describe|tell|show|find|help)/i.test(trimmed);
+    if (isAskingAboutCode) {
       const altIntent = apiLookupResult.match ? 'api_lookup' : 'conceptual';
       const altScore = scores.find((s) => s.intent === altIntent);
       if (altScore) {
@@ -730,13 +732,18 @@ function createEmptyMetrics(): IntentMetrics {
 /**
  * Records an intent detection result for metrics.
  *
+ * Note: These metrics are approximate in high-concurrency scenarios.
+ * The in-memory counters are not thread-safe and may have slight
+ * inaccuracies under heavy concurrent load. For production monitoring,
+ * consider using a proper metrics library (e.g., prom-client).
+ *
  * @param result - The intent detection result
  */
 export function recordIntentMetric(result: QueryIntentResult): void {
   metrics.totalQueries++;
   metrics.intentCounts[result.intent]++;
 
-  // Update running average confidence
+  // Update running average confidence (Welford's online algorithm)
   const count = metrics.intentCounts[result.intent];
   const prevAvg = metrics.avgConfidence[result.intent];
   metrics.avgConfidence[result.intent] = prevAvg + (result.confidence - prevAvg) / count;
@@ -769,8 +776,9 @@ export function logIntentDetection(query: string, result: QueryIntentResult): vo
     process.env.QUERY_INTENT_LOG === 'true' || process.env.NODE_ENV === 'development';
 
   if (shouldLog) {
-    // eslint-disable-next-line no-console
-    console.log(
+    // Using console.info for structured logging (not console.log)
+    // biome-ignore lint/suspicious/noConsole: Intentional structured logging for intent detection
+    console.info(
       JSON.stringify({
         type: 'query_intent',
         query: query.slice(0, 100),

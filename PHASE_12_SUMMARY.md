@@ -75,7 +75,7 @@ Search responses now include intent information:
 ### Created
 | File | Description |
 |------|-------------|
-| `apps/server/src/services/query-intent.ts` | Intent classifier module (~650 lines) |
+| `apps/server/src/services/query-intent.ts` | Intent classifier module (~790 lines) |
 | `apps/server/src/services/__tests__/query-intent.test.ts` | 78 comprehensive tests |
 
 ### Modified

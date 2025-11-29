@@ -12,6 +12,7 @@ import {
 import {
   type QueryIntent,
   analyzeQuery,
+  getIntentSearchConfig,
   logIntentDetection,
   recordIntentMetric,
 } from './query-intent.js';
@@ -136,10 +137,14 @@ export async function smartSearch(
   // Intent detection (enabled by default)
   const autoIntentEnabled = params.autoIntent !== false;
   const intentResult = autoIntentEnabled ? analyzeQuery(params.query) : null;
-  const { intentResult: detectedIntent, searchConfig } = intentResult ?? {
+  const { intentResult: detectedIntent, searchConfig: autoSearchConfig } = intentResult ?? {
     intentResult: null,
     searchConfig: null,
   };
+
+  // Get search config: explicit intent takes precedence, then auto-detected
+  const effectiveIntent = params.intent ?? detectedIntent?.intent;
+  const searchConfig = params.intent ? getIntentSearchConfig(params.intent) : autoSearchConfig;
 
   // Log and record metrics if intent was detected
   if (detectedIntent) {
@@ -147,28 +152,24 @@ export async function smartSearch(
     recordIntentMetric(detectedIntent);
   }
 
-  // Build intent info for response
-  const intentInfo: IntentInfo | undefined = detectedIntent
+  // Build intent info for response (works with both auto-detected and explicit intent)
+  const intentInfo: IntentInfo | undefined = effectiveIntent
     ? {
-        type: params.intent ?? detectedIntent.intent,
-        confidence: detectedIntent.confidence,
+        type: effectiveIntent,
+        confidence: detectedIntent?.confidence ?? 1.0,
         auto_detected: !params.intent,
-        signals: detectedIntent.signals,
+        signals: params.intent ? ['explicit_override'] : (detectedIntent?.signals ?? []),
       }
     : undefined;
 
-  // Log effective intent for debugging (explicit override or detected)
-  const _effectiveIntent = params.intent ?? detectedIntent?.intent;
-  void _effectiveIntent; // Used for debugging/logging
-
-  // Apply intent-based configuration if available and not explicitly overridden
-  const rerankRequested =
-    params.rerank ?? (searchConfig?.rerank && !params.intent ? searchConfig.rerank : false);
+  // Apply intent-based configuration if available
+  // params.rerank explicitly set takes precedence, then searchConfig, then false
+  const rerankRequested = params.rerank ?? searchConfig?.rerank ?? false;
 
   // Determine search mode: explicit > intent-based > env > default
   const envMode = process.env.SEARCH_MODE === 'hybrid' ? 'hybrid' : 'vector';
   const intentMode = searchConfig?.mode;
-  const requestedMode = params.mode ?? (intentMode && autoIntentEnabled ? intentMode : envMode);
+  const requestedMode = params.mode ?? intentMode ?? envMode;
   const mode = rerankRequested ? 'hybrid' : requestedMode;
 
   const hint =
@@ -180,8 +181,9 @@ export async function smartSearch(
 
   if (mode === 'hybrid') {
     // Apply intent-based weights if not explicitly provided
+    // Works with both auto-detected and explicit intent
     const intentWeights =
-      searchConfig && autoIntentEnabled && !params.weights
+      searchConfig && !params.weights
         ? { vector: searchConfig.vectorWeight, bm25: searchConfig.bm25Weight }
         : undefined;
     const hybridWeights = resolveHybridWeights(params.weights ?? intentWeights);

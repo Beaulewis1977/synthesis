@@ -420,12 +420,13 @@ ValueError: Invalid input`;
     });
 
     it('handles code symbol in natural language question', () => {
+      // Query contains both code symbol (Navigator.push) and natural language patterns
+      // The classifier may detect either based on pattern strength
       const query = 'How do I use Navigator.push to navigate?';
       const result = detectQueryIntent(query);
-      // May detect as code_symbol due to Navigator.push, or conceptual/api_lookup
-      expect(['api_lookup', 'conceptual', 'natural_language', 'code_symbol']).toContain(
-        result.intent
-      );
+      // Navigator.push is a strong code pattern, so code_symbol is acceptable
+      // api_lookup would also be valid due to "how do I use" pattern
+      expect(['api_lookup', 'code_symbol']).toContain(result.intent);
     });
   });
 
