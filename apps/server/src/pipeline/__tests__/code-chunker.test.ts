@@ -696,7 +696,8 @@ ${methods}
   });
 
   describe('Phase 9: Language-Aware Simple Chunking', () => {
-    it('uses simple chunking for Java files with boundary detection', async () => {
+    // Phase 14: Java now has AST support, so this test is updated
+    it('uses AST chunking for Java files (Phase 14)', async () => {
       const code = `
 public class UserService {
     private Database db;
@@ -720,9 +721,10 @@ public class OrderService {
       const result = await chunkCodeFile('services.java', code);
       const chunks = result.chunks;
 
-      // Should produce chunks (simple chunking fallback)
+      // Phase 14: Java now uses AST chunking with code chunk type
       expect(chunks.length).toBeGreaterThan(0);
-      expect(chunks[0].metadata.chunk_type).toBe('text');
+      expect(chunks[0].metadata.chunk_type).toBe('code');
+      expect(chunks[0].metadata.language).toBe('java');
     });
 
     it('uses simple chunking for unsupported file types', async () => {

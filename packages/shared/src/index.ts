@@ -15,7 +15,23 @@ export type DocumentFramework =
   | 'fastify'
   | 'postgres'
   | 'supabase'
-  | 'firebase';
+  | 'firebase'
+  | 'fastapi'
+  | 'django'
+  | 'flask'
+  | 'spring'
+  | 'android'
+  | 'react'
+  | 'nextjs'
+  | 'express'
+  | 'nestjs'
+  | 'redis'
+  | 'gin'
+  | 'echo'
+  | 'actix'
+  | 'tokio'
+  | 'pytorch'
+  | 'tensorflow';
 export type DocumentLanguage =
   | 'dart'
   | 'typescript'
@@ -29,7 +45,14 @@ export type DocumentLanguage =
   | 'kotlin'
   | 'java'
   | 'swift'
-  | 'python';
+  | 'python'
+  | 'go'
+  | 'rust'
+  | 'c'
+  | 'cpp'
+  | 'csharp'
+  | 'ruby'
+  | 'php';
 export type DocumentContentCategory =
   | 'api_reference'
   | 'tutorial'
@@ -532,4 +555,110 @@ export const FEATURE_ENV_VARS: Record<ModelFeature, { provider?: string; model?:
   embedding_writing: { provider: 'WRITING_EMBEDDING_PROVIDER', model: 'WRITING_EMBEDDING_MODEL' },
   reranker: { provider: 'RERANKER_PROVIDER', model: 'RERANKER_MODEL' },
   contradiction: { provider: 'CONTRADICTION_PROVIDER', model: 'CONTRADICTION_MODEL' },
+};
+
+// =============================================================================
+// Phase 14: Language Analyzer Registry Types
+// =============================================================================
+
+/**
+ * Parser type classification for language analyzers
+ */
+export type ParserType = 'ast' | 'regex' | 'line-based';
+
+/**
+ * Language support level for UI display
+ */
+export type LanguageSupportLevel = 'full' | 'partial' | 'basic' | 'none';
+
+/**
+ * Framework detection result
+ */
+export interface FrameworkInfo {
+  /** Framework name */
+  name: DocumentFramework;
+  /** Detection confidence (0-1) */
+  confidence: number;
+  /** Indicators that triggered detection */
+  indicators: string[];
+  /** Framework version if detected */
+  version?: string;
+}
+
+/**
+ * Language analyzer capabilities
+ */
+export interface AnalyzerCapabilities {
+  /** Supports hierarchical chunking (class overview + methods) */
+  hierarchicalChunking: boolean;
+  /** Can detect frameworks */
+  frameworkDetection: boolean;
+  /** Extracts import statements */
+  importExtraction: boolean;
+  /** Extracts class/function metadata */
+  symbolExtraction: boolean;
+  /** Detects async/await patterns */
+  asyncDetection: boolean;
+  /** Detects decorators/annotations */
+  decoratorDetection: boolean;
+}
+
+/**
+ * Language support status for a collection/document
+ */
+export interface LanguageSupportStatus {
+  /** Programming language */
+  language: DocumentLanguage;
+  /** File extension */
+  extension: string;
+  /** Parser type used */
+  parserType: ParserType;
+  /** Support level */
+  supportLevel: LanguageSupportLevel;
+  /** Detected frameworks */
+  frameworks: FrameworkInfo[];
+  /** Analyzer capabilities */
+  capabilities: AnalyzerCapabilities;
+  /** Number of files with this language */
+  fileCount?: number;
+  /** Chunking quality score (0-100) */
+  chunkingQuality?: number;
+}
+
+/**
+ * Collection language summary for UI
+ */
+export interface CollectionLanguageSummary {
+  /** All languages detected in collection */
+  languages: LanguageSupportStatus[];
+  /** Overall chunking quality (0-100) */
+  overallQuality: number;
+  /** Primary language */
+  primaryLanguage?: DocumentLanguage;
+  /** Primary framework */
+  primaryFramework?: DocumentFramework;
+}
+
+/**
+ * Default analyzer capabilities (for basic/line-based analyzers)
+ */
+export const DEFAULT_ANALYZER_CAPABILITIES: AnalyzerCapabilities = {
+  hierarchicalChunking: false,
+  frameworkDetection: false,
+  importExtraction: false,
+  symbolExtraction: false,
+  asyncDetection: false,
+  decoratorDetection: false,
+};
+
+/**
+ * Full AST analyzer capabilities
+ */
+export const FULL_AST_CAPABILITIES: AnalyzerCapabilities = {
+  hierarchicalChunking: true,
+  frameworkDetection: true,
+  importExtraction: true,
+  symbolExtraction: true,
+  asyncDetection: true,
+  decoratorDetection: true,
 };

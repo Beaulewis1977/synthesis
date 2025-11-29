@@ -4,15 +4,19 @@ import { buildFileRelationships } from '../services/file-relationships.js';
 import { detectTechStack } from '../services/tech-detector.js';
 import type { Chunk, ChunkMetadata } from './chunk.js';
 import { parseConfigFile } from './config-analyzer.js';
+import { parseCFile, parseCppFile } from './cpp-analyzer.js';
 import { parseDartFile } from './dart-analyzer.js';
+import { parseGoFile } from './go-analyzer.js';
 import {
   type HierarchicalChunkOptions,
   type ParsedClass,
   chunkClassHierarchically,
 } from './hierarchical-chunker.js';
+import { parseJavaFile } from './java-analyzer.js';
 import { parseKotlinFile } from './kotlin-analyzer.js';
 import { parsePythonFile } from './python-analyzer.js';
 import { analyzeRedisUsage } from './redis-analyzer.js';
+import { parseRustFile } from './rust-analyzer.js';
 import { parseSQLFile } from './sql-analyzer.js';
 import type { TableConstraint } from './sql-analyzer.js';
 import { parseSwiftFile } from './swift-analyzer.js';
@@ -121,10 +125,25 @@ export async function chunkCodeFile(
       case 'py':
         return await chunkPythonCode(filePath, content, options);
       case 'java':
-        // TODO: Implement dedicated Java analyzer - Java syntax differs from Kotlin
-        // For now, use simple chunking to avoid incorrect metadata
-        console.warn('Java AST parsing not yet implemented, using simple chunking');
-        return { chunks: simpleChunking(content, filePath) };
+        // Phase 14: Java AST analyzer
+        return await chunkJavaCode(filePath, content, options);
+      case 'go':
+        // Phase 14: Go AST analyzer
+        return await chunkGoCode(filePath, content, options);
+      case 'rs':
+        // Phase 14: Rust AST analyzer
+        return await chunkRustCode(filePath, content, options);
+      case 'c':
+      case 'h':
+        // Phase 14: C AST analyzer
+        return await chunkCCode(filePath, content, options);
+      case 'cpp':
+      case 'cc':
+      case 'cxx':
+      case 'hpp':
+      case 'hxx':
+        // Phase 14: C++ AST analyzer
+        return await chunkCppCode(filePath, content, options);
       default:
         console.warn(`Unsupported file type: ${extension}, using simple chunking`);
         return { chunks: simpleChunking(content, filePath) };
@@ -1483,6 +1502,571 @@ async function chunkPythonCode(
   }
 
   // Phase 10: Add has_file_imports flag to first chunk and return file-level imports
+  if (options.preserveImports && imports.length > 0 && chunks.length > 0) {
+    chunks[0].metadata.has_file_imports = true;
+    return { chunks, fileImports: imports };
+  }
+
+  return { chunks };
+}
+
+// =============================================================================
+// Phase 14: New Language Chunkers
+// =============================================================================
+
+/**
+ * Chunks Java code using the AST parser.
+ * Phase 14: Returns CodeChunkResult with file-level imports.
+ */
+async function chunkJavaCode(
+  filePath: string,
+  content: string,
+  options: CodeChunkOptions
+): Promise<CodeChunkResult> {
+  const ast = await parseJavaFile(content, filePath);
+  const chunks: Chunk[] = [];
+  let chunkIndex = 0;
+
+  const imports = ast.imports.map((i) => i.uri);
+
+  // Chunk functions (top-level, rare in Java but possible)
+  for (const func of ast.functions) {
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      function_name: func.name,
+      parameters: func.parameters,
+      return_type: func.returnType,
+      line_range: func.lineRange as [number, number],
+      file_path: filePath,
+      language: 'java',
+      startOffset: func.startOffset,
+      endOffset: func.endOffset,
+    };
+
+    if (func.docComment) metadata.doc_comment = func.docComment;
+
+    chunks.push({ text: func.code, index: chunkIndex++, metadata });
+  }
+
+  // Chunk classes with hierarchical support
+  const hierarchicalEnabled = options.hierarchicalChunking !== false;
+  const maxSize = options.maxChunkSize ?? 100;
+
+  for (const cls of ast.classes) {
+    const lineCount = cls.code.split('\n').length;
+
+    if (lineCount < maxSize) {
+      const metadata: ChunkMetadata = {
+        chunk_type: 'code',
+        class_name: cls.name,
+        methods: cls.methods.map((m) => m.name),
+        properties: cls.properties.map((p) => p.name),
+        line_range: cls.lineRange as [number, number],
+        file_path: filePath,
+        language: 'java',
+        startOffset: cls.startOffset,
+        endOffset: cls.endOffset,
+      };
+
+      if (cls.superclass) metadata.extends = cls.superclass;
+      if (cls.interfaces?.length > 0) metadata.implements = cls.interfaces;
+      if (cls.isAbstract) metadata.is_abstract = cls.isAbstract;
+
+      chunks.push({ text: cls.code, index: chunkIndex++, metadata });
+    } else if (hierarchicalEnabled && cls.methods.length > 0) {
+      const parsedClass: ParsedClass = {
+        name: cls.name,
+        code: cls.code,
+        superclass: cls.superclass,
+        interfaces: cls.interfaces,
+        isAbstract: cls.isAbstract,
+        lineRange: cls.lineRange as [number, number],
+        startOffset: cls.startOffset,
+        endOffset: cls.endOffset,
+        methods: cls.methods.map((m) => ({
+          name: m.name,
+          code: m.code,
+          parameters: m.parameters,
+          returnType: m.returnType,
+          lineRange: m.lineRange as [number, number],
+          startOffset: m.startOffset,
+          endOffset: m.endOffset,
+          isStatic: m.isStatic,
+          isAsync: m.isAsync,
+        })),
+        properties: cls.properties.map((p) => ({
+          name: p.name,
+          type: p.type,
+          isStatic: p.isStatic,
+          isFinal: p.isFinal,
+        })),
+      };
+
+      const result = chunkClassHierarchically(parsedClass, filePath, 'java', chunkIndex, {
+        maxChunkSize: maxSize,
+      });
+      chunks.push(...result.chunks);
+      chunkIndex += result.chunks.length;
+    } else {
+      for (const method of cls.methods) {
+        const metadata: ChunkMetadata = {
+          chunk_type: 'code',
+          function_name: method.name,
+          class_context: cls.name,
+          parameters: method.parameters,
+          return_type: method.returnType,
+          line_range: method.lineRange as [number, number],
+          file_path: filePath,
+          language: 'java',
+          startOffset: method.startOffset,
+          endOffset: method.endOffset,
+        };
+
+        if (method.isStatic) metadata.is_static = method.isStatic;
+
+        chunks.push({ text: method.code, index: chunkIndex++, metadata });
+      }
+    }
+  }
+
+  // Chunk enums and constants
+  for (const constant of ast.constants) {
+    chunks.push({
+      text: constant.code,
+      index: chunkIndex++,
+      metadata: {
+        chunk_type: 'code',
+        constant_name: constant.name,
+        constant_type: constant.type,
+        line_range: constant.lineRange as [number, number],
+        file_path: filePath,
+        language: 'java',
+        startOffset: constant.startOffset,
+        endOffset: constant.endOffset,
+      },
+    });
+  }
+
+  if (options.preserveImports && imports.length > 0 && chunks.length > 0) {
+    chunks[0].metadata.has_file_imports = true;
+    return { chunks, fileImports: imports };
+  }
+
+  return { chunks };
+}
+
+/**
+ * Chunks Go code using the AST parser.
+ * Phase 14: Returns CodeChunkResult with file-level imports.
+ */
+async function chunkGoCode(
+  filePath: string,
+  content: string,
+  options: CodeChunkOptions
+): Promise<CodeChunkResult> {
+  const ast = await parseGoFile(content, filePath);
+  const chunks: Chunk[] = [];
+  let chunkIndex = 0;
+
+  const imports = ast.imports.map((i) => i.uri);
+
+  // Chunk functions
+  for (const func of ast.functions) {
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      function_name: func.name,
+      parameters: func.parameters,
+      return_type: func.returnType,
+      line_range: func.lineRange as [number, number],
+      file_path: filePath,
+      language: 'go',
+      startOffset: func.startOffset,
+      endOffset: func.endOffset,
+    };
+
+    if (func.docComment) metadata.doc_comment = func.docComment;
+    if (func.isAsync) metadata.is_async = func.isAsync;
+
+    chunks.push({ text: func.code, index: chunkIndex++, metadata });
+  }
+
+  // Chunk structs (classes in Go)
+  const maxSize = options.maxChunkSize ?? 100;
+
+  for (const cls of ast.classes) {
+    const lineCount = cls.code.split('\n').length;
+
+    if (lineCount < maxSize || cls.methods.length === 0) {
+      const metadata: ChunkMetadata = {
+        chunk_type: 'code',
+        class_name: cls.name,
+        methods: cls.methods.map((m) => m.name),
+        properties: cls.properties.map((p) => p.name),
+        line_range: cls.lineRange as [number, number],
+        file_path: filePath,
+        language: 'go',
+        startOffset: cls.startOffset,
+        endOffset: cls.endOffset,
+      };
+
+      if (cls.isAbstract) metadata.is_abstract = cls.isAbstract; // Interface
+
+      chunks.push({ text: cls.code, index: chunkIndex++, metadata });
+    } else {
+      for (const method of cls.methods) {
+        const metadata: ChunkMetadata = {
+          chunk_type: 'code',
+          function_name: method.name,
+          class_context: cls.name,
+          parameters: method.parameters,
+          return_type: method.returnType,
+          line_range: method.lineRange as [number, number],
+          file_path: filePath,
+          language: 'go',
+          startOffset: method.startOffset,
+          endOffset: method.endOffset,
+        };
+
+        chunks.push({ text: method.code, index: chunkIndex++, metadata });
+      }
+    }
+  }
+
+  // Chunk constants
+  for (const constant of ast.constants) {
+    chunks.push({
+      text: constant.code,
+      index: chunkIndex++,
+      metadata: {
+        chunk_type: 'code',
+        constant_name: constant.name,
+        constant_type: constant.type,
+        line_range: constant.lineRange as [number, number],
+        file_path: filePath,
+        language: 'go',
+        startOffset: constant.startOffset,
+        endOffset: constant.endOffset,
+      },
+    });
+  }
+
+  if (options.preserveImports && imports.length > 0 && chunks.length > 0) {
+    chunks[0].metadata.has_file_imports = true;
+    return { chunks, fileImports: imports };
+  }
+
+  return { chunks };
+}
+
+/**
+ * Chunks Rust code using the AST parser.
+ * Phase 14: Returns CodeChunkResult with file-level imports.
+ */
+async function chunkRustCode(
+  filePath: string,
+  content: string,
+  options: CodeChunkOptions
+): Promise<CodeChunkResult> {
+  const ast = await parseRustFile(content, filePath);
+  const chunks: Chunk[] = [];
+  let chunkIndex = 0;
+
+  const imports = ast.imports.map((i) => i.uri);
+
+  // Chunk functions
+  for (const func of ast.functions) {
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      function_name: func.name,
+      parameters: func.parameters,
+      return_type: func.returnType,
+      line_range: func.lineRange as [number, number],
+      file_path: filePath,
+      language: 'rust',
+      startOffset: func.startOffset,
+      endOffset: func.endOffset,
+    };
+
+    if (func.isAsync) metadata.is_async = func.isAsync;
+
+    chunks.push({ text: func.code, index: chunkIndex++, metadata });
+  }
+
+  // Chunk structs and traits
+  const maxSize = options.maxChunkSize ?? 100;
+
+  for (const cls of ast.classes) {
+    const lineCount = cls.code.split('\n').length;
+
+    if (lineCount < maxSize || cls.methods.length === 0) {
+      const metadata: ChunkMetadata = {
+        chunk_type: 'code',
+        class_name: cls.name,
+        methods: cls.methods.map((m) => m.name),
+        properties: cls.properties.map((p) => p.name),
+        line_range: cls.lineRange as [number, number],
+        file_path: filePath,
+        language: 'rust',
+        startOffset: cls.startOffset,
+        endOffset: cls.endOffset,
+      };
+
+      if (cls.isAbstract) metadata.is_abstract = cls.isAbstract; // Trait
+
+      chunks.push({ text: cls.code, index: chunkIndex++, metadata });
+    } else {
+      for (const method of cls.methods) {
+        const metadata: ChunkMetadata = {
+          chunk_type: 'code',
+          function_name: method.name,
+          class_context: cls.name,
+          parameters: method.parameters,
+          return_type: method.returnType,
+          line_range: method.lineRange as [number, number],
+          file_path: filePath,
+          language: 'rust',
+          startOffset: method.startOffset,
+          endOffset: method.endOffset,
+        };
+
+        if (method.isStatic) metadata.is_static = method.isStatic;
+        if (method.isAsync) metadata.is_async = method.isAsync;
+
+        chunks.push({ text: method.code, index: chunkIndex++, metadata });
+      }
+    }
+  }
+
+  // Chunk enums and constants
+  for (const constant of ast.constants) {
+    chunks.push({
+      text: constant.code,
+      index: chunkIndex++,
+      metadata: {
+        chunk_type: 'code',
+        constant_name: constant.name,
+        constant_type: constant.type,
+        line_range: constant.lineRange as [number, number],
+        file_path: filePath,
+        language: 'rust',
+        startOffset: constant.startOffset,
+        endOffset: constant.endOffset,
+      },
+    });
+  }
+
+  if (options.preserveImports && imports.length > 0 && chunks.length > 0) {
+    chunks[0].metadata.has_file_imports = true;
+    return { chunks, fileImports: imports };
+  }
+
+  return { chunks };
+}
+
+/**
+ * Chunks C code using the AST parser.
+ * Phase 14: Returns CodeChunkResult with file-level imports.
+ */
+async function chunkCCode(
+  filePath: string,
+  content: string,
+  options: CodeChunkOptions
+): Promise<CodeChunkResult> {
+  const ast = await parseCFile(content, filePath);
+  const chunks: Chunk[] = [];
+  let chunkIndex = 0;
+
+  const imports = ast.imports.map((i) => i.uri);
+
+  // Chunk functions
+  for (const func of ast.functions) {
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      function_name: func.name,
+      parameters: func.parameters,
+      return_type: func.returnType,
+      line_range: func.lineRange as [number, number],
+      file_path: filePath,
+      language: 'c',
+      startOffset: func.startOffset,
+      endOffset: func.endOffset,
+    };
+
+    chunks.push({ text: func.code, index: chunkIndex++, metadata });
+  }
+
+  // Chunk structs
+  for (const cls of ast.classes) {
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      class_name: cls.name,
+      properties: cls.properties.map((p) => p.name),
+      line_range: cls.lineRange as [number, number],
+      file_path: filePath,
+      language: 'c',
+      startOffset: cls.startOffset,
+      endOffset: cls.endOffset,
+    };
+
+    chunks.push({ text: cls.code, index: chunkIndex++, metadata });
+  }
+
+  // Chunk enums and constants
+  for (const constant of ast.constants) {
+    chunks.push({
+      text: constant.code,
+      index: chunkIndex++,
+      metadata: {
+        chunk_type: 'code',
+        constant_name: constant.name,
+        constant_type: constant.type,
+        line_range: constant.lineRange as [number, number],
+        file_path: filePath,
+        language: 'c',
+        startOffset: constant.startOffset,
+        endOffset: constant.endOffset,
+      },
+    });
+  }
+
+  if (options.preserveImports && imports.length > 0 && chunks.length > 0) {
+    chunks[0].metadata.has_file_imports = true;
+    return { chunks, fileImports: imports };
+  }
+
+  return { chunks };
+}
+
+/**
+ * Chunks C++ code using the AST parser.
+ * Phase 14: Returns CodeChunkResult with file-level imports.
+ */
+async function chunkCppCode(
+  filePath: string,
+  content: string,
+  options: CodeChunkOptions
+): Promise<CodeChunkResult> {
+  const ast = await parseCppFile(content, filePath);
+  const chunks: Chunk[] = [];
+  let chunkIndex = 0;
+
+  const imports = ast.imports.map((i) => i.uri);
+
+  // Chunk functions
+  for (const func of ast.functions) {
+    const metadata: ChunkMetadata = {
+      chunk_type: 'code',
+      function_name: func.name,
+      parameters: func.parameters,
+      return_type: func.returnType,
+      line_range: func.lineRange as [number, number],
+      file_path: filePath,
+      language: 'cpp',
+      startOffset: func.startOffset,
+      endOffset: func.endOffset,
+    };
+
+    chunks.push({ text: func.code, index: chunkIndex++, metadata });
+  }
+
+  // Chunk classes with hierarchical support
+  const hierarchicalEnabled = options.hierarchicalChunking !== false;
+  const maxSize = options.maxChunkSize ?? 100;
+
+  for (const cls of ast.classes) {
+    const lineCount = cls.code.split('\n').length;
+
+    if (lineCount < maxSize) {
+      const metadata: ChunkMetadata = {
+        chunk_type: 'code',
+        class_name: cls.name,
+        methods: cls.methods.map((m) => m.name),
+        properties: cls.properties.map((p) => p.name),
+        line_range: cls.lineRange as [number, number],
+        file_path: filePath,
+        language: 'cpp',
+        startOffset: cls.startOffset,
+        endOffset: cls.endOffset,
+      };
+
+      if (cls.superclass) metadata.extends = cls.superclass;
+      if (cls.isAbstract) metadata.is_abstract = cls.isAbstract;
+
+      chunks.push({ text: cls.code, index: chunkIndex++, metadata });
+    } else if (hierarchicalEnabled && cls.methods.length > 0) {
+      const parsedClass: ParsedClass = {
+        name: cls.name,
+        code: cls.code,
+        superclass: cls.superclass,
+        interfaces: cls.interfaces,
+        isAbstract: cls.isAbstract,
+        lineRange: cls.lineRange as [number, number],
+        startOffset: cls.startOffset,
+        endOffset: cls.endOffset,
+        methods: cls.methods.map((m) => ({
+          name: m.name,
+          code: m.code,
+          parameters: m.parameters,
+          returnType: m.returnType,
+          lineRange: m.lineRange as [number, number],
+          startOffset: m.startOffset,
+          endOffset: m.endOffset,
+          isStatic: m.isStatic,
+          isAsync: m.isAsync,
+        })),
+        properties: cls.properties.map((p) => ({
+          name: p.name,
+          type: p.type,
+          isStatic: p.isStatic,
+          isFinal: p.isFinal,
+        })),
+      };
+
+      const result = chunkClassHierarchically(parsedClass, filePath, 'cpp', chunkIndex, {
+        maxChunkSize: maxSize,
+      });
+      chunks.push(...result.chunks);
+      chunkIndex += result.chunks.length;
+    } else {
+      for (const method of cls.methods) {
+        const metadata: ChunkMetadata = {
+          chunk_type: 'code',
+          function_name: method.name,
+          class_context: cls.name,
+          parameters: method.parameters,
+          return_type: method.returnType,
+          line_range: method.lineRange as [number, number],
+          file_path: filePath,
+          language: 'cpp',
+          startOffset: method.startOffset,
+          endOffset: method.endOffset,
+        };
+
+        if (method.isStatic) metadata.is_static = method.isStatic;
+
+        chunks.push({ text: method.code, index: chunkIndex++, metadata });
+      }
+    }
+  }
+
+  // Chunk enums and constants
+  for (const constant of ast.constants) {
+    chunks.push({
+      text: constant.code,
+      index: chunkIndex++,
+      metadata: {
+        chunk_type: 'code',
+        constant_name: constant.name,
+        constant_type: constant.type,
+        line_range: constant.lineRange as [number, number],
+        file_path: filePath,
+        language: 'cpp',
+        startOffset: constant.startOffset,
+        endOffset: constant.endOffset,
+      },
+    });
+  }
+
   if (options.preserveImports && imports.length > 0 && chunks.length > 0) {
     chunks[0].metadata.has_file_imports = true;
     return { chunks, fileImports: imports };
