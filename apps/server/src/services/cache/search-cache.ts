@@ -29,6 +29,10 @@ export interface SearchCacheKeyInput {
   page?: number;
   pageSize?: number;
   includeRelatedFiles?: boolean;
+  /** MMR diversification enabled */
+  mmrEnabled?: boolean;
+  /** MMR lambda parameter (0.0-1.0) */
+  mmrLambda?: number;
 }
 
 export function createSearchCacheKey(input: SearchCacheKeyInput): string {
@@ -48,6 +52,8 @@ export function createSearchCacheKey(input: SearchCacheKeyInput): string {
     page: input.page ?? 1,
     pageSize: input.pageSize ?? null,
     includeRelatedFiles: input.includeRelatedFiles ?? false,
+    mmrEnabled: input.mmrEnabled ?? false,
+    mmrLambda: input.mmrLambda ?? null,
   };
 
   const hash = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');

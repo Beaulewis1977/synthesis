@@ -51,6 +51,23 @@ export interface SearchResultMetadata extends ChunkMetadata {
   // Inherits all properties from ChunkMetadata
 }
 
+/**
+ * MMR (Maximal Marginal Relevance) diversification info
+ * Phase 13: Result Diversification
+ */
+export interface MMRInfo {
+  /** Whether MMR was enabled */
+  enabled: boolean;
+  /** Lambda value used (0.0-1.0) */
+  lambda: number;
+  /** Average pairwise similarity among results (lower = more diverse) */
+  avg_pairwise_similarity: number;
+  /** Number of results deprioritized from original top-K */
+  duplicates_removed: number;
+  /** Number of true near-duplicates (similarity >= 0.95) that were filtered */
+  near_duplicates_filtered: number;
+}
+
 export interface SearchMetadata {
   search_mode: 'vector' | 'hybrid';
   vector_count?: number | null;
@@ -65,6 +82,8 @@ export interface SearchMetadata {
     total_results: number;
     total_pages: number;
   };
+  /** MMR diversification info (when mmr_enabled is true) */
+  mmr?: MMRInfo | null;
 }
 
 export interface SearchResult {
@@ -98,6 +117,7 @@ export interface SearchResponse {
 /**
  * Search request body for POST /api/search
  * Phase 14: Added tech_stack filtering support
+ * Phase 13: Added MMR diversification support
  */
 export interface SearchRequest {
   query: string;
@@ -113,6 +133,10 @@ export interface SearchRequest {
   page?: number;
   page_size?: number;
   include_related_files?: boolean;
+  /** Enable MMR diversification (default: false) */
+  mmr_enabled?: boolean;
+  /** MMR lambda: 0.0 = max diversity, 1.0 = max relevance (default: 0.7) */
+  mmr_lambda?: number;
 }
 
 export interface CollectionsResponse {

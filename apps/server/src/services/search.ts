@@ -9,6 +9,7 @@ import {
   type HybridSearchResult,
   hybridSearch,
 } from './hybrid.js';
+import { type MMROptions, applyMMR, logMMRResults, resolveMMROptions } from './mmr.js';
 import {
   type QueryIntent,
   analyzeQuery,
@@ -45,6 +46,10 @@ export interface SmartSearchParams extends SearchParams {
   autoIntent?: boolean;
   /** Override detected intent with explicit intent */
   intent?: QueryIntent;
+  /** Enable MMR diversification (default: false, or env MMR_DEFAULT_ENABLED) */
+  mmrEnabled?: boolean;
+  /** MMR lambda parameter: 0.0 = max diversity, 1.0 = max relevance (default: 0.7) */
+  mmrLambda?: number;
 }
 
 export interface SmartSearchResult extends SearchResult {
@@ -112,6 +117,22 @@ export interface IntentInfo {
   signals: string[];
 }
 
+/**
+ * MMR diversification info exposed in API response
+ */
+export interface MMRInfo {
+  /** Whether MMR was enabled */
+  enabled: boolean;
+  /** Lambda value used (0.0-1.0) */
+  lambda: number;
+  /** Average pairwise similarity among results (lower = more diverse) */
+  avg_pairwise_similarity: number;
+  /** Number of results deprioritized from original top-K */
+  duplicates_removed: number;
+  /** Number of true near-duplicates (similarity >= 0.95) that were filtered */
+  near_duplicates_filtered: number;
+}
+
 export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
   results: SmartSearchResult[];
   metadata: {
@@ -127,6 +148,8 @@ export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
     diagnostics?: SearchDiagnostics;
     /** Query intent information (when autoIntent is enabled) */
     intent?: IntentInfo;
+    /** MMR diversification info (when mmrEnabled is true) */
+    mmr?: MMRInfo;
   };
 }
 
@@ -179,6 +202,12 @@ export async function smartSearch(
   const provider = params.provider ?? hint?.provider;
   const context = params.context ?? hint?.context;
 
+  // Resolve MMR options
+  const mmrOptions = resolveMMROptions({
+    enabled: params.mmrEnabled,
+    lambda: params.mmrLambda,
+  });
+
   if (mode === 'hybrid') {
     // Apply intent-based weights if not explicitly provided
     // Works with both auto-detected and explicit intent
@@ -198,7 +227,13 @@ export async function smartSearch(
           )
         )
       : baseTopK;
-    const hybridTopK = rerankRequested ? Math.max(candidateCap, baseTopK) : baseTopK;
+    // If MMR is enabled, fetch more candidates to allow for diversification
+    // Apply expansion to baseTopK, not to candidateCap (which is already expanded for reranking)
+    const mmrExpansionFactor = mmrOptions.enabled ? 2 : 1;
+    const expandedBaseTopK = baseTopK * mmrExpansionFactor;
+    const hybridTopK = rerankRequested
+      ? Math.max(candidateCap, expandedBaseTopK)
+      : expandedBaseTopK;
     const { results, elapsedMs, vectorCount, bm25Count, diagnostics } = await hybridSearch(db, {
       query: params.query,
       collectionId: params.collectionId,
@@ -236,9 +271,18 @@ export async function smartSearch(
 
       rankedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
 
+      // Apply MMR diversification after reranking
+      const { results: diversifiedResults, mmrInfo } = await applyMMRDiversification(
+        db,
+        rankedResults,
+        mmrOptions,
+        baseTopK,
+        params.query
+      );
+
       const enrichedResults = params.includeRelatedFiles
-        ? await attachRelatedFiles(db, params.collectionId, rankedResults)
-        : rankedResults;
+        ? await attachRelatedFiles(db, params.collectionId, diversifiedResults)
+        : diversifiedResults;
 
       return {
         query: params.query,
@@ -256,6 +300,7 @@ export async function smartSearch(
           rerankProvider: rankedResults[0]?.rerankProvider ?? params.rerankProvider ?? 'none',
           diagnostics: mapDiagnostics(diagnostics),
           intent: intentInfo,
+          mmr: mmrOptions.enabled ? mmrInfo : undefined,
         },
       };
     }
@@ -265,9 +310,18 @@ export async function smartSearch(
       fusedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
     }
 
+    // Apply MMR diversification
+    const { results: diversifiedResults, mmrInfo } = await applyMMRDiversification(
+      db,
+      fusedResults,
+      mmrOptions,
+      baseTopK,
+      params.query
+    );
+
     const enrichedResults = params.includeRelatedFiles
-      ? await attachRelatedFiles(db, params.collectionId, fusedResults)
-      : fusedResults;
+      ? await attachRelatedFiles(db, params.collectionId, diversifiedResults)
+      : diversifiedResults;
 
     return {
       query: params.query,
@@ -285,14 +339,20 @@ export async function smartSearch(
         rerankProvider: params.rerankProvider ?? 'none',
         diagnostics: mapDiagnostics(diagnostics),
         intent: intentInfo,
+        mmr: mmrOptions.enabled ? mmrInfo : undefined,
       },
     };
   }
 
+  // For vector-only mode, expand topK if MMR is enabled
+  const vectorBaseTopK = params.topK ?? 10;
+  const vectorMmrExpansionFactor = mmrOptions.enabled ? 2 : 1;
+  const vectorTopK = vectorBaseTopK * vectorMmrExpansionFactor;
+
   const vectorResult = await vectorSearch(db, {
     query: params.query,
     collectionId: params.collectionId,
-    topK: params.topK,
+    topK: vectorTopK,
     minSimilarity: params.minSimilarity,
     provider,
     context,
@@ -307,9 +367,18 @@ export async function smartSearch(
     rankedResults.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
   }
 
+  // Apply MMR diversification
+  const { results: diversifiedResults, mmrInfo } = await applyMMRDiversification(
+    db,
+    rankedResults,
+    mmrOptions,
+    vectorBaseTopK,
+    params.query
+  );
+
   const enrichedResults = params.includeRelatedFiles
-    ? await attachRelatedFiles(db, params.collectionId, rankedResults)
-    : rankedResults;
+    ? await attachRelatedFiles(db, params.collectionId, diversifiedResults)
+    : diversifiedResults;
 
   return {
     ...vectorResult,
@@ -324,6 +393,7 @@ export async function smartSearch(
       reranked: false,
       rerankProvider: params.rerankProvider ?? 'none',
       intent: intentInfo,
+      mmr: mmrOptions.enabled ? mmrInfo : undefined,
     },
   };
 }
@@ -593,3 +663,171 @@ function mapDiagnostics(diagnostics: HybridDiagnostics): SearchDiagnostics {
     rrf_k: diagnostics.rrfK,
   };
 }
+
+/**
+ * Fetches embeddings for a list of chunk IDs from the database.
+ * Returns a map of chunk ID to embedding vector.
+ *
+ * @param db - PostgreSQL connection pool
+ * @param chunkIds - Array of chunk IDs to fetch embeddings for
+ * @returns Map of chunk ID to embedding vector (or null if not found)
+ */
+async function fetchChunkEmbeddings(
+  db: Pool,
+  chunkIds: number[]
+): Promise<Map<number, number[] | null>> {
+  if (chunkIds.length === 0) {
+    return new Map();
+  }
+
+  let rows: Array<{ id: number; embedding: string | null }>;
+
+  try {
+    // Query embeddings for all chunk IDs in a single batch
+    const result = await db.query<{ id: number; embedding: string | null }>(
+      `
+      SELECT id, embedding::text
+      FROM chunks
+      WHERE id = ANY($1::int[])
+      `,
+      [chunkIds]
+    );
+    rows = result.rows;
+  } catch (error) {
+    // Log warning and return empty map - MMR will gracefully degrade
+    console.warn('[MMR] Failed to fetch chunk embeddings:', error);
+    return new Map(chunkIds.map((id) => [id, null]));
+  }
+
+  const embeddingMap = new Map<number, number[] | null>();
+
+  for (const row of rows) {
+    if (row.embedding) {
+      // Parse the pgvector string format: [0.1,0.2,0.3,...]
+      try {
+        const vectorStr = row.embedding.replace(/^\[|\]$/g, '');
+        const embedding = vectorStr.split(',').map((v) => Number.parseFloat(v.trim()));
+        if (embedding.every((v) => Number.isFinite(v))) {
+          embeddingMap.set(row.id, embedding);
+        } else {
+          embeddingMap.set(row.id, null);
+        }
+      } catch {
+        embeddingMap.set(row.id, null);
+      }
+    } else {
+      embeddingMap.set(row.id, null);
+    }
+  }
+
+  // Ensure all requested IDs have an entry (null if not found)
+  for (const id of chunkIds) {
+    if (!embeddingMap.has(id)) {
+      embeddingMap.set(id, null);
+    }
+  }
+
+  return embeddingMap;
+}
+
+/**
+ * Result with embedding attached for MMR processing
+ */
+interface ResultWithEmbedding extends SmartSearchResult {
+  _embedding?: number[] | null;
+}
+
+/**
+ * Applies MMR diversification to search results.
+ *
+ * @param db - PostgreSQL connection pool
+ * @param results - Search results to diversify
+ * @param options - MMR options
+ * @param topK - Number of results to return
+ * @param query - Original search query (for logging)
+ * @returns Diversified results and MMR info
+ */
+async function applyMMRDiversification(
+  db: Pool,
+  results: SmartSearchResult[],
+  options: MMROptions,
+  topK: number,
+  query: string
+): Promise<{ results: SmartSearchResult[]; mmrInfo: MMRInfo }> {
+  // If MMR is disabled or not enough results, return as-is
+  if (!options.enabled || results.length <= 1) {
+    return {
+      results: results.slice(0, topK),
+      mmrInfo: {
+        enabled: false,
+        lambda: options.lambda,
+        avg_pairwise_similarity: 0,
+        duplicates_removed: 0,
+        near_duplicates_filtered: 0,
+      },
+    };
+  }
+
+  // Fetch embeddings for all result chunks
+  const chunkIds = results.map((r) => r.id);
+  const embeddingMap = await fetchChunkEmbeddings(db, chunkIds);
+
+  // Attach embeddings to results
+  const resultsWithEmbeddings: ResultWithEmbedding[] = results.map((r) => ({
+    ...r,
+    _embedding: embeddingMap.get(r.id) ?? null,
+  }));
+
+  // Check if we have enough embeddings for meaningful MMR
+  const embeddingCount = resultsWithEmbeddings.filter((r) => r._embedding !== null).length;
+  if (embeddingCount < 2) {
+    // Not enough embeddings for MMR, return original order
+    return {
+      results: results.slice(0, topK),
+      mmrInfo: {
+        enabled: true,
+        lambda: options.lambda,
+        avg_pairwise_similarity: 0,
+        duplicates_removed: 0,
+        near_duplicates_filtered: 0,
+      },
+    };
+  }
+
+  // Apply MMR algorithm
+  const mmrResult = applyMMR(
+    resultsWithEmbeddings.map((r) => ({
+      ...r,
+      relevanceScore: r.similarity ?? 0,
+      embedding: r._embedding ?? null,
+    })),
+    topK,
+    options
+  );
+
+  // Log MMR results if enabled
+  logMMRResults(query, mmrResult.metrics, mmrResult.results.length);
+
+  // Remove internal _embedding field from results
+  const diversifiedResults: SmartSearchResult[] = mmrResult.results.map((r) => {
+    const { _embedding, relevanceScore, embedding, ...rest } = r as ResultWithEmbedding & {
+      relevanceScore: number;
+      embedding: number[] | null;
+    };
+    return rest;
+  });
+
+  return {
+    results: diversifiedResults,
+    mmrInfo: {
+      enabled: true,
+      lambda: mmrResult.metrics.lambda,
+      avg_pairwise_similarity: mmrResult.metrics.avgPairwiseSimilarity,
+      duplicates_removed: mmrResult.metrics.duplicatesRemoved,
+      near_duplicates_filtered: mmrResult.metrics.nearDuplicatesFiltered,
+    },
+  };
+}
+
+// Re-export resolveMMROptions for use in routes
+export { resolveMMROptions } from './mmr.js';

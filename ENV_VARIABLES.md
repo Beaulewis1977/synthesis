@@ -35,6 +35,10 @@ This document lists all environment variables used in the Synthesis RAG applicat
 | `HYBRID_VECTOR_WEIGHT` | Vector weight in hybrid search (0-1) | `0.7` | Server |
 | `HYBRID_BM25_WEIGHT` | BM25 weight in hybrid search (0-1) | `0.3` | Server |
 | `HYBRID_DIAGNOSTICS_LOG` | Enable structured JSON logging for hybrid search diagnostics | `false` | Server |
+| `QUERY_INTENT_LOG` | Enable structured JSON logging for query intent detection | `false` | Server |
+| `MMR_DEFAULT_ENABLED` | Enable MMR diversification by default | `false` | Server |
+| `MMR_DEFAULT_LAMBDA` | Default MMR lambda (0.0=diversity, 1.0=relevance) | `0.7` | Server |
+| `MMR_LOG` | Enable structured JSON logging for MMR diversification | `false` | Server |
 
 ### Performance & Caching
 
