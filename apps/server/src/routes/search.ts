@@ -209,6 +209,8 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       page,
       pageSize,
       includeRelatedFiles,
+      mmrEnabled: mmrEnabled ?? false,
+      mmrLambda,
     });
 
     const timerStart = performance.now();

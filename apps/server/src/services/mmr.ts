@@ -49,8 +49,10 @@ export interface MMROptions {
 export interface MMRDiversityMetrics {
   /** Average pairwise similarity among selected results (lower = more diverse) */
   avgPairwiseSimilarity: number;
-  /** Number of near-duplicate results that were deprioritized */
+  /** Number of results that were deprioritized from original top-K */
   duplicatesRemoved: number;
+  /** Number of true near-duplicates (similarity >= 0.95) that were filtered */
+  nearDuplicatesFiltered: number;
   /** Original position of each selected result before MMR */
   originalPositions: number[];
   /** The lambda value used */
@@ -255,6 +257,7 @@ export function applyMMR<T extends MMRCandidate>(
       metrics: {
         avgPairwiseSimilarity: 0,
         duplicatesRemoved: 0,
+        nearDuplicatesFiltered: 0,
         originalPositions: candidates.slice(0, topK).map((_, i) => i),
         lambda: options.lambda,
       },
@@ -273,6 +276,7 @@ export function applyMMR<T extends MMRCandidate>(
           candidates.slice(0, effectiveTopK).map((c) => c.embedding)
         ),
         duplicatesRemoved: 0,
+        nearDuplicatesFiltered: 0,
         originalPositions: candidates.slice(0, effectiveTopK).map((_, i) => i),
         lambda,
       },
@@ -345,11 +349,25 @@ export function applyMMR<T extends MMRCandidate>(
   const originalTopKIndices = new Set(candidates.slice(0, effectiveTopK).map((_, i) => i));
   const duplicatesRemoved = [...originalTopKIndices].filter((i) => !selectedIndices.has(i)).length;
 
+  // Also count true near-duplicates (similarity >= NEAR_DUPLICATE_THRESHOLD) that were deprioritized
+  // This provides insight into how many semantically identical results were filtered
+  let nearDuplicatesFiltered = 0;
+  for (const idx of originalTopKIndices) {
+    if (!selectedIndices.has(idx)) {
+      const candidate = candidates[idx];
+      const maxSim = maxSimilarityToSelected(candidate.embedding, selectedEmbeddings);
+      if (maxSim >= NEAR_DUPLICATE_THRESHOLD) {
+        nearDuplicatesFiltered++;
+      }
+    }
+  }
+
   return {
     results: selected,
     metrics: {
       avgPairwiseSimilarity: Number(avgPairwiseSimilarity.toFixed(4)),
       duplicatesRemoved,
+      nearDuplicatesFiltered,
       originalPositions,
       lambda,
     },

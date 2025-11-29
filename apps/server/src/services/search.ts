@@ -127,8 +127,10 @@ export interface MMRInfo {
   lambda: number;
   /** Average pairwise similarity among results (lower = more diverse) */
   avg_pairwise_similarity: number;
-  /** Number of near-duplicates that were deprioritized */
+  /** Number of results deprioritized from original top-K */
   duplicates_removed: number;
+  /** Number of true near-duplicates (similarity >= 0.95) that were filtered */
+  near_duplicates_filtered: number;
 }
 
 export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
@@ -226,10 +228,12 @@ export async function smartSearch(
         )
       : baseTopK;
     // If MMR is enabled, fetch more candidates to allow for diversification
+    // Apply expansion to baseTopK, not to candidateCap (which is already expanded for reranking)
     const mmrExpansionFactor = mmrOptions.enabled ? 2 : 1;
+    const expandedBaseTopK = baseTopK * mmrExpansionFactor;
     const hybridTopK = rerankRequested
-      ? Math.max(candidateCap, baseTopK) * mmrExpansionFactor
-      : baseTopK * mmrExpansionFactor;
+      ? Math.max(candidateCap, expandedBaseTopK)
+      : expandedBaseTopK;
     const { results, elapsedMs, vectorCount, bm25Count, diagnostics } = await hybridSearch(db, {
       query: params.query,
       collectionId: params.collectionId,
@@ -341,9 +345,9 @@ export async function smartSearch(
   }
 
   // For vector-only mode, expand topK if MMR is enabled
-  const baseTopK = params.topK ?? 10;
-  const mmrExpansionFactor = mmrOptions.enabled ? 2 : 1;
-  const vectorTopK = baseTopK * mmrExpansionFactor;
+  const vectorBaseTopK = params.topK ?? 10;
+  const vectorMmrExpansionFactor = mmrOptions.enabled ? 2 : 1;
+  const vectorTopK = vectorBaseTopK * vectorMmrExpansionFactor;
 
   const vectorResult = await vectorSearch(db, {
     query: params.query,
@@ -368,7 +372,7 @@ export async function smartSearch(
     db,
     rankedResults,
     mmrOptions,
-    baseTopK,
+    vectorBaseTopK,
     params.query
   );
 
@@ -676,15 +680,24 @@ async function fetchChunkEmbeddings(
     return new Map();
   }
 
-  // Query embeddings for all chunk IDs in a single batch
-  const { rows } = await db.query<{ id: number; embedding: string | null }>(
-    `
-    SELECT id, embedding::text
-    FROM chunks
-    WHERE id = ANY($1::int[])
-    `,
-    [chunkIds]
-  );
+  let rows: Array<{ id: number; embedding: string | null }>;
+
+  try {
+    // Query embeddings for all chunk IDs in a single batch
+    const result = await db.query<{ id: number; embedding: string | null }>(
+      `
+      SELECT id, embedding::text
+      FROM chunks
+      WHERE id = ANY($1::int[])
+      `,
+      [chunkIds]
+    );
+    rows = result.rows;
+  } catch (error) {
+    // Log warning and return empty map - MMR will gracefully degrade
+    console.warn('[MMR] Failed to fetch chunk embeddings:', error);
+    return new Map(chunkIds.map((id) => [id, null]));
+  }
 
   const embeddingMap = new Map<number, number[] | null>();
 
@@ -750,6 +763,7 @@ async function applyMMRDiversification(
         lambda: options.lambda,
         avg_pairwise_similarity: 0,
         duplicates_removed: 0,
+        near_duplicates_filtered: 0,
       },
     };
   }
@@ -775,6 +789,7 @@ async function applyMMRDiversification(
         lambda: options.lambda,
         avg_pairwise_similarity: 0,
         duplicates_removed: 0,
+        near_duplicates_filtered: 0,
       },
     };
   }
@@ -809,6 +824,7 @@ async function applyMMRDiversification(
       lambda: mmrResult.metrics.lambda,
       avg_pairwise_similarity: mmrResult.metrics.avgPairwiseSimilarity,
       duplicates_removed: mmrResult.metrics.duplicatesRemoved,
+      near_duplicates_filtered: mmrResult.metrics.nearDuplicatesFiltered,
     },
   };
 }

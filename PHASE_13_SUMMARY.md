@@ -62,7 +62,8 @@ When MMR is enabled, the search fetches 2x candidates to allow for effective div
       "enabled": true,
       "lambda": 0.7,
       "avg_pairwise_similarity": 0.42,
-      "duplicates_removed": 3
+      "duplicates_removed": 3,
+      "near_duplicates_filtered": 2
     }
   }
 }
@@ -89,6 +90,7 @@ When MMR is enabled, the search fetches 2x candidates to allow for effective div
 |------|-------------|
 | `apps/server/src/services/search.ts` | Integrated MMR diversification |
 | `apps/server/src/routes/search.ts` | Added MMR params and response fields |
+| `apps/server/src/services/cache/search-cache.ts` | Added MMR params to cache key |
 
 ## Tests Added
 

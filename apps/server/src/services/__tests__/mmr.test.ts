@@ -471,6 +471,7 @@ describe('MMR (Maximal Marginal Relevance)', () => {
         {
           avgPairwiseSimilarity: 0.5,
           duplicatesRemoved: 2,
+          nearDuplicatesFiltered: 1,
           originalPositions: [0, 2, 1],
           lambda: 0.7,
         },
@@ -488,6 +489,7 @@ describe('MMR (Maximal Marginal Relevance)', () => {
         {
           avgPairwiseSimilarity: 0.5,
           duplicatesRemoved: 2,
+          nearDuplicatesFiltered: 1,
           originalPositions: [0, 2, 1],
           lambda: 0.7,
         },
@@ -511,6 +513,7 @@ describe('MMR (Maximal Marginal Relevance)', () => {
         {
           avgPairwiseSimilarity: 0.5,
           duplicatesRemoved: 0,
+          nearDuplicatesFiltered: 0,
           originalPositions: [0],
           lambda: 0.7,
         },
