@@ -1,9 +1,184 @@
 /**
- * Python AST Parser using regex-based analysis
- * Produces DartAST-compatible output for seamless integration with existing chunking pipeline
+ * Python AST Parser using regex-based analysis (Phase 14 Enhanced)
+ *
+ * Produces DartAST-compatible output for seamless integration with existing chunking pipeline.
+ * Includes framework detection for FastAPI, Django, Flask, PyTorch, TensorFlow.
+ *
+ * @module pipeline/python-analyzer
  */
 
+import type { AnalyzerCapabilities, DocumentFramework, FrameworkInfo } from '@synthesis/shared';
+import { type LanguageAnalyzer, analyzerRegistry } from './analyzers/registry.js';
 import type { DartAST } from './dart-analyzer.js';
+
+// =============================================================================
+// Framework Detection (Phase 14)
+// =============================================================================
+
+/**
+ * Python-specific framework patterns with enhanced detection
+ */
+const PYTHON_FRAMEWORK_PATTERNS: Record<
+  string,
+  { patterns: RegExp[]; framework: DocumentFramework }
+> = {
+  fastapi: {
+    framework: 'fastapi',
+    patterns: [
+      /from\s+fastapi\s+import/,
+      /import\s+fastapi/,
+      /FastAPI\s*\(/,
+      /@(?:app|router)\.(?:get|post|put|delete|patch|options|head)\s*\(/,
+      /APIRouter\s*\(/,
+      /Depends\s*\(/,
+      /HTTPException/,
+      /Response\s*\(/,
+      /BackgroundTasks/,
+    ],
+  },
+  django: {
+    framework: 'django',
+    patterns: [
+      /from\s+django/,
+      /import\s+django/,
+      /django\.(?:db|http|views|urls|conf|contrib)/,
+      /class\s+\w+\s*\(\s*models\.Model\s*\)/,
+      /class\s+\w+\s*\(\s*(?:forms\.Form|forms\.ModelForm)\s*\)/,
+      /urlpatterns\s*=/,
+      /path\s*\(|re_path\s*\(/,
+      /render\s*\(\s*request/,
+      /HttpResponse|JsonResponse/,
+      /@(?:login_required|permission_required)/,
+    ],
+  },
+  flask: {
+    framework: 'flask',
+    patterns: [
+      /from\s+flask\s+import/,
+      /import\s+flask/,
+      /Flask\s*\(__name__\)/,
+      /@app\.route\s*\(/,
+      /@(?:app|blueprint)\.(?:get|post|put|delete)\s*\(/,
+      /Blueprint\s*\(/,
+      /render_template\s*\(/,
+      /request\.(?:args|form|json)/,
+      /jsonify\s*\(/,
+    ],
+  },
+  pytorch: {
+    framework: 'pytorch',
+    patterns: [
+      /import\s+torch/,
+      /from\s+torch/,
+      /torch\.nn/,
+      /nn\.Module/,
+      /torch\.tensor/,
+      /\.cuda\(\)/,
+      /\.to\(device\)/,
+      /DataLoader/,
+      /torch\.optim/,
+      /backward\(\)/,
+    ],
+  },
+  tensorflow: {
+    framework: 'tensorflow',
+    patterns: [
+      /import\s+tensorflow/,
+      /from\s+tensorflow/,
+      /tf\.keras/,
+      /tf\.constant/,
+      /tf\.Variable/,
+      /Model\s*\(/,
+      /Sequential\s*\(/,
+      /\.compile\s*\(/,
+      /\.fit\s*\(/,
+      /tf\.data/,
+    ],
+  },
+  supabase: {
+    framework: 'supabase',
+    patterns: [
+      /from\s+supabase\s+import/,
+      /import\s+supabase/,
+      /create_client\s*\(/,
+      /supabase\.(?:table|from_|auth|storage)/,
+      /SUPABASE_URL|SUPABASE_KEY/,
+    ],
+  },
+  redis: {
+    framework: 'redis',
+    patterns: [
+      /import\s+redis/,
+      /from\s+redis\s+import/,
+      /Redis\s*\(/,
+      /StrictRedis\s*\(/,
+      /redis\.(?:get|set|hget|hset|lpush|rpush)/,
+      /REDIS_URL|REDIS_HOST/,
+      /aioredis/,
+    ],
+  },
+  postgres: {
+    framework: 'postgres',
+    patterns: [
+      /import\s+psycopg2/,
+      /from\s+psycopg2/,
+      /import\s+asyncpg/,
+      /from\s+asyncpg/,
+      /connect\s*\([^)]*(?:postgres|postgresql)/i,
+      /DATABASE_URL/,
+      /PG_HOST|POSTGRES_HOST/,
+    ],
+  },
+};
+
+/**
+ * Detect Python frameworks from code
+ */
+export function detectPythonFrameworks(code: string, _filePath: string): FrameworkInfo[] {
+  const results: FrameworkInfo[] = [];
+
+  for (const [, config] of Object.entries(PYTHON_FRAMEWORK_PATTERNS)) {
+    const indicators: string[] = [];
+    let matchCount = 0;
+
+    for (const pattern of config.patterns) {
+      const match = code.match(pattern);
+      if (match) {
+        matchCount++;
+        indicators.push(match[0].substring(0, 60).trim());
+      }
+    }
+
+    if (matchCount > 0) {
+      // Calculate confidence based on pattern matches
+      const confidence = Math.min(matchCount / config.patterns.length, 1);
+      results.push({
+        name: config.framework,
+        confidence,
+        indicators: indicators.slice(0, 5), // Limit indicators
+      });
+    }
+  }
+
+  // Sort by confidence descending
+  return results.sort((a, b) => b.confidence - a.confidence);
+}
+
+/**
+ * Python analyzer capabilities
+ */
+export const PYTHON_ANALYZER_CAPABILITIES: AnalyzerCapabilities = {
+  hierarchicalChunking: true,
+  frameworkDetection: true,
+  importExtraction: true,
+  symbolExtraction: true,
+  asyncDetection: true,
+  decoratorDetection: true,
+};
+
+// =============================================================================
+// AST Parsing
+// =============================================================================
 
 /**
  * Parse Python file using regex-based analysis.
@@ -403,3 +578,28 @@ function extractPythonDocstring(body: string): string | undefined {
   }
   return undefined;
 }
+
+// =============================================================================
+// Language Analyzer Registration (Phase 14)
+// =============================================================================
+
+/**
+ * Python language analyzer implementation
+ */
+export const pythonAnalyzer: LanguageAnalyzer = {
+  language: 'python',
+  extensions: ['py', 'pyw', 'pyi'],
+  parserType: 'regex',
+  capabilities: PYTHON_ANALYZER_CAPABILITIES,
+
+  async analyze(code: string, filePath: string): Promise<DartAST> {
+    return parsePythonFile(code, filePath);
+  },
+
+  detectFrameworks(code: string, filePath: string): FrameworkInfo[] {
+    return detectPythonFrameworks(code, filePath);
+  },
+};
+
+// Register the analyzer
+analyzerRegistry.register(pythonAnalyzer, 10);

@@ -1,7 +1,142 @@
 /**
- * Dart AST Parser - Regex-based extraction for Dart source files
- * Extracts imports, functions, classes, and constants from Dart code
+ * Dart AST Parser - Regex-based extraction for Dart source files (Phase 14 Enhanced)
+ *
+ * Extracts imports, functions, classes, and constants from Dart code.
+ * Includes framework detection for Flutter, Supabase, Firebase.
+ *
+ * @module pipeline/dart-analyzer
  */
+
+import type { AnalyzerCapabilities, DocumentFramework, FrameworkInfo } from '@synthesis/shared';
+import { type LanguageAnalyzer, analyzerRegistry } from './analyzers/registry.js';
+
+// =============================================================================
+// Framework Detection (Phase 14)
+// =============================================================================
+
+/**
+ * Dart-specific framework patterns with enhanced detection
+ */
+const DART_FRAMEWORK_PATTERNS: Record<
+  string,
+  { patterns: RegExp[]; framework: DocumentFramework }
+> = {
+  flutter: {
+    framework: 'flutter',
+    patterns: [
+      /import\s+['"]package:flutter\//,
+      /extends\s+(?:Stateless|Stateful)Widget/,
+      /MaterialApp|CupertinoApp|WidgetsApp/,
+      /BuildContext\s+context/,
+      /Widget\s+build\s*\(/,
+      /setState\s*\(\s*\(\s*\)/,
+      /Navigator\.(?:push|pop|pushNamed)/,
+      /Scaffold|AppBar|Container|Column|Row/,
+      /TextEditingController|FocusNode/,
+      /@override/,
+    ],
+  },
+  dart: {
+    framework: 'dart',
+    patterns: [
+      /import\s+['"]dart:/,
+      /void\s+main\s*\(\s*\)/,
+      /Future<|Stream<|async\s+/,
+      /\.then\s*\(|\.catchError\s*\(/,
+    ],
+  },
+  supabase: {
+    framework: 'supabase',
+    patterns: [
+      /import\s+['"]package:supabase/,
+      /import\s+['"]package:supabase_flutter/,
+      /Supabase\.instance/,
+      /SupabaseClient/,
+      /\.from\s*\(\s*['"]/,
+      /supabase\.auth/,
+      /supabase\.storage/,
+      /SUPABASE_URL|SUPABASE_ANON_KEY/,
+    ],
+  },
+  firebase: {
+    framework: 'firebase',
+    patterns: [
+      /import\s+['"]package:firebase/,
+      /import\s+['"]package:cloud_firestore/,
+      /import\s+['"]package:firebase_auth/,
+      /FirebaseFirestore\.instance/,
+      /FirebaseAuth\.instance/,
+      /Firebase\.initializeApp/,
+      /CollectionReference|DocumentReference/,
+    ],
+  },
+  redis: {
+    framework: 'redis',
+    patterns: [
+      /import\s+['"]package:redis/,
+      /RedisConnection/,
+      /\.set\s*\(|\.get\s*\(/,
+      /REDIS_URL|REDIS_HOST/,
+    ],
+  },
+  postgres: {
+    framework: 'postgres',
+    patterns: [
+      /import\s+['"]package:postgres/,
+      /PostgreSQLConnection/,
+      /\.query\s*\(/,
+      /\.execute\s*\(/,
+      /DATABASE_URL|PG_HOST/,
+    ],
+  },
+};
+
+/**
+ * Detect Dart frameworks from code
+ */
+export function detectDartFrameworks(code: string, _filePath: string): FrameworkInfo[] {
+  const results: FrameworkInfo[] = [];
+
+  for (const [, config] of Object.entries(DART_FRAMEWORK_PATTERNS)) {
+    const indicators: string[] = [];
+    let matchCount = 0;
+
+    for (const pattern of config.patterns) {
+      const match = code.match(pattern);
+      if (match) {
+        matchCount++;
+        indicators.push(match[0].substring(0, 60).trim());
+      }
+    }
+
+    if (matchCount > 0) {
+      const confidence = Math.min((matchCount / config.patterns.length) * 1.5, 1);
+      results.push({
+        name: config.framework,
+        confidence,
+        indicators: indicators.slice(0, 5),
+      });
+    }
+  }
+
+  return results.sort((a, b) => b.confidence - a.confidence);
+}
+
+/**
+ * Dart analyzer capabilities
+ */
+export const DART_ANALYZER_CAPABILITIES: AnalyzerCapabilities = {
+  hierarchicalChunking: true,
+  frameworkDetection: true,
+  importExtraction: true,
+  symbolExtraction: true,
+  asyncDetection: true,
+  decoratorDetection: true,
+};
+
+// =============================================================================
+// AST Types
+// =============================================================================
 
 export interface DartAST {
   imports: Array<{
@@ -557,3 +692,28 @@ export async function parseDartFile(content: string, filePath?: string): Promise
     };
   }
 }
+
+// =============================================================================
+// Language Analyzer Registration (Phase 14)
+// =============================================================================
+
+/**
+ * Dart language analyzer implementation
+ */
+export const dartAnalyzer: LanguageAnalyzer = {
+  language: 'dart',
+  extensions: ['dart'],
+  parserType: 'regex',
+  capabilities: DART_ANALYZER_CAPABILITIES,
+
+  async analyze(code: string, filePath: string): Promise<DartAST> {
+    return parseDartFile(code, filePath);
+  },
+
+  detectFrameworks(code: string, filePath: string): FrameworkInfo[] {
+    return detectDartFrameworks(code, filePath);
+  },
+};
+
+// Register the analyzer
+analyzerRegistry.register(dartAnalyzer, 10);

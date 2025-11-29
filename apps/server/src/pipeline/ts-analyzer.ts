@@ -1,10 +1,170 @@
 /**
- * TypeScript/JavaScript AST Parser using TypeScript Compiler API
- * Produces DartAST-compatible output for seamless integration with existing chunking pipeline
+ * TypeScript/JavaScript AST Parser using TypeScript Compiler API (Phase 14 Enhanced)
+ *
+ * Produces DartAST-compatible output for seamless integration with existing chunking pipeline.
+ * Includes framework detection for React, Next.js, Express, NestJS, Supabase, Redis, PostgreSQL.
+ *
+ * @module pipeline/ts-analyzer
  */
 
+import type { AnalyzerCapabilities, DocumentFramework, FrameworkInfo } from '@synthesis/shared';
 import ts from 'typescript';
+import { type LanguageAnalyzer, analyzerRegistry } from './analyzers/registry.js';
 import type { DartAST } from './dart-analyzer.js';
+
+// =============================================================================
+// Framework Detection (Phase 14)
+// =============================================================================
+
+/**
+ * TypeScript/JavaScript-specific framework patterns with enhanced detection
+ */
+const TS_FRAMEWORK_PATTERNS: Record<string, { patterns: RegExp[]; framework: DocumentFramework }> =
+  {
+    react: {
+      framework: 'react',
+      patterns: [
+        /import\s+.*\s+from\s+['"]react['"]/,
+        /from\s+['"]react['"]/,
+        /React\.(?:Component|createElement|useState|useEffect)/,
+        /useState\s*\(|useEffect\s*\(|useCallback\s*\(/,
+        /return\s*\(\s*</,
+        /<[A-Z]\w+/,
+        /className=/,
+      ],
+    },
+    nextjs: {
+      framework: 'nextjs',
+      patterns: [
+        /from\s+['"]next\//,
+        /getServerSideProps|getStaticProps|getStaticPaths/,
+        /import\s+.*\s+from\s+['"]next\/(?:router|link|image|head)['"]/,
+        /useRouter\s*\(/,
+        /NextPage|GetServerSideProps|GetStaticProps/,
+        /pages\/|app\//,
+      ],
+    },
+    express: {
+      framework: 'express',
+      patterns: [
+        /from\s+['"]express['"]/,
+        /require\s*\(\s*['"]express['"]\s*\)/,
+        /express\s*\(\)/,
+        /app\.(?:get|post|put|delete|use|listen)\s*\(/,
+        /req\.(?:body|params|query)/,
+        /res\.(?:json|send|status)/,
+        /Router\s*\(\)/,
+      ],
+    },
+    nestjs: {
+      framework: 'nestjs',
+      patterns: [
+        /@(?:Controller|Injectable|Module|Get|Post|Put|Delete)\s*\(/,
+        /from\s+['"]@nestjs\//,
+        /NestFactory\.create/,
+        /@Body\(\)|@Param\(\)|@Query\(\)/,
+        /implements\s+(?:OnModuleInit|OnModuleDestroy)/,
+      ],
+    },
+    fastify: {
+      framework: 'fastify',
+      patterns: [
+        /from\s+['"]fastify['"]/,
+        /require\s*\(\s*['"]fastify['"]\s*\)/,
+        /fastify\s*\(\)/,
+        /\.register\s*\(/,
+        /\.get\s*\(|.post\s*\(/,
+      ],
+    },
+    supabase: {
+      framework: 'supabase',
+      patterns: [
+        /from\s+['"]@supabase\/supabase-js['"]/,
+        /createClient\s*\(/,
+        /supabase\.from\s*\(/,
+        /supabase\.auth/,
+        /supabase\.storage/,
+        /SUPABASE_URL|SUPABASE_ANON_KEY|NEXT_PUBLIC_SUPABASE/,
+      ],
+    },
+    firebase: {
+      framework: 'firebase',
+      patterns: [
+        /from\s+['"]firebase\//,
+        /initializeApp\s*\(/,
+        /getFirestore|getAuth|getStorage/,
+        /collection\s*\(|doc\s*\(/,
+        /FIREBASE_|NEXT_PUBLIC_FIREBASE/,
+      ],
+    },
+    redis: {
+      framework: 'redis',
+      patterns: [
+        /from\s+['"](?:redis|ioredis)['"]/,
+        /require\s*\(\s*['"](?:redis|ioredis)['"]\s*\)/,
+        /createClient\s*\(/,
+        /\.get\s*\(|\.set\s*\(|\.hget\s*\(|\.hset\s*\(/,
+        /REDIS_URL|REDIS_HOST/,
+      ],
+    },
+    postgres: {
+      framework: 'postgres',
+      patterns: [
+        /from\s+['"]pg['"]/,
+        /require\s*\(\s*['"]pg['"]\s*\)/,
+        /new\s+Pool\s*\(/,
+        /pool\.query\s*\(/,
+        /DATABASE_URL|PG_HOST|POSTGRES/,
+      ],
+    },
+  };
+
+/**
+ * Detect TypeScript/JavaScript frameworks from code
+ */
+export function detectTsFrameworks(code: string, _filePath: string): FrameworkInfo[] {
+  const results: FrameworkInfo[] = [];
+
+  for (const [, config] of Object.entries(TS_FRAMEWORK_PATTERNS)) {
+    const indicators: string[] = [];
+    let matchCount = 0;
+
+    for (const pattern of config.patterns) {
+      const match = code.match(pattern);
+      if (match) {
+        matchCount++;
+        indicators.push(match[0].substring(0, 60).trim());
+      }
+    }
+
+    if (matchCount > 0) {
+      const confidence = Math.min((matchCount / config.patterns.length) * 1.5, 1);
+      results.push({
+        name: config.framework,
+        confidence,
+        indicators: indicators.slice(0, 5),
+      });
+    }
+  }
+
+  return results.sort((a, b) => b.confidence - a.confidence);
+}
+
+/**
+ * TypeScript analyzer capabilities
+ */
+export const TS_ANALYZER_CAPABILITIES: AnalyzerCapabilities = {
+  hierarchicalChunking: true,
+  frameworkDetection: true,
+  importExtraction: true,
+  symbolExtraction: true,
+  asyncDetection: true,
+  decoratorDetection: true,
+};
+
+// =============================================================================
+// AST Parsing
+// =============================================================================
 
 /**
  * Parse TypeScript/JavaScript file using TypeScript Compiler API.
@@ -556,3 +716,47 @@ function extractJSDoc(node: ts.Node, sourceFile: ts.SourceFile): string | undefi
 
   return cleaned || undefined;
 }
+
+// =============================================================================
+// Language Analyzer Registration (Phase 14)
+// =============================================================================
+
+/**
+ * TypeScript language analyzer implementation
+ */
+export const typescriptAnalyzer: LanguageAnalyzer = {
+  language: 'typescript',
+  extensions: ['ts', 'tsx'],
+  parserType: 'ast',
+  capabilities: TS_ANALYZER_CAPABILITIES,
+
+  async analyze(code: string, filePath: string): Promise<DartAST> {
+    return parseTypeScriptFile(code, filePath);
+  },
+
+  detectFrameworks(code: string, filePath: string): FrameworkInfo[] {
+    return detectTsFrameworks(code, filePath);
+  },
+};
+
+/**
+ * JavaScript language analyzer implementation
+ */
+export const javascriptAnalyzer: LanguageAnalyzer = {
+  language: 'javascript',
+  extensions: ['js', 'jsx', 'mjs', 'cjs'],
+  parserType: 'ast',
+  capabilities: TS_ANALYZER_CAPABILITIES,
+
+  async analyze(code: string, filePath: string): Promise<DartAST> {
+    return parseTypeScriptFile(code, filePath);
+  },
+
+  detectFrameworks(code: string, filePath: string): FrameworkInfo[] {
+    return detectTsFrameworks(code, filePath);
+  },
+};
+
+// Register the analyzers
+analyzerRegistry.register(typescriptAnalyzer, 10);
+analyzerRegistry.register(javascriptAnalyzer, 10);
