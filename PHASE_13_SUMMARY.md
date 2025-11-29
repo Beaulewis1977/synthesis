@@ -91,6 +91,9 @@ When MMR is enabled, the search fetches 2x candidates to allow for effective div
 | `apps/server/src/services/search.ts` | Integrated MMR diversification |
 | `apps/server/src/routes/search.ts` | Added MMR params and response fields |
 | `apps/server/src/services/cache/search-cache.ts` | Added MMR params to cache key |
+| `apps/web/src/pages/SearchPage.tsx` | Added diversity toggle and lambda slider UI |
+| `apps/web/src/lib/api.ts` | Added MMR options to performSearch |
+| `apps/web/src/types/index.ts` | Added MMRInfo type and SearchRequest MMR fields |
 
 ## Tests Added
 

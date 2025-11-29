@@ -626,16 +626,16 @@ Add diversity controls to advanced search settings:
 ```
 
 **UI Components to add:**
-- [ ] Diversity toggle in search settings
-- [ ] Lambda slider (0.5 - 1.0 range, default 0.7)
-- [ ] Diversity indicator on results (optional)
-- [ ] Per-collection default in collection settings
+- [x] Diversity toggle in search settings
+- [x] Lambda slider (0.3 - 1.0 range, default 0.7)
+- [x] Diversity indicator on results (shows duplicates removed)
+- [ ] Per-collection default in collection settings (deferred)
 
 ### 16.5 Acceptance Criteria
 - [x] Near-duplicate results reduced by 50%+ (via MMR algorithm)
 - [x] Relevance of top-1 not degraded (always selects most relevant first)
 - [x] Lambda configurable per-request
-- [ ] UI controls functional (deferred to UI phase)
+- [x] UI controls functional
 
 ---
 

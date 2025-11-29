@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, Loader2, Search } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronUp, Loader2, Search, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ResultCard } from '../components/ResultCard';
@@ -7,6 +7,9 @@ import { apiClient } from '../lib/api';
 
 // Phase 14: Static tech stack list for filtering
 const TECH_STACKS = ['postgres', 'supabase', 'redis', 'flutter', 'typescript'];
+
+// Phase 13: Default MMR lambda value
+const DEFAULT_MMR_LAMBDA = 0.7;
 
 export function SearchPage() {
   const { collectionId } = useParams<{ collectionId: string }>();
@@ -16,8 +19,17 @@ export function SearchPage() {
   const currentQuery = searchParams.get('q') || '';
   const selectedTags = searchParams.getAll('tech_stack');
 
+  // Phase 13: MMR diversification settings from URL params
+  const mmrEnabledParam = searchParams.get('mmr');
+  const mmrLambdaParam = searchParams.get('mmr_lambda');
+  const mmrEnabled = mmrEnabledParam === 'true';
+  const mmrLambda = mmrLambdaParam ? Number.parseFloat(mmrLambdaParam) : DEFAULT_MMR_LAMBDA;
+
   // Local state for the controlled search input field.
   const [inputQuery, setInputQuery] = useState(currentQuery);
+
+  // Phase 13: Advanced settings panel visibility
+  const [showAdvanced, setShowAdvanced] = useState(mmrEnabled);
 
   // Sync input field with URL on navigation (browser back/forward).
   useEffect(() => {
@@ -27,7 +39,8 @@ export function SearchPage() {
   const { data, isLoading, isError, error } = useQuery({
     // The queryKey now directly depends on the URL params, ensuring React Query
     // refetches whenever the URL changes (e.g., on back/forward navigation).
-    queryKey: ['search', collectionId, currentQuery, selectedTags.join(',')],
+    // Phase 13: Added MMR params to query key
+    queryKey: ['search', collectionId, currentQuery, selectedTags.join(','), mmrEnabled, mmrLambda],
     queryFn: () => {
       if (!collectionId || !currentQuery) {
         throw new Error('Collection ID and query are required');
@@ -36,7 +49,8 @@ export function SearchPage() {
         currentQuery,
         collectionId,
         10,
-        selectedTags.length > 0 ? selectedTags : undefined
+        selectedTags.length > 0 ? selectedTags : undefined,
+        mmrEnabled ? { enabled: true, lambda: mmrLambda } : undefined
       );
     },
     // The query is enabled only when there's a query in the URL.
@@ -64,6 +78,26 @@ export function SearchPage() {
     for (const t of newTags) {
       params.append('tech_stack', t);
     }
+    setSearchParams(params, { replace: true });
+  };
+
+  // Phase 13: MMR toggle handler
+  const toggleMMR = () => {
+    const params = new URLSearchParams(searchParams);
+    if (mmrEnabled) {
+      params.delete('mmr');
+      params.delete('mmr_lambda');
+    } else {
+      params.set('mmr', 'true');
+      params.set('mmr_lambda', DEFAULT_MMR_LAMBDA.toString());
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  // Phase 13: MMR lambda slider handler
+  const handleLambdaChange = (value: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('mmr_lambda', value.toFixed(2));
     setSearchParams(params, { replace: true });
   };
 
@@ -164,12 +198,97 @@ export function SearchPage() {
           )}
         </fieldset>
 
+        {/* Phase 13: Advanced Search Settings (MMR Diversification) */}
+        <div className="mb-md">
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-xs text-sm text-text-secondary hover:text-text-primary transition-colors"
+          >
+            {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            Advanced Settings
+            {mmrEnabled && (
+              <span className="ml-1 px-2 py-0.5 bg-accent/10 text-accent rounded-full text-xs font-medium">
+                <Sparkles size={12} className="inline mr-1" />
+                Diversity On
+              </span>
+            )}
+          </button>
+
+          {showAdvanced && (
+            <div className="mt-sm p-4 bg-bg-secondary rounded-lg border border-border">
+              <div className="flex flex-col gap-md">
+                {/* MMR Toggle */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label htmlFor="mmr-toggle" className="font-medium text-text-primary">
+                      Result Diversification
+                    </label>
+                    <p className="text-xs text-text-secondary mt-0.5">
+                      Reduce near-duplicate results for broader coverage
+                    </p>
+                  </div>
+                  <button
+                    id="mmr-toggle"
+                    type="button"
+                    role="switch"
+                    aria-checked={mmrEnabled}
+                    onClick={toggleMMR}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      mmrEnabled ? 'bg-accent' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        mmrEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Lambda Slider (only shown when MMR is enabled) */}
+                {mmrEnabled && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label htmlFor="mmr-lambda" className="text-sm text-text-secondary">
+                        Diversity Level
+                      </label>
+                      <span className="text-sm font-mono text-text-primary">
+                        {mmrLambda.toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      id="mmr-lambda"
+                      type="range"
+                      min="0.3"
+                      max="1.0"
+                      step="0.05"
+                      value={mmrLambda}
+                      onChange={(e) => handleLambdaChange(Number.parseFloat(e.target.value))}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-accent"
+                    />
+                    <div className="flex justify-between text-xs text-text-secondary mt-1">
+                      <span>← More Diverse</span>
+                      <span>More Relevant →</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         {data && (
           <p className="text-text-secondary text-sm">
             Found {data.total_results} result{data.total_results !== 1 ? 's' : ''} in{' '}
             {data.search_time_ms}ms
             {selectedTags.length > 0 && (
               <span className="ml-xs">(filtered by: {selectedTags.join(', ')})</span>
+            )}
+            {data.metadata?.mmr?.enabled && (
+              <span className="ml-xs text-accent">
+                (diversified: {data.metadata.mmr.duplicates_removed} duplicates removed)
+              </span>
             )}
           </p>
         )}

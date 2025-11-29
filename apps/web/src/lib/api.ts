@@ -347,12 +347,14 @@ class ApiClient {
    * Perform a search query on a collection.
    * Phase 13 feature - search page functionality.
    * Phase 14 update - added tech_stack filtering support.
+   * Phase 13 update - added MMR diversification support.
    */
   async performSearch(
     query: string,
     collectionId: string,
     topK = 10,
-    techStack?: string[]
+    techStack?: string[],
+    mmrOptions?: { enabled?: boolean; lambda?: number }
   ): Promise<SearchResponse> {
     const body: Record<string, unknown> = {
       query,
@@ -363,6 +365,14 @@ class ApiClient {
     // Only include tech_stack if provided and non-empty
     if (techStack && techStack.length > 0) {
       body.tech_stack = techStack;
+    }
+
+    // Include MMR options if provided
+    if (mmrOptions?.enabled !== undefined) {
+      body.mmr_enabled = mmrOptions.enabled;
+    }
+    if (mmrOptions?.lambda !== undefined) {
+      body.mmr_lambda = mmrOptions.lambda;
     }
 
     return this.request<SearchResponse>('/api/search', {
