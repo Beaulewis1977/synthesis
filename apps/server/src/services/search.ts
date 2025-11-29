@@ -10,6 +10,13 @@ import {
   hybridSearch,
 } from './hybrid.js';
 import {
+  type QueryIntent,
+  analyzeQuery,
+  getIntentSearchConfig,
+  logIntentDetection,
+  recordIntentMetric,
+} from './query-intent.js';
+import {
   type RerankedResult,
   type RerankerProvider,
   getRerankDefaultTopK,
@@ -34,6 +41,10 @@ export interface SmartSearchParams extends SearchParams {
   rerankTopK?: number;
   rerankMaxCandidates?: number;
   includeRelatedFiles?: boolean;
+  /** Enable automatic intent detection (default: true) */
+  autoIntent?: boolean;
+  /** Override detected intent with explicit intent */
+  intent?: QueryIntent;
 }
 
 export interface SmartSearchResult extends SearchResult {
@@ -87,6 +98,20 @@ export interface SearchDiagnostics {
   rrf_k: number;
 }
 
+/**
+ * Intent information exposed in API response
+ */
+export interface IntentInfo {
+  /** Detected or specified intent type */
+  type: QueryIntent;
+  /** Confidence score (0.0 - 1.0) */
+  confidence: number;
+  /** Whether intent was auto-detected */
+  auto_detected: boolean;
+  /** Signals that triggered classification */
+  signals: string[];
+}
+
 export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
   results: SmartSearchResult[];
   metadata: {
@@ -100,6 +125,8 @@ export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
     rerankProvider?: RerankerProvider;
     /** Hybrid search diagnostics (only present in hybrid mode) */
     diagnostics?: SearchDiagnostics;
+    /** Query intent information (when autoIntent is enabled) */
+    intent?: IntentInfo;
   };
 }
 
@@ -107,9 +134,44 @@ export async function smartSearch(
   db: Pool,
   params: SmartSearchParams
 ): Promise<SmartSearchResponse> {
-  const rerankRequested = params.rerank === true;
-  const requestedMode = params.mode ?? (process.env.SEARCH_MODE === 'hybrid' ? 'hybrid' : 'vector');
+  // Intent detection (enabled by default)
+  const autoIntentEnabled = params.autoIntent !== false;
+  const intentResult = autoIntentEnabled ? analyzeQuery(params.query) : null;
+  const { intentResult: detectedIntent, searchConfig: autoSearchConfig } = intentResult ?? {
+    intentResult: null,
+    searchConfig: null,
+  };
+
+  // Get search config: explicit intent takes precedence, then auto-detected
+  const effectiveIntent = params.intent ?? detectedIntent?.intent;
+  const searchConfig = params.intent ? getIntentSearchConfig(params.intent) : autoSearchConfig;
+
+  // Log and record metrics if intent was detected
+  if (detectedIntent) {
+    logIntentDetection(params.query, detectedIntent);
+    recordIntentMetric(detectedIntent);
+  }
+
+  // Build intent info for response (works with both auto-detected and explicit intent)
+  const intentInfo: IntentInfo | undefined = effectiveIntent
+    ? {
+        type: effectiveIntent,
+        confidence: detectedIntent?.confidence ?? 1.0,
+        auto_detected: !params.intent,
+        signals: params.intent ? ['explicit_override'] : (detectedIntent?.signals ?? []),
+      }
+    : undefined;
+
+  // Apply intent-based configuration if available
+  // params.rerank explicitly set takes precedence, then searchConfig, then false
+  const rerankRequested = params.rerank ?? searchConfig?.rerank ?? false;
+
+  // Determine search mode: explicit > intent-based > env > default
+  const envMode = process.env.SEARCH_MODE === 'hybrid' ? 'hybrid' : 'vector';
+  const intentMode = searchConfig?.mode;
+  const requestedMode = params.mode ?? intentMode ?? envMode;
   const mode = rerankRequested ? 'hybrid' : requestedMode;
+
   const hint =
     params.provider && params.context
       ? undefined
@@ -118,7 +180,13 @@ export async function smartSearch(
   const context = params.context ?? hint?.context;
 
   if (mode === 'hybrid') {
-    const hybridWeights = resolveHybridWeights(params.weights);
+    // Apply intent-based weights if not explicitly provided
+    // Works with both auto-detected and explicit intent
+    const intentWeights =
+      searchConfig && !params.weights
+        ? { vector: searchConfig.vectorWeight, bm25: searchConfig.bm25Weight }
+        : undefined;
+    const hybridWeights = resolveHybridWeights(params.weights ?? intentWeights);
     const baseTopK = params.topK ?? 10;
     const candidateCap = rerankRequested
       ? Math.max(
@@ -187,6 +255,7 @@ export async function smartSearch(
           reranked: true,
           rerankProvider: rankedResults[0]?.rerankProvider ?? params.rerankProvider ?? 'none',
           diagnostics: mapDiagnostics(diagnostics),
+          intent: intentInfo,
         },
       };
     }
@@ -215,6 +284,7 @@ export async function smartSearch(
         reranked: false,
         rerankProvider: params.rerankProvider ?? 'none',
         diagnostics: mapDiagnostics(diagnostics),
+        intent: intentInfo,
       },
     };
   }
@@ -253,6 +323,7 @@ export async function smartSearch(
       trustScoringApplied: trustApplied,
       reranked: false,
       rerankProvider: params.rerankProvider ?? 'none',
+      intent: intentInfo,
     },
   };
 }

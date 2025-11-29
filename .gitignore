@@ -67,3 +67,4 @@ undefined:/
 **/\\wsl.localhost/**
 **/undefined/
 **/lighthouse-temp/
+.claude/
