@@ -305,7 +305,7 @@ export const FRAMEWORK_PATTERNS: Record<DocumentFramework, RegExp[]> = {
     /import\s+.*\s+from\s+['"]react['"]/,
     /from\s+['"]react['"]/,
     /React\.(?:Component|createElement|useState|useEffect)/,
-    /jsx|tsx/,
+    /use(?:State|Effect|Context|Reducer|Callback|Memo|Ref)\s*\(/,
   ],
   nextjs: [
     /from\s+['"]next\//,

@@ -12,6 +12,17 @@ import { type LanguageAnalyzer, analyzerRegistry } from './analyzers/registry.js
 import type { DartAST } from './dart-analyzer.js';
 
 // =============================================================================
+// Utilities
+// =============================================================================
+
+/**
+ * Escape special regex characters to prevent ReDoS attacks
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// =============================================================================
 // Framework Detection (Phase 14)
 // =============================================================================
 
@@ -307,8 +318,10 @@ function extractGoStructFields(structBody: string): DartAST['classes'][0]['prope
  */
 function findGoMethods(content: string, structName: string): DartAST['classes'][0]['methods'] {
   const methods: DartAST['classes'][0]['methods'] = [];
+  // Escape structName to prevent ReDoS attacks
+  const escapedName = escapeRegex(structName);
   const methodRegex = new RegExp(
-    `^func\\s+\\(\\s*\\w+\\s+\\*?${structName}\\s*\\)\\s+(\\w+)\\s*\\(([^)]*)\\)(?:\\s*\\(([^)]*)\\)|\\s+(\\w+(?:\\s*,\\s*\\w+)*))?\\s*\\{`,
+    `^func\\s+\\(\\s*\\w+\\s+\\*?${escapedName}\\s*\\)\\s+(\\w+)\\s*\\(([^)]*)\\)(?:\\s*\\(([^)]*)\\)|\\s+(\\w+(?:\\s*,\\s*\\w+)*))?\\s*\\{`,
     'gm'
   );
 

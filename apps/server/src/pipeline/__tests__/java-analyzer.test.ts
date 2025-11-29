@@ -148,7 +148,7 @@ public class HelloController {
       const frameworks = detectJavaFrameworks(code, 'HelloController.java');
       expect(frameworks.length).toBeGreaterThan(0);
       expect(frameworks[0].name).toBe('spring');
-      expect(frameworks[0].confidence).toBeGreaterThan(0.3);
+      expect(frameworks[0].confidence).toBeGreaterThanOrEqual(0.3);
     });
 
     it('should detect Android framework', () => {

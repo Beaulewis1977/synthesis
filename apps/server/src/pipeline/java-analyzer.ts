@@ -106,7 +106,8 @@ export function detectJavaFrameworks(code: string, _filePath: string): Framework
     }
 
     if (matchCount > 0) {
-      const confidence = Math.min((matchCount / config.patterns.length) * 1.5, 1);
+      // Calculate confidence based on pattern matches
+      const confidence = Math.min(matchCount / config.patterns.length, 1);
       results.push({
         name: config.framework,
         confidence,
@@ -207,8 +208,8 @@ function extractJavaClasses(content: string, ast: DartAST): void {
       ? implementsStr.split(',').map((s) => s.trim().split('<')[0].trim())
       : [];
 
-    // Extract methods
-    const methods = extractJavaMethods(classBody, braceStart + 1, content);
+    // Extract methods (pass className to skip constructors)
+    const methods = extractJavaMethods(classBody, braceStart + 1, content, className);
 
     // Extract fields as properties
     const properties = extractJavaFields(classBody);
@@ -238,7 +239,8 @@ function extractJavaClasses(content: string, ast: DartAST): void {
 function extractJavaMethods(
   classBody: string,
   classStartOffset: number,
-  fullContent: string
+  fullContent: string,
+  className: string
 ): DartAST['classes'][0]['methods'] {
   const methods: DartAST['classes'][0]['methods'] = [];
 
@@ -254,8 +256,10 @@ function extractJavaMethods(
     const methodName = match[3];
     const paramsStr = match[4];
 
-    // Skip constructors (return type matches class name pattern)
-    if (returnType === methodName) continue;
+    // Skip constructors: in Java, constructors have no return type, so the regex
+    // captures the constructor name as both "return type" and "method name"
+    // Also skip if method name matches class name (constructor)
+    if (returnType === methodName || methodName === className) continue;
 
     const relativeOffset = match.index;
     const startOffset = classStartOffset + relativeOffset;

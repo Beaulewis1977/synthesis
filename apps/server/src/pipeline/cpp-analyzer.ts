@@ -184,7 +184,8 @@ function extractCppClasses(content: string, ast: DartAST): void {
       interfaces: [],
       mixins: [],
       lineRange: [startLine, endLine],
-      isAbstract: classBody.includes('= 0;'), // Pure virtual methods
+      // Pure virtual detection: look for "= 0;" at end of method declarations (not in strings/comments)
+      isAbstract: /virtual\s+\w+[^;]*\)\s*=\s*0\s*;/.test(classBody),
       startOffset,
       endOffset,
     });

@@ -12,6 +12,17 @@ import { type LanguageAnalyzer, analyzerRegistry } from './analyzers/registry.js
 import type { DartAST } from './dart-analyzer.js';
 
 // =============================================================================
+// Utilities
+// =============================================================================
+
+/**
+ * Escape special regex characters to prevent ReDoS attacks
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// =============================================================================
 // Framework Detection (Phase 14)
 // =============================================================================
 
@@ -287,9 +298,12 @@ function findRustImplMethods(
 ): DartAST['classes'][0]['methods'] {
   const methods: DartAST['classes'][0]['methods'] = [];
 
+  // Escape structName to prevent ReDoS attacks
+  const escapedName = escapeRegex(structName);
+
   // Find impl blocks for this struct
   const implRegex = new RegExp(
-    `impl(?:<[^>]+>)?\\s+(?:${structName}|\\w+\\s+for\\s+${structName})(?:<[^>]+>)?(?:\\s+where[^{]+)?\\s*\\{`,
+    `impl(?:<[^>]+>)?\\s+(?:${escapedName}|\\w+\\s+for\\s+${escapedName})(?:<[^>]+>)?(?:\\s+where[^{]+)?\\s*\\{`,
     'g'
   );
 
@@ -326,7 +340,9 @@ function findRustImplMethods(
       const endLine = content.substring(0, endBrace + 1).split('\n').length;
 
       const isAsync = /\basync\s+fn\b/.test(methodMatch[0]);
-      const isStatic = !paramsStr.includes('self');
+      // Static detection: check for absence of self/&self/&mut self as first parameter
+      // This properly handles associated functions vs instance methods
+      const isStatic = !/^\s*(?:&\s*)?(?:mut\s+)?self\b/.test(paramsStr);
       const parameters = parseRustParameters(paramsStr);
 
       methods.push({

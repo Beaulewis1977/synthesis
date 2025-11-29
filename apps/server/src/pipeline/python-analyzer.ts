@@ -150,8 +150,8 @@ export function detectPythonFrameworks(code: string, _filePath: string): Framewo
     }
 
     if (matchCount > 0) {
-      // Require at least 2 matches for high confidence
-      const confidence = Math.min((matchCount / config.patterns.length) * 1.5, 1);
+      // Calculate confidence based on pattern matches
+      const confidence = Math.min(matchCount / config.patterns.length, 1);
       results.push({
         name: config.framework,
         confidence,
