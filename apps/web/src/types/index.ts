@@ -6,6 +6,9 @@ export interface Collection {
   description?: string;
   created_at: string;
   updated_at: string;
+  // MMR defaults for searches in this collection
+  mmr_enabled?: boolean;
+  mmr_lambda?: number;
 }
 
 // Phase 7: Lifecycle status for document versioning

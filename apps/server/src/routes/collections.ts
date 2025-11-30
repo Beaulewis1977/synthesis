@@ -149,6 +149,55 @@ export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // PATCH /api/collections/:id/mmr-defaults - Update MMR defaults for collection
+  const UpdateMMRDefaultsSchema = z.object({
+    mmr_enabled: z.boolean().optional(),
+    mmr_lambda: z.number().min(0.3).max(1.0).optional(),
+  });
+
+  fastify.patch<{
+    Params: { id: string };
+    Body: { mmr_enabled?: boolean; mmr_lambda?: number };
+  }>('/api/collections/:id/mmr-defaults', async (request, reply) => {
+    try {
+      const validation = UpdateMMRDefaultsSchema.safeParse(request.body);
+
+      if (!validation.success) {
+        return reply.code(400).send({
+          error: 'Invalid request',
+          details: validation.error.issues,
+        });
+      }
+
+      const { mmr_enabled, mmr_lambda } = validation.data;
+      const db = getPool();
+
+      const result = await db.query(
+        `UPDATE collections
+         SET mmr_enabled = COALESCE($1, mmr_enabled),
+             mmr_lambda = COALESCE($2, mmr_lambda),
+             updated_at = NOW()
+         WHERE id = $3
+         RETURNING *`,
+        [mmr_enabled, mmr_lambda, request.params.id]
+      );
+
+      if (result.rowCount === 0) {
+        return reply.code(404).send({ error: 'Collection not found' });
+      }
+
+      fastify.log.info(
+        { collectionId: request.params.id, mmr_enabled, mmr_lambda },
+        'Collection MMR defaults updated'
+      );
+
+      return reply.send(result.rows[0]);
+    } catch (error) {
+      fastify.log.error(error, 'Failed to update collection MMR defaults');
+      return reply.code(500).send({ error: 'Failed to update MMR defaults' });
+    }
+  });
+
   // GET /api/collections/:id/documents - Get documents in collection
   fastify.get<{ Params: { id: string } }>(
     '/api/collections/:id/documents',

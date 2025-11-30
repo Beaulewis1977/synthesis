@@ -167,11 +167,24 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       mmrLambda: camelMmrLambda,
     } = validation.data;
 
-    // Resolve MMR options
-    const mmrEnabled = camelMmrEnabled ?? snakeMmrEnabled;
-    const mmrLambda = camelMmrLambda ?? snakeMmrLambda;
+    // Resolve MMR options from request
+    let mmrEnabled = camelMmrEnabled ?? snakeMmrEnabled;
+    let mmrLambda = camelMmrLambda ?? snakeMmrLambda;
 
     const collectionId = (camelCollectionId ?? snakeCollectionId) as string;
+
+    // If MMR options not specified in request, use collection defaults
+    if (mmrEnabled === undefined || mmrLambda === undefined) {
+      const db = getPool();
+      const collectionResult = await db.query(
+        'SELECT mmr_enabled, mmr_lambda FROM collections WHERE id = $1',
+        [collectionId]
+      );
+      if (collectionResult.rows[0]) {
+        mmrEnabled = mmrEnabled ?? collectionResult.rows[0].mmr_enabled ?? false;
+        mmrLambda = mmrLambda ?? (Number(collectionResult.rows[0].mmr_lambda) || 0.7);
+      }
+    }
     const topK = camelTopK ?? snakeTopK;
     const minSimilarity = camelMinSimilarity ?? snakeMinSimilarity;
 

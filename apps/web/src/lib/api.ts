@@ -140,6 +140,22 @@ class ApiClient {
   }
 
   /**
+   * Update MMR (Maximal Marginal Relevance) default settings for a collection.
+   */
+  async updateCollectionMMRDefaults(
+    collectionId: string,
+    settings: { mmr_enabled?: boolean; mmr_lambda?: number }
+  ): Promise<Collection> {
+    return this.request<Collection>(
+      `/api/collections/${encodeURIComponent(collectionId)}/mmr-defaults`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(settings),
+      }
+    );
+  }
+
+  /**
    * Fetch documents that belong to the provided collection.
    */
   async fetchDocuments(collectionId: string): Promise<DocumentsResponse> {

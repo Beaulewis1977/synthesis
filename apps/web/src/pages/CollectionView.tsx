@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Loader2, MessageSquare, Search, Zap } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DocumentList } from '../components/DocumentList';
 import { CollectionLanguageSummary } from '../components/LanguageSupportBadge';
 import { VersionFilter, VersionStats } from '../components/collections';
 import { apiClient } from '../lib/api';
 import type { LifecycleStatus } from '../types';
+
+const DEFAULT_MMR_LAMBDA = 0.7;
 
 export function CollectionView() {
   const { id } = useParams<{ id: string }>();
@@ -36,6 +38,85 @@ export function CollectionView() {
     },
     enabled: !!id,
   });
+
+  // Fetch collection for MMR defaults
+  const { data: collection } = useQuery({
+    queryKey: ['collection', id],
+    queryFn: () => {
+      if (!id) throw new Error('Collection ID is required');
+      return apiClient.fetchCollection(id);
+    },
+    enabled: !!id,
+  });
+
+  // MMR defaults state - initialized from collection data
+  const [mmrEnabled, setMmrEnabled] = useState(false);
+  const [mmrLambda, setMmrLambda] = useState(DEFAULT_MMR_LAMBDA);
+  const [mmrSaving, setMmrSaving] = useState(false);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync state when collection data loads
+  useEffect(() => {
+    if (collection) {
+      setMmrEnabled(collection.mmr_enabled ?? false);
+      // mmr_lambda comes as string from DB (DECIMAL type), convert to number
+      const lambda = collection.mmr_lambda;
+      setMmrLambda(
+        typeof lambda === 'string' ? Number.parseFloat(lambda) : (lambda ?? DEFAULT_MMR_LAMBDA)
+      );
+    }
+  }, [collection]);
+
+  // MMR mutation for saving
+  const mmrMutation = useMutation({
+    mutationFn: (settings: { mmr_enabled?: boolean; mmr_lambda?: number }) => {
+      if (!id) throw new Error('Collection ID is required');
+      return apiClient.updateCollectionMMRDefaults(id, settings);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['collection', id] });
+      setMmrSaving(false);
+    },
+    onError: (error) => {
+      console.error('Failed to update MMR defaults:', error);
+      setMmrSaving(false);
+    },
+  });
+
+  // Debounced save function
+  const saveMMRDefaults = useCallback(
+    (enabled: boolean, lambda: number) => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      setMmrSaving(true);
+      saveTimeoutRef.current = setTimeout(() => {
+        mmrMutation.mutate({ mmr_enabled: enabled, mmr_lambda: lambda });
+      }, 300);
+    },
+    [mmrMutation]
+  );
+
+  // Cleanup any pending debounced save when component unmounts
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleMMRToggle = () => {
+    const newEnabled = !mmrEnabled;
+    setMmrEnabled(newEnabled);
+    saveMMRDefaults(newEnabled, mmrLambda);
+  };
+
+  const handleLambdaChange = (value: number) => {
+    setMmrLambda(value);
+    saveMMRDefaults(mmrEnabled, value);
+  };
 
   // Calculate overall chunking quality from language stats (weighted by file count)
   const overallChunkingQuality =
@@ -246,8 +327,8 @@ export function CollectionView() {
           </div>
         )}
 
-        {/* MMR Collection Defaults - Coming Soon */}
-        <div className="mt-lg p-4 bg-bg-secondary rounded-lg border border-border opacity-60">
+        {/* MMR Collection Defaults */}
+        <div className="mt-lg p-4 bg-bg-secondary rounded-lg border border-border">
           <div className="flex items-center justify-between">
             <div>
               <h4 className="font-medium text-text-primary">MMR Defaults</h4>
@@ -255,19 +336,68 @@ export function CollectionView() {
                 Configure default diversity settings for this collection
               </p>
             </div>
-            <span className="px-2 py-1 text-xs bg-bg-tertiary text-text-tertiary rounded">
-              Coming Soon
-            </span>
+            {mmrSaving && (
+              <span className="text-xs text-text-tertiary flex items-center gap-1">
+                <Loader2 size={12} className="animate-spin" />
+                Saving...
+              </span>
+            )}
           </div>
-          <div className="mt-3 flex gap-4 pointer-events-none">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-4 bg-bg-tertiary rounded-full" />
-              <span className="text-sm text-text-tertiary">Enable MMR</span>
+          <div className="mt-3 flex flex-col gap-3">
+            {/* MMR Toggle */}
+            <div className="flex items-center gap-3">
+              <button
+                id="mmr-toggle"
+                type="button"
+                role="switch"
+                aria-checked={mmrEnabled}
+                onClick={handleMMRToggle}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                  mmrEnabled ? 'bg-accent' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    mmrEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <label htmlFor="mmr-toggle" className="text-sm text-text-primary cursor-pointer">
+                Enable MMR (Maximal Marginal Relevance)
+              </label>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-text-tertiary">Lambda: 0.7</span>
-              <div className="w-24 h-2 bg-bg-tertiary rounded-full" />
-            </div>
+
+            {/* Lambda Slider - only shown when MMR enabled */}
+            {mmrEnabled && (
+              <div className="pl-14">
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="mmr-lambda" className="text-sm text-text-secondary">
+                    Diversity Level
+                  </label>
+                  <span className="text-sm font-mono text-text-primary">
+                    {mmrLambda.toFixed(2)}
+                  </span>
+                </div>
+                <input
+                  id="mmr-lambda"
+                  type="range"
+                  min="0.3"
+                  max="1.0"
+                  step="0.05"
+                  value={mmrLambda}
+                  onChange={(e) => handleLambdaChange(Number.parseFloat(e.target.value))}
+                  aria-valuemin={0.3}
+                  aria-valuemax={1.0}
+                  aria-valuenow={mmrLambda}
+                  aria-valuetext={`Diversity level ${mmrLambda.toFixed(2)}: ${mmrLambda < 0.5 ? 'more diverse results' : mmrLambda > 0.8 ? 'more relevant results' : 'balanced'}`}
+                  className="w-full max-w-xs h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                />
+                <div className="flex justify-between text-xs text-text-secondary mt-1 max-w-xs">
+                  <span>← More Diverse</span>
+                  <span>More Relevant →</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
