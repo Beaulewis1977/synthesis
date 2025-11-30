@@ -234,6 +234,34 @@ GRAPH_MAX_NODES=50
 - [ ] Types compile without errors
 - [ ] Tables support efficient lookup by `collection_id`, `node_type`, `name`
 
+### 3.1.6 Agent Execution Guidance
+
+#### Skills to Use
+- `superpowers:brainstorming` — Design graph schema and node/edge relationships
+- `backend-development` — Database layer implementation
+- `planning` — Schema architecture and index strategy
+- `superpowers:defense-in-depth` — Validation patterns in query helpers
+
+#### MCP Servers
+- `context7` — Lookup graph database patterns, pgvector documentation
+- `sequentialthinking` — Design node/edge relationships systematically
+
+#### Subagents (Parallel - 4 agents)
+1. `rag-system-architect` — Design KnowledgeNode types (document, chunk, symbol, endpoint, table, column, config_section)
+2. `rag-system-architect` — Design KnowledgeEdge types (calls, defines, belongs_to, persists_to, configured_by)
+3. `doc-writer` — Draft migration SQL (0031_knowledge_graph.sql) with indexes for traversal
+4. `rag-system-architect` — Create query helpers (packages/db/src/knowledge-graph.ts)
+
+#### Subagents (Sequential after parallel)
+1. `test-writer` — Database query tests for node/edge CRUD and traversal
+2. `code-standards-reviewer` — Review implementation (ALWAYS LAST)
+
+#### Execution Notes
+- Types and migration are independent and can be developed in parallel
+- Query helpers depend on types being finalized
+- Use `superpowers:defense-in-depth` for validation in query helpers (check collection_id, validate node_type)
+- Index design is critical: composite index for (source_node_id, edge_type) enables efficient BFS traversal
+
 ---
 
 ## 5. Phase 2: Graph Builder Pipeline
@@ -285,6 +313,36 @@ These already provide enough information to derive:
 - Tests cover:
   - Simple examples (function calling another function).
   - DB write path producing `persists_to` edges.
+
+### 4.5 Agent Execution Guidance
+
+#### Skills to Use
+- `backend-development` — Service implementation for graph-builder.ts
+- `rag-implementation` — Pipeline integration with existing AST analyzers
+- `superpowers:subagent-driven-development` — Parallel task execution with quality gates
+- `superpowers:root-cause-tracing` — Debug node/edge extraction issues
+
+#### MCP Servers
+- `sequentialthinking` — Design node/edge extraction logic systematically
+- `context7` — AST parsing patterns for TypeScript, Dart, SQL
+
+#### Subagents (Parallel - 5 agents MAX)
+1. `rag-system-architect` — Design graph-builder.ts service structure and interfaces
+2. `rag-system-architect` — Implement AST-to-node extraction (symbol, function, class, widget nodes)
+3. `rag-system-architect` — Implement edge creation logic (calls, depends_on, imports relationships)
+4. `rag-system-architect` — Implement SQL/config node extraction (table, column, config_section nodes)
+5. `rag-system-architect` — Integrate with orchestrator.ts pipeline (call buildGraphForDocument after chunking)
+
+#### Subagents (Sequential after parallel)
+1. `test-writer` — Unit tests for graph-builder.ts covering all node/edge types
+2. `code-standards-reviewer` — Review before commit (ALWAYS LAST)
+
+#### Execution Notes
+- Node extraction logic can be split by type (code vs SQL vs config) for parallel development
+- Edge creation depends on nodes existing — ensure node creation runs first
+- Integration with orchestrator is the final step after node/edge extraction is tested
+- Use incremental updates: delete old nodes/edges for document before inserting new ones
+- Leverage existing analyzers: dart-analyzer.ts, ts-analyzer.ts, sql-analyzer.ts, config-analyzer.ts
 
 ---
 
@@ -343,8 +401,37 @@ interface GraphContextResult {
 
 - Given a **known widget** or backend handler:
   - `graphSearch` returns connected nodes (service, endpoint, tables, config).
-- Given a **query** (e.g., “user signup flow”), graph search starting from top chunks finds related symbols and tables.
+- Given a **query** (e.g., "user signup flow"), graph search starting from top chunks finds related symbols and tables.
 - Graph expansion is bounded by `maxDepth` and `maxNodes` and performs acceptably on demo projects.
+
+### 5.5 Agent Execution Guidance
+
+#### Skills to Use
+- `backend-development` — Service implementation for graph-search.ts
+- `rag-implementation` — Retrieval patterns and BFS traversal algorithms
+- `superpowers:root-cause-tracing` — Debug traversal issues when results are unexpected
+- `superpowers:condition-based-waiting` — Handle async traversal in tests without race conditions
+
+#### MCP Servers
+- `sequentialthinking` — Design traversal algorithms (BFS with depth limiting)
+- `context7` — BFS/graph algorithm patterns, performance optimization techniques
+
+#### Subagents (Parallel - 4 agents)
+1. `rag-system-architect` — Design graph search interface (GraphSearchParams, GraphContextResult)
+2. `rag-system-architect` — Implement BFS traversal with depth limiting and visited set
+3. `rag-system-architect` — Implement edge type filtering and node capping (maxNodes)
+4. `rag-system-architect` — Create /api/graph/context route (apps/server/src/routes/graph.ts)
+
+#### Subagents (Sequential after parallel)
+1. `test-writer` — Integration tests for graph search with various seed types
+2. `code-standards-reviewer` — Review implementation (ALWAYS LAST)
+
+#### Execution Notes
+- Interface design must complete first to ensure consistent types across components
+- BFS and filtering can be developed in parallel after interface is defined
+- Route depends on service being complete and tested
+- Use `superpowers:condition-based-waiting` for async traversal tests to avoid flaky tests
+- Performance: use database-side filtering where possible, avoid fetching all nodes into memory
 
 ---
 
@@ -389,6 +476,34 @@ interface GraphContextResult {
   - Agents get **richer, more coherent clusters** of chunks for complex tasks.
   - No significant regressions on simple question/answer queries.
 
+### 6.5 Agent Execution Guidance
+
+#### Skills to Use
+- `rag-implementation` — Integration patterns for search + graph expansion
+- `backend-development` — Feature flags and configuration management
+- `superpowers:executing-plans` — Systematic integration with existing services
+
+#### MCP Servers
+- `context7` — Reference search/synthesis patterns from existing implementation
+- `sequentialthinking` — Design integration strategy (Option A vs Option B approach)
+
+#### Subagents (Parallel - 4 agents)
+1. `rag-system-architect` — Design graph expansion strategy for smartSearch (when to expand, how to merge)
+2. `rag-system-architect` — Implement search.ts graph integration (enableGraphExpansion flag, result merging)
+3. `rag-system-architect` — Implement synthesis.ts graph-aware sources (annotate with graph coverage)
+4. `doc-writer` — Document .env configuration (ENABLE_GRAPH_BUILDER, GRAPH_MAX_DEPTH, GRAPH_MAX_NODES)
+
+#### Subagents (Sequential after parallel)
+1. `test-writer` — Integration tests (graph + search + synthesis combined)
+2. `code-standards-reviewer` — Review changes (ALWAYS LAST)
+
+#### Execution Notes
+- Feature flags should be added to .env.example first to document configuration
+- Search and synthesis integration can be developed in parallel
+- Ensure backward compatibility: when graph is disabled, behavior must match existing implementation exactly
+- De-duplication is critical: merged results should not contain duplicate chunks
+- Consider performance: graph expansion adds latency, so make it opt-in via enableGraphExpansion parameter
+
 ---
 
 ## 8. Phase 5: Debug UI & MCP Tools
@@ -427,5 +542,34 @@ interface GraphContextResult {
   - Agent can call `graph_expand_context` and receive:
     - A structured graph + snippet texts.
   - This tool integrates naturally with new mobile feature recipes and task‑specific tools (Phase 3).
+
+### 7.4 Agent Execution Guidance
+
+#### Skills to Use
+- `frontend-development` — Debug UI implementation with React
+- `frontend-design` — Visual design for node/edge display
+- `superpowers:brainstorming` — UX design for graph exploration interface
+- `superpowers:requesting-code-review` — Quality gate before merging
+
+#### MCP Servers
+- `chrome-devtools` — UI testing, screenshots, performance analysis of debug views
+
+#### Subagents (Parallel - 5 agents MAX)
+1. `frontend-ui-architect` — GraphDebugPage.tsx (main page structure with collection/document selector)
+2. `frontend-ui-architect` — NodeList.tsx component (filterable list of nodes by type)
+3. `frontend-ui-architect` — EdgeList.tsx component (filterable list of edges by type)
+4. `frontend-ui-architect` — Graph stats/coverage indicators (node/edge counts, coverage %)
+5. `mcp-server-architect` — graph_expand_context MCP tool with seed types and depth control
+
+#### Subagents (Sequential after parallel)
+1. `test-writer` — UI component tests + MCP tool integration tests
+2. `code-standards-reviewer` — Final review (ALWAYS LAST)
+
+#### Execution Notes
+- All UI components can be developed in parallel (no dependencies between them)
+- MCP tool is independent of UI — can be developed in parallel
+- Use `chrome-devtools` for visual regression testing and performance profiling
+- Start with table/list views before adding graph visualization (optional enhancement)
+- Graph visualization library (if added later): consider react-force-graph or d3
 
 Once this phase is complete, Synthesis will support **graph‑style retrieval** that helps agents see complete flows instead of disjoint snippets, especially valuable for designing and modifying mobile SaaS backends and apps.

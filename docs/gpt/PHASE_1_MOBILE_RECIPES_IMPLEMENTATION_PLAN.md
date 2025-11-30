@@ -379,6 +379,34 @@ describe('feature-detector', () => {
 - [ ] New documents get `feature_tags` populated
 - [ ] No breaking changes to existing APIs
 
+### 4.1.7 Agent Execution Guidance
+
+#### Skills to Use
+- `superpowers:brainstorming` — Design feature taxonomy and detection patterns before implementation
+- `backend-development` — Service implementation for feature-detector.ts
+- `planning` — Structure type hierarchy and migration strategy
+- `superpowers:defense-in-depth` — Multi-layer validation for metadata types
+- `superpowers:subagent-driven-development` — Coordinate parallel implementation tasks
+
+#### MCP Servers
+- `context7` — Lookup Flutter/Supabase/Firebase docs for feature patterns and naming conventions
+- `sequentialthinking` — Design detection regex patterns systematically
+
+#### Subagents (Parallel - 4 agents)
+1. `rag-system-architect` — Design metadata schema (ContentPlatform, UsageTier, MobileFeatureTag types) in packages/shared/src/index.ts
+2. `rag-system-architect` — Design FEATURE_PATTERNS regex map for feature detection
+3. `doc-writer` — Draft migration SQL (0030_mobile_metadata.sql) with indexes
+4. `test-writer` — Create unit tests for feature-detector.ts with comprehensive pattern coverage
+
+#### Subagents (Sequential after parallel)
+1. `code-standards-reviewer` — Review all implementation before commit (ALWAYS LAST)
+
+#### Execution Notes
+- Types in shared package and migration can be developed independently
+- Feature detector service depends on types being finalized first
+- Use `context7` to fetch official docs for accurate framework naming (flutter vs dart, supabase-auth vs supabase_auth)
+- Regex patterns should be case-insensitive and handle common variations (hyphens, underscores, camelCase)
+
 ---
 
 ## 5. Phase 2: Curated Recipe Docs & Collections
@@ -434,6 +462,34 @@ These docs are ingested like any other Markdown but tagged with:
 - Metadata confirms:
   - `platform='mobile'`, `feature_tags` filled, `usage_tier` set.
 
+### 4.5 Agent Execution Guidance
+
+#### Skills to Use
+- `superpowers:brainstorming` — Design recipe structure and content organization
+- `planning` — Organize content across categories and prioritize recipes
+- `flutter-developer` — Write accurate Flutter recipe examples with best practices
+- `supabase-developer` — Write Supabase integration patterns for auth, storage, realtime
+- `rag-implementation` — Design ingestion pipeline with correct metadata tagging
+
+#### MCP Servers
+- `context7` — Fetch official Flutter/Supabase/Firebase/Stripe docs for reference and accuracy
+
+#### Subagents (Parallel - 5 agents MAX)
+1. `doc-writer` — Create recipe template (docs/recipes/mobile/TEMPLATE.md) with frontmatter schema
+2. `doc-writer` — Create auth recipes (flutter_auth_supabase.md, flutter_auth_firebase.md)
+3. `doc-writer` — Create billing/payments recipes (flutter_stripe_billing.md, flutter_revenuecat.md)
+4. `rag-system-architect` — Design recipe ingestion pipeline (scripts/ingest-mobile-recipes.ts)
+5. `rag-system-architect` — Design official docs ingestion (scripts/ingest-mobile-official.ts)
+
+#### Subagents (Sequential after parallel)
+1. `code-standards-reviewer` — Review ingestion scripts and recipe markdown (ALWAYS LAST)
+
+#### Execution Notes
+- Recipe docs are independent of each other and can be written in parallel
+- Ingestion scripts can be developed in parallel with recipe content
+- Use `context7` to verify SDK method names and version compatibility before writing recipes
+- Each recipe should include: summary, tech stack assumptions, step-by-step outline, official doc links, pitfalls, alternatives
+
 ---
 
 ## 6. Phase 3: Feature-Aware Retrieval
@@ -468,6 +524,33 @@ These docs are ingested like any other Markdown but tagged with:
 - Diagnostics confirm:
   - Feature filters and boosts are applied without breaking general search.
 
+### 5.4 Agent Execution Guidance
+
+#### Skills to Use
+- `backend-development` — Search service integration and route implementation
+- `rag-implementation` — Retrieval optimization with feature-aware filtering
+- `superpowers:subagent-driven-development` — Parallel implementation with quality gates
+- `superpowers:root-cause-tracing` — Debug search relevance issues if results are poor
+
+#### MCP Servers
+- `sequentialthinking` — Design filter/boost logic for usage_tier_preference modes
+- `context7` — Reference hybrid search patterns and existing smartSearch implementation
+
+#### Subagents (Parallel - 4 agents)
+1. `rag-system-architect` — Design feature-aware retrieval strategy (filter vs boost, weighting)
+2. `rag-system-architect` — Implement search.ts modifications (feature_tags filter, platform filter, usage_tier boost)
+3. `rag-system-architect` — Implement route schema updates (Zod schemas for new request parameters)
+4. `test-writer` — Create search integration tests for feature-aware queries
+
+#### Subagents (Sequential after parallel)
+1. `code-standards-reviewer` — Review before commit (ALWAYS LAST)
+
+#### Execution Notes
+- Strategy design should complete before implementation to ensure consistent approach
+- Tests can be written in parallel with implementation using TDD approach
+- Consider backward compatibility: new parameters should be optional with sensible defaults
+- Boosting is preferred over hard filtering to maintain recall while improving precision
+
 ---
 
 ## 7. Phase 4: UI & MCP Exposure
@@ -495,6 +578,34 @@ UI changes should remain minimal and consistent with existing design, but enough
   - `framework`, `framework_version`, `feature`, `preference` (official/examples/recipes).
 - Tools return JSON payloads that include:
   - Citations with file paths, headings, line ranges, and metadata.
+
+### 6.3 Agent Execution Guidance
+
+#### Skills to Use
+- `frontend-development` — UI component implementation with React best practices
+- `frontend-design` — Visual design for badges, filters, and feature tag display
+- `superpowers:brainstorming` — UX design for filter interactions and badge placement
+- `superpowers:requesting-code-review` — Quality gate before merging frontend changes
+
+#### MCP Servers
+- `chrome-devtools` — UI testing, screenshots, and visual verification
+
+#### Subagents (Parallel - 5 agents MAX)
+1. `frontend-ui-architect` — Feature filter components in SearchPage.tsx (dropdown/checkbox for platform, feature_tags)
+2. `frontend-ui-architect` — Platform/tier badges in ResultCard.tsx (styled chips for official/example/recipe)
+3. `frontend-ui-architect` — Mobile feature tag display with color coding
+4. `mcp-server-architect` — search_mobile_docs MCP tool with framework and feature filtering
+5. `mcp-server-architect` — find_code_examples + get_feature_recipe MCP tools
+
+#### Subagents (Sequential after parallel)
+1. `test-writer` — E2E tests for UI filter interactions + MCP tool integration tests
+2. `code-standards-reviewer` — Review all changes (ALWAYS LAST)
+
+#### Execution Notes
+- Frontend and MCP work are completely independent — maximum parallelism possible
+- Use `chrome-devtools` to capture screenshots for visual regression testing
+- Badge colors should follow existing design system (check existing badge components)
+- MCP tools should return consistent JSON structure with `results`, `metadata`, and `citations` fields
 
 ---
 
@@ -528,5 +639,31 @@ UI changes should remain minimal and consistent with existing design, but enough
   - At least one official doc chunk, one example, and one recipe appear in top‑K.
   - Metadata (framework, version, feature tags) is correct for those chunks.
 - Eval harness produces a simple report summarizing coverage and gaps.
+
+### 7.4 Agent Execution Guidance
+
+#### Skills to Use
+- `planning` — Define evaluation criteria and success metrics for golden tasks
+- `backend-development` — Harness implementation with structured output
+- `superpowers:executing-plans` — Systematic task execution and verification
+- `superpowers:subagent-driven-development` — Coordinate parallel evaluation development
+
+#### MCP Servers
+- `sequentialthinking` — Design evaluation methodology and scoring rubrics
+
+#### Subagents (Parallel - 4 agents)
+1. `rag-system-architect` — Design evaluation metrics and success criteria (precision@K, recall, metadata accuracy)
+2. `doc-writer` — Create golden task definitions (apps/server/perf/mobile_eval_tasks.json)
+3. `test-writer` — Create evaluation test suite that calls search/MCP endpoints
+4. `doc-writer` — Document evaluation process and interpret results
+
+#### Subagents (Sequential after parallel)
+1. `code-standards-reviewer` — Final review (ALWAYS LAST)
+
+#### Execution Notes
+- Golden tasks and harness can be developed independently
+- Use `superpowers:subagent-driven-development` for systematic execution of all golden tasks
+- Evaluation should test each usage_tier_preference mode separately
+- Include edge cases: queries with no matches, ambiguous features, version-specific content
 
 Once this phase is complete, agents will have a structured, high‑quality foundation of mobile feature patterns to build on, which later phases (Graph Retrieval and MCP Task Tools) can exploit for more complex workflows.

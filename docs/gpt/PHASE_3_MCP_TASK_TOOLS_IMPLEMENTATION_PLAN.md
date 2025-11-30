@@ -175,6 +175,33 @@ The spec doc should reference:
   - Clear `description` and input/output fields.
   - Mapped to existing or planned HTTP endpoints.
 
+### 3.4 Agent Execution Guidance
+
+#### Skills to Use
+- `superpowers:brainstorming` — Design tool taxonomy and naming conventions
+- `planning` — Structure taxonomy and tool specifications
+- `superpowers:dispatching-parallel-agents` — Coordinate spec work across categories
+
+#### MCP Servers
+- `context7` — Reference MCP protocol patterns and Zod documentation
+- `sequentialthinking` — Design tool interactions and parameter schemas
+
+#### Subagents (Parallel - 4 agents)
+1. `mcp-server-architect` — Design docs/recipes tool specs (search_mobile_docs, search_official_docs, get_feature_recipe)
+2. `mcp-server-architect` — Design code/examples tool specs (find_code_examples, find_symbol_usages)
+3. `mcp-server-architect` — Design introspection tool specs (get_project_tech_stack, get_db_schema, graph_expand_context)
+4. `doc-writer` — Create MCP_TOOL_SPEC_GPT_PHASE3.md structure with taxonomy and endpoint mappings
+
+#### Subagents (Sequential after parallel)
+1. `code-standards-reviewer` — Review spec document (ALWAYS LAST)
+
+#### Execution Notes
+- Tool specs can be designed in parallel by category (docs, code, introspection)
+- Consolidate all specs into single MCP_TOOL_SPEC_GPT_PHASE3.md document
+- Use `superpowers:brainstorming` for tool naming: names should be verb_noun format (search_*, get_*, find_*)
+- Each tool description should clearly state when to use it vs alternatives
+- Zod schemas should be strict with proper descriptions for each field
+
 ---
 
 ## 5. Phase 2: HTTP API Enhancements
@@ -222,6 +249,36 @@ These endpoints are thin wrappers around existing services, tuned for agent cons
 - Responses include:
   - Rich metadata: `framework`, `framework_version`, `feature_tags`, `source_quality`, `file_path`, `line_range`, `chunk_type`.
   - Stable identifiers (collection IDs, document IDs, chunk IDs).
+
+### 4.4 Agent Execution Guidance
+
+#### Skills to Use
+- `backend-development` — API implementation with Fastify routes
+- `rag-implementation` — Search patterns and filter integration
+- `superpowers:subagent-driven-development` — Parallel endpoint development with quality gates
+- `superpowers:defense-in-depth` — Input validation at API boundaries
+
+#### MCP Servers
+- `context7` — Fastify patterns, Zod validation best practices
+- `sequentialthinking` — Design API structure and response formats
+
+#### Subagents (Parallel - 5 agents MAX)
+1. `rag-system-architect` — POST /api/search/mobile endpoint (framework + feature filtering)
+2. `rag-system-architect` — POST /api/search/examples endpoint (usage_tier='example' filter)
+3. `rag-system-architect` — GET /api/projects/:id/tech-stack endpoint (aggregate tech detection)
+4. `rag-system-architect` — GET /api/projects/:id/db-schema endpoint (SQL analyzer results)
+5. `rag-system-architect` — Create projects.ts service for aggregation (tech stack + schema)
+
+#### Subagents (Sequential after parallel)
+1. `test-writer` — API endpoint tests for all 4 endpoints
+2. `code-standards-reviewer` — Review all endpoints (ALWAYS LAST)
+
+#### Execution Notes
+- All endpoints are independent and can be fully parallelized
+- Projects service may need to be created first if tech-stack and db-schema endpoints depend on it
+- Use `superpowers:defense-in-depth` for strict input validation (Zod schemas with refinements)
+- Response format should be consistent across all endpoints: { data, metadata, pagination }
+- Include proper error responses with helpful messages for invalid parameters
 
 ---
 
@@ -344,6 +401,35 @@ const GraphExpandContextSchema = z.object({
 - [ ] Tools return structured JSON responses
 - [ ] Tools can be called successfully from Claude/MCP client
 
+### 5.3.6 Agent Execution Guidance
+
+#### Skills to Use
+- `backend-development` — Tool implementation following existing patterns
+- `superpowers:subagent-driven-development` — Parallel tool development with quality gates
+- `superpowers:requesting-code-review` — Quality gate before merging MCP changes
+
+#### MCP Servers
+- `context7` — MCP SDK patterns, @modelcontextprotocol documentation
+
+#### Subagents (Parallel - 5 agents MAX) — MAXIMUM PARALLELISM
+1. `mcp-server-architect` — Tool: search_mobile_docs (framework + feature aware search with usage_tier_preference)
+2. `mcp-server-architect` — Tool: find_code_examples (filter to usage_tier='example', code chunks)
+3. `mcp-server-architect` — Tool: get_feature_recipe (curated patterns from recipe collection)
+4. `mcp-server-architect` — Tools: get_project_tech_stack + get_db_schema (introspection pair, can share helper)
+5. `mcp-server-architect` — Tool: graph_expand_context (knowledge graph exploration with seed types)
+
+#### Subagents (Sequential after parallel)
+1. `test-writer` — MCP tool tests for all 6 tools (input validation, API calls, response format)
+2. `code-standards-reviewer` — Final review (ALWAYS LAST)
+
+#### Execution Notes
+- All 6 tools are independent — achieve maximum parallelism with 5 agents
+- Each tool should follow existing pattern in apps/mcp/src/index.ts
+- Tools 4 (tech_stack) and 5 (db_schema) can share a common introspection helper
+- Use `superpowers:requesting-code-review` before merging to ensure consistency
+- Test each tool manually with MCP client before marking complete
+- Error responses should include actionable suggestions (e.g., "No results found. Try broadening feature filter.")
+
 ---
 
 ## 7. Phase 4: Agent Prompt & Config Updates
@@ -375,8 +461,34 @@ const GraphExpandContextSchema = z.object({
 
 - Prompt templates include:
   - At least one worked example per new tool.
-  - Guidance on tool selection priority (e.g., “use search_official_docs first, then find_code_examples, then get_feature_recipe”).
+  - Guidance on tool selection priority (e.g., "use search_official_docs first, then find_code_examples, then get_feature_recipe").
 - Agent can successfully complete at least a few end‑to‑end flows using only the MCP tools and Synthesis as the backend.
+
+### 6.4 Agent Execution Guidance
+
+#### Skills to Use
+- `superpowers:brainstorming` — Design prompt structure and tool usage examples
+- `planning` — Organize example workflows logically
+- `superpowers:executing-plans` — Systematic updates across prompt files
+
+#### MCP Servers
+- `sequentialthinking` — Design prompt structure and tool selection logic
+
+#### Subagents (Parallel - 4 agents)
+1. `mcp-server-architect` — Design tool selection priority logic for prompts (when to use which tool)
+2. `doc-writer` — Update 04_AGENT_SDK_PHASE_PROMPTS.md with MCP tools section
+3. `doc-writer` — Create tool usage examples (auth flow, billing, notifications scenarios)
+4. `mcp-server-architect` — Update agent.ts system prompt with tool descriptions and selection guidance
+
+#### Subagents (Sequential after parallel)
+1. `code-standards-reviewer` — Review prompt changes (ALWAYS LAST)
+
+#### Execution Notes
+- Prompts and examples can be developed in parallel
+- System prompt update depends on tool descriptions being finalized
+- Use `superpowers:brainstorming` for prompt wording to ensure clarity
+- Tool selection priority should be explicit: "For feature implementation, try get_feature_recipe first, then find_code_examples, then search_mobile_docs"
+- Include negative examples: "Don't use search_mobile_docs for project introspection — use get_project_tech_stack instead"
 
 ---
 
@@ -417,5 +529,34 @@ Each scenario should:
 - Scenario runner produces a concise report listing:
   - Which tools were used.
   - Where retrieval or planning failed.
+
+### 7.4 Agent Execution Guidance
+
+#### Skills to Use
+- `planning` — Define evaluation scenarios and success criteria
+- `backend-development` — Runner implementation with structured output
+- `superpowers:executing-plans` — Systematic scenario execution
+- `superpowers:subagent-driven-development` — Parallel scenario development
+
+#### MCP Servers
+- `sequentialthinking` — Design test scenarios with clear success criteria
+
+#### Subagents (Parallel - 5 agents MAX)
+1. `doc-writer` — Create auth flow scenario (.agent-scenarios/mobile-saas/flutter_supabase_auth.md)
+2. `doc-writer` — Create billing scenario (.agent-scenarios/mobile-saas/flutter_stripe_billing.md)
+3. `doc-writer` — Create notifications scenario (.agent-scenarios/mobile-saas/firebase_push_notifications.md)
+4. `doc-writer` — Create persistence scenario (.agent-scenarios/mobile-saas/user_settings_trace.md)
+5. `test-writer` — Create mcp_scenario_runner.mjs harness (call tools, log results, generate report)
+
+#### Subagents (Sequential after parallel)
+1. `code-standards-reviewer` — Final review (ALWAYS LAST)
+2. `doc-writer` — Create GPT_PHASE_3_SUMMARY.md with phase outcomes and metrics
+
+#### Execution Notes
+- All scenarios are independent and can be written in parallel
+- Runner can be developed in parallel with scenario definitions
+- Use `superpowers:subagent-driven-development` for systematic scenario execution
+- Each scenario should specify: starting collection, expected tools used, success criteria, expected sources
+- Report format: JSON with tool_calls[], sources_found[], success_rate, failure_reasons[]
 
 Once this phase is complete, you will have a set of well‑designed MCP tools and scenarios that let a GPT/Claude agent use Synthesis as a **reliable, high‑level RAG backend** for building and evolving mobile SaaS apps.
