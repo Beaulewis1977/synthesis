@@ -1,14 +1,26 @@
 # Phase 1: Mobile Feature Recipes & Examples – Implementation Plan
 
-**Version:** 1.0 · **Created:** November 2025  
-**Related Docs:**  
+**Version:** 2.0 · **Created:** November 2025 · **Updated:** November 2025  
+**Branch:** `feature/gpt-phase1-mobile-recipes`  
+**PR Title:** GPT Phase 1: Mobile Feature Recipes & Metadata
+
+---
+
+## Prerequisites
+
+- [ ] None - This phase can be implemented independently
+- [ ] `develop` branch is up to date
+- [ ] All existing tests pass (`pnpm test`)
+
+---
+
+## Related Documentation
+
 - `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` (Phases 1, 3, 5, 13, 13.5)  
 - `docs/01_TECH_STACK.md`  
-- `docs/CONFIGURATION.md` (Code Intelligence & Tech Stack sections)  
+- `docs/CONFIGURATION.md`
 - `docs/guides/HYBRID_SEARCH_GUIDE.md`  
-- `docs/guides/CODE_SEARCH_GUIDE.md`  
-- `docs/guides/SYNTHESIS_GUIDE.md`  
-- `docs/new-phases/06_PHASE_15_17_STATUS_REPORT.md`
+- `docs/guides/CODE_SEARCH_GUIDE.md`
 
 ---
 
@@ -32,100 +44,368 @@ This plan layers on top of existing metadata, tech‑stack detection, and code i
 
 ## 2. GitHub Workflow
 
-For all work in this phase:
-
-- Branches MUST be created from `develop`.
-- Branch names MUST be descriptive and include the GPT phase and scope, for example:
-  - `feature/gpt-phase1-mobile-metadata`
-  - `feature/gpt-phase1-mobile-recipes`
-  - `feature/gpt-phase1-mobile-retrieval`
-  - `feature/gpt-phase1-mobile-ui-mcp`
-  - `feature/gpt-phase1-mobile-eval`
-- Agents MUST NOT commit or push without explicit human approval.
-- Every push MUST be followed by a pull request into `develop`.
-
-### 2.1 Workflow Per Phase
+**Single branch for entire phase:** `feature/gpt-phase1-mobile-recipes`
 
 ```bash
 # 1. Create branch (WAIT FOR APPROVAL)
 git checkout develop && git pull origin develop
-git checkout -b feature/gpt-phase1-mobile-scope
+git checkout -b feature/gpt-phase1-mobile-recipes
 
-# 2. Implement changes...
+# 2. Implement all sub-phases (4.1 through 4.5) in order
 
-# 3. Present changes to human for review
+# 3. Run tests and lint
+pnpm test
+pnpm lint
 
-# 4. After APPROVAL: commit
+# 4. Present ALL changes for human review
+
+# 5. After APPROVAL: commit
 git add -A
-git commit -m "feat(phase1-mobile): description"
+git commit -m "feat(gpt-phase1): implement mobile feature recipes and metadata
 
-# 5. After APPROVAL: push
-git push -u origin feature/gpt-phase1-mobile-scope
+- Add platform, feature_tags, usage_tier to metadata types
+- Create feature-detector service
+- Add feature-aware search filtering
+- Create recipe document template
+- Add database migration for metadata indexes
+- Add unit tests"
 
-# 6. Create PR
-gh pr create --base develop --title "GPT Phase 1: Mobile Feature Recipes – Scope"
+# 6. After APPROVAL: push
+git push -u origin feature/gpt-phase1-mobile-recipes
+
+# 7. Create PR
+gh pr create --base develop --title "GPT Phase 1: Mobile Feature Recipes & Metadata"
 ```
 
-Adapt `feature/gpt-phase1-mobile-scope` and the PR title for each sub‑phase (metadata, recipes, retrieval, UI/MCP, eval). Also follow the rules in `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` §2 and `agents.md`.
+Follow rules in `docs/gpt/MASTER_PLAN.md` Section 2 and `agents.md`.
 
 ---
 
 ## 3. Phase Overview
 
-| # | Phase | Priority | Days | Branch (suggested) |
-|---|-------|----------|------|--------------------|
-| 1 | Mobile Metadata Taxonomy | P0 | 2–3 | `feature/gpt-phase1-mobile-metadata` |
-| 2 | Curated Recipe Docs & Collections | P0 | 3–5 | `feature/gpt-phase1-mobile-recipes` |
-| 3 | Feature-Aware Retrieval | P1 | 3–4 | `feature/gpt-phase1-mobile-retrieval` |
-| 4 | UI & MCP Exposure | P2 | 2–4 | `feature/gpt-phase1-mobile-ui-mcp` |
-| 5 | Evaluation & Golden Tasks | P2 | 2–3 | `feature/gpt-phase1-mobile-eval` |
+**All sub-phases go into ONE branch and ONE PR.**
+
+| # | Sub-Phase | Priority | Est. Time | Commit Scope |
+|---|-----------|----------|-----------|---------------|
+| 4.1 | Mobile Metadata Taxonomy | P0 | 2–3 days | `feat(gpt-phase1): add mobile metadata types and feature detector` |
+| 4.2 | Curated Recipe Docs & Collections | P0 | 3–5 days | `feat(gpt-phase1): add recipe template and example recipes` |
+| 4.3 | Feature-Aware Retrieval | P1 | 3–4 days | `feat(gpt-phase1): add feature-aware search filtering` |
+| 4.4 | UI & MCP Exposure | P2 | 2–4 days | `feat(gpt-phase1): add UI components and MCP tool updates` |
+| 4.5 | Evaluation & Golden Tasks | P2 | 2–3 days | `feat(gpt-phase1): add evaluation harness and golden tasks` |
+
+### Commit Strategy
+
+```bash
+# Work on single branch
+git checkout -b feature/gpt-phase1-mobile-recipes
+
+# Commit after completing each sub-phase:
+git commit -m "feat(gpt-phase1): add mobile metadata types and feature detector"
+git commit -m "feat(gpt-phase1): add recipe template and example recipes"
+git commit -m "feat(gpt-phase1): add feature-aware search filtering"
+git commit -m "feat(gpt-phase1): add UI components and MCP tool updates"
+git commit -m "feat(gpt-phase1): add evaluation harness and golden tasks"
+
+# One PR at the end with all commits
+git push -u origin feature/gpt-phase1-mobile-recipes
+gh pr create --base develop --title "GPT Phase 1: Mobile Feature Recipes & Metadata"
+```
 
 ---
 
-## 4. Phase 1: Mobile Metadata Taxonomy
+## 4. Sub-Phase 4.1: Mobile Metadata Taxonomy
 
-**Problem:** Existing metadata and tech detection (Phases 3, 13, 13.5) do not explicitly model **features** (auth, billing, notifications) or **platform‑level concerns** needed for mobile SaaS agents.
+**Problem:** Existing metadata does not model **features** (auth, billing) or **platform concerns** for mobile SaaS agents.
 
-### 3.1 Deliverables
+### 4.1.1 TypeScript Types to Add
 
-- Extended metadata types for mobile feature tagging:
-  - At document level: `platform`, `feature_tags`, `usage_tier`, `recommended?`.
-  - At chunk level: `is_example`, `is_recipe`, `feature_tags`, `platform`.
-- Ingestion‑time inference utilities for:
-  - Mapping docs/repo paths and content to mobile features.
-  - Mapping to specific frameworks/SDK versions.
-- Migrations to persist this metadata in `documents.metadata` and `chunks.metadata`.
+**File:** `packages/shared/src/index.ts`
 
-### 3.2 Key Design Points
+```typescript
+// GPT Phase 1: Mobile Feature Types
+export type ContentPlatform = 'mobile' | 'web' | 'backend' | 'shared';
+export type UsageTier = 'official' | 'reference' | 'example' | 'recipe';
+export type MobileFeatureTag =
+  | 'auth' | 'onboarding' | 'billing' | 'payments' | 'subscriptions'
+  | 'push_notifications' | 'offline' | 'sync' | 'navigation'
+  | 'state_management' | 'forms' | 'analytics' | 'deep_linking'
+  | 'social_auth' | 'file_upload' | 'camera' | 'location' | 'maps'
+  | 'chat' | 'realtime' | 'search' | 'caching' | 'theming' | 'localization';
+```
 
-- Reuse and extend **existing types** in `packages/shared/src/index.ts`:
-  - `DocumentMetadata`, `ChunkMetadata`, `DocumentFramework`, `DocumentLanguage`, `DocumentContentCategory`.
-- Add **non‑breaking fields** such as:
-  - `platform?: 'mobile' | 'web' | 'backend' | 'shared';`
-  - `feature_tags?: string[];` (e.g., `['auth', 'billing', 'notifications', 'offline']`)
-  - `usage_tier?: 'official' | 'reference' | 'example' | 'recipe';`
-  - On chunks: `is_example?: boolean; is_recipe?: boolean; feature_tags?: string[];`.
-- Extend `detectTechStack` (`apps/server/src/services/tech-detector.ts`) with:
-  - Signals for **Android**, **iOS/Swift**, **React Native** if needed later.
-  - Stronger Flutter/Supabase/Firebase detection feeding into `feature_tags`.
+Extend existing `DocumentMetadata` and `ChunkMetadata` interfaces:
 
-### 3.3 Key Files
+```typescript
+export interface DocumentMetadata {
+  // ... existing fields ...
+  
+  // GPT Phase 1 additions
+  platform?: ContentPlatform;
+  feature_tags?: MobileFeatureTag[];
+  usage_tier?: UsageTier;
+  recommended?: boolean;
+}
+
+export interface ChunkMetadata {
+  // ... existing fields ...
+  
+  // GPT Phase 1 additions
+  platform?: ContentPlatform;
+  feature_tags?: MobileFeatureTag[];
+  is_example?: boolean;
+  is_recipe?: boolean;
+}
+```
+
+### 4.1.2 Database Migration
+
+**File:** `packages/db/migrations/0030_mobile_metadata.sql`
+
+```sql
+-- GPT Phase 1: Mobile Feature Metadata Indexes
+CREATE INDEX IF NOT EXISTS idx_documents_feature_tags 
+  ON documents USING GIN ((metadata->'feature_tags'));
+
+CREATE INDEX IF NOT EXISTS idx_chunks_feature_tags 
+  ON chunks USING GIN ((metadata->'feature_tags'));
+
+CREATE INDEX IF NOT EXISTS idx_documents_platform 
+  ON documents ((metadata->>'platform'))
+  WHERE metadata->>'platform' IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_documents_usage_tier 
+  ON documents ((metadata->>'usage_tier'))
+  WHERE metadata->>'usage_tier' IS NOT NULL;
+```
+
+### 4.1.3 Feature Detector Service
+
+**File:** `apps/server/src/services/feature-detector.ts` (NEW)
+
+Create a service that detects features from content:
+
+```typescript
+import type { MobileFeatureTag, ContentPlatform, UsageTier } from '@synthesis/shared';
+
+/**
+ * Feature detection patterns for all MobileFeatureTag values.
+ * Each feature has an array of regex patterns that indicate its presence.
+ */
+const FEATURE_PATTERNS: Record<MobileFeatureTag, RegExp[]> = {
+  // Authentication & Identity
+  auth: [
+    /\b(auth|authentication|login|logout|signin|signout|signup|register)\b/i,
+    /\b(jwt|oauth|oauth2|oidc|saml|credentials)\b/i,
+    /\b(firebase[_-]?auth|supabase[_-]?auth|auth0|cognito)\b/i,
+  ],
+  onboarding: [
+    /\b(onboarding|welcome|intro|tutorial|walkthrough|first[_-]?run)\b/i,
+    /\b(getting[_-]?started|setup[_-]?wizard|initial[_-]?setup)\b/i,
+  ],
+  social_auth: [
+    /\b(social[_-]?auth|social[_-]?login|google[_-]?sign[_-]?in)\b/i,
+    /\b(apple[_-]?sign[_-]?in|facebook[_-]?login|twitter[_-]?auth)\b/i,
+    /\b(github[_-]?auth|oauth[_-]?provider)\b/i,
+  ],
+
+  // Payments & Monetization
+  billing: [
+    /\b(billing|invoice|subscription[_-]?management)\b/i,
+    /\b(revenue[_-]?cat|app[_-]?store[_-]?connect)\b/i,
+  ],
+  payments: [
+    /\b(payment|pay|checkout|transaction|purchase)\b/i,
+    /\b(stripe|paypal|square|braintree|razorpay)\b/i,
+  ],
+  subscriptions: [
+    /\b(subscription|subscribe|recurring|plan|tier|premium)\b/i,
+    /\b(in[_-]?app[_-]?purchase|iap|store[_-]?kit)\b/i,
+  ],
+
+  // Communication & Notifications
+  push_notifications: [
+    /\b(push[_-]?notification|remote[_-]?notification)\b/i,
+    /\b(fcm|firebase[_-]?messaging|apns|onesignal)\b/i,
+    /\b(notification[_-]?service|notification[_-]?handler)\b/i,
+  ],
+  chat: [
+    /\b(chat|messaging|conversation|direct[_-]?message)\b/i,
+    /\b(stream[_-]?chat|sendbird|pusher|socket[_-]?chat)\b/i,
+  ],
+  realtime: [
+    /\b(realtime|real[_-]?time|live[_-]?update|websocket)\b/i,
+    /\b(socket\.io|supabase[_-]?realtime|firebase[_-]?realtime)\b/i,
+    /\b(presence|broadcast|channel[_-]?subscription)\b/i,
+  ],
+
+  // Data & Storage
+  offline: [
+    /\b(offline|offline[_-]?first|local[_-]?storage|local[_-]?database)\b/i,
+    /\b(hive|isar|sqflite|realm|objectbox)\b/i,
+    /\b(cached[_-]?data|persistent[_-]?storage)\b/i,
+  ],
+  sync: [
+    /\b(sync|synchronize|data[_-]?sync|background[_-]?sync)\b/i,
+    /\b(conflict[_-]?resolution|merge[_-]?strategy)\b/i,
+  ],
+  caching: [
+    /\b(cache|caching|cached|memory[_-]?cache)\b/i,
+    /\b(redis|memcache|image[_-]?cache|http[_-]?cache)\b/i,
+  ],
+  search: [
+    /\b(search|full[_-]?text[_-]?search|search[_-]?bar)\b/i,
+    /\b(algolia|elasticsearch|meilisearch|typesense)\b/i,
+  ],
+
+  // Navigation & UI
+  navigation: [
+    /\b(navigation|router|route|navigate|go[_-]?router)\b/i,
+    /\b(auto[_-]?route|navigator|page[_-]?transition|deep[_-]?link)\b/i,
+    /\b(bottom[_-]?nav|tab[_-]?bar|drawer)\b/i,
+  ],
+  state_management: [
+    /\b(state[_-]?management|state[_-]?manager)\b/i,
+    /\b(provider|bloc|riverpod|redux|mobx|getx|cubit)\b/i,
+    /\b(notifier|controller|view[_-]?model)\b/i,
+  ],
+  forms: [
+    /\b(form|form[_-]?field|text[_-]?field|input[_-]?field)\b/i,
+    /\b(form[_-]?validation|reactive[_-]?forms|form[_-]?builder)\b/i,
+  ],
+  theming: [
+    /\b(theme|theming|dark[_-]?mode|light[_-]?mode)\b/i,
+    /\b(material[_-]?theme|cupertino[_-]?theme|color[_-]?scheme)\b/i,
+  ],
+  localization: [
+    /\b(localization|i18n|l10n|translation|locale)\b/i,
+    /\b(intl|arb|multi[_-]?language|internationalization)\b/i,
+  ],
+
+  // Device Features
+  camera: [
+    /\b(camera|photo[_-]?capture|video[_-]?capture)\b/i,
+    /\b(qr[_-]?code|barcode|scanner|image[_-]?capture)\b/i,
+  ],
+  file_upload: [
+    /\b(file[_-]?upload|upload[_-]?file|multipart)\b/i,
+    /\b(file[_-]?picker|document[_-]?picker|storage[_-]?upload)\b/i,
+  ],
+  location: [
+    /\b(location|gps|geolocation|geolocator)\b/i,
+    /\b(coordinates|latitude|longitude|geocoding)\b/i,
+  ],
+  maps: [
+    /\b(map|google[_-]?maps|mapbox|leaflet|apple[_-]?maps)\b/i,
+    /\b(marker|polyline|geofence|map[_-]?view)\b/i,
+  ],
+
+  // Analytics & Monitoring
+  analytics: [
+    /\b(analytics|tracking|event[_-]?tracking)\b/i,
+    /\b(firebase[_-]?analytics|mixpanel|amplitude|segment)\b/i,
+    /\b(user[_-]?analytics|app[_-]?analytics)\b/i,
+  ],
+  deep_linking: [
+    /\b(deep[_-]?link|universal[_-]?link|app[_-]?link)\b/i,
+    /\b(dynamic[_-]?link|branch\.io|deferred[_-]?deep[_-]?link)\b/i,
+  ],
+};
+
+export function detectFeatures(text: string): MobileFeatureTag[] {
+  const detected: MobileFeatureTag[] = [];
+  for (const [feature, patterns] of Object.entries(FEATURE_PATTERNS)) {
+    if (patterns.some(p => p.test(text))) {
+      detected.push(feature as MobileFeatureTag);
+    }
+  }
+  return detected;
+}
+
+export function detectPlatform(text: string): ContentPlatform | undefined {
+  if (/\b(flutter|dart|android|ios|swift|kotlin|react[_-]?native|expo)\b/i.test(text)) return 'mobile';
+  if (/\b(react|vue|angular|nextjs|svelte|browser)\b/i.test(text)) return 'web';
+  if (/\b(node|express|fastify|nestjs|postgresql|supabase|firebase)\b/i.test(text)) return 'backend';
+  return undefined;
+}
+
+export function detectUsageTier(source: string): UsageTier | undefined {
+  if (/docs\.(flutter|supabase|firebase|stripe)\.dev/i.test(source)) return 'official';
+  if (/developer\.(apple|android|google)\.com/i.test(source)) return 'official';
+  if (/pub\.dev|npmjs\.com/i.test(source)) return 'reference';
+  if (/example|sample|demo|starter|template/i.test(source)) return 'example';
+  if (/recipe|cookbook|guide|tutorial|how[_-]?to/i.test(source)) return 'recipe';
+  return 'reference';
+}
+```
+
+### 4.1.4 Unit Tests
+
+**File:** `apps/server/src/services/__tests__/feature-detector.test.ts`
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { detectFeatures, detectPlatform, detectUsageTier } from '../feature-detector.js';
+
+describe('feature-detector', () => {
+  it('detects auth features', () => {
+    expect(detectFeatures('User authentication with Supabase')).toContain('auth');
+  });
+
+  it('detects mobile platform', () => {
+    expect(detectPlatform('Flutter widget for iOS')).toBe('mobile');
+  });
+
+  it('detects official usage tier', () => {
+    expect(detectUsageTier('https://docs.flutter.dev/guide')).toBe('official');
+  });
+});
+```
+
+### 4.1.5 Key Files Summary
 
 | File | Action |
 |------|--------|
-| `packages/shared/src/index.ts` | ADD optional `platform`, `feature_tags`, `usage_tier`, `is_recipe`, `is_example` fields |
-| `apps/server/src/services/metadata-validator.ts` | UPDATE schemas/inference to support new fields (no stricter requirements) |
-| `apps/server/src/services/tech-detector.ts` | EXTEND to emit richer `tech_stack` tags usable as `feature_tags` seeds |
-| `packages/db/migrations/0XX_mobile_metadata.sql` | CREATE migration to backfill or index new metadata fields as needed |
+| `packages/shared/src/index.ts` | ADD types |
+| `packages/db/migrations/0030_mobile_metadata.sql` | CREATE |
+| `apps/server/src/services/feature-detector.ts` | CREATE |
+| `apps/server/src/services/__tests__/feature-detector.test.ts` | CREATE |
+| `apps/server/src/services/metadata-validator.ts` | MODIFY to call feature detector |
 
-### 3.4 Acceptance Criteria
+### 4.1.6 Acceptance Criteria
 
-- All newly ingested documents and chunks have:
-  - `platform` where inferable.
-  - `feature_tags` when a feature can be confidently detected.
-  - `usage_tier` consistently set (`official`/`reference`/`example`/`recipe`).
-- Existing ingestion paths continue to work with default/empty values.
-- No breaking changes to existing API responses.
+- [ ] TypeScript types compile without errors
+- [ ] Migration runs successfully
+- [ ] Feature detector tests pass (aim for 90%+ coverage)
+- [ ] New documents get `feature_tags` populated
+- [ ] No breaking changes to existing APIs
+
+### 4.1.7 Agent Execution Guidance
+
+#### Skills to Use
+- `superpowers:brainstorming` — Design feature taxonomy and detection patterns before implementation
+- `backend-development` — Service implementation for feature-detector.ts
+- `planning` — Structure type hierarchy and migration strategy
+- `superpowers:defense-in-depth` — Multi-layer validation for metadata types
+- `superpowers:subagent-driven-development` — Coordinate parallel implementation tasks
+
+#### MCP Servers
+- `context7` — Lookup Flutter/Supabase/Firebase docs for feature patterns and naming conventions
+- `sequentialthinking` — Design detection regex patterns systematically
+
+#### Subagents (Parallel - 4 agents)
+1. `rag-system-architect` — Design metadata schema (ContentPlatform, UsageTier, MobileFeatureTag types) in packages/shared/src/index.ts
+2. `rag-system-architect` — Design FEATURE_PATTERNS regex map for feature detection
+3. `doc-writer` — Draft migration SQL (0030_mobile_metadata.sql) with indexes
+4. `test-writer` — Create unit tests for feature-detector.ts with comprehensive pattern coverage
+
+#### Subagents (Sequential after parallel)
+1. `code-standards-reviewer` — Review all implementation before commit (ALWAYS LAST)
+
+#### Execution Notes
+- Types in shared package and migration can be developed independently
+- Feature detector service depends on types being finalized first
+- Use `context7` to fetch official docs for accurate framework naming (flutter vs dart, supabase-auth vs supabase_auth)
+- Regex patterns should be case-insensitive and handle common variations (hyphens, underscores, camelCase)
 
 ---
 
@@ -182,6 +462,34 @@ These docs are ingested like any other Markdown but tagged with:
 - Metadata confirms:
   - `platform='mobile'`, `feature_tags` filled, `usage_tier` set.
 
+### 4.5 Agent Execution Guidance
+
+#### Skills to Use
+- `superpowers:brainstorming` — Design recipe structure and content organization
+- `planning` — Organize content across categories and prioritize recipes
+- `flutter-developer` — Write accurate Flutter recipe examples with best practices
+- `supabase-developer` — Write Supabase integration patterns for auth, storage, realtime
+- `rag-implementation` — Design ingestion pipeline with correct metadata tagging
+
+#### MCP Servers
+- `context7` — Fetch official Flutter/Supabase/Firebase/Stripe docs for reference and accuracy
+
+#### Subagents (Parallel - 5 agents MAX)
+1. `doc-writer` — Create recipe template (docs/recipes/mobile/TEMPLATE.md) with frontmatter schema
+2. `doc-writer` — Create auth recipes (flutter_auth_supabase.md, flutter_auth_firebase.md)
+3. `doc-writer` — Create billing/payments recipes (flutter_stripe_billing.md, flutter_revenuecat.md)
+4. `rag-system-architect` — Design recipe ingestion pipeline (scripts/ingest-mobile-recipes.ts)
+5. `rag-system-architect` — Design official docs ingestion (scripts/ingest-mobile-official.ts)
+
+#### Subagents (Sequential after parallel)
+1. `code-standards-reviewer` — Review ingestion scripts and recipe markdown (ALWAYS LAST)
+
+#### Execution Notes
+- Recipe docs are independent of each other and can be written in parallel
+- Ingestion scripts can be developed in parallel with recipe content
+- Use `context7` to verify SDK method names and version compatibility before writing recipes
+- Each recipe should include: summary, tech stack assumptions, step-by-step outline, official doc links, pitfalls, alternatives
+
 ---
 
 ## 6. Phase 3: Feature-Aware Retrieval
@@ -216,6 +524,33 @@ These docs are ingested like any other Markdown but tagged with:
 - Diagnostics confirm:
   - Feature filters and boosts are applied without breaking general search.
 
+### 5.4 Agent Execution Guidance
+
+#### Skills to Use
+- `backend-development` — Search service integration and route implementation
+- `rag-implementation` — Retrieval optimization with feature-aware filtering
+- `superpowers:subagent-driven-development` — Parallel implementation with quality gates
+- `superpowers:root-cause-tracing` — Debug search relevance issues if results are poor
+
+#### MCP Servers
+- `sequentialthinking` — Design filter/boost logic for usage_tier_preference modes
+- `context7` — Reference hybrid search patterns and existing smartSearch implementation
+
+#### Subagents (Parallel - 4 agents)
+1. `rag-system-architect` — Design feature-aware retrieval strategy (filter vs boost, weighting)
+2. `rag-system-architect` — Implement search.ts modifications (feature_tags filter, platform filter, usage_tier boost)
+3. `rag-system-architect` — Implement route schema updates (Zod schemas for new request parameters)
+4. `test-writer` — Create search integration tests for feature-aware queries
+
+#### Subagents (Sequential after parallel)
+1. `code-standards-reviewer` — Review before commit (ALWAYS LAST)
+
+#### Execution Notes
+- Strategy design should complete before implementation to ensure consistent approach
+- Tests can be written in parallel with implementation using TDD approach
+- Consider backward compatibility: new parameters should be optional with sensible defaults
+- Boosting is preferred over hard filtering to maintain recall while improving precision
+
 ---
 
 ## 7. Phase 4: UI & MCP Exposure
@@ -243,6 +578,34 @@ UI changes should remain minimal and consistent with existing design, but enough
   - `framework`, `framework_version`, `feature`, `preference` (official/examples/recipes).
 - Tools return JSON payloads that include:
   - Citations with file paths, headings, line ranges, and metadata.
+
+### 6.3 Agent Execution Guidance
+
+#### Skills to Use
+- `frontend-development` — UI component implementation with React best practices
+- `frontend-design` — Visual design for badges, filters, and feature tag display
+- `superpowers:brainstorming` — UX design for filter interactions and badge placement
+- `superpowers:requesting-code-review` — Quality gate before merging frontend changes
+
+#### MCP Servers
+- `chrome-devtools` — UI testing, screenshots, and visual verification
+
+#### Subagents (Parallel - 5 agents MAX)
+1. `frontend-ui-architect` — Feature filter components in SearchPage.tsx (dropdown/checkbox for platform, feature_tags)
+2. `frontend-ui-architect` — Platform/tier badges in ResultCard.tsx (styled chips for official/example/recipe)
+3. `frontend-ui-architect` — Mobile feature tag display with color coding
+4. `mcp-server-architect` — search_mobile_docs MCP tool with framework and feature filtering
+5. `mcp-server-architect` — find_code_examples + get_feature_recipe MCP tools
+
+#### Subagents (Sequential after parallel)
+1. `test-writer` — E2E tests for UI filter interactions + MCP tool integration tests
+2. `code-standards-reviewer` — Review all changes (ALWAYS LAST)
+
+#### Execution Notes
+- Frontend and MCP work are completely independent — maximum parallelism possible
+- Use `chrome-devtools` to capture screenshots for visual regression testing
+- Badge colors should follow existing design system (check existing badge components)
+- MCP tools should return consistent JSON structure with `results`, `metadata`, and `citations` fields
 
 ---
 
@@ -276,5 +639,31 @@ UI changes should remain minimal and consistent with existing design, but enough
   - At least one official doc chunk, one example, and one recipe appear in top‑K.
   - Metadata (framework, version, feature tags) is correct for those chunks.
 - Eval harness produces a simple report summarizing coverage and gaps.
+
+### 7.4 Agent Execution Guidance
+
+#### Skills to Use
+- `planning` — Define evaluation criteria and success metrics for golden tasks
+- `backend-development` — Harness implementation with structured output
+- `superpowers:executing-plans` — Systematic task execution and verification
+- `superpowers:subagent-driven-development` — Coordinate parallel evaluation development
+
+#### MCP Servers
+- `sequentialthinking` — Design evaluation methodology and scoring rubrics
+
+#### Subagents (Parallel - 4 agents)
+1. `rag-system-architect` — Design evaluation metrics and success criteria (precision@K, recall, metadata accuracy)
+2. `doc-writer` — Create golden task definitions (apps/server/perf/mobile_eval_tasks.json)
+3. `test-writer` — Create evaluation test suite that calls search/MCP endpoints
+4. `doc-writer` — Document evaluation process and interpret results
+
+#### Subagents (Sequential after parallel)
+1. `code-standards-reviewer` — Final review (ALWAYS LAST)
+
+#### Execution Notes
+- Golden tasks and harness can be developed independently
+- Use `superpowers:subagent-driven-development` for systematic execution of all golden tasks
+- Evaluation should test each usage_tier_preference mode separately
+- Include edge cases: queries with no matches, ambiguous features, version-specific content
 
 Once this phase is complete, agents will have a structured, high‑quality foundation of mobile feature patterns to build on, which later phases (Graph Retrieval and MCP Task Tools) can exploit for more complex workflows.

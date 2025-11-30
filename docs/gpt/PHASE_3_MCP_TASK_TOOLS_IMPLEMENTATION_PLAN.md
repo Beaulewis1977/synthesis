@@ -1,14 +1,31 @@
 # Phase 3: Task-Specific MCP Tools for Development – Implementation Plan
 
-**Version:** 1.0 · **Created:** November 2025  
-**Related Docs:**  
+**Version:** 2.0 · **Created:** November 2025 · **Updated:** November 2025  
+**Branch:** `feature/gpt-phase3-mcp-task-tools`  
+**PR Title:** GPT Phase 3: Task-Specific MCP Tools
+
+---
+
+## Prerequisites
+
+**This phase requires Phase 1 and Phase 2 to be complete:**
+
+- [x] GPT Phase 1 merged (Mobile Feature Recipes & Metadata)
+  - `feature_tags`, `platform`, `usage_tier` metadata available
+  - Feature detector service available
+- [x] GPT Phase 2 merged (Graph Retrieval)
+  - `knowledge_nodes` and `knowledge_edges` tables exist
+  - Graph search service available
+  - `/api/graph/context` endpoint available
+- [ ] `develop` branch is up to date with Phase 1 & 2
+- [ ] All existing tests pass (`pnpm test`)
+
+---
+
+## Related Documentation
+
 - `docs/agent-sdk/00_AGENT_SDK_OVERVIEW.md`  
-- `docs/agent-sdk/01_AGENT_SDK_ARCHITECTURE_IMPACT.md`  
-- `docs/agent-sdk/02_AGENT_SDK_BUILD_PLAN.md`  
-- `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` (Agent + tools sections)  
-- `docs/guides/CODE_SEARCH_GUIDE.md`  
-- `docs/guides/HYBRID_SEARCH_GUIDE.md`  
-- `docs/guides/SYNTHESIS_GUIDE.md`  
+- `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md`
 - `docs/gpt/PHASE_1_MOBILE_RECIPES_IMPLEMENTATION_PLAN.md`  
 - `docs/gpt/PHASE_2_GRAPH_RETRIEVAL_IMPLEMENTATION_PLAN.md`
 
@@ -36,53 +53,79 @@ This phase builds on:
 
 ## 2. GitHub Workflow
 
-For all work in this MCP tools phase:
+**Single branch for entire phase:** `feature/gpt-phase3-mcp-task-tools`
 
-- Branches MUST be created from `develop`.
-- Branch names MUST be descriptive and include the GPT phase and scope, for example:
-  - `feature/gpt-phase3-mcp-design`
-  - `feature/gpt-phase3-api-layer`
-  - `feature/gpt-phase3-mcp-tools`
-  - `feature/gpt-phase3-agent-prompts`
-  - `feature/gpt-phase3-mcp-eval`
-- Agents MUST NOT commit or push without explicit human approval.
-- Every push MUST result in a pull request into `develop`.
-
-### 2.1 Workflow Per Phase
+**IMPORTANT:** Ensure Phase 1 and Phase 2 PRs are merged before starting this phase.
 
 ```bash
-# 1. Create branch (WAIT FOR APPROVAL)
+# 1. Verify prerequisites
 git checkout develop && git pull origin develop
-git checkout -b feature/gpt-phase3-mcp-scope
+# Confirm Phase 1 and Phase 2 changes are present
 
-# 2. Implement changes...
+# 2. Create branch (WAIT FOR APPROVAL)
+git checkout -b feature/gpt-phase3-mcp-task-tools
 
-# 3. Present changes to human for review
+# 3. Implement all sub-phases in order
 
-# 4. After APPROVAL: commit
+# 4. Run tests and lint
+pnpm test
+pnpm lint
+
+# 5. Present ALL changes for human review
+
+# 6. After APPROVAL: commit
 git add -A
-git commit -m "feat(phase3-mcp): description"
+git commit -m "feat(gpt-phase3): implement task-specific MCP tools
 
-# 5. After APPROVAL: push
-git push -u origin feature/gpt-phase3-mcp-scope
+- Add search_mobile_docs MCP tool
+- Add find_code_examples MCP tool
+- Add get_feature_recipe MCP tool
+- Add get_project_tech_stack MCP tool  
+- Add get_db_schema MCP tool
+- Add graph_expand_context MCP tool
+- Add HTTP API endpoints for tools
+- Update agent prompts with tool usage examples"
 
-# 6. Create PR
-gh pr create --base develop --title "GPT Phase 3: MCP Task Tools – Scope"
+# 7. After APPROVAL: push
+git push -u origin feature/gpt-phase3-mcp-task-tools
+
+# 8. Create PR
+gh pr create --base develop --title "GPT Phase 3: Task-Specific MCP Tools"
 ```
 
-Adapt `feature/gpt-phase3-mcp-scope` and the PR title for each sub‑phase. Also follow `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` §2 and `agents.md`.
+Follow rules in `docs/gpt/MASTER_PLAN.md` Section 2 and `agents.md`.
 
 ---
 
 ## 3. Phase Overview
 
-| # | Phase | Priority | Days | Branch (suggested) |
-|---|-------|----------|------|--------------------|
-| 1 | Task Taxonomy & Tool Design | P0 | 2–3 | `feature/gpt-phase3-mcp-design` |
-| 2 | HTTP API Enhancements | P0 | 3–5 | `feature/gpt-phase3-api-layer` |
-| 3 | MCP Tool Implementation | P1 | 4–6 | `feature/gpt-phase3-mcp-tools` |
-| 4 | Agent Prompt & Config Updates | P1 | 2–3 | `feature/gpt-phase3-agent-prompts` |
-| 5 | Scenario-Based Evaluation | P2 | 2–3 | `feature/gpt-phase3-mcp-eval` |
+**All sub-phases go into ONE branch and ONE PR.**
+
+| # | Sub-Phase | Priority | Est. Time | Commit Scope |
+|---|-----------|----------|-----------|---------------|
+| 5.1 | Task Taxonomy & Tool Design | P0 | 2–3 days | `feat(gpt-phase3): add tool taxonomy and specifications` |
+| 5.2 | HTTP API Enhancements | P0 | 3–5 days | `feat(gpt-phase3): add feature-aware search endpoints` |
+| 5.3 | MCP Tool Implementation | P1 | 4–6 days | `feat(gpt-phase3): implement 6 new MCP tools` |
+| 5.4 | Agent Prompt & Config Updates | P1 | 2–3 days | `feat(gpt-phase3): update agent prompts with tool examples` |
+| 5.5 | Scenario-Based Evaluation | P2 | 2–3 days | `feat(gpt-phase3): add evaluation scenarios and harness` |
+
+### Commit Strategy
+
+```bash
+# Work on single branch
+git checkout -b feature/gpt-phase3-mcp-task-tools
+
+# Commit after completing each sub-phase:
+git commit -m "feat(gpt-phase3): add tool taxonomy and specifications"
+git commit -m "feat(gpt-phase3): add feature-aware search endpoints"
+git commit -m "feat(gpt-phase3): implement 6 new MCP tools"
+git commit -m "feat(gpt-phase3): update agent prompts with tool examples"
+git commit -m "feat(gpt-phase3): add evaluation scenarios and harness"
+
+# One PR at the end with all commits
+git push -u origin feature/gpt-phase3-mcp-task-tools
+gh pr create --base develop --title "GPT Phase 3: Task-Specific MCP Tools"
+```
 
 ---
 
@@ -132,6 +175,33 @@ The spec doc should reference:
   - Clear `description` and input/output fields.
   - Mapped to existing or planned HTTP endpoints.
 
+### 3.4 Agent Execution Guidance
+
+#### Skills to Use
+- `superpowers:brainstorming` — Design tool taxonomy and naming conventions
+- `planning` — Structure taxonomy and tool specifications
+- `superpowers:dispatching-parallel-agents` — Coordinate spec work across categories
+
+#### MCP Servers
+- `context7` — Reference MCP protocol patterns and Zod documentation
+- `sequentialthinking` — Design tool interactions and parameter schemas
+
+#### Subagents (Parallel - 4 agents)
+1. `mcp-server-architect` — Design docs/recipes tool specs (search_mobile_docs, search_official_docs, get_feature_recipe)
+2. `mcp-server-architect` — Design code/examples tool specs (find_code_examples, find_symbol_usages)
+3. `mcp-server-architect` — Design introspection tool specs (get_project_tech_stack, get_db_schema, graph_expand_context)
+4. `doc-writer` — Create MCP_TOOL_SPEC_GPT_PHASE3.md structure with taxonomy and endpoint mappings
+
+#### Subagents (Sequential after parallel)
+1. `code-standards-reviewer` — Review spec document (ALWAYS LAST)
+
+#### Execution Notes
+- Tool specs can be designed in parallel by category (docs, code, introspection)
+- Consolidate all specs into single MCP_TOOL_SPEC_GPT_PHASE3.md document
+- Use `superpowers:brainstorming` for tool naming: names should be verb_noun format (search_*, get_*, find_*)
+- Each tool description should clearly state when to use it vs alternatives
+- Zod schemas should be strict with proper descriptions for each field
+
 ---
 
 ## 5. Phase 2: HTTP API Enhancements
@@ -180,59 +250,185 @@ These endpoints are thin wrappers around existing services, tuned for agent cons
   - Rich metadata: `framework`, `framework_version`, `feature_tags`, `source_quality`, `file_path`, `line_range`, `chunk_type`.
   - Stable identifiers (collection IDs, document IDs, chunk IDs).
 
+### 4.4 Agent Execution Guidance
+
+#### Skills to Use
+- `backend-development` — API implementation with Fastify routes
+- `rag-implementation` — Search patterns and filter integration
+- `superpowers:subagent-driven-development` — Parallel endpoint development with quality gates
+- `superpowers:defense-in-depth` — Input validation at API boundaries
+
+#### MCP Servers
+- `context7` — Fastify patterns, Zod validation best practices
+- `sequentialthinking` — Design API structure and response formats
+
+#### Subagents (Parallel - 5 agents MAX)
+1. `rag-system-architect` — POST /api/search/mobile endpoint (framework + feature filtering)
+2. `rag-system-architect` — POST /api/search/examples endpoint (usage_tier='example' filter)
+3. `rag-system-architect` — GET /api/projects/:id/tech-stack endpoint (aggregate tech detection)
+4. `rag-system-architect` — GET /api/projects/:id/db-schema endpoint (SQL analyzer results)
+5. `rag-system-architect` — Create projects.ts service for aggregation (tech stack + schema)
+
+#### Subagents (Sequential after parallel)
+1. `test-writer` — API endpoint tests for all 4 endpoints
+2. `code-standards-reviewer` — Review all endpoints (ALWAYS LAST)
+
+#### Execution Notes
+- All endpoints are independent and can be fully parallelized
+- Projects service may need to be created first if tech-stack and db-schema endpoints depend on it
+- Use `superpowers:defense-in-depth` for strict input validation (Zod schemas with refinements)
+- Response format should be consistent across all endpoints: { data, metadata, pagination }
+- Include proper error responses with helpful messages for invalid parameters
+
 ---
 
-## 6. Phase 3: MCP Tool Implementation
+## 6. Sub-Phase 5.3: MCP Tool Implementation
 
-**Problem:** The MCP server needs to expose the new API capabilities in a GPT‑friendly, strongly typed way.
+**Problem:** The MCP server needs to expose new capabilities in a strongly typed way.
 
-### 5.1 Deliverables
+### 5.3.1 Tool Implementation Pattern
 
-- Implement new MCP tools in `apps/mcp/src/index.ts` using the existing pattern:
-  - Zod schemas → `toJsonSchema` → `server.registerTool(...)`.
+**File:** `apps/mcp/src/index.ts`
 
-Target tools (names may be adjusted slightly for ergonomics):
+Follow the existing pattern for each new tool:
 
-1. `search_mobile_docs`
-   - Inputs: `collectionId?`, `framework`, `frameworkVersion?`, `feature?`, `query?`, `usageTierPreference?`.
-   - Backend: `POST /api/search/mobile`.
+```typescript
+import { z } from 'zod';
 
-2. `search_official_docs`
-   - Inputs: `framework`, `topic`, `versionRange?`.
-   - Backend: `POST /api/search/mobile` with `usage_tier_preference='official'` and `source_quality='official'`.
+// Example: search_mobile_docs tool
+const SearchMobileDocsSchema = z.object({
+  collection_id: z.string().uuid().optional(),
+  framework: z.enum(['flutter', 'react_native', 'swift', 'kotlin']),
+  framework_version: z.string().optional(),
+  feature: z.string().optional().describe('Feature tag like auth, billing, push_notifications'),
+  query: z.string().optional().describe('Free-text search query'),
+  usage_tier_preference: z.enum(['official', 'balanced', 'examples', 'recipes-first']).optional(),
+  limit: z.number().int().min(1).max(20).optional().default(10),
+});
 
-3. `get_feature_recipe`
-   - Inputs: `framework`, `feature`, `version?`.
-   - Backend: search in recipes collection + optional summary via synthesis.
+server.tool(
+  'search_mobile_docs',
+  'Search for mobile development documentation with framework and feature filtering. ' +
+  'Use this when you need docs, guides, or tutorials for mobile app features.',
+  SearchMobileDocsSchema,
+  async (params) => {
+    const response = await apiClient.post('/api/search/mobile', params);
+    if (!response.ok) {
+      return { error: `Search failed: ${await response.text()}` };
+    }
+    return response.json();
+  }
+);
+```
 
-4. `find_code_examples`
-   - Inputs: `framework`, `feature`, `language?`, `techStack?`.
-   - Backend: `POST /api/search/examples`.
+### 5.3.2 All Tools to Implement
 
-5. `get_project_tech_stack`
-   - Inputs: `projectCollectionId`.
-   - Backend: `GET /api/projects/:id/tech-stack`.
+```typescript
+// 1. search_mobile_docs - Feature-aware mobile documentation search
+const SearchMobileDocsSchema = z.object({
+  collection_id: z.string().uuid().optional(),
+  framework: z.enum(['flutter', 'react_native', 'swift', 'kotlin']),
+  feature: z.string().optional(),
+  query: z.string().optional(),
+  usage_tier_preference: z.enum(['official', 'balanced', 'examples', 'recipes-first']).optional(),
+  limit: z.number().optional().default(10),
+});
 
-6. `get_db_schema`
-   - Inputs: `projectCollectionId`, optional filters (tables, schemas).
-   - Backend: `GET /api/projects/:id/db-schema`.
+// 2. find_code_examples - Find code examples for specific features
+const FindCodeExamplesSchema = z.object({
+  collection_id: z.string().uuid().optional(),
+  framework: z.enum(['flutter', 'react_native', 'swift', 'kotlin']),
+  feature: z.string().describe('Feature to find examples for'),
+  language: z.string().optional(),
+  tech_stack: z.array(z.string()).optional(),
+  limit: z.number().optional().default(5),
+});
 
-7. `graph_expand_context`
-   - Inputs: `collectionId`, `seed` (chunk ID, symbol name, or file path), `maxDepth?`, `maxNodes?`.
-   - Backend: `POST /api/graph/context`.
+// 3. get_feature_recipe - Get curated recipe for a feature
+const GetFeatureRecipeSchema = z.object({
+  framework: z.enum(['flutter', 'react_native', 'swift', 'kotlin']),
+  feature: z.string().describe('Feature tag like auth, billing, push_notifications'),
+  version: z.string().optional(),
+  include_alternatives: z.boolean().optional().default(false),
+});
 
-### 5.2 Key Files
+// 4. get_project_tech_stack - Analyze project technology stack
+const GetProjectTechStackSchema = z.object({
+  collection_id: z.string().uuid().describe('Collection ID of the project'),
+});
+
+// 5. get_db_schema - Get database schema from project
+const GetDbSchemaSchema = z.object({
+  collection_id: z.string().uuid(),
+  tables: z.array(z.string()).optional().describe('Filter to specific tables'),
+  include_relationships: z.boolean().optional().default(true),
+});
+
+// 6. graph_expand_context - Expand context using knowledge graph
+const GraphExpandContextSchema = z.object({
+  collection_id: z.string().uuid(),
+  seed: z.string().describe('Starting point: chunk ID, symbol name, or file path'),
+  seed_type: z.enum(['chunk_id', 'symbol', 'file_path']).optional(),
+  max_depth: z.number().int().min(1).max(5).optional().default(2),
+  max_nodes: z.number().int().min(1).max(100).optional().default(20),
+  edge_types: z.array(z.string()).optional().describe('Filter to specific edge types'),
+});
+```
+
+### 5.3.3 Tool Descriptions (for Agent Prompts)
+
+| Tool | When to Use |
+|------|-------------|
+| `search_mobile_docs` | Finding documentation, guides, or tutorials for mobile features |
+| `find_code_examples` | Need working code examples for a specific feature |
+| `get_feature_recipe` | Want the recommended pattern/approach for a feature |
+| `get_project_tech_stack` | Need to understand what technologies a project uses |
+| `get_db_schema` | Need to understand database structure |
+| `graph_expand_context` | Need to trace code flow or understand relationships |
+
+### 5.3.4 Key Files
 
 | File | Action |
 |------|--------|
-| `apps/mcp/src/index.ts` | ADD new tools with Zod schemas and error handling consistent with existing tools |
-| `apps/mcp/src/api.ts` | MAY EXTEND helper methods for new endpoints |
+| `apps/mcp/src/index.ts` | ADD 6 new tools with Zod schemas |
+| `apps/mcp/src/api.ts` | ADD helper methods for new endpoints |
 
-### 5.3 Acceptance Criteria
+### 5.3.5 Acceptance Criteria
 
-- Tools validate input strictly via Zod.
-- Errors are returned as human‑readable text in tool responses (consistent with current tools).
-- Tools return JSON string payloads that agents can parse into structured objects.
+- [ ] All 6 tools implemented and registered
+- [ ] Tools validate input via Zod
+- [ ] Error messages are human-readable
+- [ ] Tools return structured JSON responses
+- [ ] Tools can be called successfully from Claude/MCP client
+
+### 5.3.6 Agent Execution Guidance
+
+#### Skills to Use
+- `backend-development` — Tool implementation following existing patterns
+- `superpowers:subagent-driven-development` — Parallel tool development with quality gates
+- `superpowers:requesting-code-review` — Quality gate before merging MCP changes
+
+#### MCP Servers
+- `context7` — MCP SDK patterns, @modelcontextprotocol documentation
+
+#### Subagents (Parallel - 5 agents MAX) — MAXIMUM PARALLELISM
+1. `mcp-server-architect` — Tool: search_mobile_docs (framework + feature-aware search with usage_tier_preference)
+2. `mcp-server-architect` — Tool: find_code_examples (filter to usage_tier='example', code chunks)
+3. `mcp-server-architect` — Tool: get_feature_recipe (curated patterns from recipe collection)
+4. `mcp-server-architect` — Tools: get_project_tech_stack + get_db_schema (introspection pair, can share helper)
+5. `mcp-server-architect` — Tool: graph_expand_context (knowledge graph exploration with seed types)
+
+#### Subagents (Sequential after parallel)
+1. `test-writer` — MCP tool tests for all 6 tools (input validation, API calls, response format)
+2. `code-standards-reviewer` — Final review (ALWAYS LAST)
+
+#### Execution Notes
+- All 6 tools are independent — achieve maximum parallelism with 5 agents
+- Each tool should follow existing pattern in apps/mcp/src/index.ts
+- Tools 4 (tech_stack) and 5 (db_schema) can share a common introspection helper
+- Use `superpowers:requesting-code-review` before merging to ensure consistency
+- Test each tool manually with MCP client before marking complete
+- Error responses should include actionable suggestions (e.g., "No results found. Try broadening feature filter.")
 
 ---
 
@@ -265,8 +461,34 @@ Target tools (names may be adjusted slightly for ergonomics):
 
 - Prompt templates include:
   - At least one worked example per new tool.
-  - Guidance on tool selection priority (e.g., “use search_official_docs first, then find_code_examples, then get_feature_recipe”).
+  - Guidance on tool selection priority (e.g., "use search_official_docs first, then find_code_examples, then get_feature_recipe").
 - Agent can successfully complete at least a few end‑to‑end flows using only the MCP tools and Synthesis as the backend.
+
+### 6.4 Agent Execution Guidance
+
+#### Skills to Use
+- `superpowers:brainstorming` — Design prompt structure and tool usage examples
+- `planning` — Organize example workflows logically
+- `superpowers:executing-plans` — Systematic updates across prompt files
+
+#### MCP Servers
+- `sequentialthinking` — Design prompt structure and tool selection logic
+
+#### Subagents (Parallel - 4 agents)
+1. `mcp-server-architect` — Design tool selection priority logic for prompts (when to use which tool)
+2. `doc-writer` — Update 04_AGENT_SDK_PHASE_PROMPTS.md with MCP tools section
+3. `doc-writer` — Create tool usage examples (auth flow, billing, notifications scenarios)
+4. `mcp-server-architect` — Update agent.ts system prompt with tool descriptions and selection guidance
+
+#### Subagents (Sequential after parallel)
+1. `code-standards-reviewer` — Review prompt changes (ALWAYS LAST)
+
+#### Execution Notes
+- Prompts and examples can be developed in parallel
+- System prompt update depends on tool descriptions being finalized
+- Use `superpowers:brainstorming` for prompt wording to ensure clarity
+- Tool selection priority should be explicit: "For feature implementation, try get_feature_recipe first, then find_code_examples, then search_mobile_docs"
+- Include negative examples: "Don't use search_mobile_docs for project introspection — use get_project_tech_stack instead"
 
 ---
 
@@ -307,5 +529,34 @@ Each scenario should:
 - Scenario runner produces a concise report listing:
   - Which tools were used.
   - Where retrieval or planning failed.
+
+### 7.4 Agent Execution Guidance
+
+#### Skills to Use
+- `planning` — Define evaluation scenarios and success criteria
+- `backend-development` — Runner implementation with structured output
+- `superpowers:executing-plans` — Systematic scenario execution
+- `superpowers:subagent-driven-development` — Parallel scenario development
+
+#### MCP Servers
+- `sequentialthinking` — Design test scenarios with clear success criteria
+
+#### Subagents (Parallel - 5 agents MAX)
+1. `doc-writer` — Create auth flow scenario (.agent-scenarios/mobile-saas/flutter_supabase_auth.md)
+2. `doc-writer` — Create billing scenario (.agent-scenarios/mobile-saas/flutter_stripe_billing.md)
+3. `doc-writer` — Create notifications scenario (.agent-scenarios/mobile-saas/firebase_push_notifications.md)
+4. `doc-writer` — Create persistence scenario (.agent-scenarios/mobile-saas/user_settings_trace.md)
+5. `test-writer` — Create mcp_scenario_runner.mjs harness (call tools, log results, generate report)
+
+#### Subagents (Sequential after parallel)
+1. `code-standards-reviewer` — Final review (ALWAYS LAST)
+2. `doc-writer` — Create GPT_PHASE_3_SUMMARY.md with phase outcomes and metrics
+
+#### Execution Notes
+- All scenarios are independent and can be written in parallel
+- Runner can be developed in parallel with scenario definitions
+- Use `superpowers:subagent-driven-development` for systematic scenario execution
+- Each scenario should specify: starting collection, expected tools used, success criteria, expected sources
+- Report format: JSON with tool_calls[], sources_found[], success_rate, failure_reasons[]
 
 Once this phase is complete, you will have a set of well‑designed MCP tools and scenarios that let a GPT/Claude agent use Synthesis as a **reliable, high‑level RAG backend** for building and evolving mobile SaaS apps.
