@@ -95,10 +95,17 @@ const FEATURE_PATTERNS: Record<MobileFeatureTag, RegExp[]> = {
   offline: [
     /\boffline\b/i,
     /offline[\s_-]?first/i,
-    /local[\s_-]?(storage|database)/i,
-    /\b(hive|isar|sqflite|realm|objectbox)\b/i,
     /cached[\s_-]?data/i,
     /persistent[\s_-]?storage/i,
+  ],
+  local_storage: [
+    // GPT Phase 1: Explicit local database/storage patterns
+    /local[\s_-]?(storage|database)/i,
+    /\b(hive|isar|sqflite|realm|objectbox)\b/i,
+    /shared[\s_-]?preferences/i,
+    /secure[\s_-]?storage/i,
+    /key[\s_-]?value[\s_-]?store/i,
+    /embedded[\s_-]?database/i,
   ],
   sync: [
     /\bsync\b/i,

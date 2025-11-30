@@ -83,9 +83,17 @@ describe('feature-detector', () => {
     describe('Data & Storage', () => {
       it('detects offline features', () => {
         expect(detectFeatures('Offline-first architecture')).toContain('offline');
-        expect(detectFeatures('Local database with SQLite')).toContain('offline');
-        expect(detectFeatures('Hive storage implementation')).toContain('offline');
-        expect(detectFeatures('Isar database')).toContain('offline');
+        expect(detectFeatures('Offline mode with cached data')).toContain('offline');
+        expect(detectFeatures('Persistent storage for offline use')).toContain('offline');
+      });
+
+      it('detects local_storage features', () => {
+        // GPT Phase 1: local_storage is now a separate feature tag
+        expect(detectFeatures('Local database with SQLite')).toContain('local_storage');
+        expect(detectFeatures('Hive storage implementation')).toContain('local_storage');
+        expect(detectFeatures('Isar database')).toContain('local_storage');
+        expect(detectFeatures('Shared preferences storage')).toContain('local_storage');
+        expect(detectFeatures('Secure storage for credentials')).toContain('local_storage');
       });
 
       it('detects sync features', () => {

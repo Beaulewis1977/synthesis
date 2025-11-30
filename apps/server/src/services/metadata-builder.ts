@@ -1,4 +1,10 @@
-import type { DocumentMetadata, SourceType } from '@synthesis/shared';
+import type {
+  ContentPlatform,
+  DocumentMetadata,
+  MobileFeatureTag,
+  SourceType,
+  UsageTier,
+} from '@synthesis/shared';
 import { inferSourceType as inferSourceTypeFromValidator } from './metadata-validator.js';
 
 const REPO_VERIFIED_STARS = 1000;
@@ -169,6 +175,56 @@ export class MetadataBuilder {
 
   setNotes(notes: string): this {
     this.metadata.notes = notes;
+    return this;
+  }
+
+  // =============================================================================
+  // GPT Phase 1: Mobile Feature Metadata Methods
+  // =============================================================================
+
+  /**
+   * Sets the content platform classification.
+   * @param platform - The platform: 'mobile' | 'web' | 'backend' | 'shared'
+   */
+  setPlatform(platform: ContentPlatform): this {
+    this.metadata.platform = platform;
+    return this;
+  }
+
+  /**
+   * Sets the mobile feature tags for feature-aware retrieval.
+   * @param tags - Array of MobileFeatureTag values
+   */
+  setFeatureTags(tags: MobileFeatureTag[]): this {
+    this.metadata.feature_tags = [...tags];
+    return this;
+  }
+
+  /**
+   * Adds feature tags to existing tags (does not replace).
+   * @param tags - Feature tags to add
+   */
+  addFeatureTags(...tags: MobileFeatureTag[]): this {
+    const existing = this.metadata.feature_tags ?? [];
+    this.metadata.feature_tags = [...existing, ...tags];
+    return this;
+  }
+
+  /**
+   * Sets the usage tier for source quality classification.
+   * @param tier - The usage tier: 'official' | 'reference' | 'example' | 'recipe'
+   */
+  setUsageTier(tier: UsageTier): this {
+    this.metadata.usage_tier = tier;
+    return this;
+  }
+
+  /**
+   * Sets whether this document is recommended for its feature category.
+   * @param recommended - Whether to mark as recommended
+   */
+  setRecommended(recommended: boolean): this {
+    this.metadata.recommended = recommended;
     return this;
   }
 

@@ -8,7 +8,8 @@ export type DocumentType =
   | 'repo'
   | 'tutorial'
   | 'build_plan'
-  | 'personal_writing';
+  | 'personal_writing'
+  | 'recipe'; // GPT Phase 1: Curated implementation guides
 export type DocumentFramework =
   | 'flutter'
   | 'dart'
@@ -64,7 +65,7 @@ export type EmbeddingModel = 'nomic-embed-text' | 'text-embedding-3-large' | 'vo
 export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage';
 
 // Phase 3: Source type for metadata guarantees
-export type SourceType = 'url' | 'repo' | 'file';
+export type SourceType = 'url' | 'repo' | 'file' | 'web'; // GPT Phase 1: Added 'web' for scraped content
 
 // =============================================================================
 // GPT Phase 1: Mobile Feature Metadata Types
@@ -103,6 +104,7 @@ export type MobileFeatureTag =
   | 'realtime'
   // Data & Storage
   | 'offline'
+  | 'local_storage' // GPT Phase 1: Explicit local database/storage tag
   | 'sync'
   | 'caching'
   | 'search'
