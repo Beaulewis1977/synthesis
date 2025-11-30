@@ -175,14 +175,25 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
 
     // If MMR options not specified in request, use collection defaults
     if (mmrEnabled === undefined || mmrLambda === undefined) {
-      const db = getPool();
-      const collectionResult = await db.query(
-        'SELECT mmr_enabled, mmr_lambda FROM collections WHERE id = $1',
-        [collectionId]
-      );
-      if (collectionResult.rows[0]) {
-        mmrEnabled = mmrEnabled ?? collectionResult.rows[0].mmr_enabled ?? false;
-        mmrLambda = mmrLambda ?? (Number(collectionResult.rows[0].mmr_lambda) || 0.7);
+      try {
+        const db = getPool();
+        const collectionResult = await db.query(
+          'SELECT mmr_enabled, mmr_lambda FROM collections WHERE id = $1',
+          [collectionId]
+        );
+        if (collectionResult.rows[0]) {
+          const row = collectionResult.rows[0];
+          mmrEnabled = mmrEnabled ?? row.mmr_enabled ?? false;
+          // Use nullish check to preserve explicit 0 value from DB
+          const dbLambda = row.mmr_lambda;
+          const parsedLambda = dbLambda != null ? Number(dbLambda) : 0.7;
+          mmrLambda = mmrLambda ?? parsedLambda;
+        }
+      } catch (error) {
+        // Fall back to safe defaults on DB error
+        fastify.log.error({ error, collectionId }, 'Failed to fetch collection MMR defaults');
+        mmrEnabled = mmrEnabled ?? false;
+        mmrLambda = mmrLambda ?? 0.7;
       }
     }
     const topK = camelTopK ?? snakeTopK;

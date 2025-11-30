@@ -1,3 +1,4 @@
+import { DEFAULT_MMR_LAMBDA } from '@synthesis/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Loader2, MessageSquare, Search, Zap } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -7,8 +8,6 @@ import { CollectionLanguageSummary } from '../components/LanguageSupportBadge';
 import { VersionFilter, VersionStats } from '../components/collections';
 import { apiClient } from '../lib/api';
 import type { LifecycleStatus } from '../types';
-
-const DEFAULT_MMR_LAMBDA = 0.7;
 
 export function CollectionView() {
   const { id } = useParams<{ id: string }>();

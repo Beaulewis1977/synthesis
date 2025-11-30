@@ -80,8 +80,11 @@ export interface MMRCandidate {
   embedding: number[] | null;
 }
 
-/** Default lambda value - balanced between relevance and diversity */
-export const DEFAULT_MMR_LAMBDA = 0.7;
+// Import from shared - single source of truth
+import { DEFAULT_MMR_LAMBDA } from '@synthesis/shared';
+
+// Re-export for backwards compatibility with existing imports
+export { DEFAULT_MMR_LAMBDA };
 
 /** Default minimum similarity difference threshold */
 export const DEFAULT_MIN_SIMILARITY_DIFF = 0.1;
