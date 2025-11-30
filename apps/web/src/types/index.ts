@@ -704,3 +704,17 @@ export interface BatchRestoreResult {
   restored_count: number;
   restored_ids: string[];
 }
+
+// ============================================
+// Phase 14: Language Support Types (re-exported from @synthesis/shared)
+// ============================================
+
+export type {
+  LanguageSupportStatus,
+  LanguageSupportLevel,
+  ParserType,
+  AnalyzerCapabilities,
+  FrameworkInfo,
+  DocumentLanguage,
+  DocumentFramework,
+} from '@synthesis/shared';

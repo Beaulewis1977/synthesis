@@ -23,6 +23,7 @@ import type {
   FrameworkVersionInfo,
   IngestionJob,
   IngestionJobStatusResponse,
+  LanguageSupportStatus,
   LifecycleStatus,
   ModelConfig,
   ModelConfigResponse,
@@ -906,6 +907,22 @@ class ApiClient {
         method: 'POST',
         body: JSON.stringify({ framework_version: frameworkVersion }),
       }
+    );
+  }
+
+  // ============================================
+  // Language Stats (Phase 14)
+  // ============================================
+
+  /**
+   * Get language statistics for a collection.
+   * Returns detected languages with their analyzer support level.
+   */
+  async getCollectionLanguageStats(
+    collectionId: string
+  ): Promise<{ languages: LanguageSupportStatus[] }> {
+    return this.request<{ languages: LanguageSupportStatus[] }>(
+      `/api/collections/${encodeURIComponent(collectionId)}/language-stats`
     );
   }
 }

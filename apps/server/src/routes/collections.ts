@@ -14,6 +14,7 @@ import {
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { deleteFileIfExists } from '../agent/utils/storage.js';
+import { analyzerRegistry, calculateChunkingQuality } from '../pipeline/analyzers/registry.js';
 import { ingestDocument } from '../pipeline/orchestrator.js';
 import {
   DocumentNotFoundError,
@@ -67,6 +68,64 @@ export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(500).send({ error: 'Failed to get collection' });
     }
   });
+
+  // GET /api/collections/:id/language-stats - Get language statistics for collection
+  fastify.get<{ Params: { id: string } }>(
+    '/api/collections/:id/language-stats',
+    async (request, reply) => {
+      try {
+        const { id } = request.params;
+        const db = getPool();
+
+        // Query documents with file extensions from metadata or file_path
+        const result = await db.query(
+          `SELECT
+            LOWER(
+              COALESCE(
+                NULLIF(REGEXP_REPLACE(metadata->>'file_path', '.*\\.', ''), ''),
+                NULLIF(REGEXP_REPLACE(file_path, '.*\\.', ''), '')
+              )
+            ) as extension,
+            COUNT(*) as file_count
+          FROM documents
+          WHERE collection_id = $1
+            AND (metadata->>'file_path' IS NOT NULL OR file_path IS NOT NULL)
+            AND (
+              (metadata->>'file_path' IS NOT NULL AND metadata->>'file_path' LIKE '%.%')
+              OR (file_path IS NOT NULL AND file_path LIKE '%.%')
+            )
+          GROUP BY extension
+          HAVING LENGTH(LOWER(
+            COALESCE(
+              NULLIF(REGEXP_REPLACE(metadata->>'file_path', '.*\\.', ''), ''),
+              NULLIF(REGEXP_REPLACE(file_path, '.*\\.', ''), '')
+            )
+          )) BETWEEN 1 AND 10
+          ORDER BY file_count DESC`,
+          [id]
+        );
+
+        // Map extensions to language support status
+        const stats = result.rows
+          .filter((row) => row.extension)
+          .map((row) => {
+            const status = analyzerRegistry.getLanguageSupportStatus(row.extension);
+            const analyzer = analyzerRegistry.getByExtension(row.extension);
+            const chunkingQuality = calculateChunkingQuality(analyzer, []);
+            return {
+              ...status,
+              fileCount: Number.parseInt(row.file_count, 10),
+              chunkingQuality,
+            };
+          });
+
+        return reply.send({ languages: stats });
+      } catch (error) {
+        fastify.log.error(error, 'Failed to get language stats');
+        return reply.code(500).send({ error: 'Failed to get language stats' });
+      }
+    }
+  );
 
   // POST /api/collections - Create new collection
   fastify.post('/api/collections', async (request, reply) => {

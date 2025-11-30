@@ -3,6 +3,7 @@ import { AlertCircle, Loader2, MessageSquare, Search, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DocumentList } from '../components/DocumentList';
+import { CollectionLanguageSummary } from '../components/LanguageSupportBadge';
 import { VersionFilter, VersionStats } from '../components/collections';
 import { apiClient } from '../lib/api';
 import type { LifecycleStatus } from '../types';
@@ -25,6 +26,27 @@ export function CollectionView() {
     },
     enabled: !!id,
   });
+
+  // Fetch language stats for this collection
+  const { data: languageData } = useQuery({
+    queryKey: ['language-stats', id],
+    queryFn: () => {
+      if (!id) throw new Error('Collection ID is required');
+      return apiClient.getCollectionLanguageStats(id);
+    },
+    enabled: !!id,
+  });
+
+  // Calculate overall chunking quality from language stats
+  const overallChunkingQuality =
+    languageData?.languages && languageData.languages.length > 0
+      ? Math.round(
+          languageData.languages.reduce(
+            (sum, lang) => sum + (lang.chunkingQuality ?? 0) * (lang.fileCount ?? 1),
+            0
+          ) / languageData.languages.reduce((sum, lang) => sum + (lang.fileCount ?? 1), 0)
+        )
+      : undefined;
 
   // Filter documents based on lifecycle status and framework version
   const filteredDocuments = data?.documents.filter((doc) => {
@@ -179,6 +201,36 @@ export function CollectionView() {
               onStatusChange={setLifecycleFilter}
               onFrameworkVersionChange={setFrameworkVersionFilter}
             />
+          </div>
+        )}
+
+        {/* Phase 14: Language Support Badges & Chunking Quality */}
+        {languageData?.languages && languageData.languages.length > 0 && (
+          <div className="mt-md p-4 bg-bg-secondary rounded-lg border border-border">
+            <div className="flex items-center justify-between mb-sm">
+              <h4 className="text-sm font-medium text-text-primary">Languages Detected</h4>
+            </div>
+            <CollectionLanguageSummary languages={languageData.languages} maxDisplay={5} />
+
+            {/* Chunking Quality Indicator */}
+            {overallChunkingQuality !== undefined && (
+              <div className="mt-md flex items-center gap-sm">
+                <span className="text-sm text-text-secondary">Chunking Quality:</span>
+                <div className="flex-1 max-w-xs h-2 bg-bg-tertiary rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      overallChunkingQuality >= 80
+                        ? 'bg-success'
+                        : overallChunkingQuality >= 50
+                          ? 'bg-warning'
+                          : 'bg-error'
+                    }`}
+                    style={{ width: `${overallChunkingQuality}%` }}
+                  />
+                </div>
+                <span className="text-sm font-medium">{overallChunkingQuality}%</span>
+              </div>
+            )}
           </div>
         )}
       </div>

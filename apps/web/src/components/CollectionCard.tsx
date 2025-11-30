@@ -1,10 +1,11 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MoreVertical, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../lib/api';
 import { formatRelativeTime } from '../lib/utils';
 import type { Collection } from '../types';
+import { CollectionLanguageSummary } from './LanguageSupportBadge';
 import { useToast } from './Toast';
 
 interface CollectionCardProps {
@@ -25,6 +26,13 @@ export function CollectionCard({
   const [showMenu, setShowMenu] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const { addToast } = useToast();
+
+  // Fetch language stats for this collection
+  const { data: languageData } = useQuery({
+    queryKey: ['language-stats', collection.id],
+    queryFn: () => apiClient.getCollectionLanguageStats(collection.id),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   const deleteMutation = useMutation({
     mutationFn: () => apiClient.deleteCollection(collection.id),
@@ -138,6 +146,13 @@ export function CollectionCard({
 
       {collection.description && (
         <p className="text-text-secondary text-sm mb-md line-clamp-2">{collection.description}</p>
+      )}
+
+      {/* Language Support Badges */}
+      {languageData?.languages && languageData.languages.length > 0 && (
+        <div className="mb-sm">
+          <CollectionLanguageSummary languages={languageData.languages} maxDisplay={3} />
+        </div>
       )}
 
       <p className="text-text-secondary text-sm mb-md">
