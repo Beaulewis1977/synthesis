@@ -13,9 +13,9 @@
 |------|--------|--------|
 | Task 1.1-1.2: Intent badge + mode indicator | ✅ COMPLETE | `9f82cce` |
 | Task 1.3: Intent override dropdown | ✅ COMPLETE | `9f82cce` |
-| Task 2.2: Language stats API endpoint | ✅ COMPLETE | `9c60591` |
-| Task 2.1+2.3: Language badges + chunking quality | ✅ COMPLETE | `9c60591` |
-| Task 3: Accessibility audit | ⏳ NOT STARTED | - |
+| Task 2.2: Language stats API endpoint | ✅ COMPLETE | `b517ad3` |
+| Task 2.1+2.3: Language badges + chunking quality | ✅ COMPLETE | `b517ad3` |
+| Task 3: Accessibility audit | ✅ COMPLETE | `7cdd938` |
 | Task 4: API documentation | ⏳ NOT STARTED | - |
 | Task 5: MMR placeholder UI | ⏳ NOT STARTED | - |
 
@@ -87,14 +87,49 @@
    - Added "Languages Detected" section with badges
    - Added chunking quality progress bar (color-coded: green/yellow/red)
 
-**Commit:** `9c60591` - ✅ COMMITTED
+**Commit:** `b517ad3` - ✅ COMMITTED
+
+---
+
+### Task 3: Accessibility Audit (COMPLETE)
+
+**Files Modified:**
+
+1. **`apps/web/src/pages/SearchPage.tsx`**
+   - Added sr-only label for search input
+   - Added `aria-expanded` and `aria-controls` to Advanced Settings toggle
+   - Added `aria-hidden` to decorative chevron icons
+   - Added `aria-valuetext` to MMR lambda slider for screen reader feedback
+   - Added `focus-visible` rings to Advanced Settings toggle
+
+2. **`apps/web/src/components/CollectionCard.tsx`**
+   - Added `aria-label` to selection checkbox
+   - Added `aria-expanded` and `aria-haspopup` to menu button
+   - Added `aria-hidden` to MoreVertical and Trash2 icons
+   - Added `focus-visible` rings to all buttons (menu, delete, confirm, cancel, view, chat)
+
+3. **`apps/web/src/components/DocumentList.tsx`**
+   - Added `focus-visible` rings to document checkboxes
+   - Added `aria-hidden` to FileIcon decorative icon
+   - Added `focus-visible` rings to Edit link and Refresh button
+   - Added `aria-busy` to Refresh button during loading
+   - Added `aria-hidden` to Edit2 and RefreshCw icons
+   - Added `focus-visible` rings to "Select all" checkbox
+
+4. **`apps/web/src/components/UploadZone.tsx`**
+   - Added `aria-label` and `aria-describedby` to drop zone button
+   - Added `focus-visible` ring to drop zone
+   - Added `aria-hidden` to Upload icon
+   - Added `aria-label` to hidden file input
+   - Added dynamic `aria-label` to remove file buttons
+   - Added `aria-hidden` to X icon
+   - Added `focus-visible` rings to Clear All and Upload buttons
+
+**Commit:** `7cdd938` - ✅ COMMITTED
 
 ---
 
 ## Remaining Work
-
-### Task 3: Accessibility Audit
-Full audit of all forms - see plan file for details.
 
 ### Task 4: API Documentation
 Create `docs/API.md` - see plan file for content.
@@ -108,12 +143,13 @@ Add "Coming Soon" UI for per-collection MMR defaults.
 
 ```
 On branch feature/rag-ui-completion
-2 commits ahead of develop
-9c60591 feat: integrate language support badges into collections
+3 commits ahead of develop
+7cdd938 fix(web): improve form accessibility and keyboard navigation
+b517ad3 feat: integrate language support badges into collections
 9f82cce feat(web): add query intent UI with badge, mode indicator, and override
 ```
 
-**Last Commit:** `9c60591` - feat: integrate language support badges into collections
+**Last Commit:** `7cdd938` - fix(web): improve form accessibility and keyboard navigation
 **Typecheck:** ✅ Passing
 
 ---

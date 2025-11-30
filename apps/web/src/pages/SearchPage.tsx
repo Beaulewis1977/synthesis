@@ -184,12 +184,16 @@ export function SearchPage() {
         {/* Search Form */}
         <form onSubmit={handleSearch} className="flex gap-sm mb-md">
           <div className="flex-1">
+            <label htmlFor="search-input" className="sr-only">
+              Search query
+            </label>
             <input
               type="text"
+              id="search-input"
               value={inputQuery}
               onChange={(e) => setInputQuery(e.target.value)}
               placeholder="Search for code, functions, or documentation..."
-              className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
+              className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             />
           </div>
           <button
@@ -258,9 +262,15 @@ export function SearchPage() {
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-xs text-sm text-text-secondary hover:text-text-primary transition-colors"
+            aria-expanded={showAdvanced}
+            aria-controls="advanced-settings"
+            className="flex items-center gap-xs text-sm text-text-secondary hover:text-text-primary transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 rounded"
           >
-            {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            {showAdvanced ? (
+              <ChevronUp size={16} aria-hidden="true" />
+            ) : (
+              <ChevronDown size={16} aria-hidden="true" />
+            )}
             Advanced Settings
             {mmrEnabled && (
               <span className="ml-1 px-2 py-0.5 bg-accent/10 text-accent rounded-full text-xs font-medium">
@@ -271,7 +281,10 @@ export function SearchPage() {
           </button>
 
           {showAdvanced && (
-            <div className="mt-sm p-4 bg-bg-secondary rounded-lg border border-border">
+            <div
+              id="advanced-settings"
+              className="mt-sm p-4 bg-bg-secondary rounded-lg border border-border"
+            >
               <div className="flex flex-col gap-md">
                 {/* Phase 12: Intent Override Dropdown */}
                 <div className="flex items-center justify-between">
@@ -346,7 +359,11 @@ export function SearchPage() {
                       step="0.05"
                       value={mmrLambda}
                       onChange={(e) => handleLambdaChange(Number.parseFloat(e.target.value))}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-accent"
+                      aria-valuemin={0.3}
+                      aria-valuemax={1.0}
+                      aria-valuenow={mmrLambda}
+                      aria-valuetext={`Diversity level ${mmrLambda.toFixed(2)}: ${mmrLambda < 0.5 ? 'more diverse results' : mmrLambda > 0.8 ? 'more relevant results' : 'balanced'}`}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                     />
                     <div className="flex justify-between text-xs text-text-secondary mt-1">
                       <span>← More Diverse</span>

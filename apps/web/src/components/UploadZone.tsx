@@ -231,6 +231,8 @@ export function UploadZone({ collectionId, onUploadComplete }: UploadZoneProps) 
       <button
         type="button"
         tabIndex={0}
+        aria-label="Upload files drop zone"
+        aria-describedby="upload-instructions"
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !isUploading) {
             document.getElementById('file-input')?.click();
@@ -241,16 +243,16 @@ export function UploadZone({ collectionId, onUploadComplete }: UploadZoneProps) 
         onDragLeave={handleDragLeave}
         className={`
           border-2 border-dashed rounded-lg p-xl text-center cursor-pointer
-          transition-colors
+          transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2
           ${isDragging ? 'border-accent bg-blue-50' : 'border-border hover:border-accent'}
           ${isUploading ? 'pointer-events-none opacity-50' : ''}
         `}
         onClick={() => !isUploading && document.getElementById('file-input')?.click()}
       >
-        <Upload className="mx-auto mb-md text-text-secondary" size={48} />
+        <Upload className="mx-auto mb-md text-text-secondary" size={48} aria-hidden="true" />
         <p className="text-lg font-medium mb-sm">Drag & Drop Files Here</p>
         <p className="text-sm text-text-secondary mb-md">or click to browse</p>
-        <p className="text-xs text-text-secondary">
+        <p id="upload-instructions" className="text-xs text-text-secondary">
           Supported: PDF, DOCX, Markdown, TXT • Max size: 50 MB per file
         </p>
         <input
@@ -261,6 +263,7 @@ export function UploadZone({ collectionId, onUploadComplete }: UploadZoneProps) 
           onChange={handleFileSelect}
           disabled={isUploading}
           className="hidden"
+          aria-label="Choose files to upload"
         />
       </button>
 
@@ -316,10 +319,10 @@ export function UploadZone({ collectionId, onUploadComplete }: UploadZoneProps) 
                   type="button"
                   onClick={() => removeFile(fileWithStatus.id)}
                   disabled={isUploading}
-                  className="btn btn-sm flex-shrink-0"
-                  aria-label="Remove file"
+                  className="btn btn-sm flex-shrink-0 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                  aria-label={`Remove ${fileWithStatus.file.name}`}
                 >
-                  <X size={16} />
+                  <X size={16} aria-hidden="true" />
                 </button>
               </div>
             ))}
@@ -334,7 +337,7 @@ export function UploadZone({ collectionId, onUploadComplete }: UploadZoneProps) 
             type="button"
             onClick={() => setFiles([])}
             disabled={isUploading}
-            className="btn btn-secondary"
+            className="btn btn-secondary focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
             Clear All
           </button>
@@ -342,7 +345,7 @@ export function UploadZone({ collectionId, onUploadComplete }: UploadZoneProps) 
             type="button"
             onClick={uploadFiles}
             disabled={validFileCount === 0 || isUploading}
-            className="btn btn-primary"
+            className="btn btn-primary focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
             {isUploading
               ? 'Uploading...'
