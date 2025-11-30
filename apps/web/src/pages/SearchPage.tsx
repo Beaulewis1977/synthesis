@@ -1,15 +1,46 @@
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, ChevronDown, ChevronUp, Loader2, Search, Sparkles } from 'lucide-react';
+import {
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Code2,
+  FileText,
+  GitCompare,
+  Lightbulb,
+  Loader2,
+  Search,
+  Sparkles,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ResultCard } from '../components/ResultCard';
 import { apiClient } from '../lib/api';
+import type { QueryIntent } from '../types';
 
 // Phase 14: Static tech stack list for filtering
 const TECH_STACKS = ['postgres', 'supabase', 'redis', 'flutter', 'typescript'];
 
 // Phase 13: Default MMR lambda value
 const DEFAULT_MMR_LAMBDA = 0.7;
+
+// Phase 12: Intent icon and label configuration
+const INTENT_CONFIG: Record<QueryIntent, { icon: LucideIcon; label: string; color: string }> = {
+  code_symbol: { icon: Code2, label: 'Code Symbol', color: 'text-blue-500' },
+  natural_language: { icon: Search, label: 'Natural Language', color: 'text-green-500' },
+  error_message: { icon: AlertCircle, label: 'Error Message', color: 'text-red-500' },
+  api_lookup: { icon: FileText, label: 'API Lookup', color: 'text-purple-500' },
+  conceptual: { icon: Lightbulb, label: 'Conceptual', color: 'text-yellow-500' },
+  comparison: { icon: GitCompare, label: 'Comparison', color: 'text-orange-500' },
+};
+
+// Phase 12: Intent icon component
+function IntentIcon({ intent }: { intent: QueryIntent }) {
+  const config = INTENT_CONFIG[intent];
+  if (!config) return null;
+  const Icon = config.icon;
+  return <Icon size={14} className={config.color} />;
+}
 
 export function SearchPage() {
   const { collectionId } = useParams<{ collectionId: string }>();
@@ -24,6 +55,9 @@ export function SearchPage() {
   const mmrLambdaParam = searchParams.get('mmr_lambda');
   const mmrEnabled = mmrEnabledParam === 'true';
   const mmrLambda = mmrLambdaParam ? Number.parseFloat(mmrLambdaParam) : DEFAULT_MMR_LAMBDA;
+
+  // Phase 12: Intent override from URL params (null = auto-detect)
+  const intentOverride = searchParams.get('intent') as QueryIntent | null;
 
   // Local state for the controlled search input field.
   const [inputQuery, setInputQuery] = useState(currentQuery);
@@ -40,7 +74,16 @@ export function SearchPage() {
     // The queryKey now directly depends on the URL params, ensuring React Query
     // refetches whenever the URL changes (e.g., on back/forward navigation).
     // Phase 13: Added MMR params to query key
-    queryKey: ['search', collectionId, currentQuery, selectedTags.join(','), mmrEnabled, mmrLambda],
+    // Phase 12: Added intent override to query key
+    queryKey: [
+      'search',
+      collectionId,
+      currentQuery,
+      selectedTags.join(','),
+      mmrEnabled,
+      mmrLambda,
+      intentOverride,
+    ],
     queryFn: () => {
       if (!collectionId || !currentQuery) {
         throw new Error('Collection ID and query are required');
@@ -50,7 +93,8 @@ export function SearchPage() {
         collectionId,
         10,
         selectedTags.length > 0 ? selectedTags : undefined,
-        mmrEnabled ? { enabled: true, lambda: mmrLambda } : undefined
+        mmrEnabled ? { enabled: true, lambda: mmrLambda } : undefined,
+        intentOverride
       );
     },
     // The query is enabled only when there's a query in the URL.
@@ -98,6 +142,17 @@ export function SearchPage() {
   const handleLambdaChange = (value: number) => {
     const params = new URLSearchParams(searchParams);
     params.set('mmr_lambda', value.toFixed(2));
+    setSearchParams(params, { replace: true });
+  };
+
+  // Phase 12: Intent override handler
+  const handleIntentChange = (value: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (value === 'auto') {
+      params.delete('intent');
+    } else {
+      params.set('intent', value);
+    }
     setSearchParams(params, { replace: true });
   };
 
@@ -218,6 +273,32 @@ export function SearchPage() {
           {showAdvanced && (
             <div className="mt-sm p-4 bg-bg-secondary rounded-lg border border-border">
               <div className="flex flex-col gap-md">
+                {/* Phase 12: Intent Override Dropdown */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label htmlFor="intent-override" className="font-medium text-text-primary">
+                      Query Intent
+                    </label>
+                    <p className="text-xs text-text-secondary mt-0.5">
+                      Override automatic intent detection
+                    </p>
+                  </div>
+                  <select
+                    id="intent-override"
+                    value={intentOverride || 'auto'}
+                    onChange={(e) => handleIntentChange(e.target.value)}
+                    className="px-3 py-1.5 border border-border rounded-lg text-sm bg-bg-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                  >
+                    <option value="auto">Auto-detect</option>
+                    <option value="code_symbol">Code Symbol</option>
+                    <option value="natural_language">Natural Language</option>
+                    <option value="error_message">Error Message</option>
+                    <option value="api_lookup">API Lookup</option>
+                    <option value="conceptual">Conceptual</option>
+                    <option value="comparison">Comparison</option>
+                  </select>
+                </div>
+
                 {/* MMR Toggle */}
                 <div className="flex items-center justify-between">
                   <div>
@@ -234,7 +315,7 @@ export function SearchPage() {
                     role="switch"
                     aria-checked={mmrEnabled}
                     onClick={toggleMMR}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                       mmrEnabled ? 'bg-accent' : 'bg-gray-300'
                     }`}
                   >
@@ -273,24 +354,93 @@ export function SearchPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Phase 12: Search Configuration Details */}
+                {data?.metadata?.diagnostics && (
+                  <div className="mt-3 p-3 bg-bg-tertiary rounded-lg text-xs">
+                    <h4 className="font-medium text-text-primary mb-2">Search Configuration</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-text-secondary">Mode:</span>
+                        <span className="ml-1 font-medium">{data.metadata.search_mode}</span>
+                      </div>
+                      <div>
+                        <span className="text-text-secondary">Intent:</span>
+                        <span className="ml-1 font-medium">
+                          {data.metadata.intent?.type || 'auto'}
+                        </span>
+                      </div>
+                      {data.metadata.diagnostics.weights && (
+                        <>
+                          <div>
+                            <span className="text-text-secondary">Vector Weight:</span>
+                            <span className="ml-1 font-medium">
+                              {data.metadata.diagnostics.weights.vector}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-text-secondary">BM25 Weight:</span>
+                            <span className="ml-1 font-medium">
+                              {data.metadata.diagnostics.weights.bm25}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                      {data.metadata.intent?.confidence !== undefined && (
+                        <div>
+                          <span className="text-text-secondary">Confidence:</span>
+                          <span className="ml-1 font-medium">
+                            {(data.metadata.intent.confidence * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      )}
+                      {data.metadata.diagnostics.timing && (
+                        <div>
+                          <span className="text-text-secondary">Search Time:</span>
+                          <span className="ml-1 font-medium">
+                            {data.metadata.diagnostics.timing.total_ms}ms
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
 
         {data && (
-          <p className="text-text-secondary text-sm">
-            Found {data.total_results} result{data.total_results !== 1 ? 's' : ''} in{' '}
-            {data.search_time_ms}ms
-            {selectedTags.length > 0 && (
-              <span className="ml-xs">(filtered by: {selectedTags.join(', ')})</span>
+          <div className="space-y-1">
+            <p className="text-text-secondary text-sm">
+              Found {data.total_results} result{data.total_results !== 1 ? 's' : ''} in{' '}
+              {data.search_time_ms}ms
+              {selectedTags.length > 0 && (
+                <span className="ml-xs">(filtered by: {selectedTags.join(', ')})</span>
+              )}
+              {data.metadata?.mmr?.enabled && (
+                <span className="ml-xs text-accent">
+                  (diversified: {data.metadata.mmr.duplicates_removed} duplicates removed)
+                </span>
+              )}
+            </p>
+            {/* Phase 12: Intent Badge */}
+            {data.metadata?.intent && (
+              <div className="flex items-center gap-2 text-sm text-text-secondary">
+                <IntentIcon intent={data.metadata.intent.type} />
+                <span className={INTENT_CONFIG[data.metadata.intent.type]?.color}>
+                  {INTENT_CONFIG[data.metadata.intent.type]?.label}
+                </span>
+                <span className="text-text-tertiary">|</span>
+                <span>Mode: {data.metadata.search_mode}</span>
+                {data.metadata.diagnostics?.weights && (
+                  <span className="text-text-tertiary">
+                    ({(data.metadata.diagnostics.weights.vector * 100).toFixed(0)}% vector)
+                  </span>
+                )}
+              </div>
             )}
-            {data.metadata?.mmr?.enabled && (
-              <span className="ml-xs text-accent">
-                (diversified: {data.metadata.mmr.duplicates_removed} duplicates removed)
-              </span>
-            )}
-          </p>
+          </div>
         )}
       </div>
 

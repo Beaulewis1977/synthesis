@@ -354,7 +354,8 @@ class ApiClient {
     collectionId: string,
     topK = 10,
     techStack?: string[],
-    mmrOptions?: { enabled?: boolean; lambda?: number }
+    mmrOptions?: { enabled?: boolean; lambda?: number },
+    intentOverride?: string | null
   ): Promise<SearchResponse> {
     const body: Record<string, unknown> = {
       query,
@@ -373,6 +374,11 @@ class ApiClient {
     }
     if (mmrOptions?.lambda !== undefined) {
       body.mmr_lambda = mmrOptions.lambda;
+    }
+
+    // Phase 12: Include intent override if provided
+    if (intentOverride) {
+      body.intent = intentOverride;
     }
 
     return this.request<SearchResponse>('/api/search', {
