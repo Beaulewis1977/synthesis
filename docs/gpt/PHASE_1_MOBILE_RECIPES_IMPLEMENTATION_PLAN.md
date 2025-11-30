@@ -1,14 +1,26 @@
 # Phase 1: Mobile Feature Recipes & Examples – Implementation Plan
 
-**Version:** 1.0 · **Created:** November 2025  
-**Related Docs:**  
+**Version:** 2.0 · **Created:** November 2025 · **Updated:** November 2025  
+**Branch:** `feature/gpt-phase1-mobile-recipes`  
+**PR Title:** GPT Phase 1: Mobile Feature Recipes & Metadata
+
+---
+
+## Prerequisites
+
+- [ ] None - This phase can be implemented independently
+- [ ] `develop` branch is up to date
+- [ ] All existing tests pass (`pnpm test`)
+
+---
+
+## Related Documentation
+
 - `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` (Phases 1, 3, 5, 13, 13.5)  
 - `docs/01_TECH_STACK.md`  
-- `docs/CONFIGURATION.md` (Code Intelligence & Tech Stack sections)  
+- `docs/CONFIGURATION.md`
 - `docs/guides/HYBRID_SEARCH_GUIDE.md`  
-- `docs/guides/CODE_SEARCH_GUIDE.md`  
-- `docs/guides/SYNTHESIS_GUIDE.md`  
-- `docs/new-phases/06_PHASE_15_17_STATUS_REPORT.md`
+- `docs/guides/CODE_SEARCH_GUIDE.md`
 
 ---
 
@@ -32,100 +44,221 @@ This plan layers on top of existing metadata, tech‑stack detection, and code i
 
 ## 2. GitHub Workflow
 
-For all work in this phase:
-
-- Branches MUST be created from `develop`.
-- Branch names MUST be descriptive and include the GPT phase and scope, for example:
-  - `feature/gpt-phase1-mobile-metadata`
-  - `feature/gpt-phase1-mobile-recipes`
-  - `feature/gpt-phase1-mobile-retrieval`
-  - `feature/gpt-phase1-mobile-ui-mcp`
-  - `feature/gpt-phase1-mobile-eval`
-- Agents MUST NOT commit or push without explicit human approval.
-- Every push MUST be followed by a pull request into `develop`.
-
-### 2.1 Workflow Per Phase
+**Single branch for entire phase:** `feature/gpt-phase1-mobile-recipes`
 
 ```bash
 # 1. Create branch (WAIT FOR APPROVAL)
 git checkout develop && git pull origin develop
-git checkout -b feature/gpt-phase1-mobile-scope
+git checkout -b feature/gpt-phase1-mobile-recipes
 
-# 2. Implement changes...
+# 2. Implement all sub-phases (4.1 through 4.5) in order
 
-# 3. Present changes to human for review
+# 3. Run tests and lint
+pnpm test
+pnpm lint
 
-# 4. After APPROVAL: commit
+# 4. Present ALL changes for human review
+
+# 5. After APPROVAL: commit
 git add -A
-git commit -m "feat(phase1-mobile): description"
+git commit -m "feat(gpt-phase1): implement mobile feature recipes and metadata
 
-# 5. After APPROVAL: push
-git push -u origin feature/gpt-phase1-mobile-scope
+- Add platform, feature_tags, usage_tier to metadata types
+- Create feature-detector service
+- Add feature-aware search filtering
+- Create recipe document template
+- Add database migration for metadata indexes
+- Add unit tests"
 
-# 6. Create PR
-gh pr create --base develop --title "GPT Phase 1: Mobile Feature Recipes – Scope"
+# 6. After APPROVAL: push
+git push -u origin feature/gpt-phase1-mobile-recipes
+
+# 7. Create PR
+gh pr create --base develop --title "GPT Phase 1: Mobile Feature Recipes & Metadata"
 ```
 
-Adapt `feature/gpt-phase1-mobile-scope` and the PR title for each sub‑phase (metadata, recipes, retrieval, UI/MCP, eval). Also follow the rules in `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` §2 and `agents.md`.
+Follow rules in `docs/gpt/MASTER_PLAN.md` Section 2 and `agents.md`.
 
 ---
 
 ## 3. Phase Overview
 
-| # | Phase | Priority | Days | Branch (suggested) |
-|---|-------|----------|------|--------------------|
-| 1 | Mobile Metadata Taxonomy | P0 | 2–3 | `feature/gpt-phase1-mobile-metadata` |
-| 2 | Curated Recipe Docs & Collections | P0 | 3–5 | `feature/gpt-phase1-mobile-recipes` |
-| 3 | Feature-Aware Retrieval | P1 | 3–4 | `feature/gpt-phase1-mobile-retrieval` |
-| 4 | UI & MCP Exposure | P2 | 2–4 | `feature/gpt-phase1-mobile-ui-mcp` |
-| 5 | Evaluation & Golden Tasks | P2 | 2–3 | `feature/gpt-phase1-mobile-eval` |
+**All sub-phases go into ONE branch and ONE PR.**
+
+| # | Sub-Phase | Priority | Est. Time | Commit Scope |
+|---|-----------|----------|-----------|---------------|
+| 4.1 | Mobile Metadata Taxonomy | P0 | 2–3 days | `feat(gpt-phase1): add mobile metadata types and feature detector` |
+| 4.2 | Curated Recipe Docs & Collections | P0 | 3–5 days | `feat(gpt-phase1): add recipe template and example recipes` |
+| 4.3 | Feature-Aware Retrieval | P1 | 3–4 days | `feat(gpt-phase1): add feature-aware search filtering` |
+| 4.4 | UI & MCP Exposure | P2 | 2–4 days | `feat(gpt-phase1): add UI components and MCP tool updates` |
+| 4.5 | Evaluation & Golden Tasks | P2 | 2–3 days | `feat(gpt-phase1): add evaluation harness and golden tasks` |
+
+### Commit Strategy
+
+```bash
+# Work on single branch
+git checkout -b feature/gpt-phase1-mobile-recipes
+
+# Commit after completing each sub-phase:
+git commit -m "feat(gpt-phase1): add mobile metadata types and feature detector"
+git commit -m "feat(gpt-phase1): add recipe template and example recipes"
+git commit -m "feat(gpt-phase1): add feature-aware search filtering"
+git commit -m "feat(gpt-phase1): add UI components and MCP tool updates"
+git commit -m "feat(gpt-phase1): add evaluation harness and golden tasks"
+
+# One PR at the end with all commits
+git push -u origin feature/gpt-phase1-mobile-recipes
+gh pr create --base develop --title "GPT Phase 1: Mobile Feature Recipes & Metadata"
+```
 
 ---
 
-## 4. Phase 1: Mobile Metadata Taxonomy
+## 4. Sub-Phase 4.1: Mobile Metadata Taxonomy
 
-**Problem:** Existing metadata and tech detection (Phases 3, 13, 13.5) do not explicitly model **features** (auth, billing, notifications) or **platform‑level concerns** needed for mobile SaaS agents.
+**Problem:** Existing metadata does not model **features** (auth, billing) or **platform concerns** for mobile SaaS agents.
 
-### 3.1 Deliverables
+### 4.1.1 TypeScript Types to Add
 
-- Extended metadata types for mobile feature tagging:
-  - At document level: `platform`, `feature_tags`, `usage_tier`, `recommended?`.
-  - At chunk level: `is_example`, `is_recipe`, `feature_tags`, `platform`.
-- Ingestion‑time inference utilities for:
-  - Mapping docs/repo paths and content to mobile features.
-  - Mapping to specific frameworks/SDK versions.
-- Migrations to persist this metadata in `documents.metadata` and `chunks.metadata`.
+**File:** `packages/shared/src/index.ts`
 
-### 3.2 Key Design Points
+```typescript
+// GPT Phase 1: Mobile Feature Types
+export type ContentPlatform = 'mobile' | 'web' | 'backend' | 'shared';
+export type UsageTier = 'official' | 'reference' | 'example' | 'recipe';
+export type MobileFeatureTag =
+  | 'auth' | 'onboarding' | 'billing' | 'payments' | 'subscriptions'
+  | 'push_notifications' | 'offline' | 'sync' | 'navigation'
+  | 'state_management' | 'forms' | 'analytics' | 'deep_linking'
+  | 'social_auth' | 'file_upload' | 'camera' | 'location' | 'maps'
+  | 'chat' | 'realtime' | 'search' | 'caching' | 'theming' | 'localization';
+```
 
-- Reuse and extend **existing types** in `packages/shared/src/index.ts`:
-  - `DocumentMetadata`, `ChunkMetadata`, `DocumentFramework`, `DocumentLanguage`, `DocumentContentCategory`.
-- Add **non‑breaking fields** such as:
-  - `platform?: 'mobile' | 'web' | 'backend' | 'shared';`
-  - `feature_tags?: string[];` (e.g., `['auth', 'billing', 'notifications', 'offline']`)
-  - `usage_tier?: 'official' | 'reference' | 'example' | 'recipe';`
-  - On chunks: `is_example?: boolean; is_recipe?: boolean; feature_tags?: string[];`.
-- Extend `detectTechStack` (`apps/server/src/services/tech-detector.ts`) with:
-  - Signals for **Android**, **iOS/Swift**, **React Native** if needed later.
-  - Stronger Flutter/Supabase/Firebase detection feeding into `feature_tags`.
+Extend existing `DocumentMetadata` and `ChunkMetadata` interfaces:
 
-### 3.3 Key Files
+```typescript
+export interface DocumentMetadata {
+  // ... existing fields ...
+  
+  // GPT Phase 1 additions
+  platform?: ContentPlatform;
+  feature_tags?: MobileFeatureTag[];
+  usage_tier?: UsageTier;
+  recommended?: boolean;
+}
+
+export interface ChunkMetadata {
+  // ... existing fields ...
+  
+  // GPT Phase 1 additions
+  platform?: ContentPlatform;
+  feature_tags?: MobileFeatureTag[];
+  is_example?: boolean;
+  is_recipe?: boolean;
+}
+```
+
+### 4.1.2 Database Migration
+
+**File:** `packages/db/migrations/0030_mobile_metadata.sql`
+
+```sql
+-- GPT Phase 1: Mobile Feature Metadata Indexes
+CREATE INDEX IF NOT EXISTS idx_documents_feature_tags 
+  ON documents USING GIN ((metadata->'feature_tags'));
+
+CREATE INDEX IF NOT EXISTS idx_chunks_feature_tags 
+  ON chunks USING GIN ((metadata->'feature_tags'));
+
+CREATE INDEX IF NOT EXISTS idx_documents_platform 
+  ON documents ((metadata->>'platform'))
+  WHERE metadata->>'platform' IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_documents_usage_tier 
+  ON documents ((metadata->>'usage_tier'))
+  WHERE metadata->>'usage_tier' IS NOT NULL;
+```
+
+### 4.1.3 Feature Detector Service
+
+**File:** `apps/server/src/services/feature-detector.ts` (NEW)
+
+Create a service that detects features from content:
+
+```typescript
+import type { MobileFeatureTag, ContentPlatform, UsageTier } from '@synthesis/shared';
+
+const FEATURE_PATTERNS: Record<MobileFeatureTag, RegExp[]> = {
+  auth: [/\b(auth|login|signup|signin)\b/i, /\b(jwt|oauth|firebase_auth)\b/i],
+  billing: [/\b(billing|stripe|payment|checkout)\b/i],
+  push_notifications: [/\b(push|fcm|apns|notification)\b/i],
+  // ... add patterns for all feature tags
+};
+
+export function detectFeatures(text: string): MobileFeatureTag[] {
+  const detected: MobileFeatureTag[] = [];
+  for (const [feature, patterns] of Object.entries(FEATURE_PATTERNS)) {
+    if (patterns.some(p => p.test(text))) {
+      detected.push(feature as MobileFeatureTag);
+    }
+  }
+  return detected;
+}
+
+export function detectPlatform(text: string): ContentPlatform | undefined {
+  if (/\b(flutter|dart|android|ios|swift|kotlin)\b/i.test(text)) return 'mobile';
+  if (/\b(react|vue|angular|nextjs)\b/i.test(text)) return 'web';
+  if (/\b(node|express|fastify|postgresql)\b/i.test(text)) return 'backend';
+  return undefined;
+}
+
+export function detectUsageTier(source: string): UsageTier | undefined {
+  if (/docs\.(flutter|supabase|firebase)\.dev/i.test(source)) return 'official';
+  if (/example|sample|demo/i.test(source)) return 'example';
+  if (/recipe|cookbook/i.test(source)) return 'recipe';
+  return 'reference';
+}
+```
+
+### 4.1.4 Unit Tests
+
+**File:** `apps/server/src/services/__tests__/feature-detector.test.ts`
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { detectFeatures, detectPlatform, detectUsageTier } from '../feature-detector.js';
+
+describe('feature-detector', () => {
+  it('detects auth features', () => {
+    expect(detectFeatures('User authentication with Supabase')).toContain('auth');
+  });
+
+  it('detects mobile platform', () => {
+    expect(detectPlatform('Flutter widget for iOS')).toBe('mobile');
+  });
+
+  it('detects official usage tier', () => {
+    expect(detectUsageTier('https://docs.flutter.dev/guide')).toBe('official');
+  });
+});
+```
+
+### 4.1.5 Key Files Summary
 
 | File | Action |
 |------|--------|
-| `packages/shared/src/index.ts` | ADD optional `platform`, `feature_tags`, `usage_tier`, `is_recipe`, `is_example` fields |
-| `apps/server/src/services/metadata-validator.ts` | UPDATE schemas/inference to support new fields (no stricter requirements) |
-| `apps/server/src/services/tech-detector.ts` | EXTEND to emit richer `tech_stack` tags usable as `feature_tags` seeds |
-| `packages/db/migrations/0XX_mobile_metadata.sql` | CREATE migration to backfill or index new metadata fields as needed |
+| `packages/shared/src/index.ts` | ADD types |
+| `packages/db/migrations/0030_mobile_metadata.sql` | CREATE |
+| `apps/server/src/services/feature-detector.ts` | CREATE |
+| `apps/server/src/services/__tests__/feature-detector.test.ts` | CREATE |
+| `apps/server/src/services/metadata-validator.ts` | MODIFY to call feature detector |
 
-### 3.4 Acceptance Criteria
+### 4.1.6 Acceptance Criteria
 
-- All newly ingested documents and chunks have:
-  - `platform` where inferable.
-  - `feature_tags` when a feature can be confidently detected.
-  - `usage_tier` consistently set (`official`/`reference`/`example`/`recipe`).
-- Existing ingestion paths continue to work with default/empty values.
-- No breaking changes to existing API responses.
+- [ ] TypeScript types compile without errors
+- [ ] Migration runs successfully
+- [ ] Feature detector tests pass (aim for 90%+ coverage)
+- [ ] New documents get `feature_tags` populated
+- [ ] No breaking changes to existing APIs
 
 ---
 

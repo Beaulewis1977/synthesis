@@ -36,53 +36,79 @@ This phase builds on:
 
 ## 2. GitHub Workflow
 
-For all work in this MCP tools phase:
+**Single branch for entire phase:** `feature/gpt-phase3-mcp-task-tools`
 
-- Branches MUST be created from `develop`.
-- Branch names MUST be descriptive and include the GPT phase and scope, for example:
-  - `feature/gpt-phase3-mcp-design`
-  - `feature/gpt-phase3-api-layer`
-  - `feature/gpt-phase3-mcp-tools`
-  - `feature/gpt-phase3-agent-prompts`
-  - `feature/gpt-phase3-mcp-eval`
-- Agents MUST NOT commit or push without explicit human approval.
-- Every push MUST result in a pull request into `develop`.
-
-### 2.1 Workflow Per Phase
+**IMPORTANT:** Ensure Phase 1 and Phase 2 PRs are merged before starting this phase.
 
 ```bash
-# 1. Create branch (WAIT FOR APPROVAL)
+# 1. Verify prerequisites
 git checkout develop && git pull origin develop
-git checkout -b feature/gpt-phase3-mcp-scope
+# Confirm Phase 1 and Phase 2 changes are present
 
-# 2. Implement changes...
+# 2. Create branch (WAIT FOR APPROVAL)
+git checkout -b feature/gpt-phase3-mcp-task-tools
 
-# 3. Present changes to human for review
+# 3. Implement all sub-phases in order
 
-# 4. After APPROVAL: commit
+# 4. Run tests and lint
+pnpm test
+pnpm lint
+
+# 5. Present ALL changes for human review
+
+# 6. After APPROVAL: commit
 git add -A
-git commit -m "feat(phase3-mcp): description"
+git commit -m "feat(gpt-phase3): implement task-specific MCP tools
 
-# 5. After APPROVAL: push
-git push -u origin feature/gpt-phase3-mcp-scope
+- Add search_mobile_docs MCP tool
+- Add find_code_examples MCP tool
+- Add get_feature_recipe MCP tool
+- Add get_project_tech_stack MCP tool  
+- Add get_db_schema MCP tool
+- Add graph_expand_context MCP tool
+- Add HTTP API endpoints for tools
+- Update agent prompts with tool usage examples"
 
-# 6. Create PR
-gh pr create --base develop --title "GPT Phase 3: MCP Task Tools – Scope"
+# 7. After APPROVAL: push
+git push -u origin feature/gpt-phase3-mcp-task-tools
+
+# 8. Create PR
+gh pr create --base develop --title "GPT Phase 3: Task-Specific MCP Tools"
 ```
 
-Adapt `feature/gpt-phase3-mcp-scope` and the PR title for each sub‑phase. Also follow `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` §2 and `agents.md`.
+Follow rules in `docs/gpt/MASTER_PLAN.md` Section 2 and `agents.md`.
 
 ---
 
 ## 3. Phase Overview
 
-| # | Phase | Priority | Days | Branch (suggested) |
-|---|-------|----------|------|--------------------|
-| 1 | Task Taxonomy & Tool Design | P0 | 2–3 | `feature/gpt-phase3-mcp-design` |
-| 2 | HTTP API Enhancements | P0 | 3–5 | `feature/gpt-phase3-api-layer` |
-| 3 | MCP Tool Implementation | P1 | 4–6 | `feature/gpt-phase3-mcp-tools` |
-| 4 | Agent Prompt & Config Updates | P1 | 2–3 | `feature/gpt-phase3-agent-prompts` |
-| 5 | Scenario-Based Evaluation | P2 | 2–3 | `feature/gpt-phase3-mcp-eval` |
+**All sub-phases go into ONE branch and ONE PR.**
+
+| # | Sub-Phase | Priority | Est. Time | Commit Scope |
+|---|-----------|----------|-----------|---------------|
+| 5.1 | Task Taxonomy & Tool Design | P0 | 2–3 days | `feat(gpt-phase3): add tool taxonomy and specifications` |
+| 5.2 | HTTP API Enhancements | P0 | 3–5 days | `feat(gpt-phase3): add feature-aware search endpoints` |
+| 5.3 | MCP Tool Implementation | P1 | 4–6 days | `feat(gpt-phase3): implement 6 new MCP tools` |
+| 5.4 | Agent Prompt & Config Updates | P1 | 2–3 days | `feat(gpt-phase3): update agent prompts with tool examples` |
+| 5.5 | Scenario-Based Evaluation | P2 | 2–3 days | `feat(gpt-phase3): add evaluation scenarios and harness` |
+
+### Commit Strategy
+
+```bash
+# Work on single branch
+git checkout -b feature/gpt-phase3-mcp-task-tools
+
+# Commit after completing each sub-phase:
+git commit -m "feat(gpt-phase3): add tool taxonomy and specifications"
+git commit -m "feat(gpt-phase3): add feature-aware search endpoints"
+git commit -m "feat(gpt-phase3): implement 6 new MCP tools"
+git commit -m "feat(gpt-phase3): update agent prompts with tool examples"
+git commit -m "feat(gpt-phase3): add evaluation scenarios and harness"
+
+# One PR at the end with all commits
+git push -u origin feature/gpt-phase3-mcp-task-tools
+gh pr create --base develop --title "GPT Phase 3: Task-Specific MCP Tools"
+```
 
 ---
 
@@ -182,57 +208,124 @@ These endpoints are thin wrappers around existing services, tuned for agent cons
 
 ---
 
-## 6. Phase 3: MCP Tool Implementation
+## 6. Sub-Phase 5.3: MCP Tool Implementation
 
-**Problem:** The MCP server needs to expose the new API capabilities in a GPT‑friendly, strongly typed way.
+**Problem:** The MCP server needs to expose new capabilities in a strongly typed way.
 
-### 5.1 Deliverables
+### 5.3.1 Tool Implementation Pattern
 
-- Implement new MCP tools in `apps/mcp/src/index.ts` using the existing pattern:
-  - Zod schemas → `toJsonSchema` → `server.registerTool(...)`.
+**File:** `apps/mcp/src/index.ts`
 
-Target tools (names may be adjusted slightly for ergonomics):
+Follow the existing pattern for each new tool:
 
-1. `search_mobile_docs`
-   - Inputs: `collectionId?`, `framework`, `frameworkVersion?`, `feature?`, `query?`, `usageTierPreference?`.
-   - Backend: `POST /api/search/mobile`.
+```typescript
+import { z } from 'zod';
 
-2. `search_official_docs`
-   - Inputs: `framework`, `topic`, `versionRange?`.
-   - Backend: `POST /api/search/mobile` with `usage_tier_preference='official'` and `source_quality='official'`.
+// Example: search_mobile_docs tool
+const SearchMobileDocsSchema = z.object({
+  collection_id: z.string().uuid().optional(),
+  framework: z.enum(['flutter', 'react_native', 'swift', 'kotlin']),
+  framework_version: z.string().optional(),
+  feature: z.string().optional().describe('Feature tag like auth, billing, push_notifications'),
+  query: z.string().optional().describe('Free-text search query'),
+  usage_tier_preference: z.enum(['official', 'balanced', 'examples', 'recipes-first']).optional(),
+  limit: z.number().int().min(1).max(20).optional().default(10),
+});
 
-3. `get_feature_recipe`
-   - Inputs: `framework`, `feature`, `version?`.
-   - Backend: search in recipes collection + optional summary via synthesis.
+server.tool(
+  'search_mobile_docs',
+  'Search for mobile development documentation with framework and feature filtering. ' +
+  'Use this when you need docs, guides, or tutorials for mobile app features.',
+  SearchMobileDocsSchema,
+  async (params) => {
+    const response = await apiClient.post('/api/search/mobile', params);
+    if (!response.ok) {
+      return { error: `Search failed: ${await response.text()}` };
+    }
+    return response.json();
+  }
+);
+```
 
-4. `find_code_examples`
-   - Inputs: `framework`, `feature`, `language?`, `techStack?`.
-   - Backend: `POST /api/search/examples`.
+### 5.3.2 All Tools to Implement
 
-5. `get_project_tech_stack`
-   - Inputs: `projectCollectionId`.
-   - Backend: `GET /api/projects/:id/tech-stack`.
+```typescript
+// 1. search_mobile_docs - Feature-aware mobile documentation search
+const SearchMobileDocsSchema = z.object({
+  collection_id: z.string().uuid().optional(),
+  framework: z.enum(['flutter', 'react_native', 'swift', 'kotlin']),
+  feature: z.string().optional(),
+  query: z.string().optional(),
+  usage_tier_preference: z.enum(['official', 'balanced', 'examples', 'recipes-first']).optional(),
+  limit: z.number().optional().default(10),
+});
 
-6. `get_db_schema`
-   - Inputs: `projectCollectionId`, optional filters (tables, schemas).
-   - Backend: `GET /api/projects/:id/db-schema`.
+// 2. find_code_examples - Find code examples for specific features
+const FindCodeExamplesSchema = z.object({
+  collection_id: z.string().uuid().optional(),
+  framework: z.enum(['flutter', 'react_native', 'swift', 'kotlin']),
+  feature: z.string().describe('Feature to find examples for'),
+  language: z.string().optional(),
+  tech_stack: z.array(z.string()).optional(),
+  limit: z.number().optional().default(5),
+});
 
-7. `graph_expand_context`
-   - Inputs: `collectionId`, `seed` (chunk ID, symbol name, or file path), `maxDepth?`, `maxNodes?`.
-   - Backend: `POST /api/graph/context`.
+// 3. get_feature_recipe - Get curated recipe for a feature
+const GetFeatureRecipeSchema = z.object({
+  framework: z.enum(['flutter', 'react_native', 'swift', 'kotlin']),
+  feature: z.string().describe('Feature tag like auth, billing, push_notifications'),
+  version: z.string().optional(),
+  include_alternatives: z.boolean().optional().default(false),
+});
 
-### 5.2 Key Files
+// 4. get_project_tech_stack - Analyze project technology stack
+const GetProjectTechStackSchema = z.object({
+  collection_id: z.string().uuid().describe('Collection ID of the project'),
+});
+
+// 5. get_db_schema - Get database schema from project
+const GetDbSchemaSchema = z.object({
+  collection_id: z.string().uuid(),
+  tables: z.array(z.string()).optional().describe('Filter to specific tables'),
+  include_relationships: z.boolean().optional().default(true),
+});
+
+// 6. graph_expand_context - Expand context using knowledge graph
+const GraphExpandContextSchema = z.object({
+  collection_id: z.string().uuid(),
+  seed: z.string().describe('Starting point: chunk ID, symbol name, or file path'),
+  seed_type: z.enum(['chunk_id', 'symbol', 'file_path']).optional(),
+  max_depth: z.number().int().min(1).max(5).optional().default(2),
+  max_nodes: z.number().int().min(1).max(100).optional().default(20),
+  edge_types: z.array(z.string()).optional().describe('Filter to specific edge types'),
+});
+```
+
+### 5.3.3 Tool Descriptions (for Agent Prompts)
+
+| Tool | When to Use |
+|------|-------------|
+| `search_mobile_docs` | Finding documentation, guides, or tutorials for mobile features |
+| `find_code_examples` | Need working code examples for a specific feature |
+| `get_feature_recipe` | Want the recommended pattern/approach for a feature |
+| `get_project_tech_stack` | Need to understand what technologies a project uses |
+| `get_db_schema` | Need to understand database structure |
+| `graph_expand_context` | Need to trace code flow or understand relationships |
+
+### 5.3.4 Key Files
 
 | File | Action |
 |------|--------|
-| `apps/mcp/src/index.ts` | ADD new tools with Zod schemas and error handling consistent with existing tools |
-| `apps/mcp/src/api.ts` | MAY EXTEND helper methods for new endpoints |
+| `apps/mcp/src/index.ts` | ADD 6 new tools with Zod schemas |
+| `apps/mcp/src/api.ts` | ADD helper methods for new endpoints |
 
-### 5.3 Acceptance Criteria
+### 5.3.5 Acceptance Criteria
 
-- Tools validate input strictly via Zod.
-- Errors are returned as human‑readable text in tool responses (consistent with current tools).
-- Tools return JSON string payloads that agents can parse into structured objects.
+- [ ] All 6 tools implemented and registered
+- [ ] Tools validate input via Zod
+- [ ] Error messages are human-readable
+- [ ] Tools return structured JSON responses
+- [ ] Tools can be called successfully from Claude/MCP client
 
 ---
 

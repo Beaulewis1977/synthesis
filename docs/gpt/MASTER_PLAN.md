@@ -1,6 +1,6 @@
 # GPT-Oriented Enhancements: Master Plan
 
-**Version:** 1.0 · **Created:** November 2025  
+**Version:** 2.0 · **Created:** November 2025 · **Updated:** November 2025  
 **Scope:** Agent-centric improvements for MCP + mobile SaaS workflows
 
 ---
@@ -21,7 +21,23 @@ Each initiative has its own implementation plan:
 - `PHASE_2_GRAPH_RETRIEVAL_IMPLEMENTATION_PLAN.md`
 - `PHASE_3_MCP_TASK_TOOLS_IMPLEMENTATION_PLAN.md`
 
-These plans build on existing documentation and phases, especially:
+### Implementation Order & Dependencies
+
+```
+Phase 1 (Mobile Recipes)     Phase 2 (Graph Retrieval)
+         │                            │
+         └──────────┬─────────────────┘
+                    │
+                    ▼
+         Phase 3 (MCP Task Tools)
+```
+
+**Phase 1** and **Phase 2** can be implemented in parallel.  
+**Phase 3** requires both Phase 1 and Phase 2 to be complete.
+
+### Reference Documentation
+
+These plans build on existing documentation and phases:
 
 - `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md`
 - `docs/CONFIGURATION.md`
@@ -35,42 +51,95 @@ These plans build on existing documentation and phases, especially:
 
 ## 2. GitHub Workflow
 
-All work under the `docs/gpt` folder MUST follow the same guarded Git workflow as the rest of the project:
+All work under the GPT phases MUST follow the guarded Git workflow. **Each phase gets its own branch and PR.**
 
-- **Base branch:** Always branch from `develop`.
-- **Branch naming:** Use descriptive names that include the GPT phase and purpose, for example:
-  - `feature/gpt-phase1-mobile-metadata`
-  - `feature/gpt-phase2-graph-schema`
-  - `feature/gpt-phase3-mcp-tools`
-- **No direct commits or pushes by agents:**
-  - Agents MUST NOT commit or push without explicit human approval.
-- **All pushes MUST go through a PR into `develop`:**
-  - Every branch push should be followed by a PR using best practices.
+### 2.1 Branch Strategy
 
-### 2.1 Workflow Per Phase
+| Phase | Branch Name | PR Title |
+|-------|-------------|----------|
+| Phase 1 | `feature/gpt-phase1-mobile-recipes` | GPT Phase 1: Mobile Feature Recipes & Metadata |
+| Phase 2 | `feature/gpt-phase2-graph-retrieval` | GPT Phase 2: Graph Retrieval & Context Expansion |
+| Phase 3 | `feature/gpt-phase3-mcp-task-tools` | GPT Phase 3: Task-Specific MCP Tools |
+
+### 2.2 Rules
+
+- **Base branch:** Always branch from `develop`
+- **One PR per phase:** Do not combine phases into a single PR
+- **No direct commits:** Agents MUST NOT commit or push without explicit human approval
+- **Review before merge:** All PRs require human review before merging
+
+### 2.3 Workflow Per Phase
 
 ```bash
-# 1. Create branch (WAIT FOR APPROVAL)
+# ════════════════════════════════════════════════════════════════
+# STEP 1: Create branch (WAIT FOR HUMAN APPROVAL)
+# ════════════════════════════════════════════════════════════════
 git checkout develop && git pull origin develop
-git checkout -b feature/gpt-phaseX-descriptive-name
+git checkout -b feature/gpt-phase1-mobile-recipes  # Use correct phase number
 
-# 2. Implement changes...
+# ════════════════════════════════════════════════════════════════
+# STEP 2: Implement sub-phases and commit after each
+# ════════════════════════════════════════════════════════════════
+# For EACH sub-phase:
+#   1. Implement the sub-phase
+#   2. Run tests: pnpm test
+#   3. Run lint: pnpm lint
+#   4. Present changes for human review
+#   5. After APPROVAL: commit that sub-phase
 
-# 3. Present changes to human for review
+# Example commits for Phase 1 (one per sub-phase):
+git add -A && git commit -m "feat(gpt-phase1): add mobile metadata types and feature detector"
+git add -A && git commit -m "feat(gpt-phase1): add recipe template and example recipes"
+git add -A && git commit -m "feat(gpt-phase1): add feature-aware search filtering"
+git add -A && git commit -m "feat(gpt-phase1): add UI components and MCP tool updates"
+git add -A && git commit -m "feat(gpt-phase1): add evaluation harness and golden tasks"
 
-# 4. After APPROVAL: commit
-git add -A
-git commit -m "feat(scope): description"
+# ════════════════════════════════════════════════════════════════
+# STEP 3: After ALL sub-phases complete - Push branch
+# ════════════════════════════════════════════════════════════════
+git push -u origin feature/gpt-phase1-mobile-recipes
 
-# 5. After APPROVAL: push
-git push -u origin feature/gpt-phaseX-descriptive-name
+# ════════════════════════════════════════════════════════════════
+# STEP 4: Create PR (contains all sub-phase commits)
+# ════════════════════════════════════════════════════════════════
+gh pr create --base develop \
+  --title "GPT Phase 1: Mobile Feature Recipes & Metadata" \
+  --body "## Summary
+Implements GPT Phase 1 from docs/gpt/PHASE_1_MOBILE_RECIPES_IMPLEMENTATION_PLAN.md
 
-# 6. Create PR
-gh pr create --base develop --title "GPT Phase X: Descriptive Name"
+## Commits (one per sub-phase)
+- feat(gpt-phase1): add mobile metadata types and feature detector
+- feat(gpt-phase1): add recipe template and example recipes
+- feat(gpt-phase1): add feature-aware search filtering
+- feat(gpt-phase1): add UI components and MCP tool updates
+- feat(gpt-phase1): add evaluation harness and golden tasks
+
+## Testing
+- [ ] All existing tests pass
+- [ ] New unit tests added for each sub-phase
+- [ ] Manual testing completed
+
+## Checklist
+- [ ] Code follows project style guide
+- [ ] No console.log statements left
+- [ ] Documentation updated
+- [ ] Migration is reversible"
 ```
 
+### 2.4 Commit Message Format
+
+Use conventional commits with GPT phase scope:
+
+```
+feat(gpt-phase1): description
+feat(gpt-phase2): description  
+feat(gpt-phase3): description
+```
+
+### 2.5 Reference Documentation
+
 Agents should also follow:
-- `agents.md`
+- `agents.md` - Core agent rules and collaboration workflow
 - `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` (Section 2: GitHub Workflow)
 
 ---
@@ -169,12 +238,81 @@ Each phase plan in this folder links back to these documents and assumes the v2.
 
 ## 6. Execution Notes for Agents
 
-- Follow the **Git workflow and review rules** from:
-  - `agents.md`
-  - `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` (Section 2)
-- For each phase:
-  - Read the corresponding GPT plan in this folder.
-  - Cross‑reference the older phase docs for that area (search, metadata, code intelligence, MCP).
-  - Propose changes, run tests, and produce a phase summary before asking for human approval.
+### 6.1 Before Starting Any Phase
 
-Once all three initiatives are implemented, Synthesis should operate as a **high‑trust, agent‑aware RAG hub** for building and evolving mobile SaaS applications via MCP.
+1. **Read the full phase document** - Don't skim, read every section
+2. **Check prerequisites** - Ensure dependent phases are complete
+3. **Review existing code** - Understand current patterns before modifying
+4. **Ask questions** - If anything is unclear, ask before implementing
+
+### 6.2 Implementation Checklist
+
+For each phase:
+
+- [ ] Create feature branch from `develop`
+- [ ] Implement all deliverables listed in the phase doc
+- [ ] Write unit tests for new code (aim for 80%+ coverage)
+- [ ] Update TypeScript types in `packages/shared/src/index.ts`
+- [ ] Run `pnpm test` - all tests must pass
+- [ ] Run `pnpm lint` - no lint errors
+- [ ] Run `pnpm build` - builds successfully
+- [ ] Create phase summary document
+- [ ] Present changes for human review
+- [ ] After approval: commit, push, create PR
+
+### 6.3 Phase Summary Template
+
+After completing implementation, create `GPT_PHASE_X_SUMMARY.md` in project root:
+
+```markdown
+# GPT Phase X Summary: [Title]
+
+## Completed
+- Feature 1
+- Feature 2
+
+## Files Changed
+- `path/to/file.ts` - Description
+
+## New Files
+- `path/to/new/file.ts` - Purpose
+
+## Database Migrations
+- `XXXX_migration_name.sql` - Description
+
+## Tests Added
+- `file.test.ts` - X tests covering Y
+
+## Environment Variables
+- `VAR_NAME` - Description (default: value)
+
+## Breaking Changes
+None / List any
+
+## Known Issues
+None / List any
+
+## Next Steps
+- What Phase 2/3 can now build on
+```
+
+### 6.4 Reference Documentation
+
+Follow the **Git workflow and review rules** from:
+- `agents.md`
+- `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` (Section 2)
+
+Cross-reference existing phase docs:
+- Phase 3 (Metadata): `docs/phases/phase-3/`
+- Phase 11 (Search): `docs/phases/phase-11/`
+- Phase 13 (Code Intelligence): `docs/phases/phase-13/`
+
+### 6.5 Success Criteria
+
+Once all three phases are implemented, Synthesis should:
+
+1. **Phase 1 Complete:** Search understands mobile features, platforms, and usage tiers
+2. **Phase 2 Complete:** Retrieval can expand context via knowledge graph
+3. **Phase 3 Complete:** MCP tools match agent workflows for mobile SaaS development
+
+The system operates as a **high‑trust, agent‑aware RAG hub** for building and evolving mobile SaaS applications via MCP.

@@ -1,13 +1,25 @@
 # Phase 2: Graph-Style Retrieval & Context Expansion – Implementation Plan
 
-**Version:** 1.0 · **Created:** November 2025  
-**Related Docs:**  
+**Version:** 2.0 · **Created:** November 2025 · **Updated:** November 2025  
+**Branch:** `feature/gpt-phase2-graph-retrieval`  
+**PR Title:** GPT Phase 2: Graph Retrieval & Context Expansion
+
+---
+
+## Prerequisites
+
+- [ ] None - This phase can be implemented in parallel with Phase 1
+- [ ] `develop` branch is up to date
+- [ ] All existing tests pass (`pnpm test`)
+
+---
+
+## Related Documentation
+
 - `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` (Phases 9, 13, 13.5)  
-- `docs/CONFIGURATION.md` (Code Intelligence, Tech Stack, Performance)  
+- `docs/CONFIGURATION.md` (Code Intelligence, Tech Stack)  
 - `docs/guides/HYBRID_SEARCH_GUIDE.md`  
-- `docs/guides/CODE_SEARCH_GUIDE.md`  
-- `docs/guides/SYNTHESIS_GUIDE.md`  
-- `docs/new-phases/06_PHASE_15_17_STATUS_REPORT.md`
+- `docs/guides/CODE_SEARCH_GUIDE.md`
 
 ---
 
@@ -34,113 +46,193 @@ We will:
 
 ## 2. GitHub Workflow
 
-For all work in this graph retrieval phase:
-
-- Branches MUST be based on `develop`.
-- Branch names MUST be descriptive and include the GPT phase and scope, for example:
-  - `feature/gpt-phase2-graph-schema`
-  - `feature/gpt-phase2-graph-builder`
-  - `feature/gpt-phase2-graph-retrieval`
-  - `feature/gpt-phase2-graph-rag-integration`
-  - `feature/gpt-phase2-graph-ui-mcp`
-- Agents MUST NOT commit or push without explicit human approval.
-- Every push MUST be followed by a pull request into `develop`.
-
-### 2.1 Workflow Per Phase
+**Single branch for entire phase:** `feature/gpt-phase2-graph-retrieval`
 
 ```bash
 # 1. Create branch (WAIT FOR APPROVAL)
 git checkout develop && git pull origin develop
-git checkout -b feature/gpt-phase2-graph-scope
+git checkout -b feature/gpt-phase2-graph-retrieval
 
-# 2. Implement changes...
+# 2. Implement all sub-phases (3.1 through 3.5) in order
 
-# 3. Present changes to human for review
+# 3. Run tests and lint
+pnpm test
+pnpm lint
 
-# 4. After APPROVAL: commit
+# 4. Present ALL changes for human review
+
+# 5. After APPROVAL: commit
 git add -A
-git commit -m "feat(phase2-graph): description"
+git commit -m "feat(gpt-phase2): implement knowledge graph retrieval
 
-# 5. After APPROVAL: push
-git push -u origin feature/gpt-phase2-graph-scope
+- Add knowledge_nodes and knowledge_edges tables
+- Create graph-builder service for ingestion
+- Create graph-search service for retrieval
+- Add /api/graph/context endpoint
+- Integrate graph expansion with smartSearch
+- Add unit and integration tests"
 
-# 6. Create PR
-gh pr create --base develop --title "GPT Phase 2: Graph Retrieval – Scope"
+# 6. After APPROVAL: push
+git push -u origin feature/gpt-phase2-graph-retrieval
+
+# 7. Create PR
+gh pr create --base develop --title "GPT Phase 2: Graph Retrieval & Context Expansion"
 ```
 
-Adapt `feature/gpt-phase2-graph-scope` and the PR title per sub‑phase. Also follow `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` §2 and `agents.md`.
+Follow rules in `docs/gpt/MASTER_PLAN.md` Section 2 and `agents.md`.
 
 ---
 
 ## 3. Phase Overview
 
-| # | Phase | Priority | Days | Branch (suggested) |
-|---|-------|----------|------|--------------------|
-| 1 | Graph Schema & Storage | P0 | 2–3 | `feature/gpt-phase2-graph-schema` |
-| 2 | Graph Builder Pipeline | P0 | 4–6 | `feature/gpt-phase2-graph-builder` |
-| 3 | Graph Retrieval Service | P1 | 4–6 | `feature/gpt-phase2-graph-retrieval` |
-| 4 | RAG & Synthesis Integration | P1 | 3–4 | `feature/gpt-phase2-graph-rag-integration` |
-| 5 | Debug UI & MCP Tools | P2 | 3–5 | `feature/gpt-phase2-graph-ui-mcp` |
+**All sub-phases go into ONE branch and ONE PR.**
+
+| # | Sub-Phase | Priority | Est. Time | Commit Scope |
+|---|-----------|----------|-----------|---------------|
+| 3.1 | Graph Schema & Storage | P0 | 2–3 days | `feat(gpt-phase2): add knowledge graph tables and types` |
+| 3.2 | Graph Builder Pipeline | P0 | 4–6 days | `feat(gpt-phase2): add graph builder service` |
+| 3.3 | Graph Retrieval Service | P1 | 4–6 days | `feat(gpt-phase2): add graph search and traversal` |
+| 3.4 | RAG & Synthesis Integration | P1 | 3–4 days | `feat(gpt-phase2): integrate graph expansion with search` |
+| 3.5 | Debug UI & MCP Tools | P2 | 3–5 days | `feat(gpt-phase2): add graph debug UI and MCP tool` |
+
+### Commit Strategy
+
+```bash
+# Work on single branch
+git checkout -b feature/gpt-phase2-graph-retrieval
+
+# Commit after completing each sub-phase:
+git commit -m "feat(gpt-phase2): add knowledge graph tables and types"
+git commit -m "feat(gpt-phase2): add graph builder service"
+git commit -m "feat(gpt-phase2): add graph search and traversal"
+git commit -m "feat(gpt-phase2): integrate graph expansion with search"
+git commit -m "feat(gpt-phase2): add graph debug UI and MCP tool"
+
+# One PR at the end with all commits
+git push -u origin feature/gpt-phase2-graph-retrieval
+gh pr create --base develop --title "GPT Phase 2: Graph Retrieval & Context Expansion"
+```
 
 ---
 
-## 4. Phase 1: Graph Schema & Storage
+## 4. Sub-Phase 3.1: Graph Schema & Storage
 
-**Problem:** Relationships are currently implicit (AST metadata, file relationships, DB schema), not stored as a unified graph that can be traversed for retrieval.
+**Problem:** Relationships are implicit, not stored as a traversable graph.
 
-### 3.1 Deliverables
+### 3.1.1 TypeScript Types
 
-- A **graph schema** describing:
-  - Node types (with references back to documents/chunks).
-  - Edge types (with direction and semantics).
-- One or more Postgres tables backing the graph:
-  - `knowledge_nodes`
-  - `knowledge_edges`
+**File:** `packages/shared/src/index.ts`
 
-This is intentionally simple and uses Postgres, not a separate graph database.
+```typescript
+// GPT Phase 2: Knowledge Graph Types
+export type KnowledgeNodeType = 
+  | 'document' | 'chunk' | 'symbol' | 'endpoint' 
+  | 'table' | 'column' | 'config_section';
 
-### 3.2 Node & Edge Types (Conceptual)
+export type KnowledgeEdgeType = 
+  | 'calls' | 'defines' | 'belongs_to' | 'persists_to' 
+  | 'configured_by' | 'documents' | 'imports' | 'depends_on';
 
-**Node types (examples):**
+export interface KnowledgeNode {
+  id: string;
+  collection_id: string;
+  node_type: KnowledgeNodeType;
+  name: string;
+  document_id?: string;
+  chunk_id?: number;
+  metadata: {
+    framework?: string;
+    symbol_kind?: string;  // function, class, widget, route, etc.
+    file_path?: string;
+    line_start?: number;
+    line_end?: number;
+    [key: string]: unknown;
+  };
+  created_at: Date;
+}
 
-- `doc` – document as ingested (official docs, recipes, README).
-- `chunk` – existing chunk, especially code chunks and DB/config chunks.
-- `symbol` – function, class, widget, method, constant, route.
-- `endpoint` – HTTP or RPC endpoint (derived from backend code).
-- `table` / `column` / `index` – from SQL analysis.
-- `config_section` – config structures (YAML/JSON/etc.).
+export interface KnowledgeEdge {
+  id: string;
+  collection_id: string;
+  source_node_id: string;
+  target_node_id: string;
+  edge_type: KnowledgeEdgeType;
+  metadata?: Record<string, unknown>;
+  created_at: Date;
+}
+```
 
-Each node should:
+### 3.1.2 Database Migration
 
-- Reference its underlying `documents.id` or `chunks.id` when applicable.
-- Carry key metadata:
-  - `framework`, `framework_version`, `tech_stack`, `feature_tags`, `source_quality`.
-  - `symbol_name`, `symbol_kind`, `file_path`, `line_range`.
+**File:** `packages/db/migrations/0031_knowledge_graph.sql`
 
-**Edge types (examples):**
+```sql
+-- GPT Phase 2: Knowledge Graph Tables
 
-- `calls` – symbol A calls symbol B.
-- `defines` – chunk defines symbol.
-- `belongs_to` – method belongs to class, route belongs to service.
-- `persists_to` – code path writes to DB table / column.
-- `configured_by` – code path controlled by config section.
-- `documents` – doc or chunk explaining a symbol or table.
+-- Nodes table
+CREATE TABLE IF NOT EXISTS knowledge_nodes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  collection_id UUID NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+  node_type VARCHAR(50) NOT NULL,
+  name VARCHAR(500) NOT NULL,
+  document_id UUID REFERENCES documents(id) ON DELETE SET NULL,
+  chunk_id INTEGER REFERENCES chunks(id) ON DELETE SET NULL,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-### 3.3 Key Files
+-- Edges table
+CREATE TABLE IF NOT EXISTS knowledge_edges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  collection_id UUID NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+  source_node_id UUID NOT NULL REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
+  target_node_id UUID NOT NULL REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
+  edge_type VARCHAR(50) NOT NULL,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for efficient queries
+CREATE INDEX idx_nodes_collection ON knowledge_nodes(collection_id);
+CREATE INDEX idx_nodes_type ON knowledge_nodes(node_type);
+CREATE INDEX idx_nodes_name ON knowledge_nodes(name);
+CREATE INDEX idx_nodes_document ON knowledge_nodes(document_id) WHERE document_id IS NOT NULL;
+CREATE INDEX idx_nodes_chunk ON knowledge_nodes(chunk_id) WHERE chunk_id IS NOT NULL;
+
+CREATE INDEX idx_edges_collection ON knowledge_edges(collection_id);
+CREATE INDEX idx_edges_source ON knowledge_edges(source_node_id);
+CREATE INDEX idx_edges_target ON knowledge_edges(target_node_id);
+CREATE INDEX idx_edges_type ON knowledge_edges(edge_type);
+
+-- Composite index for graph traversal
+CREATE INDEX idx_edges_traversal ON knowledge_edges(source_node_id, edge_type);
+```
+
+### 3.1.3 Environment Variables
+
+**File:** `.env.example` (add these)
+
+```bash
+# GPT Phase 2: Graph Retrieval
+ENABLE_GRAPH_BUILDER=true
+ENABLE_GRAPH_EXPANSION=true
+GRAPH_MAX_DEPTH=3
+GRAPH_MAX_NODES=50
+```
+
+### 3.1.4 Key Files
 
 | File | Action |
 |------|--------|
-| `packages/db/migrations/0XY_knowledge_graph.sql` | CREATE `knowledge_nodes` / `knowledge_edges` tables with indexes |
-| `packages/db/src/knowledge-graph.ts` | CREATE typed helpers for insert/query (similar to `queries.ts`) |
-| `packages/shared/src/index.ts` | ADD TypeScript types `KnowledgeNode`, `KnowledgeEdge`, `KnowledgeNodeType`, `KnowledgeEdgeType` |
+| `packages/shared/src/index.ts` | ADD `KnowledgeNode`, `KnowledgeEdge` types |
+| `packages/db/migrations/0031_knowledge_graph.sql` | CREATE tables |
+| `packages/db/src/knowledge-graph.ts` | CREATE query helpers |
 
-### 3.4 Acceptance Criteria
+### 3.1.5 Acceptance Criteria
 
-- Schema defined and migration applied locally.
-- Node/edge types cover:
-  - Code symbols, DB tables, config sections, docs/recipes.
-- `knowledge_nodes` / `knowledge_edges` can be queried efficiently by:
-  - `collection_id`, `node_type`, `framework`, `symbol_name`, `table_name`.
+- [ ] Migration runs successfully
+- [ ] Types compile without errors
+- [ ] Tables support efficient lookup by `collection_id`, `node_type`, `name`
 
 ---
 
