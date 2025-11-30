@@ -50,7 +50,7 @@ Add an intent badge that displays the detected query intent after search results
 - Use existing design tokens
 
 **Mockup:**
-```
+```text
 ┌─ Search Results ─────────────────────────────────────────────┐
 │ Query: "How do I navigate between screens in Flutter?"      │
 │ Intent: 🔍 natural_language  |  Mode: hybrid (0.8 vector)   │
@@ -484,7 +484,7 @@ When a new language analyzer is added (e.g., Python), allow users to re-process 
 - `apps/server/src/jobs/rechunk-job.ts` - Background job
 
 **UI Mockup:**
-```
+```text
 ┌─ Collection Actions ─────────────────────────────────────────┐
 │ [Re-chunk Documents]  ⚠️ 3 files have improved analyzers    │
 │                                                              │
@@ -512,7 +512,7 @@ Show which analyzers are registered and their capabilities in an admin panel.
 - Use `analyzerRegistry.getAll()` from `apps/server/src/pipeline/analyzers/registry.ts`
 
 **UI Mockup:**
-```
+```text
 ┌─ Language Analyzers ─────────────────────────────────────────┐
 │                                                              │
 │ Language   │ Parser │ Frameworks              │ Hierarchical │

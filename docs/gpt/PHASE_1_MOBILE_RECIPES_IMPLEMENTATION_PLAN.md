@@ -30,7 +30,47 @@ This plan layers on top of existing metadata, tech‑stack detection, and code i
 
 ---
 
-## 2. Phase Overview
+## 2. GitHub Workflow
+
+For all work in this phase:
+
+- Branches MUST be created from `develop`.
+- Branch names MUST be descriptive and include the GPT phase and scope, for example:
+  - `feature/gpt-phase1-mobile-metadata`
+  - `feature/gpt-phase1-mobile-recipes`
+  - `feature/gpt-phase1-mobile-retrieval`
+  - `feature/gpt-phase1-mobile-ui-mcp`
+  - `feature/gpt-phase1-mobile-eval`
+- Agents MUST NOT commit or push without explicit human approval.
+- Every push MUST be followed by a pull request into `develop`.
+
+### 2.1 Workflow Per Phase
+
+```bash
+# 1. Create branch (WAIT FOR APPROVAL)
+git checkout develop && git pull origin develop
+git checkout -b feature/gpt-phase1-mobile-scope
+
+# 2. Implement changes...
+
+# 3. Present changes to human for review
+
+# 4. After APPROVAL: commit
+git add -A
+git commit -m "feat(phase1-mobile): description"
+
+# 5. After APPROVAL: push
+git push -u origin feature/gpt-phase1-mobile-scope
+
+# 6. Create PR
+gh pr create --base develop --title "GPT Phase 1: Mobile Feature Recipes – Scope"
+```
+
+Adapt `feature/gpt-phase1-mobile-scope` and the PR title for each sub‑phase (metadata, recipes, retrieval, UI/MCP, eval). Also follow the rules in `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` §2 and `agents.md`.
+
+---
+
+## 3. Phase Overview
 
 | # | Phase | Priority | Days | Branch (suggested) |
 |---|-------|----------|------|--------------------|
@@ -40,11 +80,9 @@ This plan layers on top of existing metadata, tech‑stack detection, and code i
 | 4 | UI & MCP Exposure | P2 | 2–4 | `feature/gpt-phase1-mobile-ui-mcp` |
 | 5 | Evaluation & Golden Tasks | P2 | 2–3 | `feature/gpt-phase1-mobile-eval` |
 
-Use the Git workflow rules in `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` §2.
-
 ---
 
-## 3. Phase 1: Mobile Metadata Taxonomy
+## 4. Phase 1: Mobile Metadata Taxonomy
 
 **Problem:** Existing metadata and tech detection (Phases 3, 13, 13.5) do not explicitly model **features** (auth, billing, notifications) or **platform‑level concerns** needed for mobile SaaS agents.
 
@@ -91,7 +129,7 @@ Use the Git workflow rules in `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.m
 
 ---
 
-## 4. Phase 2: Curated Recipe Docs & Collections
+## 5. Phase 2: Curated Recipe Docs & Collections
 
 **Problem:** Even with better metadata, agents still need **high‑leverage, opinionated recipes** that combine official docs, examples, and your experience.
 
@@ -146,7 +184,7 @@ These docs are ingested like any other Markdown but tagged with:
 
 ---
 
-## 5. Phase 3: Feature-Aware Retrieval
+## 6. Phase 3: Feature-Aware Retrieval
 
 **Problem:** Current `smartSearch` is tech‑aware but not **feature‑aware**. Agents need to ask for “Flutter auth with Supabase” and reliably get the right mix of official docs, examples, and recipes.
 
@@ -180,7 +218,7 @@ These docs are ingested like any other Markdown but tagged with:
 
 ---
 
-## 6. Phase 4: UI & MCP Exposure
+## 7. Phase 4: UI & MCP Exposure
 
 **Problem:** Without clear UI and MCP tools, the new capabilities remain hidden from both you and the agent.
 
@@ -208,7 +246,7 @@ UI changes should remain minimal and consistent with existing design, but enough
 
 ---
 
-## 7. Phase 5: Evaluation & Golden Tasks
+## 8. Phase 5: Evaluation & Golden Tasks
 
 **Problem:** It’s hard to know whether the recipes and retrieval are actually good enough for an autonomous agent.
 
@@ -240,4 +278,3 @@ UI changes should remain minimal and consistent with existing design, but enough
 - Eval harness produces a simple report summarizing coverage and gaps.
 
 Once this phase is complete, agents will have a structured, high‑quality foundation of mobile feature patterns to build on, which later phases (Graph Retrieval and MCP Task Tools) can exploit for more complex workflows.
-

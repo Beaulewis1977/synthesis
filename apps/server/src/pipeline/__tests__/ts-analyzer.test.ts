@@ -409,5 +409,37 @@ export default function RootLayout() {
       expect(reactNative).toBeDefined();
       expect(reactNative?.confidence).toBeGreaterThan(0); // Has Expo matches
     });
+
+    it('should not false positive on common words like Text or View in web React apps', async () => {
+      const { detectTsFrameworks } = await import('../ts-analyzer.js');
+
+      const code = `
+import React from 'react';
+
+// Text and View are common terms in UI development
+const myText = "Some text to display";
+const View = "This is a view description"; // Variable named View
+
+export default function Component() {
+  // Modal and Alert are also common words
+  const showModal = false;
+  const alertMessage = "Alert: something happened";
+  
+  return (
+    <div>
+      <p>{myText}</p>
+      <span>{View}</span>
+    </div>
+  );
+}
+`;
+      const frameworks = detectTsFrameworks(code, 'Component.tsx');
+      const react = frameworks.find((f) => f.name === 'react');
+      const reactNative = frameworks.find((f) => f.name === 'reactnative');
+
+      expect(react).toBeDefined();
+      // Should NOT detect React Native - these are just variable names/comments
+      expect(reactNative).toBeUndefined();
+    });
   });
 });

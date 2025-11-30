@@ -33,7 +33,49 @@ These plans build on existing documentation and phases, especially:
 
 ---
 
-## 2. High-Level Objectives
+## 2. GitHub Workflow
+
+All work under the `docs/gpt` folder MUST follow the same guarded Git workflow as the rest of the project:
+
+- **Base branch:** Always branch from `develop`.
+- **Branch naming:** Use descriptive names that include the GPT phase and purpose, for example:
+  - `feature/gpt-phase1-mobile-metadata`
+  - `feature/gpt-phase2-graph-schema`
+  - `feature/gpt-phase3-mcp-tools`
+- **No direct commits or pushes by agents:**
+  - Agents MUST NOT commit or push without explicit human approval.
+- **All pushes MUST go through a PR into `develop`:**
+  - Every branch push should be followed by a PR using best practices.
+
+### 2.1 Workflow Per Phase
+
+```bash
+# 1. Create branch (WAIT FOR APPROVAL)
+git checkout develop && git pull origin develop
+git checkout -b feature/gpt-phaseX-descriptive-name
+
+# 2. Implement changes...
+
+# 3. Present changes to human for review
+
+# 4. After APPROVAL: commit
+git add -A
+git commit -m "feat(scope): description"
+
+# 5. After APPROVAL: push
+git push -u origin feature/gpt-phaseX-descriptive-name
+
+# 6. Create PR
+gh pr create --base develop --title "GPT Phase X: Descriptive Name"
+```
+
+Agents should also follow:
+- `agents.md`
+- `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` (Section 2: GitHub Workflow)
+
+---
+
+## 3. High-Level Objectives
 
 - Make Synthesis the **single source of truth** for:
   - Official framework docs (Flutter, Supabase, Firebase, Stripe, etc.).
@@ -50,9 +92,9 @@ These plans build on existing documentation and phases, especially:
 
 ---
 
-## 3. Phased Roadmap
+## 4. Phased Roadmap
 
-### 3.1 Phase A: Mobile Feature Recipes & Examples
+### 4.1 Phase A: Mobile Feature Recipes & Examples
 
 **Plan:** `PHASE_1_MOBILE_RECIPES_IMPLEMENTATION_PLAN.md`  
 **Goal:** Curated, tagged knowledge base for mobile SaaS feature patterns.
@@ -69,7 +111,7 @@ Key ideas:
 - Wire these tags into `smartSearch` and Synthesis so agents can ask for:
   - “Official” vs “example” vs “your preferred” approach.
 
-### 3.2 Phase B: Graph-Style Retrieval & Context Expansion
+### 4.2 Phase B: Graph-Style Retrieval & Context Expansion
 
 **Plan:** `PHASE_2_GRAPH_RETRIEVAL_IMPLEMENTATION_PLAN.md`  
 **Goal:** Build a lightweight knowledge graph over existing chunks and ASTs.
@@ -86,7 +128,7 @@ Key ideas:
   - `smartSearch` (Phase 11) for fusion.
   - Synthesis engine (Phase 12) for higher‑quality multi‑source answers.
 
-### 3.3 Phase C: Task-Specific MCP Tools for Development
+### 4.3 Phase C: Task-Specific MCP Tools for Development
 
 **Plan:** `PHASE_3_MCP_TASK_TOOLS_IMPLEMENTATION_PLAN.md`  
 **Goal:** Provide tools that encode your best practices and retrieval patterns.
@@ -105,7 +147,7 @@ Key ideas:
 
 ---
 
-## 4. Dependencies & Integration Points
+## 5. Dependencies & Integration Points
 
 - **RAG & Model Selector Plan:** reuse phases and services instead of re‑inventing:
   - Token‑aware chunking and profiles (Phases 1, 5).
@@ -125,7 +167,7 @@ Each phase plan in this folder links back to these documents and assumes the v2.
 
 ---
 
-## 5. Execution Notes for Agents
+## 6. Execution Notes for Agents
 
 - Follow the **Git workflow and review rules** from:
   - `agents.md`
@@ -136,4 +178,3 @@ Each phase plan in this folder links back to these documents and assumes the v2.
   - Propose changes, run tests, and produce a phase summary before asking for human approval.
 
 Once all three initiatives are implemented, Synthesis should operate as a **high‑trust, agent‑aware RAG hub** for building and evolving mobile SaaS applications via MCP.
-

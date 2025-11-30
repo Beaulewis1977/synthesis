@@ -320,7 +320,7 @@ export const FRAMEWORK_PATTERNS: Record<DocumentFramework, RegExp[]> = {
     /from\s+['"]@react-native\//,
     /from\s+['"]@react-navigation\//,
     /StyleSheet\.create\s*\(/,
-    /View|Text|TouchableOpacity|FlatList|ScrollView/,
+    /<\s*(?:View|Text|TouchableOpacity|FlatList|ScrollView)\b/,
     /Platform\.(?:OS|select)/,
   ],
 

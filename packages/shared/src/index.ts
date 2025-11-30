@@ -22,6 +22,7 @@ export type DocumentFramework =
   | 'spring'
   | 'android'
   | 'react'
+  | 'reactnative'
   | 'nextjs'
   | 'express'
   | 'nestjs'
@@ -31,8 +32,7 @@ export type DocumentFramework =
   | 'actix'
   | 'tokio'
   | 'pytorch'
-  | 'tensorflow'
-  | 'reactnative';
+  | 'tensorflow';
 export type DocumentLanguage =
   | 'dart'
   | 'typescript'
