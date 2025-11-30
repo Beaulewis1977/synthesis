@@ -2,7 +2,6 @@
 
 **Branch:** `feature/rag-ui-completion`
 **Base:** `develop`
-**Plan File:** `/home/kngpnn/.claude/plans/purrfect-dazzling-nest.md`
 **Reference Doc:** `docs/RAG_REMAINING_IMPLEMENTATION.md`
 
 ---
@@ -15,15 +14,15 @@
 | Task 1.3: Intent override dropdown | ✅ COMPLETE | `9f82cce` |
 | Task 2.2: Language stats API endpoint | ✅ COMPLETE | `b517ad3` |
 | Task 2.1+2.3: Language badges + chunking quality | ✅ COMPLETE | `b517ad3` |
-| Task 3: Accessibility audit | ✅ COMPLETE | `7cdd938` |
-| Task 4: API documentation | ✅ COMPLETE | `624a233` |
-| Task 5: MMR placeholder UI | ⏳ NOT STARTED | - |
+| Task 3: Accessibility audit | ✅ COMPLETE | `9167c61` |
+| Task 4: API documentation | ✅ COMPLETE | `19a7854` |
+| Task 5: MMR placeholder UI | ✅ COMPLETE | `85412db` |
 
 ---
 
 ## Completed Work
 
-### Task 1: Query Intent UI Components (COMPLETE - NOT YET COMMITTED)
+### Task 1: Query Intent UI Components (COMPLETE)
 
 **Files Modified:**
 
@@ -147,10 +146,23 @@
 
 ---
 
-## Remaining Work
+### Task 5: MMR Placeholder UI (COMPLETE)
 
-### Task 5: MMR Placeholder
-Add "Coming Soon" UI for per-collection MMR defaults.
+**Files Modified:**
+
+1. **`apps/web/src/pages/CollectionView.tsx`** (+25 lines)
+   - Added "Coming Soon" placeholder section for per-collection MMR defaults
+   - Displays disabled toggle and lambda slider placeholders
+   - Uses opacity-60 and pointer-events-none for visual disabled state
+   - Shows "Coming Soon" badge
+
+**Commit:** `260c222` - ✅ COMMITTED
+
+---
+
+## All Tasks Complete! 🎉
+
+The branch is now ready for PR review and merge to develop.
 
 ---
 
@@ -158,24 +170,24 @@ Add "Coming Soon" UI for per-collection MMR defaults.
 
 ```
 On branch feature/rag-ui-completion
-4 commits ahead of develop
-624a233 docs: add API documentation for search endpoints
+5 commits ahead of develop
+260c222 feat(web): add MMR collection defaults placeholder UI
+19a7854 docs: add API documentation for search endpoints
 9167c61 fix(web): improve form accessibility and keyboard navigation
 b517ad3 feat: integrate language support badges into collections
 9f82cce feat(web): add query intent UI with badge, mode indicator, and override
 ```
 
-**Last Commit:** `624a233` - docs: add API documentation for search endpoints
+**Last Commit:** `85412db` - feat(web): add MMR collection defaults placeholder UI
 **Typecheck:** ✅ Passing
 
 ---
 
 ## Key Resources
 
-- **Plan File:** `/home/kngpnn/.claude/plans/purrfect-dazzling-nest.md`
 - **Parent Doc:** `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md`
 - **Reference Doc:** `docs/RAG_REMAINING_IMPLEMENTATION.md`
-- **Existing Language Badge Component:** `apps/web/src/components/LanguageSupportBadge.tsx` (ready to import)
+- **Existing Language Badge Component:** `apps/web/src/components/LanguageSupportBadge.tsx`
 - **Analyzer Registry:** `apps/server/src/pipeline/analyzers/registry.ts`
 
 ---

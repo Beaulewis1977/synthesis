@@ -34,6 +34,8 @@ const INTENT_CONFIG: Record<QueryIntent, { icon: LucideIcon; label: string; colo
   comparison: { icon: GitCompare, label: 'Comparison', color: 'text-orange-500' },
 };
 
+const INTENT_TYPES = Object.keys(INTENT_CONFIG) as QueryIntent[];
+
 // Phase 12: Intent icon component
 function IntentIcon({ intent }: { intent: QueryIntent }) {
   const config = INTENT_CONFIG[intent];
@@ -57,7 +59,11 @@ export function SearchPage() {
   const mmrLambda = mmrLambdaParam ? Number.parseFloat(mmrLambdaParam) : DEFAULT_MMR_LAMBDA;
 
   // Phase 12: Intent override from URL params (null = auto-detect)
-  const intentOverride = searchParams.get('intent') as QueryIntent | null;
+  const rawIntentParam = searchParams.get('intent');
+  const intentOverride: QueryIntent | null =
+    rawIntentParam && INTENT_TYPES.includes(rawIntentParam as QueryIntent)
+      ? (rawIntentParam as QueryIntent)
+      : null;
 
   // Local state for the controlled search input field.
   const [inputQuery, setInputQuery] = useState(currentQuery);

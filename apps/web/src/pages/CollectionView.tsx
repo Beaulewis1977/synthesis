@@ -37,14 +37,14 @@ export function CollectionView() {
     enabled: !!id,
   });
 
-  // Calculate overall chunking quality from language stats
+  // Calculate overall chunking quality from language stats (weighted by file count)
   const overallChunkingQuality =
     languageData?.languages && languageData.languages.length > 0
       ? Math.round(
           languageData.languages.reduce(
             (sum, lang) => sum + (lang.chunkingQuality ?? 0) * (lang.fileCount ?? 1),
             0
-          ) / languageData.languages.reduce((sum, lang) => sum + (lang.fileCount ?? 1), 0)
+          ) / (languageData.languages.reduce((sum, lang) => sum + (lang.fileCount ?? 1), 0) || 1)
         )
       : undefined;
 
@@ -215,8 +215,18 @@ export function CollectionView() {
             {/* Chunking Quality Indicator */}
             {overallChunkingQuality !== undefined && (
               <div className="mt-md flex items-center gap-sm">
-                <span className="text-sm text-text-secondary">Chunking Quality:</span>
-                <div className="flex-1 max-w-xs h-2 bg-bg-tertiary rounded-full overflow-hidden">
+                <span id="chunking-quality-label" className="text-sm text-text-secondary">
+                  Chunking Quality:
+                </span>
+                <div
+                  className="flex-1 max-w-xs h-2 bg-bg-tertiary rounded-full overflow-hidden"
+                  role="progressbar"
+                  tabIndex={0}
+                  aria-valuenow={overallChunkingQuality}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-labelledby="chunking-quality-label"
+                >
                   <div
                     className={`h-full rounded-full transition-all ${
                       overallChunkingQuality >= 80
@@ -228,11 +238,38 @@ export function CollectionView() {
                     style={{ width: `${overallChunkingQuality}%` }}
                   />
                 </div>
-                <span className="text-sm font-medium">{overallChunkingQuality}%</span>
+                <span className="text-sm font-medium" aria-hidden="true">
+                  {overallChunkingQuality}%
+                </span>
               </div>
             )}
           </div>
         )}
+
+        {/* MMR Collection Defaults - Coming Soon */}
+        <div className="mt-lg p-4 bg-bg-secondary rounded-lg border border-border opacity-60">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-medium text-text-primary">MMR Defaults</h4>
+              <p className="text-sm text-text-secondary mt-1">
+                Configure default diversity settings for this collection
+              </p>
+            </div>
+            <span className="px-2 py-1 text-xs bg-bg-tertiary text-text-tertiary rounded">
+              Coming Soon
+            </span>
+          </div>
+          <div className="mt-3 flex gap-4 pointer-events-none">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-4 bg-bg-tertiary rounded-full" />
+              <span className="text-sm text-text-tertiary">Enable MMR</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-text-tertiary">Lambda: 0.7</span>
+              <div className="w-24 h-2 bg-bg-tertiary rounded-full" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Loading State */}
