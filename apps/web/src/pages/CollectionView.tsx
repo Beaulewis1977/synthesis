@@ -59,9 +59,11 @@ export function CollectionView() {
     if (collection) {
       setMmrEnabled(collection.mmr_enabled ?? false);
       // mmr_lambda comes as string from DB (DECIMAL type), convert to number
+      // Guard against NaN from invalid strings and undefined
       const lambda = collection.mmr_lambda;
+      const parsed = typeof lambda === 'string' ? Number.parseFloat(lambda) : lambda;
       setMmrLambda(
-        typeof lambda === 'string' ? Number.parseFloat(lambda) : (lambda ?? DEFAULT_MMR_LAMBDA)
+        typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : DEFAULT_MMR_LAMBDA
       );
     }
   }, [collection]);
