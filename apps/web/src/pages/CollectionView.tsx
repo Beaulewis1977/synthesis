@@ -84,6 +84,9 @@ export function CollectionView() {
     },
   });
 
+  // Extract stable mutate function to avoid recreating callback on each render
+  const mmrMutate = mmrMutation.mutate;
+
   // Debounced save function
   const saveMMRDefaults = useCallback(
     (enabled: boolean, lambda: number) => {
@@ -92,10 +95,10 @@ export function CollectionView() {
       }
       setMmrSaving(true);
       saveTimeoutRef.current = setTimeout(() => {
-        mmrMutation.mutate({ mmr_enabled: enabled, mmr_lambda: lambda });
+        mmrMutate({ mmr_enabled: enabled, mmr_lambda: lambda });
       }, 300);
     },
-    [mmrMutation]
+    [mmrMutate]
   );
 
   // Cleanup any pending debounced save when component unmounts
