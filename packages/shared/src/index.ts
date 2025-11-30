@@ -31,7 +31,8 @@ export type DocumentFramework =
   | 'actix'
   | 'tokio'
   | 'pytorch'
-  | 'tensorflow';
+  | 'tensorflow'
+  | 'reactnative';
 export type DocumentLanguage =
   | 'dart'
   | 'typescript'

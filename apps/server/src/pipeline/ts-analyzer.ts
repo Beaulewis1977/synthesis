@@ -117,6 +117,36 @@ const TS_FRAMEWORK_PATTERNS: Record<string, { patterns: RegExp[]; framework: Doc
         /DATABASE_URL|PG_HOST|POSTGRES/,
       ],
     },
+    reactnative: {
+      framework: 'reactnative',
+      patterns: [
+        // React Native core
+        /from\s+['"]react-native['"]/,
+        /from\s+['"]@react-native\//,
+        /from\s+['"]@react-navigation\//,
+        /StyleSheet\.create\s*\(/,
+        /View|Text|TouchableOpacity|TouchableHighlight/,
+        /FlatList|ScrollView|SafeAreaView/,
+        /Platform\.(?:OS|select|Version)/,
+        /Dimensions\.get\s*\(/,
+        /useColorScheme|useWindowDimensions/,
+        /StatusBar|Modal|Alert\.alert/,
+        /AsyncStorage|SecureStore/,
+        /\.ios\.|\.android\./,
+        // Expo SDK
+        /from\s+['"]expo['"]/,
+        /from\s+['"]expo-/,
+        /from\s+['"]@expo\//,
+        /expo-router|expo-constants|expo-camera|expo-location/,
+        /expo-notifications|expo-image-picker|expo-file-system/,
+        /expo-linear-gradient|expo-blur|expo-haptics/,
+        /expo-secure-store|expo-auth-session|expo-linking/,
+        /useAssets|useFonts|useKeepAwake/,
+        /Constants\.(?:expoConfig|manifest|deviceName)/,
+        /SplashScreen\.(?:preventAutoHideAsync|hideAsync)/,
+        /registerRootComponent\s*\(/,
+      ],
+    },
   };
 
 /**

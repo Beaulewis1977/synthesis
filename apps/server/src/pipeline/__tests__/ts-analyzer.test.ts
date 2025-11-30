@@ -315,4 +315,99 @@ describe('TypeScript Analyzer', () => {
       expect(decoratedClass?.properties.some((p) => p.name === 'prop')).toBe(true);
     });
   });
+
+  describe('Framework Detection', () => {
+    it('should detect React Native framework', async () => {
+      const { detectTsFrameworks } = await import('../ts-analyzer.js');
+
+      const code = `
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+
+export default function App() {
+  return (
+    <NavigationContainer>
+      <View style={styles.container}>
+        <Text>Hello React Native!</Text>
+        <TouchableOpacity onPress={() => {}}>
+          <Text>Press Me</Text>
+        </TouchableOpacity>
+      </View>
+    </NavigationContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
+`;
+      const frameworks = detectTsFrameworks(code, 'App.tsx');
+      const reactNative = frameworks.find((f) => f.name === 'reactnative');
+      expect(reactNative).toBeDefined();
+      expect(reactNative?.confidence).toBeGreaterThan(0); // Has matches
+    });
+
+    it('should detect React but not React Native for web React apps', async () => {
+      const { detectTsFrameworks } = await import('../ts-analyzer.js');
+
+      const code = `
+import React, { useState } from 'react';
+
+export default function Counter() {
+  const [count, setCount] = useState(0);
+  return (
+    <div className="container">
+      <button onClick={() => setCount(c => c + 1)}>
+        Count: {count}
+      </button>
+    </div>
+  );
+}
+`;
+      const frameworks = detectTsFrameworks(code, 'Counter.tsx');
+      const react = frameworks.find((f) => f.name === 'react');
+      const reactNative = frameworks.find((f) => f.name === 'reactnative');
+
+      expect(react).toBeDefined();
+      expect(reactNative).toBeUndefined();
+    });
+
+    it('should detect Expo apps as React Native', async () => {
+      const { detectTsFrameworks } = await import('../ts-analyzer.js');
+
+      const code = `
+import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
+import Constants from 'expo-constants';
+import { Stack } from 'expo-router';
+
+SplashScreen.preventAutoHideAsync();
+
+export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    'SpaceMono': require('./assets/fonts/SpaceMono.ttf'),
+  });
+
+  if (!fontsLoaded) return null;
+
+  return (
+    <>
+      <Stack />
+      <StatusBar style="auto" />
+    </>
+  );
+}
+`;
+      const frameworks = detectTsFrameworks(code, '_layout.tsx');
+      const reactNative = frameworks.find((f) => f.name === 'reactnative');
+      expect(reactNative).toBeDefined();
+      expect(reactNative?.confidence).toBeGreaterThan(0); // Has Expo matches
+    });
+  });
 });
