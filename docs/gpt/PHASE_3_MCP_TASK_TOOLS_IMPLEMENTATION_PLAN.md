@@ -412,7 +412,7 @@ const GraphExpandContextSchema = z.object({
 - `context7` — MCP SDK patterns, @modelcontextprotocol documentation
 
 #### Subagents (Parallel - 5 agents MAX) — MAXIMUM PARALLELISM
-1. `mcp-server-architect` — Tool: search_mobile_docs (framework + feature aware search with usage_tier_preference)
+1. `mcp-server-architect` — Tool: search_mobile_docs (framework + feature-aware search with usage_tier_preference)
 2. `mcp-server-architect` — Tool: find_code_examples (filter to usage_tier='example', code chunks)
 3. `mcp-server-architect` — Tool: get_feature_recipe (curated patterns from recipe collection)
 4. `mcp-server-architect` — Tools: get_project_tech_stack + get_db_schema (introspection pair, can share helper)
