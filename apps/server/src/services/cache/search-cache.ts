@@ -25,6 +25,10 @@ export interface SearchCacheKeyInput {
   topK?: number;
   minSimilarity?: number | null;
   techStack?: string[] | null;
+  // GPT Phase 1: Feature-aware filtering
+  featureTags?: string[] | null;
+  platform?: string | null;
+  usageTier?: string | null;
   weights?: { vector?: number; bm25?: number };
   page?: number;
   pageSize?: number;
@@ -37,6 +41,8 @@ export interface SearchCacheKeyInput {
 
 export function createSearchCacheKey(input: SearchCacheKeyInput): string {
   const sortableStack = input.techStack ? [...input.techStack].sort() : null;
+  // GPT Phase 1: Sort feature tags for consistent cache keys
+  const sortableFeatureTags = input.featureTags ? [...input.featureTags].sort() : null;
   const payload = {
     q: input.query.trim().toLowerCase(),
     collectionId: input.collectionId,
@@ -48,6 +54,10 @@ export function createSearchCacheKey(input: SearchCacheKeyInput): string {
     topK: input.topK ?? null,
     minSimilarity: input.minSimilarity ?? null,
     techStack: sortableStack,
+    // GPT Phase 1: Feature-aware filtering
+    featureTags: sortableFeatureTags,
+    platform: input.platform ?? null,
+    usageTier: input.usageTier ?? null,
     weights: input.weights ?? null,
     page: input.page ?? 1,
     pageSize: input.pageSize ?? null,

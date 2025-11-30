@@ -64,6 +64,9 @@ describe('searchCollection', () => {
       0.4,
       7,
       null, // techStack parameter
+      null, // featureTags parameter
+      null, // platform parameter
+      null, // usageTier parameter
     ]);
     expect(result.totalResults).toBe(1);
     expect(result.searchTimeMs).toBe(60);
@@ -131,6 +134,9 @@ describe('searchCollection', () => {
       0.5, // default minSimilarity
       5,
       ['postgres', 'supabase'], // techStack filter
+      null, // featureTags parameter
+      null, // platform parameter
+      null, // usageTier parameter
     ]);
 
     expect(result.totalResults).toBe(1);

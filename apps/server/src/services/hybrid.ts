@@ -137,6 +137,10 @@ export async function hybridSearch(
       provider: params.provider,
       context: params.context,
       techStack: params.techStack,
+      // GPT Phase 1: Feature-aware filtering
+      featureTags: params.featureTags,
+      platform: params.platform,
+      usageTier: params.usageTier,
     });
     return { result, elapsedMs: performance.now() - start };
   })();
@@ -148,6 +152,10 @@ export async function hybridSearch(
       collectionId: params.collectionId,
       topK: expandedTopK,
       techStack: params.techStack,
+      // GPT Phase 1: Feature-aware filtering
+      featureTags: params.featureTags,
+      platform: params.platform,
+      usageTier: params.usageTier,
     });
     return { result, elapsedMs: performance.now() - start };
   })();

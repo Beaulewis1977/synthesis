@@ -92,6 +92,12 @@ const SearchBodySchema = z
     rerank_provider: z.enum(['cohere', 'bge', 'none']).optional(),
     rerankProvider: z.enum(['cohere', 'bge', 'none']).optional(),
     tech_stack: z.array(z.string()).optional(),
+    // GPT Phase 1: Feature-aware filtering
+    feature_tags: z.array(z.string()).optional(),
+    featureTags: z.array(z.string()).optional(),
+    platform: z.enum(['mobile', 'web', 'backend', 'shared']).optional(),
+    usage_tier: z.enum(['official', 'reference', 'example', 'recipe']).optional(),
+    usageTier: z.enum(['official', 'reference', 'example', 'recipe']).optional(),
     page: z.number().int().min(1).optional(),
     page_size: z.number().int().min(1).max(50).optional(),
     pageSize: z.number().int().min(1).max(50).optional(),
@@ -153,6 +159,12 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       rerank_provider: snakeRerankProvider,
       rerankProvider: camelRerankProvider,
       tech_stack,
+      // GPT Phase 1: Feature-aware filtering
+      feature_tags: snakeFeatureTags,
+      featureTags: camelFeatureTags,
+      platform,
+      usage_tier: snakeUsageTier,
+      usageTier: camelUsageTier,
       page: requestPage,
       page_size: snakePageSize,
       pageSize: camelPageSize,
@@ -201,6 +213,11 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Normalize tech_stack to lowercase for case-insensitive matching
     const techStack = tech_stack?.map((tag) => tag.toLowerCase());
+
+    // GPT Phase 1: Normalize feature_tags to lowercase for case-insensitive matching
+    const featureTags = (camelFeatureTags ?? snakeFeatureTags)?.map((tag) => tag.toLowerCase());
+    const usageTier = camelUsageTier ?? snakeUsageTier;
+
     const includeRelatedFiles = camelIncludeRelated ?? snakeIncludeRelated ?? false;
     const autoIntent = camelAutoIntent ?? snakeAutoIntent;
     const page = normalizePage(requestPage);
@@ -229,6 +246,10 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       topK,
       minSimilarity: normalizedMinSimilarity,
       techStack,
+      // GPT Phase 1: Feature-aware filtering
+      featureTags,
+      platform,
+      usageTier,
       weights: undefined,
       page,
       pageSize,
@@ -262,6 +283,10 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
         rerankMaxCandidates,
         rerankProvider,
         techStack,
+        // GPT Phase 1: Feature-aware filtering
+        featureTags,
+        platform,
+        usageTier,
         includeRelatedFiles,
         autoIntent,
         intent,

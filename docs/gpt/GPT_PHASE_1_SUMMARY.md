@@ -23,7 +23,7 @@ This phase makes Synthesis a **mobile feature recipe library** for agents buildi
 |---|-----------|--------|--------|
 | 4.1 | Mobile Metadata Taxonomy | ✅ Complete | `feat(gpt-phase1): add mobile metadata types and feature detector` |
 | 4.2 | Curated Recipe Docs & Collections | ✅ Complete | `feat(gpt-phase1): add recipe docs and ingestion scripts` |
-| 4.3 | Feature-Aware Retrieval | ⬜ Pending | |
+| 4.3 | Feature-Aware Retrieval | ✅ Complete | `feat(gpt-phase1): add feature-aware search filtering` |
 | 4.4 | UI & MCP Exposure | ⬜ Pending | |
 | 4.5 | Evaluation & Golden Tasks | ⬜ Pending | |
 
@@ -237,9 +237,148 @@ tested_versions:
 
 ## Sub-Phase 4.3: Feature-Aware Retrieval
 
-**Status:** ⬜ Pending
+**Completed:** November 2025
+**Commit:** `feat(gpt-phase1): add feature-aware search filtering`
 
-*Summary will be added upon completion.*
+### Purpose
+
+Extend the `smartSearch` function and all underlying search methods (vector, BM25, hybrid) to support filtering by `feature_tags`, `platform`, and `usage_tier` metadata fields. This enables agents to query recipes and documentation filtered by mobile features, platform type, and source quality tier.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `apps/server/src/services/vector.ts` | Added `featureTags`, `platform`, `usageTier` to `SearchParams`; Extended SQL query with JSONB filter clauses |
+| `apps/server/src/services/bm25.ts` | Added `featureTags`, `platform`, `usageTier` to `BM25Params`; Extended SQL query with JSONB filter clauses |
+| `apps/server/src/services/hybrid.ts` | Pass-through of new filter parameters to vector and BM25 searches |
+| `apps/server/src/services/search.ts` | Pass-through in `smartSearch` function to hybrid/vector searches |
+| `apps/server/src/routes/search.ts` | Added Zod schema fields (`feature_tags`/`featureTags`, `platform`, `usage_tier`/`usageTier`); Normalization logic |
+| `apps/server/src/services/cache/search-cache.ts` | Added `featureTags`, `platform`, `usageTier` to `SearchCacheKeyInput`; Updated cache key generation |
+| `apps/server/src/services/__tests__/vector.test.ts` | Added 6 feature-aware filtering tests |
+| `apps/server/src/services/__tests__/bm25.test.ts` | Added 5 feature-aware filtering tests |
+| `apps/server/src/services/__tests__/search.test.ts` | Updated parameter expectations for new filter fields |
+
+### New SearchParams Fields
+
+```typescript
+// apps/server/src/services/vector.ts
+export interface SearchParams {
+  // ... existing fields
+  // GPT Phase 1: Feature-aware filtering
+  featureTags?: string[];   // Filter by mobile feature tags (OR logic)
+  platform?: string;        // Filter by content platform (exact match)
+  usageTier?: string;       // Filter by usage tier (exact match)
+}
+```
+
+### SQL Filter Implementation
+
+```sql
+-- Feature tags (array overlap using ?| operator)
+AND (
+  $6::text[] IS NULL
+  OR ch.metadata->'feature_tags' ?| $6::text[]
+)
+-- Platform (exact match)
+AND (
+  $7::text IS NULL
+  OR ch.metadata->>'platform' = $7::text
+)
+-- Usage tier (exact match)
+AND (
+  $8::text IS NULL
+  OR ch.metadata->>'usage_tier' = $8::text
+)
+```
+
+### API Request Schema
+
+```typescript
+// Zod schema additions (snake_case + camelCase variants)
+feature_tags: z.array(z.string()).optional(),
+featureTags: z.array(z.string()).optional(),
+platform: z.enum(['mobile', 'web', 'backend', 'shared']).optional(),
+usage_tier: z.enum(['official', 'reference', 'example', 'recipe']).optional(),
+usageTier: z.enum(['official', 'reference', 'example', 'recipe']).optional(),
+```
+
+### Cache Key Updates
+
+```typescript
+// SearchCacheKeyInput additions
+featureTags?: string[] | null;
+platform?: string | null;
+usageTier?: string | null;
+
+// Feature tags are sorted for consistent cache keys
+const sortableFeatureTags = input.featureTags ? [...input.featureTags].sort() : null;
+```
+
+### Filter Behavior
+
+| Filter | Operator | Behavior |
+|--------|----------|----------|
+| `featureTags` | `?|` (JSONB overlap) | OR logic - matches if ANY tag is present |
+| `platform` | `=` (exact match) | Filters to single platform value |
+| `usageTier` | `=` (exact match) | Filters to single tier value |
+| Empty array | Converted to `null` | No filtering applied |
+| `undefined` | Passed as `null` | No filtering applied |
+
+### Test Results
+
+- ✅ 11 vector search tests pass (6 new feature-aware tests)
+- ✅ 35 BM25 search tests pass (5 new feature-aware tests)
+- ✅ 7 hybrid search tests pass
+- ✅ 7 search route tests pass
+- ✅ 4 search.test.ts tests pass (parameter updates)
+- ✅ **64 total search-related tests pass**
+- ✅ TypeScript compiles without errors
+
+### Example API Usage
+
+```bash
+# Filter by feature tags (OR logic)
+curl -X POST http://localhost:3333/api/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "authentication",
+    "collection_id": "...",
+    "feature_tags": ["auth", "social_auth"]
+  }'
+
+# Filter by platform and usage tier
+curl -X POST http://localhost:3333/api/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "flutter widget",
+    "collection_id": "...",
+    "platform": "mobile",
+    "usage_tier": "recipe"
+  }'
+
+# Combined filters
+curl -X POST http://localhost:3333/api/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "push notifications",
+    "collection_id": "...",
+    "feature_tags": ["push_notifications"],
+    "platform": "mobile",
+    "usage_tier": "official"
+  }'
+```
+
+### Acceptance Criteria
+
+- [x] `smartSearch` supports `featureTags`, `platform`, `usageTier` filters
+- [x] Vector search filters by all three new fields
+- [x] BM25 search filters by all three new fields
+- [x] Hybrid search passes filters to both underlying searches
+- [x] Search route validates and normalizes filter inputs
+- [x] Cache key includes new filter fields for proper cache separation
+- [x] Empty arrays treated as "no filter" (converted to null)
+- [x] All 64 search-related tests pass
+- [x] TypeScript compiles without errors (`pnpm typecheck`)
 
 ---
 

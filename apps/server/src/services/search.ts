@@ -244,6 +244,10 @@ export async function smartSearch(
       provider,
       context,
       techStack: params.techStack,
+      // GPT Phase 1: Feature-aware filtering
+      featureTags: params.featureTags,
+      platform: params.platform,
+      usageTier: params.usageTier,
     });
     let fusedResults: SmartSearchResult[] = results.map((item) => ({
       ...item,
@@ -357,6 +361,10 @@ export async function smartSearch(
     provider,
     context,
     techStack: params.techStack,
+    // GPT Phase 1: Feature-aware filtering
+    featureTags: params.featureTags,
+    platform: params.platform,
+    usageTier: params.usageTier,
   });
 
   const trustApplied = shouldApplyTrustScoring();

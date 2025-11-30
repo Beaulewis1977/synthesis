@@ -155,6 +155,9 @@ describe('bm25Search', () => {
       'collection-1',
       30,
       null, // techStack parameter
+      null, // featureTags parameter
+      null, // platform parameter
+      null, // usageTier parameter
     ]);
 
     // Verify the SQL contains to_tsquery
@@ -197,7 +200,10 @@ describe('bm25Search', () => {
       'manage or state or Flutter', // Stop words removed, OR between terms
       'collection-1',
       30,
-      null,
+      null, // techStack
+      null, // featureTags
+      null, // platform
+      null, // usageTier
     ]);
 
     // Verify the SQL contains websearch_to_tsquery
@@ -220,7 +226,10 @@ describe('bm25Search', () => {
       'const and final',
       'collection-1',
       30,
-      null,
+      null, // techStack
+      null, // featureTags
+      null, // platform
+      null, // usageTier
     ]);
 
     // Verify the SQL contains phraseto_tsquery
@@ -243,7 +252,10 @@ describe('bm25Search', () => {
       'Navigator.push:*',
       'collection-1',
       30,
-      null,
+      null, // techStack
+      null, // featureTags
+      null, // platform
+      null, // usageTier
     ]);
 
     const sqlArg = mockQuery.mock.calls[0][0] as string;
@@ -289,6 +301,9 @@ describe('bm25Search', () => {
       'collection-1',
       30,
       null, // techStack parameter
+      null, // featureTags
+      null, // platform
+      null, // usageTier
     ]);
   });
 
@@ -306,6 +321,211 @@ describe('bm25Search', () => {
       'collection-1',
       30,
       null, // techStack parameter
+      null, // featureTags
+      null, // platform
+      null, // usageTier
+    ]);
+  });
+});
+
+// GPT Phase 1: Feature-aware filtering tests for BM25
+describe('bm25Search with feature-aware filtering', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(process.env, 'FTS_LANGUAGE');
+  });
+
+  it('should filter results by feature_tags when provided', async () => {
+    const mockQuery = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          chunk_id: 1,
+          text: 'Supabase auth implementation',
+          metadata: { feature_tags: ['auth', 'social_auth'] },
+          doc_id: 'doc-1',
+          doc_title: 'Auth Guide',
+          source_url: 'https://example.com/auth',
+          rank: 0.8,
+        },
+      ],
+    });
+
+    const db = { query: mockQuery } as unknown as Pick<Pool, 'query'>;
+
+    const results = await bm25Search(db as Pool, {
+      query: 'authentication supabase',
+      collectionId: 'collection-1',
+      featureTags: ['auth'],
+    });
+
+    // Verify query was called with feature_tags filter
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.stringContaining("metadata->'feature_tags' ?|"),
+      expect.arrayContaining([
+        'english',
+        expect.any(String), // query
+        'collection-1',
+        30,
+        null, // techStack
+        ['auth'], // featureTags
+        null, // platform
+        null, // usageTier
+      ])
+    );
+
+    expect(results.length).toBe(1);
+    expect(results[0].metadata?.feature_tags).toEqual(['auth', 'social_auth']);
+  });
+
+  it('should filter by platform', async () => {
+    const mockQuery = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          chunk_id: 1,
+          text: 'Flutter mobile widget',
+          metadata: { platform: 'mobile' },
+          doc_id: 'doc-1',
+          doc_title: 'Mobile Guide',
+          source_url: null,
+          rank: 0.75,
+        },
+      ],
+    });
+
+    const db = { query: mockQuery } as unknown as Pick<Pool, 'query'>;
+
+    const results = await bm25Search(db as Pool, {
+      query: 'flutter widget',
+      collectionId: 'collection-1',
+      platform: 'mobile',
+    });
+
+    // Verify query was called with platform filter
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.stringContaining("metadata->>'platform' = $7"),
+      expect.arrayContaining([
+        'english',
+        expect.any(String), // query
+        'collection-1',
+        30,
+        null, // techStack
+        null, // featureTags
+        'mobile', // platform
+        null, // usageTier
+      ])
+    );
+
+    expect(results.length).toBe(1);
+    expect(results[0].metadata?.platform).toBe('mobile');
+  });
+
+  it('should filter by usage_tier', async () => {
+    const mockQuery = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          chunk_id: 1,
+          text: 'Official Flutter documentation',
+          metadata: { usage_tier: 'official' },
+          doc_id: 'doc-1',
+          doc_title: 'Official Doc',
+          source_url: 'https://docs.flutter.dev',
+          rank: 0.9,
+        },
+      ],
+    });
+
+    const db = { query: mockQuery } as unknown as Pick<Pool, 'query'>;
+
+    const results = await bm25Search(db as Pool, {
+      query: 'flutter documentation',
+      collectionId: 'collection-1',
+      usageTier: 'official',
+    });
+
+    // Verify query was called with usage_tier filter
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.stringContaining("metadata->>'usage_tier' = $8"),
+      expect.arrayContaining([
+        'english',
+        expect.any(String), // query
+        'collection-1',
+        30,
+        null, // techStack
+        null, // featureTags
+        null, // platform
+        'official', // usageTier
+      ])
+    );
+
+    expect(results.length).toBe(1);
+    expect(results[0].metadata?.usage_tier).toBe('official');
+  });
+
+  it('should apply combined filters', async () => {
+    const mockQuery = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          chunk_id: 1,
+          text: 'Mobile auth recipe',
+          metadata: {
+            feature_tags: ['auth'],
+            platform: 'mobile',
+            usage_tier: 'recipe',
+          },
+          doc_id: 'doc-1',
+          doc_title: 'Recipe',
+          source_url: null,
+          rank: 0.95,
+        },
+      ],
+    });
+
+    const db = { query: mockQuery } as unknown as Pick<Pool, 'query'>;
+
+    const results = await bm25Search(db as Pool, {
+      query: 'authentication',
+      collectionId: 'collection-1',
+      featureTags: ['auth'],
+      platform: 'mobile',
+      usageTier: 'recipe',
+    });
+
+    // Verify all filters are applied
+    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [
+      'english',
+      expect.any(String), // query
+      'collection-1',
+      30,
+      null, // techStack
+      ['auth'], // featureTags
+      'mobile', // platform
+      'recipe', // usageTier
+    ]);
+
+    expect(results.length).toBe(1);
+  });
+
+  it('should not filter when feature filters are empty', async () => {
+    const mockQuery = vi.fn().mockResolvedValue({ rows: [] });
+    const db = { query: mockQuery } as unknown as Pick<Pool, 'query'>;
+
+    await bm25Search(db as Pool, {
+      query: 'flutter',
+      collectionId: 'collection-1',
+      featureTags: [], // Empty array
+      platform: undefined,
+      usageTier: undefined,
+    });
+
+    // Verify all feature filters are null
+    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [
+      'english',
+      expect.any(String), // query
+      'collection-1',
+      30,
+      null, // techStack
+      null, // featureTags (empty array becomes null)
+      null, // platform
+      null, // usageTier
     ]);
   });
 });
