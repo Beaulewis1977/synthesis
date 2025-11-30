@@ -117,6 +117,43 @@ const TS_FRAMEWORK_PATTERNS: Record<string, { patterns: RegExp[]; framework: Doc
         /DATABASE_URL|PG_HOST|POSTGRES/,
       ],
     },
+    reactnative: {
+      framework: 'reactnative',
+      patterns: [
+        // React Native core imports (most reliable)
+        /from\s+['"]react-native['"]/,
+        /from\s+['"]@react-native\//,
+        /from\s+['"]@react-navigation\//,
+        // React Native specific APIs
+        /StyleSheet\.create\s*\(/,
+        /Platform\.(?:OS|select|Version)/,
+        /Dimensions\.get\s*\(/,
+        /Alert\.alert\s*\(/,
+        // JSX components (require < to avoid matching variable names)
+        /<\s*(?:View|Text|TouchableOpacity|TouchableHighlight)\b/,
+        /<\s*(?:FlatList|ScrollView|SafeAreaView)\b/,
+        /<\s*(?:StatusBar|Modal)\b/,
+        // React Native hooks (with word boundaries)
+        /\buseColorScheme\b/,
+        /\buseWindowDimensions\b/,
+        // Storage APIs (with word boundaries)
+        /\bAsyncStorage\b/,
+        /\bSecureStore\b/,
+        // Platform-specific file extensions
+        /\.ios\.|\.android\./,
+        // Expo SDK imports (specific import patterns)
+        /from\s+['"]expo['"]/,
+        /from\s+['"]expo-/,
+        /from\s+['"]@expo\//,
+        // Expo hooks and APIs (with word boundaries)
+        /\buseFonts\b/,
+        /\buseAssets\b/,
+        /\buseKeepAwake\b/,
+        /Constants\.(?:expoConfig|manifest|deviceName)/,
+        /SplashScreen\.(?:preventAutoHideAsync|hideAsync)/,
+        /registerRootComponent\s*\(/,
+      ],
+    },
   };
 
 /**

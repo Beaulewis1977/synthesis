@@ -22,6 +22,7 @@ export type DocumentFramework =
   | 'spring'
   | 'android'
   | 'react'
+  | 'reactnative'
   | 'nextjs'
   | 'express'
   | 'nestjs'

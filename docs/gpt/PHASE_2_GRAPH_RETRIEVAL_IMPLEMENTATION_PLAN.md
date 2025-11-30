@@ -32,7 +32,47 @@ We will:
 
 ---
 
-## 2. Phase Overview
+## 2. GitHub Workflow
+
+For all work in this graph retrieval phase:
+
+- Branches MUST be based on `develop`.
+- Branch names MUST be descriptive and include the GPT phase and scope, for example:
+  - `feature/gpt-phase2-graph-schema`
+  - `feature/gpt-phase2-graph-builder`
+  - `feature/gpt-phase2-graph-retrieval`
+  - `feature/gpt-phase2-graph-rag-integration`
+  - `feature/gpt-phase2-graph-ui-mcp`
+- Agents MUST NOT commit or push without explicit human approval.
+- Every push MUST be followed by a pull request into `develop`.
+
+### 2.1 Workflow Per Phase
+
+```bash
+# 1. Create branch (WAIT FOR APPROVAL)
+git checkout develop && git pull origin develop
+git checkout -b feature/gpt-phase2-graph-scope
+
+# 2. Implement changes...
+
+# 3. Present changes to human for review
+
+# 4. After APPROVAL: commit
+git add -A
+git commit -m "feat(phase2-graph): description"
+
+# 5. After APPROVAL: push
+git push -u origin feature/gpt-phase2-graph-scope
+
+# 6. Create PR
+gh pr create --base develop --title "GPT Phase 2: Graph Retrieval – Scope"
+```
+
+Adapt `feature/gpt-phase2-graph-scope` and the PR title per sub‑phase. Also follow `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` §2 and `agents.md`.
+
+---
+
+## 3. Phase Overview
 
 | # | Phase | Priority | Days | Branch (suggested) |
 |---|-------|----------|------|--------------------|
@@ -42,11 +82,9 @@ We will:
 | 4 | RAG & Synthesis Integration | P1 | 3–4 | `feature/gpt-phase2-graph-rag-integration` |
 | 5 | Debug UI & MCP Tools | P2 | 3–5 | `feature/gpt-phase2-graph-ui-mcp` |
 
-Use the Git workflow rules in `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` §2.
-
 ---
 
-## 3. Phase 1: Graph Schema & Storage
+## 4. Phase 1: Graph Schema & Storage
 
 **Problem:** Relationships are currently implicit (AST metadata, file relationships, DB schema), not stored as a unified graph that can be traversed for retrieval.
 
@@ -106,7 +144,7 @@ Each node should:
 
 ---
 
-## 4. Phase 2: Graph Builder Pipeline
+## 5. Phase 2: Graph Builder Pipeline
 
 **Problem:** There is no pipeline that converts existing AST and metadata into graph nodes/edges.
 
@@ -158,7 +196,7 @@ These already provide enough information to derive:
 
 ---
 
-## 5. Phase 3: Graph Retrieval Service
+## 6. Phase 3: Graph Retrieval Service
 
 **Problem:** The graph exists, but retrieval is still purely chunk‑based.
 
@@ -218,7 +256,7 @@ interface GraphContextResult {
 
 ---
 
-## 6. Phase 4: RAG & Synthesis Integration
+## 7. Phase 4: RAG & Synthesis Integration
 
 **Problem:** Graph retrieval is useful, but agents still consume the classic RAG and synthesis APIs.
 
@@ -261,7 +299,7 @@ interface GraphContextResult {
 
 ---
 
-## 7. Phase 5: Debug UI & MCP Tools
+## 8. Phase 5: Debug UI & MCP Tools
 
 **Problem:** Without visibility into the graph, it’s hard to debug or leverage it effectively via MCP.
 
@@ -299,4 +337,3 @@ interface GraphContextResult {
   - This tool integrates naturally with new mobile feature recipes and task‑specific tools (Phase 3).
 
 Once this phase is complete, Synthesis will support **graph‑style retrieval** that helps agents see complete flows instead of disjoint snippets, especially valuable for designing and modifying mobile SaaS backends and apps.
-

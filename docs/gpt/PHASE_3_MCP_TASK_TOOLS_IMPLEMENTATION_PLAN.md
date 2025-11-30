@@ -34,7 +34,47 @@ This phase builds on:
 
 ---
 
-## 2. Phase Overview
+## 2. GitHub Workflow
+
+For all work in this MCP tools phase:
+
+- Branches MUST be created from `develop`.
+- Branch names MUST be descriptive and include the GPT phase and scope, for example:
+  - `feature/gpt-phase3-mcp-design`
+  - `feature/gpt-phase3-api-layer`
+  - `feature/gpt-phase3-mcp-tools`
+  - `feature/gpt-phase3-agent-prompts`
+  - `feature/gpt-phase3-mcp-eval`
+- Agents MUST NOT commit or push without explicit human approval.
+- Every push MUST result in a pull request into `develop`.
+
+### 2.1 Workflow Per Phase
+
+```bash
+# 1. Create branch (WAIT FOR APPROVAL)
+git checkout develop && git pull origin develop
+git checkout -b feature/gpt-phase3-mcp-scope
+
+# 2. Implement changes...
+
+# 3. Present changes to human for review
+
+# 4. After APPROVAL: commit
+git add -A
+git commit -m "feat(phase3-mcp): description"
+
+# 5. After APPROVAL: push
+git push -u origin feature/gpt-phase3-mcp-scope
+
+# 6. Create PR
+gh pr create --base develop --title "GPT Phase 3: MCP Task Tools – Scope"
+```
+
+Adapt `feature/gpt-phase3-mcp-scope` and the PR title for each sub‑phase. Also follow `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` §2 and `agents.md`.
+
+---
+
+## 3. Phase Overview
 
 | # | Phase | Priority | Days | Branch (suggested) |
 |---|-------|----------|------|--------------------|
@@ -44,11 +84,9 @@ This phase builds on:
 | 4 | Agent Prompt & Config Updates | P1 | 2–3 | `feature/gpt-phase3-agent-prompts` |
 | 5 | Scenario-Based Evaluation | P2 | 2–3 | `feature/gpt-phase3-mcp-eval` |
 
-Use the Git workflow rules in `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` §2.
-
 ---
 
-## 3. Phase 1: Task Taxonomy & Tool Design
+## 4. Phase 1: Task Taxonomy & Tool Design
 
 **Problem:** Existing tools (`search_rag`, `list_collections`, `fetch_and_add_document_from_url`, etc.) are low‑level and not aligned with mobile SaaS development tasks.
 
@@ -96,7 +134,7 @@ The spec doc should reference:
 
 ---
 
-## 4. Phase 2: HTTP API Enhancements
+## 5. Phase 2: HTTP API Enhancements
 
 **Problem:** Some of the desired tools need higher‑level HTTP endpoints than the current set (`/api/search`, `/api/synthesis/compare`, `/api/collections`, etc.).
 
@@ -144,7 +182,7 @@ These endpoints are thin wrappers around existing services, tuned for agent cons
 
 ---
 
-## 5. Phase 3: MCP Tool Implementation
+## 6. Phase 3: MCP Tool Implementation
 
 **Problem:** The MCP server needs to expose the new API capabilities in a GPT‑friendly, strongly typed way.
 
@@ -198,7 +236,7 @@ Target tools (names may be adjusted slightly for ergonomics):
 
 ---
 
-## 6. Phase 4: Agent Prompt & Config Updates
+## 7. Phase 4: Agent Prompt & Config Updates
 
 **Problem:** Without clear instructions, agents may misuse tools or fail to use the more powerful ones.
 
@@ -232,7 +270,7 @@ Target tools (names may be adjusted slightly for ergonomics):
 
 ---
 
-## 7. Phase 5: Scenario-Based Evaluation
+## 8. Phase 5: Scenario-Based Evaluation
 
 **Problem:** It’s not obvious whether the new tools actually make agents more reliable for real development tasks.
 
@@ -271,4 +309,3 @@ Each scenario should:
   - Where retrieval or planning failed.
 
 Once this phase is complete, you will have a set of well‑designed MCP tools and scenarios that let a GPT/Claude agent use Synthesis as a **reliable, high‑level RAG backend** for building and evolving mobile SaaS apps.
-

@@ -315,6 +315,14 @@ export const FRAMEWORK_PATTERNS: Record<DocumentFramework, RegExp[]> = {
   express: [/from\s+['"]express['"]/, /express\s*\(\)/, /app\.(?:get|post|put|delete|use)\s*\(/],
   nestjs: [/@(?:Controller|Injectable|Module|Get|Post|Put|Delete)\s*\(/, /from\s+['"]@nestjs\//],
   fastify: [/from\s+['"]fastify['"]/, /fastify\s*\(\)/, /\.register\s*\(/],
+  reactnative: [
+    /from\s+['"]react-native['"]/,
+    /from\s+['"]@react-native\//,
+    /from\s+['"]@react-navigation\//,
+    /StyleSheet\.create\s*\(/,
+    /<\s*(?:View|Text|TouchableOpacity|FlatList|ScrollView)\b/,
+    /Platform\.(?:OS|select)/,
+  ],
 
   // Database/Backend
   supabase: [
@@ -519,6 +527,7 @@ export function getApplicableFrameworks(language: DocumentLanguage): DocumentFra
     dart: ['flutter', 'dart', 'supabase', 'firebase'],
     typescript: [
       'react',
+      'reactnative',
       'nextjs',
       'express',
       'nestjs',
@@ -528,9 +537,18 @@ export function getApplicableFrameworks(language: DocumentLanguage): DocumentFra
       'redis',
       'postgres',
     ],
-    tsx: ['react', 'nextjs', 'supabase', 'firebase'],
-    javascript: ['react', 'express', 'fastify', 'supabase', 'firebase', 'redis', 'postgres'],
-    jsx: ['react'],
+    tsx: ['react', 'reactnative', 'nextjs', 'supabase', 'firebase'],
+    javascript: [
+      'react',
+      'reactnative',
+      'express',
+      'fastify',
+      'supabase',
+      'firebase',
+      'redis',
+      'postgres',
+    ],
+    jsx: ['react', 'reactnative'],
     python: [
       'fastapi',
       'django',
