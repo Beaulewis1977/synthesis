@@ -16,7 +16,7 @@
 | Task 2.2: Language stats API endpoint | ✅ COMPLETE | `b517ad3` |
 | Task 2.1+2.3: Language badges + chunking quality | ✅ COMPLETE | `b517ad3` |
 | Task 3: Accessibility audit | ✅ COMPLETE | `7cdd938` |
-| Task 4: API documentation | ⏳ NOT STARTED | - |
+| Task 4: API documentation | ✅ COMPLETE | `624a233` |
 | Task 5: MMR placeholder UI | ⏳ NOT STARTED | - |
 
 ---
@@ -129,10 +129,25 @@
 
 ---
 
-## Remaining Work
+### Task 4: API Documentation (COMPLETE)
 
-### Task 4: API Documentation
-Create `docs/API.md` - see plan file for content.
+**Files Created:**
+
+1. **`docs/API.md`** (~350 lines)
+   - Complete Search API documentation with all request/response parameters
+   - Intent types table with search mode configurations
+   - MMR options and configuration
+   - Collections API endpoints (list, get, create, delete, documents, language-stats)
+   - Ingest API for document upload
+   - Health check endpoint
+   - Curl examples for all common use cases
+   - Environment configuration reference
+
+**Commit:** `624a233` - ✅ COMMITTED
+
+---
+
+## Remaining Work
 
 ### Task 5: MMR Placeholder
 Add "Coming Soon" UI for per-collection MMR defaults.
@@ -143,13 +158,14 @@ Add "Coming Soon" UI for per-collection MMR defaults.
 
 ```
 On branch feature/rag-ui-completion
-3 commits ahead of develop
-7cdd938 fix(web): improve form accessibility and keyboard navigation
+4 commits ahead of develop
+624a233 docs: add API documentation for search endpoints
+9167c61 fix(web): improve form accessibility and keyboard navigation
 b517ad3 feat: integrate language support badges into collections
 9f82cce feat(web): add query intent UI with badge, mode indicator, and override
 ```
 
-**Last Commit:** `7cdd938` - fix(web): improve form accessibility and keyboard navigation
+**Last Commit:** `624a233` - docs: add API documentation for search endpoints
 **Typecheck:** ✅ Passing
 
 ---
