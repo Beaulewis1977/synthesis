@@ -6,6 +6,9 @@ export interface Collection {
   description?: string;
   created_at: string;
   updated_at: string;
+  // MMR defaults for searches in this collection
+  mmr_enabled?: boolean;
+  mmr_lambda?: number;
 }
 
 // Phase 7: Lifecycle status for document versioning
@@ -68,6 +71,67 @@ export interface MMRInfo {
   near_duplicates_filtered: number;
 }
 
+/**
+ * Query intent types for search behavior optimization
+ * Phase 12: Query Intent Detection
+ */
+export type QueryIntent =
+  | 'code_symbol'
+  | 'natural_language'
+  | 'error_message'
+  | 'api_lookup'
+  | 'conceptual'
+  | 'comparison';
+
+/**
+ * Query intent result returned from search API
+ * Phase 12: Query Intent Detection
+ */
+export interface QueryIntentInfo {
+  /** Detected or specified intent type */
+  type: QueryIntent;
+  /** Confidence score (0.0 - 1.0) */
+  confidence: number;
+  /** Whether intent was auto-detected or manually specified */
+  auto_detected: boolean;
+  /** Signals that triggered this classification */
+  signals: string[];
+}
+
+/**
+ * Search diagnostics with weight and score information
+ * Phase 8/12: Hybrid Search Diagnostics
+ */
+export interface SearchDiagnostics {
+  /** Vector and BM25 weights used */
+  weights?: {
+    vector: number;
+    bm25: number;
+  };
+  /** Score statistics */
+  vector_scores?: {
+    avg: number;
+    max: number;
+    min: number;
+  };
+  bm25_scores?: {
+    avg: number;
+    max: number;
+    min: number;
+  };
+  /** Timing breakdown */
+  timing?: {
+    vector_ms: number;
+    bm25_ms: number;
+    fusion_ms: number;
+    total_ms: number;
+  };
+  /** BM25 query type used */
+  bm25_query_type?: string;
+  /** RRF k value */
+  rrf_k?: number;
+}
+
 export interface SearchMetadata {
   search_mode: 'vector' | 'hybrid';
   vector_count?: number | null;
@@ -84,6 +148,10 @@ export interface SearchMetadata {
   };
   /** MMR diversification info (when mmr_enabled is true) */
   mmr?: MMRInfo | null;
+  /** Query intent detection info (Phase 12) */
+  intent?: QueryIntentInfo | null;
+  /** Search diagnostics with weights and scores (Phase 8/12) */
+  diagnostics?: SearchDiagnostics | null;
 }
 
 export interface SearchResult {
@@ -639,3 +707,17 @@ export interface BatchRestoreResult {
   restored_count: number;
   restored_ids: string[];
 }
+
+// ============================================
+// Phase 14: Language Support Types (re-exported from @synthesis/shared)
+// ============================================
+
+export type {
+  LanguageSupportStatus,
+  LanguageSupportLevel,
+  ParserType,
+  AnalyzerCapabilities,
+  FrameworkInfo,
+  DocumentLanguage,
+  DocumentFramework,
+} from '@synthesis/shared';

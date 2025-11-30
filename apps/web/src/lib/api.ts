@@ -23,6 +23,7 @@ import type {
   FrameworkVersionInfo,
   IngestionJob,
   IngestionJobStatusResponse,
+  LanguageSupportStatus,
   LifecycleStatus,
   ModelConfig,
   ModelConfigResponse,
@@ -136,6 +137,22 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ name, description }),
     });
+  }
+
+  /**
+   * Update MMR (Maximal Marginal Relevance) default settings for a collection.
+   */
+  async updateCollectionMMRDefaults(
+    collectionId: string,
+    settings: { mmr_enabled?: boolean; mmr_lambda?: number }
+  ): Promise<Collection> {
+    return this.request<Collection>(
+      `/api/collections/${encodeURIComponent(collectionId)}/mmr-defaults`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(settings),
+      }
+    );
   }
 
   /**
@@ -354,7 +371,8 @@ class ApiClient {
     collectionId: string,
     topK = 10,
     techStack?: string[],
-    mmrOptions?: { enabled?: boolean; lambda?: number }
+    mmrOptions?: { enabled?: boolean; lambda?: number },
+    intentOverride?: string | null
   ): Promise<SearchResponse> {
     const body: Record<string, unknown> = {
       query,
@@ -373,6 +391,11 @@ class ApiClient {
     }
     if (mmrOptions?.lambda !== undefined) {
       body.mmr_lambda = mmrOptions.lambda;
+    }
+
+    // Phase 12: Include intent override if provided
+    if (intentOverride) {
+      body.intent = intentOverride;
     }
 
     return this.request<SearchResponse>('/api/search', {
@@ -900,6 +923,22 @@ class ApiClient {
         method: 'POST',
         body: JSON.stringify({ framework_version: frameworkVersion }),
       }
+    );
+  }
+
+  // ============================================
+  // Language Stats (Phase 14)
+  // ============================================
+
+  /**
+   * Get language statistics for a collection.
+   * Returns detected languages with their analyzer support level.
+   */
+  async getCollectionLanguageStats(
+    collectionId: string
+  ): Promise<{ languages: LanguageSupportStatus[] }> {
+    return this.request<{ languages: LanguageSupportStatus[] }>(
+      `/api/collections/${encodeURIComponent(collectionId)}/language-stats`
     );
   }
 }

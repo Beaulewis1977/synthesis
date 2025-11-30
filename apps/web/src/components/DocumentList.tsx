@@ -94,11 +94,11 @@ function DocumentItem({
               type="checkbox"
               checked={isSelected}
               onChange={() => onToggleSelect(document.id)}
-              className="mt-xs cursor-pointer w-4 h-4 accent-accent"
+              className="mt-xs cursor-pointer w-4 h-4 accent-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               aria-label={`Select ${document.title}`}
             />
           )}
-          <FileIcon className="text-accent flex-shrink-0 mt-xs" size={20} />
+          <FileIcon className="text-accent flex-shrink-0 mt-xs" size={20} aria-hidden="true" />
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-text-primary truncate mb-xs">{document.title}</h3>
             <div className="flex flex-wrap items-center gap-x-md gap-y-xs text-sm text-text-secondary">
@@ -153,23 +153,28 @@ function DocumentItem({
               {/* Edit button */}
               <Link
                 to={`/documents/${document.id}/edit`}
-                className="text-text-secondary hover:text-accent transition-colors"
+                className="text-text-secondary hover:text-accent transition-colors rounded focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 title="Edit document chunks"
                 aria-label="Edit document"
               >
-                <Edit2 size={18} />
+                <Edit2 size={18} aria-hidden="true" />
               </Link>
               {/* Refresh button for documents with source URLs */}
               {document.source_url && onRefresh && (
                 <button
                   type="button"
                   onClick={handleRefresh}
-                  className="text-text-secondary hover:text-accent transition-colors"
+                  className="text-text-secondary hover:text-accent transition-colors rounded focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                   title="Refresh document from source"
                   aria-label="Refresh document"
+                  aria-busy={isRefreshing}
                   disabled={isRefreshing || isDeleting}
                 >
-                  <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+                  <RefreshCw
+                    size={18}
+                    className={isRefreshing ? 'animate-spin' : ''}
+                    aria-hidden="true"
+                  />
                 </button>
               )}
 
@@ -250,7 +255,7 @@ export function DocumentList({
               type="checkbox"
               checked={selectedIds.size === documents.length && documents.length > 0}
               onChange={toggleSelectAll}
-              className="cursor-pointer w-4 h-4 accent-accent"
+              className="cursor-pointer w-4 h-4 accent-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               aria-label="Select all documents"
             />
             <span className="text-sm text-text-secondary">

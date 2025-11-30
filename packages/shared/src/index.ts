@@ -663,3 +663,13 @@ export const FULL_AST_CAPABILITIES: AnalyzerCapabilities = {
   asyncDetection: true,
   decoratorDetection: true,
 };
+
+// =============================================================================
+// MMR (Maximal Marginal Relevance) Constants
+// =============================================================================
+
+/**
+ * Default MMR lambda value (0.0 = max diversity, 1.0 = max relevance)
+ * Used as default for collection settings and search requests
+ */
+export const DEFAULT_MMR_LAMBDA = 0.7;
