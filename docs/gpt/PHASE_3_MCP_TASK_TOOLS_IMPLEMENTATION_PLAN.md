@@ -1,14 +1,31 @@
 # Phase 3: Task-Specific MCP Tools for Development – Implementation Plan
 
-**Version:** 1.0 · **Created:** November 2025  
-**Related Docs:**  
+**Version:** 2.0 · **Created:** November 2025 · **Updated:** November 2025  
+**Branch:** `feature/gpt-phase3-mcp-task-tools`  
+**PR Title:** GPT Phase 3: Task-Specific MCP Tools
+
+---
+
+## Prerequisites
+
+**This phase requires Phase 1 and Phase 2 to be complete:**
+
+- [x] GPT Phase 1 merged (Mobile Feature Recipes & Metadata)
+  - `feature_tags`, `platform`, `usage_tier` metadata available
+  - Feature detector service available
+- [x] GPT Phase 2 merged (Graph Retrieval)
+  - `knowledge_nodes` and `knowledge_edges` tables exist
+  - Graph search service available
+  - `/api/graph/context` endpoint available
+- [ ] `develop` branch is up to date with Phase 1 & 2
+- [ ] All existing tests pass (`pnpm test`)
+
+---
+
+## Related Documentation
+
 - `docs/agent-sdk/00_AGENT_SDK_OVERVIEW.md`  
-- `docs/agent-sdk/01_AGENT_SDK_ARCHITECTURE_IMPACT.md`  
-- `docs/agent-sdk/02_AGENT_SDK_BUILD_PLAN.md`  
-- `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md` (Agent + tools sections)  
-- `docs/guides/CODE_SEARCH_GUIDE.md`  
-- `docs/guides/HYBRID_SEARCH_GUIDE.md`  
-- `docs/guides/SYNTHESIS_GUIDE.md`  
+- `docs/RAG_AND_MODEL_SELECTOR_IMPLEMENTATION_PLAN.md`
 - `docs/gpt/PHASE_1_MOBILE_RECIPES_IMPLEMENTATION_PLAN.md`  
 - `docs/gpt/PHASE_2_GRAPH_RETRIEVAL_IMPLEMENTATION_PLAN.md`
 

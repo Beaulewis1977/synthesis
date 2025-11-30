@@ -187,11 +187,128 @@ Create a service that detects features from content:
 ```typescript
 import type { MobileFeatureTag, ContentPlatform, UsageTier } from '@synthesis/shared';
 
+/**
+ * Feature detection patterns for all MobileFeatureTag values.
+ * Each feature has an array of regex patterns that indicate its presence.
+ */
 const FEATURE_PATTERNS: Record<MobileFeatureTag, RegExp[]> = {
-  auth: [/\b(auth|login|signup|signin)\b/i, /\b(jwt|oauth|firebase_auth)\b/i],
-  billing: [/\b(billing|stripe|payment|checkout)\b/i],
-  push_notifications: [/\b(push|fcm|apns|notification)\b/i],
-  // ... add patterns for all feature tags
+  // Authentication & Identity
+  auth: [
+    /\b(auth|authentication|login|logout|signin|signout|signup|register)\b/i,
+    /\b(jwt|oauth|oauth2|oidc|saml|credentials)\b/i,
+    /\b(firebase[_-]?auth|supabase[_-]?auth|auth0|cognito)\b/i,
+  ],
+  onboarding: [
+    /\b(onboarding|welcome|intro|tutorial|walkthrough|first[_-]?run)\b/i,
+    /\b(getting[_-]?started|setup[_-]?wizard|initial[_-]?setup)\b/i,
+  ],
+  social_auth: [
+    /\b(social[_-]?auth|social[_-]?login|google[_-]?sign[_-]?in)\b/i,
+    /\b(apple[_-]?sign[_-]?in|facebook[_-]?login|twitter[_-]?auth)\b/i,
+    /\b(github[_-]?auth|oauth[_-]?provider)\b/i,
+  ],
+
+  // Payments & Monetization
+  billing: [
+    /\b(billing|invoice|subscription[_-]?management)\b/i,
+    /\b(revenue[_-]?cat|app[_-]?store[_-]?connect)\b/i,
+  ],
+  payments: [
+    /\b(payment|pay|checkout|transaction|purchase)\b/i,
+    /\b(stripe|paypal|square|braintree|razorpay)\b/i,
+  ],
+  subscriptions: [
+    /\b(subscription|subscribe|recurring|plan|tier|premium)\b/i,
+    /\b(in[_-]?app[_-]?purchase|iap|store[_-]?kit)\b/i,
+  ],
+
+  // Communication & Notifications
+  push_notifications: [
+    /\b(push[_-]?notification|remote[_-]?notification)\b/i,
+    /\b(fcm|firebase[_-]?messaging|apns|onesignal)\b/i,
+    /\b(notification[_-]?service|notification[_-]?handler)\b/i,
+  ],
+  chat: [
+    /\b(chat|messaging|conversation|direct[_-]?message)\b/i,
+    /\b(stream[_-]?chat|sendbird|pusher|socket[_-]?chat)\b/i,
+  ],
+  realtime: [
+    /\b(realtime|real[_-]?time|live[_-]?update|websocket)\b/i,
+    /\b(socket\.io|supabase[_-]?realtime|firebase[_-]?realtime)\b/i,
+    /\b(presence|broadcast|channel[_-]?subscription)\b/i,
+  ],
+
+  // Data & Storage
+  offline: [
+    /\b(offline|offline[_-]?first|local[_-]?storage|local[_-]?database)\b/i,
+    /\b(hive|isar|sqflite|realm|objectbox)\b/i,
+    /\b(cached[_-]?data|persistent[_-]?storage)\b/i,
+  ],
+  sync: [
+    /\b(sync|synchronize|data[_-]?sync|background[_-]?sync)\b/i,
+    /\b(conflict[_-]?resolution|merge[_-]?strategy)\b/i,
+  ],
+  caching: [
+    /\b(cache|caching|cached|memory[_-]?cache)\b/i,
+    /\b(redis|memcache|image[_-]?cache|http[_-]?cache)\b/i,
+  ],
+  search: [
+    /\b(search|full[_-]?text[_-]?search|search[_-]?bar)\b/i,
+    /\b(algolia|elasticsearch|meilisearch|typesense)\b/i,
+  ],
+
+  // Navigation & UI
+  navigation: [
+    /\b(navigation|router|route|navigate|go[_-]?router)\b/i,
+    /\b(auto[_-]?route|navigator|page[_-]?transition|deep[_-]?link)\b/i,
+    /\b(bottom[_-]?nav|tab[_-]?bar|drawer)\b/i,
+  ],
+  state_management: [
+    /\b(state[_-]?management|state[_-]?manager)\b/i,
+    /\b(provider|bloc|riverpod|redux|mobx|getx|cubit)\b/i,
+    /\b(notifier|controller|view[_-]?model)\b/i,
+  ],
+  forms: [
+    /\b(form|form[_-]?field|text[_-]?field|input[_-]?field)\b/i,
+    /\b(form[_-]?validation|reactive[_-]?forms|form[_-]?builder)\b/i,
+  ],
+  theming: [
+    /\b(theme|theming|dark[_-]?mode|light[_-]?mode)\b/i,
+    /\b(material[_-]?theme|cupertino[_-]?theme|color[_-]?scheme)\b/i,
+  ],
+  localization: [
+    /\b(localization|i18n|l10n|translation|locale)\b/i,
+    /\b(intl|arb|multi[_-]?language|internationalization)\b/i,
+  ],
+
+  // Device Features
+  camera: [
+    /\b(camera|photo[_-]?capture|video[_-]?capture)\b/i,
+    /\b(qr[_-]?code|barcode|scanner|image[_-]?capture)\b/i,
+  ],
+  file_upload: [
+    /\b(file[_-]?upload|upload[_-]?file|multipart)\b/i,
+    /\b(file[_-]?picker|document[_-]?picker|storage[_-]?upload)\b/i,
+  ],
+  location: [
+    /\b(location|gps|geolocation|geolocator)\b/i,
+    /\b(coordinates|latitude|longitude|geocoding)\b/i,
+  ],
+  maps: [
+    /\b(map|google[_-]?maps|mapbox|leaflet|apple[_-]?maps)\b/i,
+    /\b(marker|polyline|geofence|map[_-]?view)\b/i,
+  ],
+
+  // Analytics & Monitoring
+  analytics: [
+    /\b(analytics|tracking|event[_-]?tracking)\b/i,
+    /\b(firebase[_-]?analytics|mixpanel|amplitude|segment)\b/i,
+    /\b(user[_-]?analytics|app[_-]?analytics)\b/i,
+  ],
+  deep_linking: [
+    /\b(deep[_-]?link|universal[_-]?link|app[_-]?link)\b/i,
+    /\b(dynamic[_-]?link|branch\.io|deferred[_-]?deep[_-]?link)\b/i,
+  ],
 };
 
 export function detectFeatures(text: string): MobileFeatureTag[] {
@@ -205,16 +322,18 @@ export function detectFeatures(text: string): MobileFeatureTag[] {
 }
 
 export function detectPlatform(text: string): ContentPlatform | undefined {
-  if (/\b(flutter|dart|android|ios|swift|kotlin)\b/i.test(text)) return 'mobile';
-  if (/\b(react|vue|angular|nextjs)\b/i.test(text)) return 'web';
-  if (/\b(node|express|fastify|postgresql)\b/i.test(text)) return 'backend';
+  if (/\b(flutter|dart|android|ios|swift|kotlin|react[_-]?native|expo)\b/i.test(text)) return 'mobile';
+  if (/\b(react|vue|angular|nextjs|svelte|browser)\b/i.test(text)) return 'web';
+  if (/\b(node|express|fastify|nestjs|postgresql|supabase|firebase)\b/i.test(text)) return 'backend';
   return undefined;
 }
 
 export function detectUsageTier(source: string): UsageTier | undefined {
-  if (/docs\.(flutter|supabase|firebase)\.dev/i.test(source)) return 'official';
-  if (/example|sample|demo/i.test(source)) return 'example';
-  if (/recipe|cookbook/i.test(source)) return 'recipe';
+  if (/docs\.(flutter|supabase|firebase|stripe)\.dev/i.test(source)) return 'official';
+  if (/developer\.(apple|android|google)\.com/i.test(source)) return 'official';
+  if (/pub\.dev|npmjs\.com/i.test(source)) return 'reference';
+  if (/example|sample|demo|starter|template/i.test(source)) return 'example';
+  if (/recipe|cookbook|guide|tutorial|how[_-]?to/i.test(source)) return 'recipe';
   return 'reference';
 }
 ```
