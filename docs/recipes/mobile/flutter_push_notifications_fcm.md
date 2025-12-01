@@ -617,4 +617,4 @@ FirebaseMessaging.onMessage.listen((message) {
 ## Related Recipes
 
 - [Flutter Authentication with Firebase](./flutter_auth_firebase.md) - User management for targeted notifications
-- [Flutter Authentication with Supabase](./flutter_auth_supabase.md) - Alternative authentication with Supabase Realtime support
+- [Flutter Authentication with Supabase](./flutter_auth_supabase.md) - Alternative authentication for user identification

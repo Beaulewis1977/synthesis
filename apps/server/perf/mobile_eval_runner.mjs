@@ -41,15 +41,18 @@ function parseArgs(args) {
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
       case '--collection-id':
+        if (i + 1 >= args.length) throw new Error('--collection-id requires a value');
         options.collectionId = args[++i];
         break;
       case '--base-url':
+        if (i + 1 >= args.length) throw new Error('--base-url requires a value');
         options.baseUrl = args[++i];
         break;
       case '--dry-run':
         options.dryRun = true;
         break;
       case '--output':
+        if (i + 1 >= args.length) throw new Error('--output requires a value');
         options.output = args[++i];
         break;
       case '--verbose':
@@ -146,7 +149,7 @@ function buildSearchParams(task, config) {
       // get_feature_recipe constructs query from feature tags
       return {
         ...baseParams,
-        query: `${task.params.featureTags.join(' ')} implementation guide`,
+        query: `${task.params.featureTags?.join(' ') || 'feature'} implementation guide`.trim(),
         feature_tags: task.params.featureTags,
         usage_tier: 'recipe',
         tech_stack: task.params.framework ? [task.params.framework] : undefined,
@@ -159,19 +162,32 @@ function buildSearchParams(task, config) {
 
 async function callSearchAPI(config, params) {
   const url = `${config.baseUrl}/api/search`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Search API error (${response.status}): ${error}`);
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Search API error (${response.status}): ${error}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Search API request timed out after 30s');
+    }
+    throw error;
   }
-
-  return response.json();
 }
 
 // ============================================================================
@@ -367,8 +383,11 @@ async function runEvaluation(config, options) {
     const result = await runTask(task, config, options.verbose);
 
     if (result.error) {
+      process.stdout.write('❌ ERROR\n');
     } else if (result.validation.passed) {
+      process.stdout.write('✅ PASS\n');
     } else {
+      process.stdout.write('❌ FAIL\n');
     }
 
     results.push(result);
@@ -505,7 +524,6 @@ async function main() {
     // Summary
     const passed = results.filter((r) => r.validation?.passed).length;
     const total = results.length;
-    const passRate = ((passed / total) * 100).toFixed(1);
 
     // Exit with error code if any failures
     process.exit(passed === total ? 0 : 1);

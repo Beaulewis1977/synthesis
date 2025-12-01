@@ -65,7 +65,7 @@ flutter pub get
 **Android** (`android/app/build.gradle`):
 ```gradle
 android {
-    compileSdkVersion 34
+    compileSdkVersion 35  // Android 15 (required by Google Play as of Aug 2025)
 
     defaultConfig {
         minSdkVersion 21  // Minimum for Stripe
