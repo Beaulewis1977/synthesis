@@ -263,7 +263,7 @@ function buildSearchParams(task: EvalTask, config: { collectionId: string; topK:
     case 'get_feature_recipe':
       return {
         ...baseParams,
-        query: `${task.params.featureTags?.join(' ') || ''} implementation guide`,
+        query: `${task.params.featureTags?.join(' ') || 'feature'} implementation guide`.trim(),
         feature_tags: task.params.featureTags,
         usage_tier: 'recipe',
         tech_stack: task.params.framework ? [task.params.framework] : undefined,

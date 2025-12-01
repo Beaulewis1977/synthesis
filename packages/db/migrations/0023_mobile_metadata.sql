@@ -29,9 +29,22 @@ CREATE INDEX IF NOT EXISTS idx_chunks_platform
   ON chunks ((metadata->>'platform'))
   WHERE metadata->>'platform' IS NOT NULL;
 
+-- Expression index for usage_tier filtering on chunks
+-- Supports queries like: WHERE ch.metadata->>'usage_tier' = 'recipe'
+CREATE INDEX IF NOT EXISTS idx_chunks_usage_tier
+  ON chunks ((metadata->>'usage_tier'))
+  WHERE metadata->>'usage_tier' IS NOT NULL;
+
+-- GIN index for tech_stack array queries on chunks
+-- Supports ?| operator for key existence queries
+CREATE INDEX IF NOT EXISTS idx_chunks_tech_stack
+  ON chunks USING GIN ((metadata->'tech_stack'));
+
 -- Documentation comments
 COMMENT ON INDEX idx_documents_feature_tags IS 'GPT Phase 1: GIN index for mobile feature tag queries on documents';
 COMMENT ON INDEX idx_chunks_feature_tags IS 'GPT Phase 1: GIN index for mobile feature tag queries on chunks';
 COMMENT ON INDEX idx_documents_platform IS 'GPT Phase 1: Index for platform filtering on documents';
 COMMENT ON INDEX idx_documents_usage_tier IS 'GPT Phase 1: Index for usage tier filtering on documents';
 COMMENT ON INDEX idx_chunks_platform IS 'GPT Phase 1: Index for platform filtering on chunks';
+COMMENT ON INDEX idx_chunks_usage_tier IS 'GPT Phase 1: Index for usage tier filtering on chunks';
+COMMENT ON INDEX idx_chunks_tech_stack IS 'GPT Phase 1: GIN index for tech_stack queries on chunks';

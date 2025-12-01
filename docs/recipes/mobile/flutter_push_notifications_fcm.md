@@ -42,6 +42,8 @@ Before starting, ensure you have:
 | firebase_core | ^3.6.0 | Firebase initialization |
 | firebase_messaging | ^15.1.0 | FCM client |
 | flutter_local_notifications | ^17.2.0 | Local notification display |
+| http | ^1.2.0 | Image download for rich notifications |
+| path_provider | ^2.1.0 | Temporary file storage |
 
 ## Step-by-Step Implementation
 
@@ -57,6 +59,8 @@ dependencies:
   firebase_core: ^3.6.0
   firebase_messaging: ^15.1.0
   flutter_local_notifications: ^17.2.0
+  http: ^1.2.0              # For downloading notification images
+  path_provider: ^2.1.0     # For temporary file storage
 ```
 
 ```bash
@@ -162,9 +166,12 @@ Create a comprehensive notification service:
 ```dart
 // lib/services/notification_service.dart
 import 'dart:convert';
+import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 class NotificationService {
   NotificationService._();
@@ -360,9 +367,30 @@ class NotificationService {
   }
 
   Future<String?> _downloadAndSaveImage(String url) async {
-    // Implement image download for rich notifications
-    // Return the local file path
-    return null;
+    try {
+      // Download image from URL
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode != 200) return null;
+
+      // Get temporary directory for storing the image
+      final directory = await getTemporaryDirectory();
+      
+      // Derive filename from URL or use a timestamp
+      final uri = Uri.parse(url);
+      final filename = uri.pathSegments.isNotEmpty 
+          ? uri.pathSegments.last 
+          : 'notification_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      
+      // Write file to temporary storage
+      final filePath = '${directory.path}/$filename';
+      final file = File(filePath);
+      await file.writeAsBytes(response.bodyBytes);
+      
+      return filePath;
+    } catch (e) {
+      print('Failed to download notification image: $e');
+      return null;
+    }
   }
 
   // Public methods
@@ -589,4 +617,4 @@ FirebaseMessaging.onMessage.listen((message) {
 ## Related Recipes
 
 - [Flutter Authentication with Firebase](./flutter_auth_firebase.md) - User management for targeted notifications
-- [Flutter Realtime with Supabase](./flutter_auth_supabase.md) - Alternative for real-time updates
+- [Flutter Authentication with Supabase](./flutter_auth_supabase.md) - Alternative authentication with Supabase Realtime support

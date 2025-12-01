@@ -65,7 +65,32 @@ function parseArgs(args) {
   return options;
 }
 
-function showHelp() {}
+function showHelp() {
+  console.log(`
+Mobile Feature Recipes Evaluation Runner
+
+Runs golden tasks against the search API to evaluate the quality of
+mobile feature recipe retrieval. Generates a markdown report with
+pass/fail status and coverage metrics.
+
+Usage:
+  node mobile_eval_runner.mjs [options]
+
+Options:
+  --collection-id <uuid>  Override the collection ID from config
+  --base-url <url>        Override the base URL (default: http://localhost:3333)
+  --dry-run               Print tasks without executing
+  --output <file>         Output file path (default: timestamped)
+  --verbose               Print detailed results
+  --help, -h              Show this help message
+
+Examples:
+  node mobile_eval_runner.mjs
+  node mobile_eval_runner.mjs --verbose
+  node mobile_eval_runner.mjs --collection-id abc-123 --base-url http://prod:3333
+  node mobile_eval_runner.mjs --dry-run
+`);
+}
 
 function loadConfig(options) {
   const configPath = join(__dirname, 'mobile_eval_tasks.json');
