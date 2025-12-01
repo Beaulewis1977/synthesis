@@ -16,6 +16,8 @@ export interface SearchParams {
   featureTags?: string[];
   platform?: string;
   usageTier?: string;
+  // GPT Phase 3: Source quality filtering
+  sourceQuality?: 'official' | 'verified' | 'community';
 }
 
 export interface SearchResult {
@@ -81,6 +83,9 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
   const platformFilter = params.platform || null;
   const usageTierFilter = params.usageTier || null;
 
+  // GPT Phase 3: Source quality filtering
+  const sourceQualityFilter = params.sourceQuality || null;
+
   const { rows } = await db.query(
     `
       SELECT
@@ -112,6 +117,10 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
           $8::text IS NULL
           OR ch.metadata->>'usage_tier' = $8::text
         )
+        AND (
+          $9::text IS NULL
+          OR ch.metadata->>'source_quality' = $9::text
+        )
       ORDER BY ch.embedding <=> $1::vector
       LIMIT $4
     `,
@@ -124,6 +133,7 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
       featureTagsFilter,
       platformFilter,
       usageTierFilter,
+      sourceQualityFilter,
     ]
   );
 

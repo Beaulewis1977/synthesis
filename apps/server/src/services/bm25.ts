@@ -10,6 +10,8 @@ export interface BM25Params {
   featureTags?: string[];
   platform?: string;
   usageTier?: string;
+  // GPT Phase 3: Source quality filtering
+  sourceQuality?: 'official' | 'verified' | 'community';
 }
 
 export interface BM25Result {
@@ -216,6 +218,9 @@ export async function bm25SearchWithMetadata(
   const platformFilter = params.platform || null;
   const usageTierFilter = params.usageTier || null;
 
+  // GPT Phase 3: Source quality filtering
+  const sourceQualityFilter = params.sourceQuality || null;
+
   // Build the SQL query with the appropriate tsquery function
   const sql = buildBM25Query(tsFunction);
 
@@ -228,6 +233,7 @@ export async function bm25SearchWithMetadata(
     featureTagsFilter,
     platformFilter,
     usageTierFilter,
+    sourceQualityFilter,
   ]);
 
   const elapsedMs = Math.round(performance.now() - startTime);
@@ -333,6 +339,10 @@ function buildBM25Query(tsFunction: TsQueryFunction): string {
       AND (
         $8::text IS NULL
         OR ch.metadata->>'usage_tier' = $8::text
+      )
+      AND (
+        $9::text IS NULL
+        OR ch.metadata->>'source_quality' = $9::text
       )
     ORDER BY rank DESC
     LIMIT $4

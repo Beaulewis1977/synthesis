@@ -757,7 +757,7 @@ server.registerTool(
 );
 
 // =============================================================================
-// GPT Phase 2: Knowledge Graph Context Expansion Tool
+// GPT Phase 2: Knowledge Graph Context Expansion Tools
 // =============================================================================
 
 /**
@@ -863,6 +863,185 @@ server.registerTool(
   }
 );
 
+// =============================================================================
+// GPT Phase 3: Symbol Search, Tech Stack, and DB Schema Tools
+// =============================================================================
+
+/**
+ * Tool 15: find_symbol_usages
+ * Search for symbol definitions and usages across the codebase
+ */
+const findSymbolUsagesInput = z
+  .object({
+    collectionId: z.string().uuid().describe('The ID of the collection to search'),
+    symbolName: z.string().min(1).describe('Name of the symbol to find'),
+    symbolKind: z
+      .enum(['function', 'class', 'widget', 'method', 'constant'])
+      .optional()
+      .describe('Filter by symbol kind'),
+    includeDefinitions: z
+      .boolean()
+      .default(true)
+      .describe('Include definition locations (default: true)'),
+    includeUsages: z.boolean().default(true).describe('Include usage locations (default: true)'),
+    maxResults: z
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(20)
+      .describe('Maximum results to return (default: 20)'),
+  })
+  .strict();
+
+server.registerTool(
+  'find_symbol_usages',
+  {
+    description:
+      'Search for symbol definitions and usages across the codebase. Returns where a function, class, or method is defined and where it is called or imported.',
+    inputSchema: toInputShape(findSymbolUsagesInput),
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    const { collectionId, symbolName, symbolKind, includeDefinitions, includeUsages, maxResults } =
+      findSymbolUsagesInput.parse(input);
+    try {
+      const result = await apiClient.post('/api/graph/symbols', {
+        collection_id: collectionId,
+        symbol_name: symbolName,
+        symbol_kind: symbolKind,
+        include_definitions: includeDefinitions,
+        include_usages: includeUsages,
+        max_results: maxResults,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
+ * Tool 16: get_project_tech_stack
+ * Get the technology stack profile for a project collection
+ */
+const getProjectTechStackInput = z
+  .object({
+    collectionId: z.string().uuid().describe('The ID of the collection'),
+  })
+  .strict();
+
+server.registerTool(
+  'get_project_tech_stack',
+  {
+    description:
+      'Get the technology stack profile for a project collection. Returns detected frameworks, languages, databases, and libraries.',
+    inputSchema: toInputShape(getProjectTechStackInput),
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    const { collectionId } = getProjectTechStackInput.parse(input);
+    try {
+      const result = await apiClient.get(`/api/tech-profiles/${collectionId}`);
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
+ * Tool 17: get_db_schema
+ * Extract database schema from the codebase
+ */
+const getDbSchemaInput = z
+  .object({
+    collectionId: z.string().uuid().describe('The ID of the collection'),
+    tables: z.array(z.string()).optional().describe('Filter to specific table names'),
+    includeRelationships: z
+      .boolean()
+      .default(true)
+      .describe('Include table relationships (default: true)'),
+  })
+  .strict();
+
+server.registerTool(
+  'get_db_schema',
+  {
+    description:
+      'Extract database schema from the codebase. Returns tables, columns, data types, and relationships found in SQL migrations or ORM code.',
+    inputSchema: toInputShape(getDbSchemaInput),
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    const { collectionId, tables, includeRelationships } = getDbSchemaInput.parse(input);
+    try {
+      const queryParams = new URLSearchParams();
+      if (tables && tables.length > 0) {
+        queryParams.set('tables', tables.join(','));
+      }
+      if (includeRelationships !== undefined) {
+        queryParams.set('include_relationships', String(includeRelationships));
+      }
+
+      const queryString = queryParams.toString();
+      const url = `/api/graph/schema/${collectionId}${queryString ? `?${queryString}` : ''}`;
+      const result = await apiClient.get(url);
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
 /**
  * Main function to start the MCP server with either stdio or HTTP transport
  */
@@ -876,7 +1055,7 @@ async function main() {
       console.error('🚀 Synthesis MCP Server started successfully');
       console.error('   Mode: stdio');
       console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
-      console.error('   Tools: 14 available');
+      console.error('   Tools: 17 available');
       console.error('');
     } else if (MCP_MODE === 'http') {
       // Start HTTP/SSE transport for Claude Desktop and web clients
@@ -962,7 +1141,7 @@ async function main() {
         console.error(`   Port: ${MCP_PORT}`);
         console.error(`   URL: http://localhost:${MCP_PORT}`);
         console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
-        console.error('   Tools: 14 available');
+        console.error('   Tools: 17 available');
         console.error(
           `   Rate Limit: ${stats.config.refillRate}/min, burst ${stats.config.burstCapacity}`
         );
