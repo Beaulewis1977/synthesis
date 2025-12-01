@@ -705,10 +705,7 @@ describe('MCP Graph Tools Schemas', () => {
       it('should accept valid UUID node IDs', () => {
         const input = {
           collectionId: VALID_UUID,
-          seedNodeIds: [
-            VALID_NODE_UUID,
-            'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-          ],
+          seedNodeIds: [VALID_NODE_UUID, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'],
         };
 
         const result = graphExpandContextInput.parse(input);

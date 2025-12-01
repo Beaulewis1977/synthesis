@@ -1,18 +1,22 @@
 import type { KnowledgeEdge, KnowledgeNode, KnowledgeNodeType } from '@synthesis/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import ForceGraph2D, { type ForceGraphMethods, type LinkObject, type NodeObject } from 'react-force-graph-2d';
+import ForceGraph2D, {
+  type ForceGraphMethods,
+  type LinkObject,
+  type NodeObject,
+} from 'react-force-graph-2d';
 
 /**
  * Node type to color mapping (hex colors)
  * Matches NodeList component colors for consistency
  */
 const NODE_TYPE_COLORS: Record<KnowledgeNodeType, string> = {
-  document: '#3B82F6',       // blue
-  chunk: '#6B7280',          // gray
-  symbol: '#8B5CF6',         // purple
-  endpoint: '#10B981',       // green
-  table: '#F97316',          // orange
-  column: '#EAB308',         // yellow
+  document: '#3B82F6', // blue
+  chunk: '#6B7280', // gray
+  symbol: '#8B5CF6', // purple
+  endpoint: '#10B981', // green
+  table: '#F97316', // orange
+  column: '#EAB308', // yellow
   config_section: '#EC4899', // pink
 };
 
@@ -65,7 +69,7 @@ interface GraphVisualizationProps {
 /**
  * Truncate text to a maximum length with ellipsis
  */
-function truncateLabel(text: string, maxLength: number = 20): string {
+function truncateLabel(text: string, maxLength = 20): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength - 3) + '...';
 }
@@ -109,10 +113,10 @@ export function GraphVisualization({
   // Transform KnowledgeNode/Edge to ForceGraphData format
   const graphData: GraphData = useMemo(() => {
     // Create a Set of valid node IDs for edge validation
-    const nodeIds = new Set(nodes.map(n => n.id));
+    const nodeIds = new Set(nodes.map((n) => n.id));
 
     return {
-      nodes: nodes.map(n => ({
+      nodes: nodes.map((n) => ({
         id: n.id,
         name: n.name,
         nodeType: n.node_type,
@@ -120,8 +124,8 @@ export function GraphVisualization({
       })),
       links: edges
         // Only include edges where both source and target nodes exist
-        .filter(e => nodeIds.has(e.source_node_id) && nodeIds.has(e.target_node_id))
-        .map(e => ({
+        .filter((e) => nodeIds.has(e.source_node_id) && nodeIds.has(e.target_node_id))
+        .map((e) => ({
           source: e.source_node_id,
           target: e.target_node_id,
           edgeType: e.edge_type,
@@ -289,9 +293,7 @@ export function GraphVisualization({
                 style={{ backgroundColor: color }}
                 aria-hidden="true"
               />
-              <span className="text-xs text-gray-600 capitalize">
-                {type.replace('_', ' ')}
-              </span>
+              <span className="text-xs text-gray-600 capitalize">{type.replace('_', ' ')}</span>
             </div>
           ))}
         </div>
