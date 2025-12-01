@@ -37,6 +37,13 @@ export interface SearchCacheKeyInput {
   mmrEnabled?: boolean;
   /** MMR lambda parameter (0.0-1.0) */
   mmrLambda?: number;
+  // GPT Phase 2: Graph expansion
+  /** Enable graph-based context expansion */
+  expandWithGraph?: boolean;
+  /** Maximum depth for graph traversal */
+  graphMaxDepth?: number;
+  /** Maximum nodes to visit during expansion */
+  graphMaxNodes?: number;
 }
 
 export function createSearchCacheKey(input: SearchCacheKeyInput): string {
@@ -64,6 +71,10 @@ export function createSearchCacheKey(input: SearchCacheKeyInput): string {
     includeRelatedFiles: input.includeRelatedFiles ?? false,
     mmrEnabled: input.mmrEnabled ?? false,
     mmrLambda: input.mmrLambda ?? null,
+    // GPT Phase 2: Graph expansion
+    expandWithGraph: input.expandWithGraph ?? false,
+    graphMaxDepth: input.graphMaxDepth ?? null,
+    graphMaxNodes: input.graphMaxNodes ?? null,
   };
 
   const hash = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');

@@ -1,8 +1,10 @@
+import { performance } from 'node:perf_hooks';
 import type { DocumentMetadata } from '@synthesis/shared';
 import type { Pool } from 'pg';
 import type { ContentContext, EmbeddingProvider } from './embedding-router.js';
 import { deriveContextFromMetadata, isEmbeddingProvider } from './embedding-router.js';
 import { type RelatedFiles, getRelatedFiles } from './file-relationships.js';
+import { type GraphContextResult, graphSearch, isGraphExpansionEnabled } from './graph-search.js';
 import {
   type HybridDiagnostics,
   type HybridSearchParams,
@@ -50,6 +52,12 @@ export interface SmartSearchParams extends SearchParams {
   mmrEnabled?: boolean;
   /** MMR lambda parameter: 0.0 = max diversity, 1.0 = max relevance (default: 0.7) */
   mmrLambda?: number;
+  /** Enable graph expansion to find connected context (default: env ENABLE_GRAPH_EXPANSION) */
+  expandWithGraph?: boolean;
+  /** Max graph traversal depth (default: env GRAPH_MAX_DEPTH or 3) */
+  graphMaxDepth?: number;
+  /** Max nodes to visit during expansion (default: env GRAPH_MAX_NODES or 50) */
+  graphMaxNodes?: number;
 }
 
 export interface SmartSearchResult extends SearchResult {
@@ -63,6 +71,12 @@ export interface SmartSearchResult extends SearchResult {
   rerankProvider?: RerankerProvider;
   originalSimilarity?: number;
   relatedFiles?: RelatedFiles | null;
+  /** Graph context if expansion was enabled - compact representation */
+  graphContext?: {
+    nodeCount: number;
+    edgeCount: number;
+    expandedFromChunkId?: number;
+  } | null;
 }
 
 /**
@@ -133,6 +147,24 @@ export interface MMRInfo {
   near_duplicates_filtered: number;
 }
 
+/**
+ * Graph expansion info exposed in API response
+ */
+export interface GraphExpansionInfo {
+  /** Whether graph expansion was enabled */
+  enabled: boolean;
+  /** Number of nodes visited during expansion */
+  nodesVisited: number;
+  /** Number of edges traversed */
+  edgesTraversed: number;
+  /** Maximum depth reached in traversal */
+  depthReached: number;
+  /** Time taken for graph expansion in milliseconds */
+  expansionTimeMs: number;
+  /** Number of additional chunks added from graph */
+  chunksAdded: number;
+}
+
 export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
   results: SmartSearchResult[];
   metadata: {
@@ -150,6 +182,8 @@ export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
     intent?: IntentInfo;
     /** MMR diversification info (when mmrEnabled is true) */
     mmr?: MMRInfo;
+    /** Graph expansion info (when expandWithGraph is true) */
+    graphExpansion?: GraphExpansionInfo;
   };
 }
 
@@ -288,16 +322,25 @@ export async function smartSearch(
         ? await attachRelatedFiles(db, params.collectionId, diversifiedResults)
         : diversifiedResults;
 
+      // GPT Phase 2: Graph expansion
+      const shouldExpand = shouldExpandWithGraph(params.expandWithGraph);
+      const { results: graphExpandedResults, graphInfo } = shouldExpand
+        ? await expandWithGraphContext(db, params.collectionId, enrichedResults, {
+            maxDepth: params.graphMaxDepth ?? getDefaultGraphMaxDepth(),
+            maxNodes: params.graphMaxNodes ?? getDefaultGraphMaxNodes(),
+          })
+        : { results: enrichedResults, graphInfo: undefined };
+
       return {
         query: params.query,
-        results: enrichedResults,
-        totalResults: enrichedResults.length,
+        results: graphExpandedResults,
+        totalResults: graphExpandedResults.length,
         searchTimeMs: elapsedMs,
         metadata: {
           searchMode: 'hybrid',
           vectorCount,
           bm25Count,
-          fusedCount: enrichedResults.length,
+          fusedCount: graphExpandedResults.length,
           embeddingProvider: provider,
           trustScoringApplied: trustApplied,
           reranked: true,
@@ -305,6 +348,7 @@ export async function smartSearch(
           diagnostics: mapDiagnostics(diagnostics),
           intent: intentInfo,
           mmr: mmrOptions.enabled ? mmrInfo : undefined,
+          graphExpansion: graphInfo,
         },
       };
     }
@@ -327,16 +371,25 @@ export async function smartSearch(
       ? await attachRelatedFiles(db, params.collectionId, diversifiedResults)
       : diversifiedResults;
 
+    // GPT Phase 2: Graph expansion
+    const shouldExpandHybrid = shouldExpandWithGraph(params.expandWithGraph);
+    const { results: graphExpandedHybrid, graphInfo: graphInfoHybrid } = shouldExpandHybrid
+      ? await expandWithGraphContext(db, params.collectionId, enrichedResults, {
+          maxDepth: params.graphMaxDepth ?? getDefaultGraphMaxDepth(),
+          maxNodes: params.graphMaxNodes ?? getDefaultGraphMaxNodes(),
+        })
+      : { results: enrichedResults, graphInfo: undefined };
+
     return {
       query: params.query,
-      results: enrichedResults,
-      totalResults: enrichedResults.length,
+      results: graphExpandedHybrid,
+      totalResults: graphExpandedHybrid.length,
       searchTimeMs: elapsedMs,
       metadata: {
         searchMode: 'hybrid',
         vectorCount,
         bm25Count,
-        fusedCount: enrichedResults.length,
+        fusedCount: graphExpandedHybrid.length,
         embeddingProvider: provider,
         trustScoringApplied: trustApplied,
         reranked: false,
@@ -344,6 +397,7 @@ export async function smartSearch(
         diagnostics: mapDiagnostics(diagnostics),
         intent: intentInfo,
         mmr: mmrOptions.enabled ? mmrInfo : undefined,
+        graphExpansion: graphInfoHybrid,
       },
     };
   }
@@ -388,20 +442,30 @@ export async function smartSearch(
     ? await attachRelatedFiles(db, params.collectionId, diversifiedResults)
     : diversifiedResults;
 
+  // GPT Phase 2: Graph expansion
+  const shouldExpandVector = shouldExpandWithGraph(params.expandWithGraph);
+  const { results: graphExpandedVector, graphInfo: graphInfoVector } = shouldExpandVector
+    ? await expandWithGraphContext(db, params.collectionId, enrichedResults, {
+        maxDepth: params.graphMaxDepth ?? getDefaultGraphMaxDepth(),
+        maxNodes: params.graphMaxNodes ?? getDefaultGraphMaxNodes(),
+      })
+    : { results: enrichedResults, graphInfo: undefined };
+
   return {
     ...vectorResult,
-    results: enrichedResults,
-    totalResults: enrichedResults.length,
+    results: graphExpandedVector,
+    totalResults: graphExpandedVector.length,
     metadata: {
       searchMode: 'vector',
-      vectorCount: enrichedResults.length,
-      fusedCount: enrichedResults.length,
+      vectorCount: graphExpandedVector.length,
+      fusedCount: graphExpandedVector.length,
       embeddingProvider: provider,
       trustScoringApplied: trustApplied,
       reranked: false,
       rerankProvider: params.rerankProvider ?? 'none',
       intent: intentInfo,
       mmr: mmrOptions.enabled ? mmrInfo : undefined,
+      graphExpansion: graphInfoVector,
     },
   };
 }
@@ -472,6 +536,144 @@ function extractFilePath(metadata: Record<string, unknown> | null | undefined): 
 
   const maybePath = (metadata as Record<string, unknown>).file_path;
   return typeof maybePath === 'string' && maybePath.length > 0 ? maybePath : undefined;
+}
+
+// =============================================================================
+// GPT Phase 2: Graph Expansion
+// =============================================================================
+
+/**
+ * Get default max depth from environment or fallback to 3
+ */
+function getDefaultGraphMaxDepth(): number {
+  const val = Number.parseInt(process.env.GRAPH_MAX_DEPTH || '3', 10);
+  return Number.isFinite(val) && val > 0 ? val : 3;
+}
+
+/**
+ * Get default max nodes from environment or fallback to 50
+ */
+function getDefaultGraphMaxNodes(): number {
+  const val = Number.parseInt(process.env.GRAPH_MAX_NODES || '50', 10);
+  return Number.isFinite(val) && val > 0 ? val : 50;
+}
+
+/**
+ * Determines if graph expansion should be applied.
+ * Checks explicit param, then env variable.
+ */
+function shouldExpandWithGraph(explicitParam: boolean | undefined): boolean {
+  if (explicitParam !== undefined) {
+    return explicitParam;
+  }
+  return isGraphExpansionEnabled();
+}
+
+/**
+ * Expand search results with graph context.
+ * Uses graphSearch to find connected nodes from result chunks,
+ * then adds the graph-derived chunks to results.
+ *
+ * @param db - PostgreSQL connection pool
+ * @param collectionId - Collection to search in
+ * @param results - Original search results
+ * @param options - Graph expansion options
+ * @returns Expanded results and graph expansion info
+ */
+async function expandWithGraphContext(
+  db: Pool,
+  collectionId: string,
+  results: SmartSearchResult[],
+  options: { maxDepth: number; maxNodes: number }
+): Promise<{ results: SmartSearchResult[]; graphInfo: GraphExpansionInfo }> {
+  const startTime = performance.now();
+
+  // If no results, nothing to expand
+  if (results.length === 0) {
+    return {
+      results,
+      graphInfo: {
+        enabled: true,
+        nodesVisited: 0,
+        edgesTraversed: 0,
+        depthReached: 0,
+        expansionTimeMs: 0,
+        chunksAdded: 0,
+      },
+    };
+  }
+
+  // Extract chunk IDs from search results as seeds
+  // Limit seed chunks to avoid excessive expansion
+  const MAX_SEED_CHUNKS = 10;
+  const seedChunkIds = results.slice(0, MAX_SEED_CHUNKS).map((r) => r.id);
+
+  let graphResult: GraphContextResult;
+  try {
+    graphResult = await graphSearch(db, {
+      collectionId,
+      seedChunkIds,
+      maxDepth: options.maxDepth,
+      maxNodes: options.maxNodes,
+    });
+  } catch (error) {
+    // Log error but don't fail the search - graceful degradation
+    console.warn('[GraphExpansion] graphSearch failed, returning original results:', error);
+    return {
+      results,
+      graphInfo: {
+        enabled: true,
+        nodesVisited: 0,
+        edgesTraversed: 0,
+        depthReached: 0,
+        expansionTimeMs: Math.round(performance.now() - startTime),
+        chunksAdded: 0,
+      },
+    };
+  }
+
+  // Get existing chunk IDs to deduplicate
+  const existingChunkIds = new Set(results.map((r) => r.id));
+
+  // Convert graph chunks to SmartSearchResult format
+  const graphDerivedResults: SmartSearchResult[] = graphResult.chunks
+    .filter((chunk) => !existingChunkIds.has(chunk.id)) // Dedupe
+    .map((chunk) => ({
+      id: chunk.id,
+      text: chunk.text,
+      snippet: chunk.text.slice(0, 200), // Generate snippet from chunk text
+      similarity: 0.75, // Graph-derived results get moderate similarity score
+      docId: (chunk.metadata?.doc_id as string) ?? '',
+      docTitle: (chunk.metadata?.doc_title as string) ?? null,
+      sourceUrl: (chunk.metadata?.source_url as string) ?? null,
+      metadata: chunk.metadata,
+      citation: {
+        title: (chunk.metadata?.doc_title as string) ?? null,
+      },
+      // Mark as graph-derived with context info
+      graphContext: {
+        nodeCount: graphResult.nodes.length,
+        edgeCount: graphResult.edges.length,
+        expandedFromChunkId: seedChunkIds[0], // Track which seed triggered this
+      },
+    }));
+
+  // Merge: original results first, then graph-derived
+  const mergedResults = [...results, ...graphDerivedResults];
+
+  const expansionTimeMs = Math.round(performance.now() - startTime);
+
+  return {
+    results: mergedResults,
+    graphInfo: {
+      enabled: true,
+      nodesVisited: graphResult.stats.nodesVisited,
+      edgesTraversed: graphResult.stats.edgesTraversed,
+      depthReached: graphResult.stats.depthReached,
+      expansionTimeMs,
+      chunksAdded: graphDerivedResults.length,
+    },
+  };
 }
 
 function mapRerankedResult(result: RerankedResult<SmartSearchResult>): SmartSearchResult {

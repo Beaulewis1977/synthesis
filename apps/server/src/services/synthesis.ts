@@ -30,6 +30,19 @@ export interface Approach {
   sources: SynthesizedSource[];
 }
 
+/**
+ * Graph coverage information when graph expansion was used.
+ * Tracks how much of the knowledge graph is represented in synthesis sources.
+ */
+export interface GraphCoverage {
+  /** Number of unique graph nodes represented in sources */
+  nodesRepresented: number;
+  /** Number of sources that came from graph expansion */
+  graphDerivedSources: number;
+  /** Whether graph expansion contributed to synthesis */
+  graphExpansionUsed: boolean;
+}
+
 export interface SynthesisResponse {
   query: string;
   approaches: Approach[];
@@ -40,6 +53,8 @@ export interface SynthesisResponse {
     approaches_found: number;
     conflicts_found: number;
     synthesis_time_ms: number;
+    /** Graph coverage when graph expansion was used */
+    graph_coverage?: GraphCoverage;
   };
 }
 
@@ -94,6 +109,9 @@ export async function synthesizeResults(
   const recommended = selectRecommendedApproach(approaches, conflicts);
   const end = performance.now();
 
+  // Compute graph coverage if any results have graph context
+  const graphCoverage = computeGraphCoverage(limitedResults);
+
   return {
     query,
     approaches,
@@ -104,6 +122,7 @@ export async function synthesizeResults(
       approaches_found: approaches.length,
       conflicts_found: conflicts.length,
       synthesis_time_ms: Math.round(end - start),
+      graph_coverage: graphCoverage,
     },
   };
 }
@@ -477,4 +496,26 @@ function clamp01(value: number): number {
     return 0;
   }
   return Math.min(1, Math.max(0, value));
+}
+
+/**
+ * Compute graph coverage from results that may have graph context.
+ * Returns undefined if no graph expansion was used.
+ */
+function computeGraphCoverage(results: SmartSearchResult[]): GraphCoverage | undefined {
+  // Check if any results have graph context
+  const graphResults = results.filter((r) => r.graphContext && r.graphContext.nodeCount > 0);
+
+  if (graphResults.length === 0) {
+    return undefined;
+  }
+
+  // Aggregate node counts (approximate, as we don't have full node IDs)
+  const totalNodes = graphResults.reduce((sum, r) => sum + (r.graphContext?.nodeCount ?? 0), 0);
+
+  return {
+    nodesRepresented: totalNodes,
+    graphDerivedSources: graphResults.length,
+    graphExpansionUsed: true,
+  };
 }

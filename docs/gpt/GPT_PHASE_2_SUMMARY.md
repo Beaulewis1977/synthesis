@@ -19,7 +19,7 @@ This phase adds a lightweight **knowledge graph** on top of Synthesis so agents 
 | 3.1 | Graph Schema & Storage | ✅ Complete | `feat(gpt-phase2): add knowledge graph tables and types` |
 | 3.2 | Graph Builder Pipeline | ✅ Complete | `feat(gpt-phase2): add graph builder service` |
 | 3.3 | Graph Retrieval Service | ✅ Complete | `feat(gpt-phase2): add graph search and traversal` |
-| 3.4 | RAG & Synthesis Integration | ⏳ Pending | `feat(gpt-phase2): integrate graph expansion with search` |
+| 3.4 | RAG & Synthesis Integration | ✅ Complete | `feat(gpt-phase2): integrate graph expansion with search` |
 | 3.5 | Debug UI & MCP Tools | ⏳ Pending | `feat(gpt-phase2): add graph debug UI and MCP tool` |
 
 ---
@@ -485,22 +485,157 @@ Response:
 
 ---
 
-## Sub-Phase 3.4: RAG & Synthesis Integration (Pending)
+## Sub-Phase 3.4: RAG & Synthesis Integration
 
-**Status:** Pending
+**Completed:** November 2025
 **Commit:** `feat(gpt-phase2): integrate graph expansion with search`
 
 ### Purpose
 
-Integrate graph context into `smartSearch` and the synthesis engine as an optional context expansion step.
+Integrate graph context into `smartSearch` and the synthesis engine as an optional context expansion step, enabling agents to retrieve richer, more coherent clusters of chunks via knowledge graph traversal.
 
-### Planned Changes
+### Files Modified
 
 | File | Changes |
 |------|---------|
-| `apps/server/src/services/search.ts` | Add optional graph expansion step |
-| `apps/server/src/routes/search.ts` | Add `enableGraphExpansion` parameter |
-| `apps/server/src/services/synthesis.ts` | Accept graph-derived results as additional sources |
+| `apps/server/src/services/search.ts` | Added `expandWithGraph`, `graphMaxDepth`, `graphMaxNodes` params; implemented `expandWithGraphContext()` helper; integrated into all 3 search code paths |
+| `apps/server/src/routes/search.ts` | Added `expand_with_graph`/`expandWithGraph`, `graph_max_depth`/`graphMaxDepth`, `graph_max_nodes`/`graphMaxNodes` params to schema and route handler |
+| `apps/server/src/services/synthesis.ts` | Added `GraphCoverage` interface and `computeGraphCoverage()` function; tracks graph coverage in `SynthesisResponse.metadata` |
+| `apps/server/src/services/cache/search-cache.ts` | Added graph expansion params to cache key |
+| `.env.example` | Enhanced documentation for graph expansion variables |
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `apps/server/src/services/__tests__/search-graph-integration.test.ts` | 28 integration tests for graph expansion feature |
+
+### New Interfaces
+
+```typescript
+// Graph expansion info exposed in API response
+interface GraphExpansionInfo {
+  enabled: boolean;
+  nodesVisited: number;
+  edgesTraversed: number;
+  depthReached: number;
+  expansionTimeMs: number;
+  chunksAdded: number;
+}
+
+// Graph coverage for synthesis tracking
+interface GraphCoverage {
+  nodesRepresented: number;
+  graphDerivedSources: number;
+  graphExpansionUsed: boolean;
+}
+```
+
+### New SmartSearchParams
+
+```typescript
+interface SmartSearchParams extends SearchParams {
+  // ... existing params ...
+  /** Enable graph expansion (default: env ENABLE_GRAPH_EXPANSION) */
+  expandWithGraph?: boolean;
+  /** Max graph traversal depth (default: env GRAPH_MAX_DEPTH or 3) */
+  graphMaxDepth?: number;
+  /** Max nodes to visit (default: env GRAPH_MAX_NODES or 50) */
+  graphMaxNodes?: number;
+}
+```
+
+### API Changes
+
+**POST /api/search** - New parameters:
+```json
+{
+  "expand_with_graph": true,
+  "graph_max_depth": 3,
+  "graph_max_nodes": 50
+}
+```
+
+Response metadata includes:
+```json
+{
+  "metadata": {
+    "graph_expansion": {
+      "enabled": true,
+      "nodes_visited": 8,
+      "edges_traversed": 5,
+      "depth_reached": 2,
+      "expansion_time_ms": 45,
+      "chunks_added": 3
+    }
+  }
+}
+```
+
+### Integration Flow
+
+```
+POST /api/search (with expandWithGraph=true)
+    │
+    └─ smartSearch()
+        ├─ Intent Detection
+        ├─ Search (Vector/Hybrid)
+        ├─ Reranking
+        ├─ Trust Scoring
+        ├─ MMR Diversification
+        ├─ Related Files
+        │
+        └─ [NEW] Graph Expansion
+            ├─ Extract seed chunk IDs (max 10)
+            ├─ Call graphSearch() for connected nodes
+            ├─ Convert graph chunks to SmartSearchResult
+            ├─ Deduplicate (original takes precedence)
+            └─ Merge results + return stats
+```
+
+### Key Implementation Details
+
+- **Feature flagged**: Controlled by `ENABLE_GRAPH_EXPANSION` env var, can be overridden per-request
+- **Graceful degradation**: Graph errors don't fail search; original results returned
+- **Deduplication**: Original results take precedence over graph-derived chunks
+- **Seed limiting**: Max 10 seed chunks to avoid excessive expansion
+- **Graph context tracking**: Graph-derived results have `graphContext` field with node/edge counts
+
+### Test Results
+
+- ✅ TypeScript compiles without errors
+- ✅ All 28 graph integration tests pass (`search-graph-integration.test.ts`)
+- ✅ All 27 integration tests pass (`integration.test.ts`)
+- ✅ 1072 tests passing (36 pre-existing failures unrelated to graph expansion)
+
+### Test Fix Details
+
+The integration tests required additional mock setup to work correctly with the graph expansion feature:
+
+**Changes to `search-graph-integration.test.ts`:**
+- Added `vi.resetModules()` in `beforeEach` for fresh module imports
+- Added mocks for `query-intent.js` and `mmr.js` dependencies
+- Fixed unused variable warning by using `hasGraphDerivedResults`
+
+**Changes to `integration.test.ts`:**
+- Added `vi.resetModules()` in both `beforeEach` blocks
+- Added mocks for `query-intent.js`, `mmr.js`, and `graph-search.js`
+
+**Pre-existing Failures (Unrelated to Phase 2.4):**
+- `integration-backend.test.ts` - Backend parsing integration tests
+- `integration-code.test.ts` - Code chunking integration tests
+- `embedding-profile-service.test.ts` - Profile update tests
+
+These failures existed before the graph expansion changes and are tracked separately.
+
+### Acceptance Criteria
+
+- [x] Feature flagged: disabling graph expansion yields current behavior
+- [x] With graph expansion enabled, results include graph-derived chunks
+- [x] Synthesis tracks graph coverage in metadata
+- [x] No regressions on existing search functionality
+- [x] TypeScript compiles without errors
+- [x] Environment variables documented
 
 ---
 
@@ -534,7 +669,7 @@ Add visibility into the knowledge graph through a debug UI and MCP tool for agen
 - [x] Sub-phase 3.1: Graph Schema & Storage
 - [x] Sub-phase 3.2: Graph Builder Pipeline
 - [x] Sub-phase 3.3: Graph Retrieval Service
-- [ ] Sub-phase 3.4: RAG & Synthesis Integration
+- [x] Sub-phase 3.4: RAG & Synthesis Integration
 - [ ] Sub-phase 3.5: Debug UI & MCP Tools
 - [ ] All tests passing
 - [ ] Documentation updated

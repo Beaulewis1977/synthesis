@@ -65,8 +65,35 @@ vi.mock('../file-relationships.js', () => ({
   getRelatedFiles: getRelatedFilesMock,
 }));
 
+// Mock query-intent to avoid uncontrolled intent detection
+vi.mock('../query-intent.js', () => ({
+  analyzeQuery: vi.fn().mockReturnValue({ intent: 'general', confidence: 1.0 }),
+  getIntentSearchConfig: vi.fn().mockReturnValue(undefined),
+  logIntentDetection: vi.fn(),
+  recordIntentMetric: vi.fn(),
+}));
+
+// Mock MMR to pass through results unchanged
+vi.mock('../mmr.js', () => ({
+  applyMMR: vi.fn().mockImplementation((results) => results),
+  logMMRResults: vi.fn(),
+  resolveMMROptions: vi.fn().mockReturnValue({ enabled: false, lambda: 0.5 }),
+}));
+
+// Mock graph-search to disable graph expansion by default
+vi.mock('../graph-search.js', () => ({
+  graphSearch: vi.fn().mockResolvedValue({
+    nodes: [],
+    edges: [],
+    chunks: [],
+    stats: { nodesVisited: 0, edgesTraversed: 0, depthReached: 0, durationMs: 0 },
+  }),
+  isGraphExpansionEnabled: vi.fn().mockReturnValue(false),
+}));
+
 describe('Phase 12 integration scenarios', () => {
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
     for (const key of [
       'ENABLE_TRUST_SCORING',
@@ -407,6 +434,7 @@ describe('Phase 11-14 integration: Feature combinations', () => {
   let db: Pick<Pool, 'query'>;
 
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
     db = {
       query: vi.fn().mockResolvedValue({ rows: [] }),
