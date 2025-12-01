@@ -18,7 +18,7 @@ This phase adds a lightweight **knowledge graph** on top of Synthesis so agents 
 |---|-----------|--------|--------|
 | 3.1 | Graph Schema & Storage | ✅ Complete | `feat(gpt-phase2): add knowledge graph tables and types` |
 | 3.2 | Graph Builder Pipeline | ✅ Complete | `feat(gpt-phase2): add graph builder service` |
-| 3.3 | Graph Retrieval Service | ⏳ Pending | `feat(gpt-phase2): add graph search and traversal` |
+| 3.3 | Graph Retrieval Service | ✅ Complete | `feat(gpt-phase2): add graph search and traversal` |
 | 3.4 | RAG & Synthesis Integration | ⏳ Pending | `feat(gpt-phase2): integrate graph expansion with search` |
 | 3.5 | Debug UI & MCP Tools | ⏳ Pending | `feat(gpt-phase2): add graph debug UI and MCP tool` |
 
@@ -340,41 +340,148 @@ if (process.env.ENABLE_GRAPH_BUILDER === 'true') {
 
 ---
 
-## Sub-Phase 3.3: Graph Retrieval Service (Pending)
+## Sub-Phase 3.3: Graph Retrieval Service
 
-**Status:** Pending
+**Completed:** November 2025
 **Commit:** `feat(gpt-phase2): add graph search and traversal`
 
 ### Purpose
 
-Create a graph retrieval API that expands from search results to connected nodes using BFS traversal.
+Create a graph retrieval API that expands from search results to connected nodes using BFS traversal, enabling agents to retrieve end-to-end context (widget → service → endpoint → DB table → config).
 
-### Planned Files
+### Files Created
 
 | File | Purpose |
 |------|---------|
-| `apps/server/src/services/graph-search.ts` | `graphSearch` service with BFS traversal |
-| `apps/server/src/routes/graph.ts` | `/api/graph/context` endpoint |
+| `apps/server/src/services/graph-search.ts` | `graphSearch` service with BFS traversal, depth limiting, and node capping |
+| `apps/server/src/routes/graph.ts` | `/api/graph/context` and `/api/graph/stats/:collectionId` endpoints |
+| `apps/server/src/services/__tests__/graph-search.test.ts` | 29 unit tests covering BFS traversal, filtering, and edge cases |
+| `apps/server/src/routes/__tests__/graph.test.ts` | 18 route tests covering all endpoints and error handling |
 
-### API Design
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `packages/shared/src/index.ts` | Added `GraphSearchParams` and `GraphContextResult` types |
+| `apps/server/src/index.ts` | Registered `graphRoutes` |
+
+### Key Functions
+
+```typescript
+// Main entry point - BFS traversal from seed nodes
+export async function graphSearch(
+  db: Pool,
+  params: GraphSearchParams
+): Promise<GraphContextResult>;
+
+// Check if graph expansion is enabled
+export function isGraphExpansionEnabled(): boolean;
+```
+
+### Interfaces
 
 ```typescript
 interface GraphSearchParams {
   collectionId: string;
-  seedChunkIds?: number[];
-  seedNodeIds?: string[];
-  query?: string;
-  maxDepth?: number;
-  maxNodes?: number;
-  edgeTypes?: string[];
+  seedChunkIds?: number[];      // Start from chunks
+  seedNodeIds?: string[];        // Start from nodes
+  query?: string;                // Find nodes via smartSearch first
+  maxDepth?: number;             // Default: 3 (from GRAPH_MAX_DEPTH)
+  maxNodes?: number;             // Default: 50 (from GRAPH_MAX_NODES)
+  edgeTypes?: KnowledgeEdgeType[]; // Filter by edge type
+  nodeTypes?: KnowledgeNodeType[]; // Filter by node type
 }
 
 interface GraphContextResult {
-  nodes: KnowledgeNode[];
-  edges: KnowledgeEdge[];
-  chunks: Array<{ id: number; text: string; metadata: ChunkMetadata }>;
+  nodes: KnowledgeNodeRow[];
+  edges: KnowledgeEdgeRow[];
+  chunks: Array<{ id: number; text: string; metadata: Record<string, unknown> }>;
+  stats: {
+    nodesVisited: number;
+    edgesTraversed: number;
+    depthReached: number;
+    durationMs: number;
+  };
 }
 ```
+
+### API Endpoints
+
+**POST /api/graph/context** - Get graph context from seeds
+```json
+{
+  "collection_id": "uuid",
+  "seed_chunk_ids": [1, 2, 3],
+  "seed_node_ids": ["uuid1", "uuid2"],
+  "query": "optional search query",
+  "max_depth": 3,
+  "max_nodes": 50,
+  "edge_types": ["calls", "defines"],
+  "node_types": ["symbol", "table"]
+}
+```
+
+Response:
+```json
+{
+  "nodes": [...],
+  "edges": [...],
+  "chunks": [...],
+  "stats": {
+    "nodesVisited": 15,
+    "edgesTraversed": 20,
+    "depthReached": 2,
+    "durationMs": 45
+  },
+  "graph_expansion_enabled": true
+}
+```
+
+**GET /api/graph/stats/:collectionId** - Get graph statistics
+```json
+{
+  "collection_id": "uuid",
+  "total_nodes": 100,
+  "total_edges": 150,
+  "nodes_by_type": { "symbol": 80, "table": 20 },
+  "edges_by_type": { "calls": 50, "defines": 100 }
+}
+```
+
+### BFS Traversal Algorithm
+
+1. **Seed Resolution**: Resolve seed nodes from chunk IDs, node IDs, or query (via smartSearch)
+2. **BFS with Limits**: Traverse graph with visited set, respecting `maxDepth` and `maxNodes`
+3. **Edge Collection**: Collect edges where both endpoints are in visited set
+4. **Chunk Retrieval**: Batch fetch chunk text for nodes with `chunk_id`
+
+### Key Implementation Details
+
+- **Three seeding methods**: Chunk IDs, node IDs, or natural language query
+- **BFS with visited set**: Prevents infinite loops on cyclic graphs
+- **Depth and node limits**: Configurable via params or environment variables
+- **Edge/node type filtering**: Optional filtering during traversal
+- **Chunk deduplication**: Unique chunk IDs before database query
+- **Feature flagged**: Controlled by `ENABLE_GRAPH_EXPANSION` environment variable
+- **Performance tracking**: Returns timing statistics in response
+
+### Test Results
+
+- ✅ 29 graph-search service tests pass
+- ✅ 18 graph route tests pass
+- ✅ TypeScript compiles without errors
+- ✅ All 47 new tests pass
+
+### Acceptance Criteria
+
+- [x] Given a known widget, graphSearch returns connected nodes (service, endpoint, tables, config)
+- [x] Given a query, graph search starting from top chunks finds related symbols and tables
+- [x] Graph expansion bounded by maxDepth and maxNodes
+- [x] BFS handles cycles via visited set
+- [x] Supports filtering by edge types and node types
+- [x] Feature flagged via `ENABLE_GRAPH_EXPANSION`
+- [x] Unit tests pass with good coverage (47 tests)
+- [x] TypeScript compiles without errors
 
 ---
 
@@ -426,7 +533,7 @@ Add visibility into the knowledge graph through a debug UI and MCP tool for agen
 
 - [x] Sub-phase 3.1: Graph Schema & Storage
 - [x] Sub-phase 3.2: Graph Builder Pipeline
-- [ ] Sub-phase 3.3: Graph Retrieval Service
+- [x] Sub-phase 3.3: Graph Retrieval Service
 - [ ] Sub-phase 3.4: RAG & Synthesis Integration
 - [ ] Sub-phase 3.5: Debug UI & MCP Tools
 - [ ] All tests passing

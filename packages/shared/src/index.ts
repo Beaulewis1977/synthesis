@@ -190,6 +190,41 @@ export interface KnowledgeEdge {
   created_at: Date;
 }
 
+/**
+ * GPT Phase 2: Graph Search Parameters
+ * Input parameters for graph-based context retrieval.
+ */
+export interface GraphSearchParams {
+  collectionId: string;
+  seedChunkIds?: number[];
+  seedNodeIds?: string[];
+  query?: string;
+  maxDepth?: number;
+  maxNodes?: number;
+  edgeTypes?: KnowledgeEdgeType[];
+  nodeTypes?: KnowledgeNodeType[];
+}
+
+/**
+ * GPT Phase 2: Graph Context Result
+ * Result from graph traversal containing nodes, edges, and associated chunks.
+ */
+export interface GraphContextResult {
+  nodes: KnowledgeNode[];
+  edges: KnowledgeEdge[];
+  chunks: Array<{
+    id: number;
+    text: string;
+    metadata: Record<string, unknown>;
+  }>;
+  stats: {
+    nodesVisited: number;
+    edgesTraversed: number;
+    depthReached: number;
+    durationMs: number;
+  };
+}
+
 // Phase 3: Chunk type classification
 export type ChunkType = 'text' | 'code' | 'sql' | 'config' | 'heading' | 'list' | 'analysis';
 
