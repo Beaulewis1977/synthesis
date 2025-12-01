@@ -40,6 +40,57 @@ export const ChunkTypeSchema = z.enum([
   'analysis',
 ]);
 
+// ============================================
+// GPT Phase 1: Mobile Feature Metadata Schemas
+// ============================================
+
+/**
+ * Schema for content platform classification.
+ */
+export const ContentPlatformSchema = z.enum(['mobile', 'web', 'backend', 'shared']);
+
+/**
+ * Schema for usage tier classification.
+ */
+export const UsageTierSchema = z.enum(['official', 'reference', 'example', 'recipe']);
+
+/**
+ * Schema for mobile feature tags.
+ */
+export const MobileFeatureTagSchema = z.enum([
+  // Authentication & Identity
+  'auth',
+  'onboarding',
+  'social_auth',
+  // Payments & Monetization
+  'billing',
+  'payments',
+  'subscriptions',
+  // Communication & Notifications
+  'push_notifications',
+  'chat',
+  'realtime',
+  // Data & Storage
+  'offline',
+  'sync',
+  'caching',
+  'search',
+  // Navigation & UI
+  'navigation',
+  'state_management',
+  'forms',
+  'theming',
+  'localization',
+  // Device Features
+  'camera',
+  'file_upload',
+  'location',
+  'maps',
+  // Analytics & Monitoring
+  'analytics',
+  'deep_linking',
+]);
+
 /**
  * Schema for required document metadata fields.
  */

@@ -8,7 +8,8 @@ export type DocumentType =
   | 'repo'
   | 'tutorial'
   | 'build_plan'
-  | 'personal_writing';
+  | 'personal_writing'
+  | 'recipe'; // GPT Phase 1: Curated implementation guides
 export type DocumentFramework =
   | 'flutter'
   | 'dart'
@@ -64,7 +65,63 @@ export type EmbeddingModel = 'nomic-embed-text' | 'text-embedding-3-large' | 'vo
 export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage';
 
 // Phase 3: Source type for metadata guarantees
-export type SourceType = 'url' | 'repo' | 'file';
+export type SourceType = 'url' | 'repo' | 'file' | 'web'; // GPT Phase 1: Added 'web' for scraped content
+
+// =============================================================================
+// GPT Phase 1: Mobile Feature Metadata Types
+// =============================================================================
+
+/**
+ * Content platform classification for mobile-aware retrieval
+ */
+export type ContentPlatform = 'mobile' | 'web' | 'backend' | 'shared';
+
+/**
+ * Usage tier for source quality classification
+ * - official: Official documentation from framework/library maintainers
+ * - reference: Package documentation, API references
+ * - example: Code examples, sample projects, demos
+ * - recipe: Curated recipes, guides, tutorials with opinionated patterns
+ */
+export type UsageTier = 'official' | 'reference' | 'example' | 'recipe';
+
+/**
+ * Mobile feature tags for feature-aware retrieval.
+ * Enables agents to search for specific mobile SaaS features.
+ */
+export type MobileFeatureTag =
+  // Authentication & Identity
+  | 'auth'
+  | 'onboarding'
+  | 'social_auth'
+  // Payments & Monetization
+  | 'billing'
+  | 'payments'
+  | 'subscriptions'
+  // Communication & Notifications
+  | 'push_notifications'
+  | 'chat'
+  | 'realtime'
+  // Data & Storage
+  | 'offline'
+  | 'local_storage' // GPT Phase 1: Explicit local database/storage tag
+  | 'sync'
+  | 'caching'
+  | 'search'
+  // Navigation & UI
+  | 'navigation'
+  | 'state_management'
+  | 'forms'
+  | 'theming'
+  | 'localization'
+  // Device Features
+  | 'camera'
+  | 'file_upload'
+  | 'location'
+  | 'maps'
+  // Analytics & Monitoring
+  | 'analytics'
+  | 'deep_linking';
 
 // Phase 3: Chunk type classification
 export type ChunkType = 'text' | 'code' | 'sql' | 'config' | 'heading' | 'list' | 'analysis';
@@ -143,6 +200,16 @@ export interface DocumentMetadata {
   /** Git commit SHA for repository sources */
   commit_sha?: string;
 
+  // GPT Phase 1: Mobile feature metadata
+  /** Content platform classification */
+  platform?: ContentPlatform;
+  /** Mobile feature tags for feature-aware retrieval */
+  feature_tags?: MobileFeatureTag[];
+  /** Usage tier for source quality classification */
+  usage_tier?: UsageTier;
+  /** Whether this document is recommended for its feature category */
+  recommended?: boolean;
+
   // Phase 10: File-level imports (stored once per file, not per chunk)
   /** Import statements extracted from the file (stored at document level to avoid duplication) */
   file_imports?: string[];
@@ -193,6 +260,14 @@ export interface ChunkMetadata extends DocumentMetadata {
   is_service?: boolean;
   is_model?: boolean;
   is_example?: boolean;
+
+  // GPT Phase 1: Mobile feature chunk metadata
+  /** Content platform classification (inherited or chunk-specific) */
+  platform?: ContentPlatform;
+  /** Mobile feature tags for this chunk */
+  feature_tags?: MobileFeatureTag[];
+  /** Whether this chunk is from a curated recipe document */
+  is_recipe?: boolean;
 
   // Backend intelligence fields (Phase 13.5)
   tech_stack?: string[];

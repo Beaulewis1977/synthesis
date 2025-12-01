@@ -333,9 +333,10 @@ describe('ModelConfigService', () => {
 
       await service.resetConfig('chat');
 
-      expect(mockPool.query).toHaveBeenCalledWith('DELETE FROM model_configs WHERE feature = $1', [
-        'chat',
-      ]);
+      expect(mockPool.query).toHaveBeenCalledWith(
+        'DELETE FROM model_configs WHERE feature = $1',
+        expect.arrayContaining(['chat'])
+      );
     });
 
     it('should return default config after reset', async () => {

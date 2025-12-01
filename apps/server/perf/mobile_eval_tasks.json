@@ -1,0 +1,172 @@
+{
+  "$schema": "./mobile_eval_tasks.schema.json",
+  "version": "1.0",
+  "description": "Golden tasks for evaluating mobile feature recipes and documentation retrieval. Tests the search_mobile_docs, find_code_examples, and get_feature_recipe MCP tools.",
+  "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
+  "topK": 10,
+  "baseUrl": "http://localhost:3333",
+  "tasks": [
+    {
+      "id": "auth-001",
+      "category": "authentication",
+      "description": "Implement email/password auth in Flutter using Supabase",
+      "mcpTool": "search_mobile_docs",
+      "params": {
+        "query": "email password authentication Flutter Supabase sign in",
+        "featureTags": ["auth"],
+        "platform": "mobile"
+      },
+      "expectations": {
+        "minResults": 1,
+        "requiredUsageTiers": ["recipe"],
+        "requiredFeatureTags": ["auth"],
+        "expectedDocPatterns": ["supabase", "authentication", "flutter"]
+      }
+    },
+    {
+      "id": "auth-002",
+      "category": "authentication",
+      "description": "Social authentication with Google/Apple sign-in",
+      "mcpTool": "search_mobile_docs",
+      "params": {
+        "query": "social login Google Apple sign in Flutter",
+        "featureTags": ["auth", "social_auth"],
+        "platform": "mobile"
+      },
+      "expectations": {
+        "minResults": 1,
+        "requiredUsageTiers": ["recipe"],
+        "requiredFeatureTags": ["social_auth"],
+        "expectedDocPatterns": ["social", "authentication"]
+      }
+    },
+    {
+      "id": "auth-003",
+      "category": "authentication",
+      "description": "Firebase authentication setup",
+      "mcpTool": "search_mobile_docs",
+      "params": {
+        "query": "Firebase authentication Flutter setup",
+        "featureTags": ["auth"],
+        "platform": "mobile"
+      },
+      "expectations": {
+        "minResults": 1,
+        "requiredUsageTiers": ["official", "recipe"],
+        "requiredFeatureTags": ["auth"],
+        "expectedDocPatterns": ["firebase", "auth"]
+      }
+    },
+    {
+      "id": "payments-001",
+      "category": "payments",
+      "description": "Add subscription billing with Stripe to Flutter app",
+      "mcpTool": "search_mobile_docs",
+      "params": {
+        "query": "Stripe payments checkout Flutter integration",
+        "featureTags": ["payments"],
+        "platform": "mobile"
+      },
+      "expectations": {
+        "minResults": 1,
+        "requiredUsageTiers": ["recipe"],
+        "requiredFeatureTags": ["payments"],
+        "expectedDocPatterns": ["stripe", "payment"]
+      }
+    },
+    {
+      "id": "subscriptions-001",
+      "category": "subscriptions",
+      "description": "In-app subscriptions with RevenueCat",
+      "mcpTool": "get_feature_recipe",
+      "params": {
+        "featureTags": ["subscriptions", "billing"]
+      },
+      "expectations": {
+        "minResults": 1,
+        "requiredUsageTiers": ["recipe"],
+        "requiredFeatureTags": ["subscriptions"],
+        "expectedDocPatterns": ["revenuecat", "subscription", "in-app"]
+      }
+    },
+    {
+      "id": "notifications-001",
+      "category": "push_notifications",
+      "description": "Add push notifications for Android/iOS using Firebase",
+      "mcpTool": "search_mobile_docs",
+      "params": {
+        "query": "Firebase Cloud Messaging push notifications Flutter FCM",
+        "featureTags": ["push_notifications"],
+        "platform": "mobile"
+      },
+      "expectations": {
+        "minResults": 1,
+        "requiredUsageTiers": ["official", "recipe"],
+        "requiredFeatureTags": ["push_notifications"],
+        "expectedDocPatterns": ["fcm", "firebase", "notification", "messaging"]
+      }
+    },
+    {
+      "id": "offline-001",
+      "category": "offline",
+      "description": "Implement offline caching for feed screen",
+      "mcpTool": "get_feature_recipe",
+      "params": {
+        "featureTags": ["offline", "local_storage"]
+      },
+      "expectations": {
+        "minResults": 1,
+        "requiredUsageTiers": ["recipe"],
+        "requiredFeatureTags": ["offline"],
+        "expectedDocPatterns": ["offline", "isar", "cache", "local"]
+      }
+    },
+    {
+      "id": "offline-002",
+      "category": "offline",
+      "description": "Data synchronization with conflict resolution",
+      "mcpTool": "search_mobile_docs",
+      "params": {
+        "query": "data sync conflict resolution offline Flutter",
+        "featureTags": ["sync", "offline"],
+        "platform": "mobile"
+      },
+      "expectations": {
+        "minResults": 1,
+        "requiredUsageTiers": ["recipe", "reference"],
+        "requiredFeatureTags": ["sync"],
+        "expectedDocPatterns": ["sync", "offline"]
+      }
+    },
+    {
+      "id": "edge-001",
+      "category": "edge_cases",
+      "description": "Query with very specific terms that may not match",
+      "mcpTool": "search_mobile_docs",
+      "params": {
+        "query": "xyznonexistent123 foobar quxquux",
+        "featureTags": ["navigation"],
+        "platform": "mobile"
+      },
+      "expectations": {
+        "minResults": 0,
+        "allowEmptyResults": true
+      }
+    },
+    {
+      "id": "edge-002",
+      "category": "edge_cases",
+      "description": "Ambiguous multi-feature query",
+      "mcpTool": "search_mobile_docs",
+      "params": {
+        "query": "Flutter mobile app development best practices",
+        "platform": "mobile"
+      },
+      "expectations": {
+        "minResults": 1,
+        "verifyMetadataPresent": true,
+        "expectedDocPatterns": ["flutter"]
+      }
+    }
+  ]
+}

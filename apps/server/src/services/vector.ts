@@ -12,6 +12,10 @@ export interface SearchParams {
   provider?: EmbeddingProvider;
   context?: ContentContext;
   techStack?: string[];
+  // GPT Phase 1: Feature-aware filtering
+  featureTags?: string[];
+  platform?: string;
+  usageTier?: string;
 }
 
 export interface SearchResult {
@@ -71,6 +75,12 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
   // Handle tech_stack filtering: empty array means no filter
   const techStackFilter = params.techStack && params.techStack.length > 0 ? params.techStack : null;
 
+  // GPT Phase 1: Feature-aware filtering
+  const featureTagsFilter =
+    params.featureTags && params.featureTags.length > 0 ? params.featureTags : null;
+  const platformFilter = params.platform || null;
+  const usageTierFilter = params.usageTier || null;
+
   const { rows } = await db.query(
     `
       SELECT
@@ -90,10 +100,31 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
           $5::text[] IS NULL
           OR ch.metadata->'tech_stack' ?| $5::text[]
         )
+        AND (
+          $6::text[] IS NULL
+          OR ch.metadata->'feature_tags' ?| $6::text[]
+        )
+        AND (
+          $7::text IS NULL
+          OR ch.metadata->>'platform' = $7::text
+        )
+        AND (
+          $8::text IS NULL
+          OR ch.metadata->>'usage_tier' = $8::text
+        )
       ORDER BY ch.embedding <=> $1::vector
       LIMIT $4
     `,
-    [vectorLiteral, params.collectionId, minSimilarity, topK, techStackFilter]
+    [
+      vectorLiteral,
+      params.collectionId,
+      minSimilarity,
+      topK,
+      techStackFilter,
+      featureTagsFilter,
+      platformFilter,
+      usageTierFilter,
+    ]
   );
 
   const end = performance.now();

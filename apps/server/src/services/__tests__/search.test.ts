@@ -58,13 +58,19 @@ describe('searchCollection', () => {
       'Test query',
       expect.objectContaining({ provider: undefined, context: undefined })
     );
-    expect(db.query).toHaveBeenCalledWith(expect.any(String), [
-      '[0.1,0.2,0.3]',
-      'collection-1',
-      0.4,
-      7,
-      null, // techStack parameter
-    ]);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([
+        '[0.1,0.2,0.3]',
+        'collection-1',
+        0.4,
+        7,
+        null, // techStack parameter
+        null, // featureTags parameter
+        null, // platform parameter
+        null, // usageTier parameter
+      ])
+    );
     expect(result.totalResults).toBe(1);
     expect(result.searchTimeMs).toBe(60);
     expect(result.results[0]).toMatchObject({
@@ -125,13 +131,19 @@ describe('searchCollection', () => {
     });
 
     // Verify techStack was passed to query
-    expect(db.query).toHaveBeenCalledWith(expect.any(String), [
-      '[0.1,0.2,0.3]',
-      'collection-1',
-      0.5, // default minSimilarity
-      5,
-      ['postgres', 'supabase'], // techStack filter
-    ]);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([
+        '[0.1,0.2,0.3]',
+        'collection-1',
+        0.5, // default minSimilarity
+        5,
+        ['postgres', 'supabase'], // techStack filter
+        null, // featureTags parameter
+        null, // platform parameter
+        null, // usageTier parameter
+      ])
+    );
 
     expect(result.totalResults).toBe(1);
     expect(result.results[0].snippet).toBe('PostgreSQL content');

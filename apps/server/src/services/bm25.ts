@@ -6,6 +6,10 @@ export interface BM25Params {
   topK?: number;
   language?: string;
   techStack?: string[];
+  // GPT Phase 1: Feature-aware filtering
+  featureTags?: string[];
+  platform?: string;
+  usageTier?: string;
 }
 
 export interface BM25Result {
@@ -206,6 +210,12 @@ export async function bm25SearchWithMetadata(
   // Handle tech_stack filtering: empty array means no filter
   const techStackFilter = params.techStack && params.techStack.length > 0 ? params.techStack : null;
 
+  // GPT Phase 1: Feature-aware filtering
+  const featureTagsFilter =
+    params.featureTags && params.featureTags.length > 0 ? params.featureTags : null;
+  const platformFilter = params.platform || null;
+  const usageTierFilter = params.usageTier || null;
+
   // Build the SQL query with the appropriate tsquery function
   const sql = buildBM25Query(tsFunction);
 
@@ -215,6 +225,9 @@ export async function bm25SearchWithMetadata(
     params.collectionId,
     topK,
     techStackFilter,
+    featureTagsFilter,
+    platformFilter,
+    usageTierFilter,
   ]);
 
   const elapsedMs = Math.round(performance.now() - startTime);
@@ -308,6 +321,18 @@ function buildBM25Query(tsFunction: TsQueryFunction): string {
       AND (
         $5::text[] IS NULL
         OR ch.metadata->'tech_stack' ?| $5::text[]
+      )
+      AND (
+        $6::text[] IS NULL
+        OR ch.metadata->'feature_tags' ?| $6::text[]
+      )
+      AND (
+        $7::text IS NULL
+        OR ch.metadata->>'platform' = $7::text
+      )
+      AND (
+        $8::text IS NULL
+        OR ch.metadata->>'usage_tier' = $8::text
       )
     ORDER BY rank DESC
     LIMIT $4
