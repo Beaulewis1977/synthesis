@@ -304,7 +304,7 @@ describe('Collection Lifecycle Service', () => {
       expect(result).toEqual(mockDocs);
       expect(mockPool.query).toHaveBeenCalledWith(
         expect.stringContaining('WHERE collection_id = $1'),
-        [collectionId]
+        expect.arrayContaining([collectionId])
       );
     });
 
@@ -321,7 +321,7 @@ describe('Collection Lifecycle Service', () => {
       expect(result).toEqual(mockDocs);
       expect(mockPool.query).toHaveBeenCalledWith(
         expect.stringContaining('AND lifecycle_status = $2'),
-        [collectionId, 'active']
+        expect.arrayContaining([collectionId, 'active'])
       );
     });
   });

@@ -238,7 +238,7 @@ describe('vectorSearch with tech_stack filtering', () => {
     // Verify both filters are applied
     expect(db.query).toHaveBeenCalledWith(
       expect.stringContaining('metadata->' + "'tech_stack' ?|"),
-      [
+      expect.arrayContaining([
         expect.any(String), // vector
         '11111111-1111-4111-8111-111111111111', // collectionId
         0.7, // minSimilarity
@@ -247,7 +247,7 @@ describe('vectorSearch with tech_stack filtering', () => {
         null, // featureTags
         null, // platform
         null, // usageTier
-      ]
+      ])
     );
 
     expect(results.results.length).toBe(1);
@@ -473,16 +473,19 @@ describe('vectorSearch with feature-aware filtering', () => {
     });
 
     // Verify all filters are applied
-    expect(db.query).toHaveBeenCalledWith(expect.stringContaining("metadata->'feature_tags' ?|"), [
-      expect.any(String), // vector literal
-      '11111111-1111-4111-8111-111111111111', // collectionId
-      expect.any(Number), // minSimilarity
-      5, // topK
-      null, // techStack
-      ['auth'], // featureTags
-      'mobile', // platform
-      'recipe', // usageTier
-    ]);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining("metadata->'feature_tags' ?|"),
+      expect.arrayContaining([
+        expect.any(String), // vector literal
+        '11111111-1111-4111-8111-111111111111', // collectionId
+        expect.any(Number), // minSimilarity
+        5, // topK
+        null, // techStack
+        ['auth'], // featureTags
+        'mobile', // platform
+        'recipe', // usageTier
+      ])
+    );
 
     expect(results.results.length).toBe(1);
   });

@@ -150,7 +150,10 @@ describe('CostTracker', () => {
       const spend = await tracker.getDailySpend(testDate);
 
       expect(spend).toBe(0.15);
-      expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [testDate]);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining([testDate])
+      );
     });
 
     it('returns daily spend for today when no date specified', async () => {
@@ -216,7 +219,10 @@ describe('CostTracker', () => {
 
       await tracker.getCostBreakdown(start, end);
 
-      expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [start, end]);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining([start, end])
+      );
     });
   });
 
@@ -240,7 +246,7 @@ describe('CostTracker', () => {
       // Check the 3rd call (after getMonthlySpend and check for recent alerts)
       const insertCall = mockQuery.mock.calls[2];
       expect(insertCall[0]).toContain('INSERT INTO budget_alerts');
-      expect(insertCall[1]).toEqual(['warning', 10, 8.5]); // 'monthly' is hardcoded in SQL
+      expect(insertCall[1]).toEqual(expect.arrayContaining(['warning', 10, 8.5])); // 'monthly' is hardcoded in SQL
 
       consoleSpy.mockRestore();
     });

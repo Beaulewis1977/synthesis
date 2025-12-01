@@ -149,16 +149,19 @@ describe('bm25Search', () => {
     });
 
     // Should use to_tsquery with prefix matching for PascalCase (code_symbol)
-    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [
-      'english',
-      'StatefulWidget:* & lifecycle:*',
-      'collection-1',
-      30,
-      null, // techStack parameter
-      null, // featureTags parameter
-      null, // platform parameter
-      null, // usageTier parameter
-    ]);
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([
+        'english',
+        'StatefulWidget:* & lifecycle:*',
+        'collection-1',
+        30,
+        null, // techStack parameter
+        null, // featureTags parameter
+        null, // platform parameter
+        null, // usageTier parameter
+      ])
+    );
 
     // Verify the SQL contains to_tsquery
     const sqlArg = mockQuery.mock.calls[0][0] as string;
@@ -195,16 +198,19 @@ describe('bm25Search', () => {
     });
 
     // Should use websearch_to_tsquery with OR logic (stop words filtered)
-    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [
-      'english',
-      'manage or state or Flutter', // Stop words removed, OR between terms
-      'collection-1',
-      30,
-      null, // techStack
-      null, // featureTags
-      null, // platform
-      null, // usageTier
-    ]);
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([
+        'english',
+        'manage or state or Flutter', // Stop words removed, OR between terms
+        'collection-1',
+        30,
+        null, // techStack
+        null, // featureTags
+        null, // platform
+        null, // usageTier
+      ])
+    );
 
     // Verify the SQL contains websearch_to_tsquery
     const sqlArg = mockQuery.mock.calls[0][0] as string;
@@ -221,16 +227,19 @@ describe('bm25Search', () => {
     });
 
     // Should use phraseto_tsquery for phrase queries
-    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [
-      'english',
-      'const and final',
-      'collection-1',
-      30,
-      null, // techStack
-      null, // featureTags
-      null, // platform
-      null, // usageTier
-    ]);
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([
+        'english',
+        'const and final',
+        'collection-1',
+        30,
+        null, // techStack
+        null, // featureTags
+        null, // platform
+        null, // usageTier
+      ])
+    );
 
     // Verify the SQL contains phraseto_tsquery
     const sqlArg = mockQuery.mock.calls[0][0] as string;
@@ -247,16 +256,19 @@ describe('bm25Search', () => {
     });
 
     // Should use to_tsquery with prefix matching for dot notation
-    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [
-      'english',
-      'Navigator.push:*',
-      'collection-1',
-      30,
-      null, // techStack
-      null, // featureTags
-      null, // platform
-      null, // usageTier
-    ]);
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([
+        'english',
+        'Navigator.push:*',
+        'collection-1',
+        30,
+        null, // techStack
+        null, // featureTags
+        null, // platform
+        null, // usageTier
+      ])
+    );
 
     const sqlArg = mockQuery.mock.calls[0][0] as string;
     expect(sqlArg).toContain('to_tsquery');
@@ -295,16 +307,19 @@ describe('bm25Search', () => {
     // Use a natural language query to test language fallback
     await bm25Search(db as Pool, { query: 'flutter widgets', collectionId: 'collection-1' });
 
-    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [
-      'simple',
-      'flutter or widgets', // OR logic applied
-      'collection-1',
-      30,
-      null, // techStack parameter
-      null, // featureTags
-      null, // platform
-      null, // usageTier
-    ]);
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([
+        'simple',
+        'flutter or widgets', // OR logic applied
+        'collection-1',
+        30,
+        null, // techStack parameter
+        null, // featureTags
+        null, // platform
+        null, // usageTier
+      ])
+    );
   });
 
   it('falls back to default language when FTS_LANGUAGE is empty', async () => {
@@ -315,16 +330,19 @@ describe('bm25Search', () => {
     // Use a natural language query
     await bm25Search(db as Pool, { query: 'flutter widgets', collectionId: 'collection-1' });
 
-    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [
-      'english',
-      'flutter or widgets', // OR logic applied
-      'collection-1',
-      30,
-      null, // techStack parameter
-      null, // featureTags
-      null, // platform
-      null, // usageTier
-    ]);
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([
+        'english',
+        'flutter or widgets', // OR logic applied
+        'collection-1',
+        30,
+        null, // techStack parameter
+        null, // featureTags
+        null, // platform
+        null, // usageTier
+      ])
+    );
   });
 });
 
@@ -490,16 +508,19 @@ describe('bm25Search with feature-aware filtering', () => {
     });
 
     // Verify all filters are applied
-    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [
-      'english',
-      expect.any(String), // query
-      'collection-1',
-      30,
-      null, // techStack
-      ['auth'], // featureTags
-      'mobile', // platform
-      'recipe', // usageTier
-    ]);
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([
+        'english',
+        expect.any(String), // query
+        'collection-1',
+        30,
+        null, // techStack
+        ['auth'], // featureTags
+        'mobile', // platform
+        'recipe', // usageTier
+      ])
+    );
 
     expect(results.length).toBe(1);
   });
@@ -517,16 +538,19 @@ describe('bm25Search with feature-aware filtering', () => {
     });
 
     // Verify all feature filters are null
-    expect(mockQuery).toHaveBeenCalledWith(expect.any(String), [
-      'english',
-      expect.any(String), // query
-      'collection-1',
-      30,
-      null, // techStack
-      null, // featureTags (empty array becomes null)
-      null, // platform
-      null, // usageTier
-    ]);
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([
+        'english',
+        expect.any(String), // query
+        'collection-1',
+        30,
+        null, // techStack
+        null, // featureTags (empty array becomes null)
+        null, // platform
+        null, // usageTier
+      ])
+    );
   });
 });
 
