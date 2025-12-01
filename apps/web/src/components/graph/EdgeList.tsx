@@ -112,7 +112,7 @@ export function EdgeList({ edges, nodes, selectedEdgeId, onSelectEdge }: EdgeLis
             <legend className="text-xs font-medium text-text-secondary mb-sm">
               Filter by Type
             </legend>
-            <div className="flex flex-wrap gap-xs" role="group" aria-label="Edge type filters">
+            <div className="flex flex-wrap gap-xs">
               {presentEdgeTypes.map((type) => {
                 const isActive = selectedTypes.has(type);
                 return (
@@ -137,7 +137,7 @@ export function EdgeList({ edges, nodes, selectedEdgeId, onSelectEdge }: EdgeLis
       )}
 
       {/* Edge List */}
-      <div className="flex-1 overflow-y-auto" role="list" aria-label="Knowledge graph edges">
+      <div className="flex-1 overflow-y-auto" aria-label="Knowledge graph edges">
         {filteredEdges.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-text-secondary text-sm">
             {edges.length === 0 ? 'No edges in this graph' : 'No edges match the selected filters'}

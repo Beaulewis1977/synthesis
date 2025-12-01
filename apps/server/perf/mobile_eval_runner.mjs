@@ -69,7 +69,7 @@ function parseArgs(args) {
 }
 
 function showHelp() {
-  console.log(`
+  console.info(`
 Mobile Feature Recipes Evaluation Runner
 
 Runs golden tasks against the search API to evaluate the quality of

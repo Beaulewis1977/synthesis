@@ -151,7 +151,7 @@ export function NodeList({ nodes, selectedNodeId, onSelectNode }: NodeListProps)
         <div className="p-md border-b border-border">
           <fieldset>
             <legend className="sr-only">Filter by node type</legend>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Node type filters">
+            <div className="flex flex-wrap gap-2">
               {availableTypes.map((type) => {
                 const isActive = activeTypeFilters.has(type);
                 const Icon = NODE_TYPE_ICONS[type];
@@ -198,12 +198,7 @@ export function NodeList({ nodes, selectedNodeId, onSelectNode }: NodeListProps)
       )}
 
       {/* Node List */}
-      <div
-        className="flex-1 overflow-y-auto"
-        role="listbox"
-        aria-label="Knowledge graph nodes"
-        tabIndex={0}
-      >
+      <div className="flex-1 overflow-y-auto" aria-label="Knowledge graph nodes">
         {filteredNodes.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-lg text-center">
             <Search size={32} className="text-text-secondary mb-md" aria-hidden="true" />
@@ -231,7 +226,6 @@ export function NodeList({ nodes, selectedNodeId, onSelectNode }: NodeListProps)
                   <button
                     type="button"
                     onClick={() => onSelectNode(node)}
-                    role="option"
                     aria-selected={isSelected}
                     className={`w-full flex items-center gap-md p-md text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset ${
                       isSelected
