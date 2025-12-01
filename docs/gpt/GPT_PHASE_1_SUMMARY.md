@@ -24,7 +24,7 @@ This phase makes Synthesis a **mobile feature recipe library** for agents buildi
 | 4.1 | Mobile Metadata Taxonomy | ✅ Complete | `feat(gpt-phase1): add mobile metadata types and feature detector` |
 | 4.2 | Curated Recipe Docs & Collections | ✅ Complete | `feat(gpt-phase1): add recipe docs and ingestion scripts` |
 | 4.3 | Feature-Aware Retrieval | ✅ Complete | `feat(gpt-phase1): add feature-aware search filtering` |
-| 4.4 | UI & MCP Exposure | ⬜ Pending | |
+| 4.4 | UI & MCP Exposure | ✅ Complete | `feat(gpt-phase1): add UI components and MCP tool updates` |
 | 4.5 | Evaluation & Golden Tasks | ⬜ Pending | |
 
 ---
@@ -384,9 +384,187 @@ curl -X POST http://localhost:3333/api/search \
 
 ## Sub-Phase 4.4: UI & MCP Exposure
 
-**Status:** ⬜ Pending
+**Completed:** November 2025
+**Commit:** `feat(gpt-phase1): add UI components and MCP tool updates`
 
-*Summary will be added upon completion.*
+### Purpose
+
+Expose mobile feature-aware retrieval to users through the web UI (feature filters and badges) and to AI agents through three new MCP tools (`search_mobile_docs`, `find_code_examples`, `get_feature_recipe`).
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `apps/web/src/components/PlatformBadge.tsx` | Badge displaying content platform (mobile/web/backend/shared) |
+| `apps/web/src/components/UsageTierBadge.tsx` | Badge displaying usage tier (official/reference/example/recipe) |
+| `apps/web/src/components/FeatureTagBadges.tsx` | Component displaying feature tags as chips |
+| `apps/web/src/components/MobileFeatureFilter.tsx` | Filter UI with platform, usage tier, and grouped feature tag selection |
+| `apps/web/src/components/__tests__/PlatformBadge.test.tsx` | 15 unit tests |
+| `apps/web/src/components/__tests__/UsageTierBadge.test.tsx` | 15 unit tests |
+| `apps/web/src/components/__tests__/FeatureTagBadges.test.tsx` | 16 unit tests |
+| `apps/web/src/components/__tests__/MobileFeatureFilter.test.tsx` | 28 unit tests |
+| `apps/mcp/src/__tests__/mobile-tools.test.ts` | 57 unit tests for MCP tool schemas |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `apps/web/src/components/ResultCard.tsx` | Added PlatformBadge, UsageTierBadge, FeatureTagBadges to search results |
+| `apps/web/src/pages/SearchPage.tsx` | Added MobileFeatureFilter to Advanced Settings; URL params for platform/usage_tier/feature_tags |
+| `apps/web/src/lib/api.ts` | Added `mobileFilters` param to `performSearch()` with featureTags/platform/usageTier |
+| `apps/mcp/src/index.ts` | Added 3 MCP tools: search_mobile_docs, find_code_examples, get_feature_recipe |
+
+### New UI Components
+
+#### PlatformBadge
+- Color-coded badges: mobile (green), web (blue), backend (purple), shared (gray)
+- Icons: 📱 Mobile, 🌐 Web, ⚙️ Backend, 🔗 Shared
+- Graceful handling of unknown values
+
+#### UsageTierBadge
+- Color-coded badges: official (green), reference (blue), example (amber), recipe (purple)
+- Icons: 📗 Official, 📚 Reference, 💡 Example, 🍳 Recipe
+- Graceful handling of unknown values
+
+#### FeatureTagBadges
+- Displays all feature tags with flex-wrap
+- Converts snake_case to Title Case (e.g., `push_notifications` → `Push Notifications`)
+- Neutral slate styling to avoid visual noise
+
+#### MobileFeatureFilter
+- **Platform dropdown**: Single-select (All, Mobile, Web, Backend, Shared)
+- **Usage tier dropdown**: Single-select (All, Official, Reference, Example, Recipe)
+- **Feature tags**: Grouped by 7 categories with collapsible sections:
+  - Auth & Identity: auth, onboarding, social_auth
+  - Payments: billing, payments, subscriptions
+  - Communication: push_notifications, chat, realtime
+  - Data & Storage: offline, local_storage, sync, caching, search
+  - Navigation & UI: navigation, state_management, forms, theming, localization
+  - Device Features: camera, file_upload, location, maps
+  - Analytics: analytics, deep_linking
+- Active filter count badges per category
+- Clear all filters button
+
+### New MCP Tools
+
+#### search_mobile_docs
+Search mobile documentation with feature-aware filtering.
+
+```typescript
+// Schema
+{
+  collectionId: string (UUID, required),
+  query: string (required),
+  featureTags: string[] (optional),
+  platform: 'mobile' | 'web' | 'backend' | 'shared' (optional),
+  framework: string (optional),
+  top_k: number (1-50, default: 10)
+}
+```
+
+#### find_code_examples
+Find code examples and sample implementations (biased toward example usage tier).
+
+```typescript
+// Schema
+{
+  collectionId: string (UUID, required),
+  query: string (required),
+  featureTags: string[] (optional),
+  framework: string (optional),
+  top_k: number (1-50, default: 5)
+}
+// Note: Hardcoded usage_tier: 'example'
+```
+
+#### get_feature_recipe
+Get curated recipe documents for implementing mobile features.
+
+```typescript
+// Schema
+{
+  collectionId: string (UUID, required),
+  featureTags: string[] (min: 1, required),
+  framework: string (optional),
+  top_k: number (1-20, default: 5)
+}
+// Note: Hardcoded usage_tier: 'recipe'
+// Query constructed from: featureTags.join(' ') + ' implementation guide'
+```
+
+### API Client Update
+
+```typescript
+// apps/web/src/lib/api.ts - performSearch() signature
+async performSearch(
+  query: string,
+  collectionId: string,
+  topK = 10,
+  techStack?: string[],
+  mmrOptions?: { enabled?: boolean; lambda?: number },
+  intentOverride?: string | null,
+  // GPT Phase 1: Mobile feature filters
+  mobileFilters?: {
+    featureTags?: string[];
+    platform?: string;
+    usageTier?: string;
+  }
+): Promise<SearchResponse>
+```
+
+### Test Results
+
+| Test Suite | Tests | Status |
+|------------|-------|--------|
+| PlatformBadge.test.tsx | 15 | ✅ PASS |
+| UsageTierBadge.test.tsx | 15 | ✅ PASS |
+| FeatureTagBadges.test.tsx | 16 | ✅ PASS |
+| MobileFeatureFilter.test.tsx | 28 | ✅ PASS |
+| mobile-tools.test.ts (MCP) | 57 | ✅ PASS |
+| **Total** | **131** | **✅ ALL PASS** |
+
+### Build Verification
+
+- ✅ TypeScript compiles without errors (`pnpm typecheck`)
+- ✅ Vite build succeeds (SearchPage-DVlBcVol.js: 33.00 kB gzipped: 9.28 kB)
+- ✅ All 131 new tests pass
+- ✅ MCP server now has 13 tools (was 10)
+
+### Edge Cases Covered
+
+**Badge Components:**
+- Null/undefined/empty string inputs return null
+- Unknown values render with gray fallback styling
+- Case-insensitive handling (MOBILE, Mobile, mobile)
+- Custom className prop support
+
+**Filter Component:**
+- Categories collapsed by default
+- Proper ARIA attributes for accessibility
+- Clear button only shows when filters active
+- URL params sync with filter state
+
+**MCP Tools:**
+- Strict schema validation (no extra fields)
+- UUID format validation
+- Empty featureTags array rejection for get_feature_recipe
+- Proper default values for top_k
+
+### Acceptance Criteria
+
+- [x] PlatformBadge renders correctly for all 4 platforms
+- [x] UsageTierBadge renders correctly for all 4 tiers
+- [x] FeatureTagBadges displays all tags with flex-wrap
+- [x] ResultCard shows mobile badges when metadata present
+- [x] MobileFeatureFilter supports platform, usage tier, and feature tag selection
+- [x] Feature tags grouped by 7 categories with collapsible sections
+- [x] SearchPage integrates filters in Advanced Settings with URL params
+- [x] API client passes all filter parameters
+- [x] MCP search_mobile_docs tool works with feature filters
+- [x] MCP find_code_examples tool returns example-biased results
+- [x] MCP get_feature_recipe tool retrieves recipe documents
+- [x] All 131 new tests pass
+- [x] TypeScript compiles without errors (`pnpm typecheck`)
 
 ---
 

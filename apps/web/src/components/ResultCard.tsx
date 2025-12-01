@@ -1,9 +1,12 @@
 import { type KeyboardEvent, useState } from 'react';
 import type { SearchResult } from '../types';
+import FeatureTagBadges from './FeatureTagBadges';
 import { FeedbackButtons } from './FeedbackButtons';
+import { PlatformBadge } from './PlatformBadge';
 import { RecencyBadge } from './RecencyBadge';
 import { RelatedFilesPanel } from './RelatedFilesPanel';
 import { TrustBadge } from './TrustBadge';
+import { UsageTierBadge } from './UsageTierBadge';
 
 interface ResultCardProps {
   result: SearchResult;
@@ -58,6 +61,19 @@ export function ResultCard({
         <div className="flex items-center gap-2 mb-sm flex-wrap">
           <TrustBadge sourceQuality={result.metadata?.source_quality} />
           <RecencyBadge lastVerified={result.metadata?.last_verified} />
+        </div>
+      )}
+
+      {/* Mobile Feature Badges - GPT Phase 1 */}
+      {Boolean(
+        result.metadata?.platform ||
+          result.metadata?.usage_tier ||
+          (Array.isArray(result.metadata?.feature_tags) && result.metadata.feature_tags.length > 0)
+      ) && (
+        <div className="flex items-center gap-2 mb-sm flex-wrap">
+          <PlatformBadge platform={result.metadata?.platform as string | undefined} />
+          <UsageTierBadge usageTier={result.metadata?.usage_tier as string | undefined} />
+          <FeatureTagBadges featureTags={result.metadata?.feature_tags as string[] | undefined} />
         </div>
       )}
 

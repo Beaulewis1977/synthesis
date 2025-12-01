@@ -9,11 +9,13 @@ import {
   Lightbulb,
   Loader2,
   Search,
+  Smartphone,
   Sparkles,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
+import MobileFeatureFilter from '../components/MobileFeatureFilter';
 import { ResultCard } from '../components/ResultCard';
 import { apiClient } from '../lib/api';
 import type { QueryIntent } from '../types';
@@ -65,6 +67,11 @@ export function SearchPage() {
       ? (rawIntentParam as QueryIntent)
       : null;
 
+  // GPT Phase 1: Mobile feature filters from URL params
+  const platform = searchParams.get('platform');
+  const usageTier = searchParams.get('usage_tier');
+  const featureTags = searchParams.getAll('feature_tags');
+
   // Local state for the controlled search input field.
   const [inputQuery, setInputQuery] = useState(currentQuery);
 
@@ -81,6 +88,7 @@ export function SearchPage() {
     // refetches whenever the URL changes (e.g., on back/forward navigation).
     // Phase 13: Added MMR params to query key
     // Phase 12: Added intent override to query key
+    // GPT Phase 1: Added mobile feature filters to query key
     queryKey: [
       'search',
       collectionId,
@@ -89,6 +97,9 @@ export function SearchPage() {
       mmrEnabled,
       mmrLambda,
       intentOverride,
+      platform,
+      usageTier,
+      featureTags.join(','),
     ],
     queryFn: () => {
       if (!collectionId || !currentQuery) {
@@ -100,7 +111,13 @@ export function SearchPage() {
         10,
         selectedTags.length > 0 ? selectedTags : undefined,
         mmrEnabled ? { enabled: true, lambda: mmrLambda } : undefined,
-        intentOverride
+        intentOverride,
+        // GPT Phase 1: Mobile feature filters
+        {
+          featureTags: featureTags.length > 0 ? featureTags : undefined,
+          platform: platform || undefined,
+          usageTier: usageTier || undefined,
+        }
       );
     },
     // The query is enabled only when there's a query in the URL.
@@ -161,6 +178,41 @@ export function SearchPage() {
     }
     setSearchParams(params, { replace: true });
   };
+
+  // GPT Phase 1: Platform filter handler
+  const handlePlatformChange = (newPlatform: string | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (newPlatform) {
+      newParams.set('platform', newPlatform);
+    } else {
+      newParams.delete('platform');
+    }
+    setSearchParams(newParams, { replace: true });
+  };
+
+  // GPT Phase 1: Usage tier filter handler
+  const handleUsageTierChange = (newTier: string | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (newTier) {
+      newParams.set('usage_tier', newTier);
+    } else {
+      newParams.delete('usage_tier');
+    }
+    setSearchParams(newParams, { replace: true });
+  };
+
+  // GPT Phase 1: Feature tags filter handler
+  const handleFeatureTagsChange = (newTags: string[]) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('feature_tags');
+    for (const tag of newTags) {
+      newParams.append('feature_tags', tag);
+    }
+    setSearchParams(newParams, { replace: true });
+  };
+
+  // GPT Phase 1: Count active mobile filters for indicator badge
+  const activeMobileFilterCount = (platform ? 1 : 0) + (usageTier ? 1 : 0) + featureTags.length;
 
   if (!collectionId) {
     return (
@@ -282,6 +334,12 @@ export function SearchPage() {
               <span className="ml-1 px-2 py-0.5 bg-accent/10 text-accent rounded-full text-xs font-medium">
                 <Sparkles size={12} className="inline mr-1" />
                 Diversity On
+              </span>
+            )}
+            {activeMobileFilterCount > 0 && (
+              <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                <Smartphone size={12} className="inline mr-1" />
+                {activeMobileFilterCount} Mobile Filter{activeMobileFilterCount !== 1 ? 's' : ''}
               </span>
             )}
           </button>
@@ -428,6 +486,27 @@ export function SearchPage() {
                     </div>
                   </div>
                 )}
+
+                {/* GPT Phase 1: Mobile Feature Filters */}
+                <div className="border-t border-border pt-md mt-md">
+                  <h4 className="text-sm font-medium text-text-primary mb-sm flex items-center gap-xs">
+                    <Smartphone size={16} className="text-blue-600" />
+                    Mobile Feature Filters
+                    {activeMobileFilterCount > 0 && (
+                      <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
+                        {activeMobileFilterCount}
+                      </span>
+                    )}
+                  </h4>
+                  <MobileFeatureFilter
+                    platform={platform}
+                    usageTier={usageTier}
+                    featureTags={featureTags}
+                    onPlatformChange={handlePlatformChange}
+                    onUsageTierChange={handleUsageTierChange}
+                    onFeatureTagsChange={handleFeatureTagsChange}
+                  />
+                </div>
               </div>
             </div>
           )}

@@ -600,6 +600,216 @@ server.registerTool(
   }
 );
 
+// =============================================================================
+// GPT Phase 1: Mobile Feature Search Tools
+// =============================================================================
+
+/**
+ * Tool 11: search_mobile_docs
+ * Feature + framework aware search for mobile documentation
+ */
+const searchMobileDocsInput = z
+  .object({
+    collectionId: z.string().uuid().describe('The ID of the collection to search'),
+    query: z.string().min(1).describe('Search query for mobile documentation'),
+    featureTags: z
+      .array(z.string())
+      .optional()
+      .describe('Mobile feature tags to filter by (e.g., auth, payments, offline)'),
+    platform: z
+      .enum(['mobile', 'web', 'backend', 'shared'])
+      .optional()
+      .describe('Content platform filter'),
+    framework: z.string().optional().describe('Framework name (e.g., flutter, react-native)'),
+    top_k: z
+      .number()
+      .int()
+      .min(1)
+      .max(50)
+      .default(10)
+      .describe('Number of results to return (default: 10)'),
+  })
+  .strict();
+
+const searchMobileDocsInputSchema = toJsonSchema(searchMobileDocsInput, 'SearchMobileDocsInput');
+
+server.registerTool(
+  'search_mobile_docs',
+  {
+    description:
+      'Search mobile documentation with feature-aware filtering. Returns docs filtered by platform, feature tags, and framework.',
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
+    inputSchema: searchMobileDocsInputSchema as any,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    const { collectionId, query, featureTags, platform, framework, top_k } =
+      searchMobileDocsInput.parse(input);
+    try {
+      const result = await apiClient.post('/api/search', {
+        query,
+        collection_id: collectionId,
+        top_k,
+        feature_tags: featureTags,
+        platform,
+        tech_stack: framework ? [framework] : undefined,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
+ * Tool 12: find_code_examples
+ * Find code examples biased toward example/demo content
+ */
+const findCodeExamplesInput = z
+  .object({
+    collectionId: z.string().uuid().describe('The ID of the collection to search'),
+    query: z.string().min(1).describe('Search query for code examples'),
+    featureTags: z.array(z.string()).optional().describe('Mobile feature tags to filter examples'),
+    framework: z.string().optional().describe('Framework name (e.g., flutter, supabase)'),
+    top_k: z
+      .number()
+      .int()
+      .min(1)
+      .max(50)
+      .default(5)
+      .describe('Number of examples to return (default: 5)'),
+  })
+  .strict();
+
+const findCodeExamplesInputSchema = toJsonSchema(findCodeExamplesInput, 'FindCodeExamplesInput');
+
+server.registerTool(
+  'find_code_examples',
+  {
+    description:
+      'Find code examples and sample implementations. Returns results biased toward example code, demos, and sample projects.',
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
+    inputSchema: findCodeExamplesInputSchema as any,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    const { collectionId, query, featureTags, framework, top_k } =
+      findCodeExamplesInput.parse(input);
+    try {
+      const result = await apiClient.post('/api/search', {
+        query,
+        collection_id: collectionId,
+        top_k,
+        feature_tags: featureTags,
+        usage_tier: 'example',
+        tech_stack: framework ? [framework] : undefined,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
+ * Tool 13: get_feature_recipe
+ * Retrieve curated recipe documentation for mobile features
+ */
+const getFeatureRecipeInput = z
+  .object({
+    collectionId: z.string().uuid().describe('The ID of the collection to search'),
+    featureTags: z
+      .array(z.string())
+      .min(1)
+      .describe('Required: Mobile feature tags to find recipes for (e.g., ["auth", "supabase"])'),
+    framework: z.string().optional().describe('Framework name (e.g., flutter)'),
+    top_k: z
+      .number()
+      .int()
+      .min(1)
+      .max(20)
+      .default(5)
+      .describe('Number of recipes to return (default: 5)'),
+  })
+  .strict();
+
+const getFeatureRecipeInputSchema = toJsonSchema(getFeatureRecipeInput, 'GetFeatureRecipeInput');
+
+server.registerTool(
+  'get_feature_recipe',
+  {
+    description:
+      'Get curated recipe documentation for mobile features. Returns opinionated guides and patterns for implementing specific features.',
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
+    inputSchema: getFeatureRecipeInputSchema as any,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    const { collectionId, featureTags, framework, top_k } = getFeatureRecipeInput.parse(input);
+    try {
+      const result = await apiClient.post('/api/search', {
+        query: featureTags.join(' ') + ' implementation guide',
+        collection_id: collectionId,
+        top_k,
+        feature_tags: featureTags,
+        usage_tier: 'recipe',
+        tech_stack: framework ? [framework] : undefined,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
 /**
  * Main function to start the MCP server with either stdio or HTTP transport
  */
@@ -613,7 +823,7 @@ async function main() {
       console.error('🚀 Synthesis MCP Server started successfully');
       console.error('   Mode: stdio');
       console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
-      console.error('   Tools: 10 available');
+      console.error('   Tools: 13 available');
       console.error('');
     } else if (MCP_MODE === 'http') {
       // Start HTTP/SSE transport for Claude Desktop and web clients
@@ -699,7 +909,7 @@ async function main() {
         console.error(`   Port: ${MCP_PORT}`);
         console.error(`   URL: http://localhost:${MCP_PORT}`);
         console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
-        console.error('   Tools: 10 available');
+        console.error('   Tools: 13 available');
         console.error(
           `   Rate Limit: ${stats.config.refillRate}/min, burst ${stats.config.burstCapacity}`
         );

@@ -365,6 +365,7 @@ class ApiClient {
    * Phase 13 feature - search page functionality.
    * Phase 14 update - added tech_stack filtering support.
    * Phase 13 update - added MMR diversification support.
+   * GPT Phase 1 update - added mobile feature filtering support.
    */
   async performSearch(
     query: string,
@@ -372,7 +373,12 @@ class ApiClient {
     topK = 10,
     techStack?: string[],
     mmrOptions?: { enabled?: boolean; lambda?: number },
-    intentOverride?: string | null
+    intentOverride?: string | null,
+    mobileFilters?: {
+      featureTags?: string[];
+      platform?: string;
+      usageTier?: string;
+    }
   ): Promise<SearchResponse> {
     const body: Record<string, unknown> = {
       query,
@@ -396,6 +402,17 @@ class ApiClient {
     // Phase 12: Include intent override if provided
     if (intentOverride) {
       body.intent = intentOverride;
+    }
+
+    // GPT Phase 1: Include mobile feature filters if provided
+    if (mobileFilters?.featureTags && mobileFilters.featureTags.length > 0) {
+      body.feature_tags = mobileFilters.featureTags;
+    }
+    if (mobileFilters?.platform) {
+      body.platform = mobileFilters.platform;
+    }
+    if (mobileFilters?.usageTier) {
+      body.usage_tier = mobileFilters.usageTier;
     }
 
     return this.request<SearchResponse>('/api/search', {
