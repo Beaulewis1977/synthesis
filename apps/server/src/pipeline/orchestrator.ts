@@ -13,6 +13,7 @@ import {
   deriveContextFromMetadata,
   getProviderConfig,
 } from '../services/embedding-router.js';
+import { buildGraphForDocument } from '../services/graph-builder.js';
 import { buildMetadata } from '../services/metadata-builder.js';
 import { inferLanguages } from '../services/metadata-validator.js';
 import { validateAndSplitChunks } from './chunk-splitter.js';
@@ -200,6 +201,27 @@ export async function ingestDocument(
         embeddingDimensions: firstResult?.dimensions,
       }
     );
+
+    // GPT Phase 2: Build knowledge graph (feature flagged)
+    if (process.env.ENABLE_GRAPH_BUILDER === 'true') {
+      try {
+        const graphResult = await buildGraphForDocument(db, documentId);
+        console.info(
+          `[Ingest] Built knowledge graph for document ${documentId}: ` +
+            `${graphResult.nodesCreated} nodes, ${graphResult.edgesCreated} edges ` +
+            `(${graphResult.durationMs}ms)`
+        );
+        if (graphResult.warnings.length > 0) {
+          console.warn(`[Ingest] Graph warnings: ${graphResult.warnings.join(', ')}`);
+        }
+      } catch (graphError) {
+        // Non-blocking: log error but don't fail ingestion
+        console.error(
+          `[Ingest] Graph building failed for document ${documentId}:`,
+          graphError instanceof Error ? graphError.message : graphError
+        );
+      }
+    }
 
     if (firstResult) {
       const metadataBuilder = buildMetadata();

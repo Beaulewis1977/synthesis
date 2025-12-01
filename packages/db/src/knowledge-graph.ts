@@ -176,21 +176,25 @@ export async function getNodesByCollection(
 }
 
 /**
- * Get a node by name within a collection, optionally filtered by type
+ * Get a node by name within a collection, optionally filtered by type.
+ * Accepts an optional transaction client for consistency within a transaction.
  */
 export async function getNodeByName(
   collectionId: string,
   name: string,
-  nodeType?: KnowledgeNodeType
+  nodeType?: KnowledgeNodeType,
+  client?: PoolClient
 ): Promise<KnowledgeNodeRow | null> {
+  const queryFn = client ? client.query.bind(client) : query;
+
   if (nodeType) {
-    const result = await query(
+    const result = await queryFn(
       'SELECT * FROM knowledge_nodes WHERE collection_id = $1 AND name = $2 AND node_type = $3',
       [collectionId, name, nodeType]
     );
     return (result.rows[0] as KnowledgeNodeRow) || null;
   }
-  const result = await query(
+  const result = await queryFn(
     'SELECT * FROM knowledge_nodes WHERE collection_id = $1 AND name = $2',
     [collectionId, name]
   );

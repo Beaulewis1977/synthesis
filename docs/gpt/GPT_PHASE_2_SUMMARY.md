@@ -17,7 +17,7 @@ This phase adds a lightweight **knowledge graph** on top of Synthesis so agents 
 | # | Sub-Phase | Status | Commit |
 |---|-----------|--------|--------|
 | 3.1 | Graph Schema & Storage | ✅ Complete | `feat(gpt-phase2): add knowledge graph tables and types` |
-| 3.2 | Graph Builder Pipeline | ⏳ Pending | `feat(gpt-phase2): add graph builder service` |
+| 3.2 | Graph Builder Pipeline | ✅ Complete | `feat(gpt-phase2): add graph builder service` |
 | 3.3 | Graph Retrieval Service | ⏳ Pending | `feat(gpt-phase2): add graph search and traversal` |
 | 3.4 | RAG & Synthesis Integration | ⏳ Pending | `feat(gpt-phase2): integrate graph expansion with search` |
 | 3.5 | Debug UI & MCP Tools | ⏳ Pending | `feat(gpt-phase2): add graph debug UI and MCP tool` |
@@ -207,33 +207,136 @@ GRAPH_MAX_NODES=50            # Maximum nodes to return
 
 ---
 
-## Sub-Phase 3.2: Graph Builder Pipeline (Pending)
+## Sub-Phase 3.2: Graph Builder Pipeline
 
-**Status:** Pending
+**Completed:** November 2025
 **Commit:** `feat(gpt-phase2): add graph builder service`
 
 ### Purpose
 
-Create a graph builder service that populates nodes and edges during document ingestion by reading AST analysis results and metadata.
+Create a graph builder service that populates nodes and edges during document ingestion by reading AST analysis results and chunk metadata.
 
-### Planned Files
+### Files Created
 
 | File | Purpose |
 |------|---------|
-| `apps/server/src/services/graph-builder.ts` | Service with `buildGraphForDocument(docId)` function |
-| `apps/server/src/services/__tests__/graph-builder.test.ts` | Unit tests for node/edge extraction |
+| `apps/server/src/services/graph-builder.ts` | Main service with `buildGraphForDocument()` and `buildGraphForCollection()` functions |
+| `apps/server/src/services/__tests__/graph-builder.test.ts` | 27 unit tests covering node/edge extraction and error handling |
 
-### Planned Changes
+### Files Modified
 
 | File | Changes |
 |------|---------|
-| `apps/server/src/pipeline/orchestrator.ts` | Call `buildGraphForDocument` after chunking/embedding |
+| `apps/server/src/pipeline/orchestrator.ts` | Added graph builder call after `storeChunks()` (feature flagged) |
 
-### Integration Points
+### Key Functions
 
-- Code chunkers: `code-chunker.ts`
-- Analyzers: `dart-analyzer.ts`, `ts-analyzer.ts`, `sql-analyzer.ts`, `config-analyzer.ts`
-- File relationships: `file-relationships.ts`
+```typescript
+// Main entry point - builds graph for a single document
+export async function buildGraphForDocument(
+  db: Pool,
+  documentId: string,
+  options?: GraphBuilderOptions
+): Promise<GraphBuilderResult>;
+
+// Bulk operation - builds graph for all documents in a collection
+export async function buildGraphForCollection(
+  db: Pool,
+  collectionId: string,
+  options?: GraphBuilderOptions
+): Promise<CollectionGraphResult>;
+
+// Check if graph builder is enabled
+export function isGraphBuilderEnabled(): boolean;
+```
+
+### Interfaces
+
+```typescript
+interface GraphBuilderOptions {
+  skipDefinesEdges?: boolean;      // Skip document -> symbol edges
+  skipImportsEdges?: boolean;      // Skip document -> document edges
+  skipBelongsToEdges?: boolean;    // Skip method -> class, column -> table edges
+  skipDependsOnEdges?: boolean;    // Skip extends/implements edges
+}
+
+interface GraphBuilderResult {
+  nodesCreated: number;
+  edgesCreated: number;
+  durationMs: number;
+  warnings: string[];
+}
+```
+
+### Node Extraction
+
+| Chunk Metadata | Node Type | Symbol Kind |
+|----------------|-----------|-------------|
+| `function_name` (no class_context) | `symbol` | `function` |
+| `class_name` | `symbol` | `class` |
+| `class_name` + `is_widget=true` | `symbol` | `widget` |
+| `function_name` + `class_context` | `symbol` | `method` |
+| `constant_name` | `symbol` | `constant` |
+| `sql_type='table'` + `table` | `table` | - |
+| `columns[]` in table chunk | `column` | - |
+| `config_section` | `config_section` | - |
+| Route patterns in text (Express/Fastify/NestJS) | `endpoint` | - |
+
+### Edge Extraction
+
+| Edge Type | Source | Target | Detection Method |
+|-----------|--------|--------|------------------|
+| `defines` | document | symbol | All symbols from document |
+| `belongs_to` | method | class | `class_context` in chunk metadata |
+| `belongs_to` | column | table | `table` in column metadata |
+| `imports` | document | document | `file_imports` in document metadata |
+| `depends_on` | class | class | `extends`/`implements`/`mixins` in metadata |
+| `persists_to` | function | table | SQL patterns (INSERT/UPDATE/SELECT/DELETE) |
+| `configured_by` | symbol | config | `maps_to` in config metadata + env var detection |
+
+### Integration with Orchestrator
+
+```typescript
+// In apps/server/src/pipeline/orchestrator.ts (after storeChunks)
+if (process.env.ENABLE_GRAPH_BUILDER === 'true') {
+  try {
+    const graphResult = await buildGraphForDocument(db, documentId);
+    console.info(
+      `[Ingest] Built knowledge graph: ${graphResult.nodesCreated} nodes, ` +
+      `${graphResult.edgesCreated} edges (${graphResult.durationMs}ms)`
+    );
+  } catch (graphError) {
+    // Non-blocking: log error but don't fail ingestion
+    console.error(`[Ingest] Graph building failed:`, graphError);
+  }
+}
+```
+
+### Key Implementation Details
+
+- **Idempotent**: Deletes existing nodes for document before rebuilding (via `deleteNodesByDocument`)
+- **Transactional**: Uses PostgreSQL transaction (BEGIN/COMMIT/ROLLBACK) for atomicity
+- **Non-blocking**: Logs errors but doesn't fail document ingestion pipeline
+- **Feature flagged**: Controlled by `ENABLE_GRAPH_BUILDER` environment variable
+- **Batch operations**: Uses `createNodesBatch` and `createEdgesBatch` for efficiency
+- **Null-safe**: Guards against null/undefined chunk metadata
+
+### Test Results
+
+- ✅ 27 unit tests pass
+- ✅ TypeScript compiles without errors
+- ✅ Integration with orchestrator verified
+- ✅ Error handling tested (null metadata, database errors, missing documents)
+
+### Acceptance Criteria
+
+- [x] Ingesting a document creates nodes for symbols, tables, configs
+- [x] Re-ingesting updates graph (idempotent via delete + create)
+- [x] Graph contains expected relationships (defines, belongs_to, imports, depends_on)
+- [x] Feature flagged via `ENABLE_GRAPH_BUILDER`
+- [x] Non-blocking: ingestion succeeds even if graph building fails
+- [x] Unit tests pass with good coverage (27 tests)
+- [x] TypeScript compiles without errors
 
 ---
 
@@ -322,7 +425,7 @@ Add visibility into the knowledge graph through a debug UI and MCP tool for agen
 ## Phase 2 Completion Checklist
 
 - [x] Sub-phase 3.1: Graph Schema & Storage
-- [ ] Sub-phase 3.2: Graph Builder Pipeline
+- [x] Sub-phase 3.2: Graph Builder Pipeline
 - [ ] Sub-phase 3.3: Graph Retrieval Service
 - [ ] Sub-phase 3.4: RAG & Synthesis Integration
 - [ ] Sub-phase 3.5: Debug UI & MCP Tools
