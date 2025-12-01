@@ -14,7 +14,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import dotenv from 'dotenv';
 import { z } from 'zod';
-import { type JsonSchema7Type, zodToJsonSchema } from 'zod-to-json-schema';
+// zod-to-json-schema not needed - MCP SDK 1.19.x handles Zod schema conversion internally
 
 import { apiClient } from './api.js';
 import { getRateLimiter } from './rate-limiter.js';
@@ -40,29 +40,12 @@ const server = new McpServer({
   version: '1.0.0',
 });
 
-function toJsonSchema<T extends z.ZodTypeAny>(schema: T, name: string): JsonSchema7Type {
-  const jsonSchema = zodToJsonSchema(schema, { target: 'jsonSchema7', name });
-
-  if (
-    jsonSchema &&
-    typeof jsonSchema === 'object' &&
-    '$ref' in jsonSchema &&
-    typeof jsonSchema.$ref === 'string' &&
-    jsonSchema.$ref.startsWith('#/definitions/') &&
-    'definitions' in jsonSchema &&
-    jsonSchema.definitions &&
-    typeof jsonSchema.definitions === 'object'
-  ) {
-    const definitionKey = jsonSchema.$ref.slice('#/definitions/'.length);
-    const definitions = jsonSchema.definitions as Record<string, JsonSchema7Type>;
-    const definition = definitions[definitionKey];
-
-    if (definition) {
-      return definition;
-    }
-  }
-
-  return jsonSchema as JsonSchema7Type;
+/**
+ * Extract the shape from a z.object schema for MCP SDK 1.19.x compatibility.
+ * The SDK expects a shape object { key: z.schema } not a wrapped z.object().
+ */
+function toInputShape<T extends z.ZodRawShape>(schema: z.ZodObject<T>): T {
+  return schema.shape;
 }
 
 /**
@@ -90,18 +73,14 @@ const searchRagInput = z
   })
   .strict();
 
-const searchRagInputSchema = toJsonSchema(searchRagInput, 'SearchRagInput');
-
 server.registerTool(
   'search_rag',
   {
     description:
       'Search the RAG knowledge base for relevant information and return matching chunks with citations.',
-    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
-    inputSchema: searchRagInputSchema as any,
+    inputSchema: toInputShape(searchRagInput),
   },
-  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
-  async (input: any) => {
+  async (input) => {
     const { collectionId, query, top_k, min_similarity } = searchRagInput.parse(input);
     try {
       const result = await apiClient.post('/api/search', {
@@ -178,14 +157,11 @@ const listDocumentsInput = z
   })
   .strict();
 
-const listDocumentsInputSchema = toJsonSchema(listDocumentsInput, 'ListDocumentsInput');
-
 server.registerTool(
   'list_documents',
   {
     description: 'List all documents in a specific collection.',
-    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
-    inputSchema: listDocumentsInputSchema as any,
+    inputSchema: toInputShape(listDocumentsInput),
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
@@ -226,14 +202,11 @@ const createCollectionInput = z
   })
   .strict();
 
-const createCollectionInputSchema = toJsonSchema(createCollectionInput, 'CreateCollectionInput');
-
 server.registerTool(
   'create_collection',
   {
     description: 'Create a new document collection.',
-    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
-    inputSchema: createCollectionInputSchema as any,
+    inputSchema: toInputShape(createCollectionInput),
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
@@ -289,14 +262,11 @@ const fetchDocumentInput = z
   })
   .strict();
 
-const fetchDocumentInputSchema = toJsonSchema(fetchDocumentInput, 'FetchDocumentInput');
-
 server.registerTool(
   'fetch_and_add_document_from_url',
   {
     description: 'Fetch content from a public URL and ingest it as a new document.',
-    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
-    inputSchema: fetchDocumentInputSchema as any,
+    inputSchema: toInputShape(fetchDocumentInput),
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
@@ -343,14 +313,11 @@ const deleteDocumentInput = z
   })
   .strict();
 
-const deleteDocumentInputSchema = toJsonSchema(deleteDocumentInput, 'DeleteDocumentInput');
-
 server.registerTool(
   'delete_document',
   {
     description: 'Delete a document and all associated chunks.',
-    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
-    inputSchema: deleteDocumentInputSchema as any,
+    inputSchema: toInputShape(deleteDocumentInput),
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
@@ -394,14 +361,11 @@ const deleteCollectionInput = z
   })
   .strict();
 
-const deleteCollectionInputSchema = toJsonSchema(deleteCollectionInput, 'DeleteCollectionInput');
-
 server.registerTool(
   'delete_collection',
   {
     description: 'Delete an entire collection and all its documents. Use with caution.',
-    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
-    inputSchema: deleteCollectionInputSchema as any,
+    inputSchema: toInputShape(deleteCollectionInput),
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
@@ -464,14 +428,11 @@ const addRepoInput = z
   })
   .strict();
 
-const addRepoInputSchema = toJsonSchema(addRepoInput, 'AddRepoInput');
-
 server.registerTool(
   'add_repo_to_collection',
   {
     description: 'Add a GitHub/Git repository to a collection for code ingestion.',
-    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
-    inputSchema: addRepoInputSchema as any,
+    inputSchema: toInputShape(addRepoInput),
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
@@ -516,14 +477,11 @@ const syncRepoInput = z
   })
   .strict();
 
-const syncRepoInputSchema = toJsonSchema(syncRepoInput, 'SyncRepoInput');
-
 server.registerTool(
   'sync_repo',
   {
     description: 'Trigger a sync for a repository to pull and ingest latest changes.',
-    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
-    inputSchema: syncRepoInputSchema as any,
+    inputSchema: toInputShape(syncRepoInput),
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
@@ -563,14 +521,11 @@ const listReposInput = z
   })
   .strict();
 
-const listReposInputSchema = toJsonSchema(listReposInput, 'ListReposInput');
-
 server.registerTool(
   'list_repos',
   {
     description: 'List all repository sources for a collection.',
-    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
-    inputSchema: listReposInputSchema as any,
+    inputSchema: toInputShape(listReposInput),
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
@@ -631,15 +586,12 @@ const searchMobileDocsInput = z
   })
   .strict();
 
-const searchMobileDocsInputSchema = toJsonSchema(searchMobileDocsInput, 'SearchMobileDocsInput');
-
 server.registerTool(
   'search_mobile_docs',
   {
     description:
       'Search mobile documentation with feature-aware filtering. Returns docs filtered by platform, feature tags, and framework.',
-    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
-    inputSchema: searchMobileDocsInputSchema as any,
+    inputSchema: toInputShape(searchMobileDocsInput),
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
@@ -697,15 +649,12 @@ const findCodeExamplesInput = z
   })
   .strict();
 
-const findCodeExamplesInputSchema = toJsonSchema(findCodeExamplesInput, 'FindCodeExamplesInput');
-
 server.registerTool(
   'find_code_examples',
   {
     description:
       'Find code examples and sample implementations. Returns results biased toward example code, demos, and sample projects.',
-    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
-    inputSchema: findCodeExamplesInputSchema as any,
+    inputSchema: toInputShape(findCodeExamplesInput),
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
@@ -765,15 +714,12 @@ const getFeatureRecipeInput = z
   })
   .strict();
 
-const getFeatureRecipeInputSchema = toJsonSchema(getFeatureRecipeInput, 'GetFeatureRecipeInput');
-
 server.registerTool(
   'get_feature_recipe',
   {
     description:
       'Get curated recipe documentation for mobile features. Returns opinionated guides and patterns for implementing specific features.',
-    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK type mismatch requires any for JSON Schema
-    inputSchema: getFeatureRecipeInputSchema as any,
+    inputSchema: toInputShape(getFeatureRecipeInput),
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
@@ -810,6 +756,113 @@ server.registerTool(
   }
 );
 
+// =============================================================================
+// GPT Phase 2: Knowledge Graph Context Expansion Tool
+// =============================================================================
+
+/**
+ * Tool 14: graph_expand_context
+ * Expand context from seed nodes using BFS traversal of the knowledge graph
+ */
+// Base schema (without refine) for MCP input schema registration
+const graphExpandContextInputBase = z.object({
+  collectionId: z.string().uuid().describe('The ID of the collection to search'),
+  seedChunkIds: z
+    .array(z.number().int())
+    .optional()
+    .describe('Chunk IDs to use as starting points for graph traversal'),
+  seedNodeIds: z
+    .array(z.string().uuid())
+    .optional()
+    .describe('Node IDs to use as starting points for graph traversal'),
+  query: z.string().min(1).optional().describe('Query to find seed nodes via semantic search'),
+  maxDepth: z
+    .number()
+    .int()
+    .min(1)
+    .max(10)
+    .default(3)
+    .describe('Maximum traversal depth (default: 3)'),
+  maxNodes: z
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .default(50)
+    .describe('Maximum nodes to return (default: 50)'),
+  edgeTypes: z
+    .array(
+      z.enum([
+        'calls',
+        'defines',
+        'belongs_to',
+        'persists_to',
+        'configured_by',
+        'documents',
+        'imports',
+        'depends_on',
+      ])
+    )
+    .optional()
+    .describe('Filter traversal by edge types'),
+  nodeTypes: z
+    .array(z.enum(['document', 'chunk', 'symbol', 'endpoint', 'table', 'column', 'config_section']))
+    .optional()
+    .describe('Filter results by node types'),
+});
+
+// Full validation schema with refine for runtime checks
+const graphExpandContextInput = graphExpandContextInputBase
+  .strict()
+  .refine(
+    (data) =>
+      (data.seedChunkIds?.length ?? 0) > 0 ||
+      (data.seedNodeIds?.length ?? 0) > 0 ||
+      Boolean(data.query),
+    {
+      message: 'At least one seed type required (seedChunkIds, seedNodeIds, or query)',
+      path: ['seedChunkIds'],
+    }
+  );
+
+server.registerTool(
+  'graph_expand_context',
+  {
+    description:
+      'Expand context from seed nodes using BFS traversal of the knowledge graph. Returns connected nodes, edges, and associated chunks for end-to-end context retrieval.',
+    inputSchema: toInputShape(graphExpandContextInputBase),
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    const validated = graphExpandContextInput.parse(input);
+    try {
+      const result = await apiClient.post('/api/graph/context', {
+        collection_id: validated.collectionId,
+        seed_chunk_ids: validated.seedChunkIds,
+        seed_node_ids: validated.seedNodeIds,
+        query: validated.query,
+        max_depth: validated.maxDepth,
+        max_nodes: validated.maxNodes,
+        edge_types: validated.edgeTypes,
+        node_types: validated.nodeTypes,
+      });
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
 /**
  * Main function to start the MCP server with either stdio or HTTP transport
  */
@@ -823,7 +876,7 @@ async function main() {
       console.error('🚀 Synthesis MCP Server started successfully');
       console.error('   Mode: stdio');
       console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
-      console.error('   Tools: 13 available');
+      console.error('   Tools: 14 available');
       console.error('');
     } else if (MCP_MODE === 'http') {
       // Start HTTP/SSE transport for Claude Desktop and web clients
@@ -909,7 +962,7 @@ async function main() {
         console.error(`   Port: ${MCP_PORT}`);
         console.error(`   URL: http://localhost:${MCP_PORT}`);
         console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
-        console.error('   Tools: 13 available');
+        console.error('   Tools: 14 available');
         console.error(
           `   Rate Limit: ${stats.config.refillRate}/min, burst ${stats.config.burstCapacity}`
         );

@@ -11,6 +11,7 @@
 import { getPool } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { buildGraphForCollection } from '../services/graph-builder.js';
 import { getGraphStats, graphSearch, isGraphExpansionEnabled } from '../services/graph-search.js';
 
 // Valid edge types for Zod schema
@@ -152,9 +153,8 @@ export const graphRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { collectionId } = request.params;
 
-      // Validate UUID format
-      const uuidRegex =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      // Validate UUID format (permissive - allows any valid hex UUID format)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(collectionId)) {
         return reply.code(400).send({
           error: 'INVALID_INPUT',
@@ -175,6 +175,57 @@ export const graphRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.log.error(error, 'Failed to get graph stats');
         return reply.code(500).send({
           error: 'GRAPH_STATS_FAILED',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+  );
+
+  // POST /api/graph/build/:collectionId - Build/rebuild graph for a collection
+  fastify.post<{ Params: { collectionId: string } }>(
+    '/api/graph/build/:collectionId',
+    async (request, reply) => {
+      const { collectionId } = request.params;
+
+      // Validate UUID format (permissive - allows any valid hex UUID format)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(collectionId)) {
+        return reply.code(400).send({
+          error: 'INVALID_INPUT',
+          message: 'collectionId must be a valid UUID',
+        });
+      }
+
+      try {
+        const db = getPool();
+        fastify.log.info({ collectionId }, 'Starting graph build for collection');
+
+        const result = await buildGraphForCollection(db, collectionId, { forceEnabled: true });
+
+        fastify.log.info(
+          {
+            collectionId,
+            totalDocuments: result.totalDocuments,
+            successCount: result.successCount,
+            totalNodes: result.totalNodesCreated,
+            totalEdges: result.totalEdgesCreated,
+            durationMs: result.durationMs,
+          },
+          'Graph build completed'
+        );
+
+        return reply.send({
+          collection_id: collectionId,
+          documents_processed: result.successCount,
+          total_nodes_created: result.totalNodesCreated,
+          total_edges_created: result.totalEdgesCreated,
+          duration_ms: result.durationMs,
+          errors: result.failures.map((f) => `${f.documentId}: ${f.error}`),
+        });
+      } catch (error) {
+        fastify.log.error(error, 'Failed to build graph for collection');
+        return reply.code(500).send({
+          error: 'GRAPH_BUILD_FAILED',
           message: error instanceof Error ? error.message : 'Unknown error',
         });
       }

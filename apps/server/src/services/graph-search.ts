@@ -113,7 +113,9 @@ export async function graphSearch(
   }
 
   // From query via smartSearch - find relevant chunks, then their nodes
-  if (params.query && seedNodeIds.length === 0) {
+  // Skip if query is "*" (browse mode) or empty
+  const isBrowseMode = !params.query || params.query === '*';
+  if (params.query && !isBrowseMode && seedNodeIds.length === 0) {
     const searchResults = await smartSearch(db, {
       query: params.query,
       collectionId: params.collectionId,
@@ -129,7 +131,52 @@ export async function graphSearch(
   // Dedupe seeds
   seedNodeIds = [...new Set(seedNodeIds)];
 
-  // Return empty result if no seeds found
+  // Browse mode: if no seeds but we have collectionId, get all nodes up to maxNodes
+  if (seedNodeIds.length === 0 && params.collectionId && isBrowseMode) {
+    const allNodesResult = await db.query(
+      `SELECT id, collection_id, node_type, name, document_id, chunk_id, metadata, created_at
+       FROM knowledge_nodes
+       WHERE collection_id = $1
+       ORDER BY created_at DESC
+       LIMIT $2`,
+      [params.collectionId, maxNodes]
+    );
+
+    const allNodes = allNodesResult.rows as KnowledgeNodeRow[];
+    if (allNodes.length === 0) {
+      return {
+        nodes: [],
+        edges: [],
+        chunks: [],
+        stats: {
+          nodesVisited: 0,
+          edgesTraversed: 0,
+          depthReached: 0,
+          durationMs: performance.now() - startTime,
+        },
+      };
+    }
+
+    // Get edges between these nodes
+    const edges = await collectEdgesBetweenNodes(allNodes, params.edgeTypes);
+
+    // Get chunks for nodes
+    const chunks = await getChunksForNodes(db, allNodes);
+
+    return {
+      nodes: allNodes,
+      edges,
+      chunks,
+      stats: {
+        nodesVisited: allNodes.length,
+        edgesTraversed: edges.length,
+        depthReached: 0,
+        durationMs: performance.now() - startTime,
+      },
+    };
+  }
+
+  // Return empty result if no seeds found and not in browse mode
   if (seedNodeIds.length === 0) {
     return {
       nodes: [],

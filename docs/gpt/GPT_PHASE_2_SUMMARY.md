@@ -2,7 +2,7 @@
 
 **Branch:** `feature/gpt-phase2-graph-retrieval`
 **PR Title:** GPT Phase 2: Graph Retrieval & Context Expansion
-**Status:** In Progress
+**Status:** Complete - Ready for Review
 
 ---
 
@@ -20,7 +20,7 @@ This phase adds a lightweight **knowledge graph** on top of Synthesis so agents 
 | 3.2 | Graph Builder Pipeline | ✅ Complete | `feat(gpt-phase2): add graph builder service` |
 | 3.3 | Graph Retrieval Service | ✅ Complete | `feat(gpt-phase2): add graph search and traversal` |
 | 3.4 | RAG & Synthesis Integration | ✅ Complete | `feat(gpt-phase2): integrate graph expansion with search` |
-| 3.5 | Debug UI & MCP Tools | ⏳ Pending | `feat(gpt-phase2): add graph debug UI and MCP tool` |
+| 3.5 | Debug UI & MCP Tools | ✅ Complete | `feat(gpt-phase2): add graph debug UI and MCP tool` |
 
 ---
 
@@ -639,28 +639,162 @@ These failures existed before the graph expansion changes and are tracked separa
 
 ---
 
-## Sub-Phase 3.5: Debug UI & MCP Tools (Pending)
+## Sub-Phase 3.5: Debug UI & MCP Tools
 
-**Status:** Pending
+**Completed:** December 2025
 **Commit:** `feat(gpt-phase2): add graph debug UI and MCP tool`
 
 ### Purpose
 
-Add visibility into the knowledge graph through a debug UI and MCP tool for agents.
+Add visibility into the knowledge graph through a debug UI and MCP tool for agents. Enables developers to inspect nodes, edges, and graph statistics, and allows agents to expand search context using graph traversal.
 
-### Planned Files
+### Files Created
 
 | File | Purpose |
 |------|---------|
-| `apps/web/src/pages/GraphDebugPage.tsx` | Per-document graph view |
-| `apps/web/src/components/graph/NodeList.tsx` | List component for nodes |
-| `apps/web/src/components/graph/EdgeList.tsx` | List component for edges |
+| `apps/web/src/pages/GraphDebugPage.tsx` | Main debug page with Stats, Visualization, Nodes, Edges tabs |
+| `apps/web/src/components/graph/NodeList.tsx` | Searchable/filterable node list with type chips |
+| `apps/web/src/components/graph/EdgeList.tsx` | Filterable edge list with source→type→target display |
+| `apps/web/src/components/graph/GraphVisualization.tsx` | Interactive force-directed graph using react-force-graph-2d |
+| `apps/web/src/components/graph/types.ts` | Re-exports types from @synthesis/shared |
+| `apps/web/src/components/graph/index.ts` | Barrel exports for components and types |
+| `apps/web/src/components/graph/__tests__/NodeList.test.tsx` | 27 unit tests for NodeList component |
+| `apps/web/src/components/graph/__tests__/EdgeList.test.tsx` | 25 unit tests for EdgeList component |
+| `apps/mcp/src/__tests__/graph-tools.test.ts` | Schema validation tests for MCP graph tool |
 
-### Planned Changes
+### Files Modified
 
 | File | Changes |
 |------|---------|
-| `apps/mcp/src/index.ts` | Add `graph_expand_context` tool |
+| `apps/web/src/App.tsx` | Added `/graph` route with lazy-loaded GraphDebugPage |
+| `apps/web/src/components/Layout.tsx` | Added "Graph" nav link |
+| `apps/web/src/lib/api.ts` | Added `getGraphStats()` and `getGraphContext()` methods |
+| `apps/web/src/types/index.ts` | Added `GraphStatsResponse`, `GraphContextRequest`, `GraphContextResponse` types |
+| `apps/mcp/src/index.ts` | Added `graph_expand_context` MCP tool (tool count now 14) |
+| `apps/web/src/pages/CollectionView.tsx` | Added `GraphCoverageCard` component with node/edge stats and coverage indicator |
+
+### Features
+
+**1. Stats Tab**
+- Total node and edge counts
+- Breakdown by type with colored badges
+- Empty state when no graph data
+
+**2. Visualization Tab**
+- Interactive force-directed graph using react-force-graph-2d
+- Node colors by type (symbol=purple, table=orange, endpoint=green, etc.)
+- Click-to-select nodes with details panel
+- Zoom/pan controls with legend
+
+**3. Nodes Tab**
+- Case-insensitive search by name
+- Type filter chips (only shows types present in data)
+- Click-to-select with highlight state
+- Count of filtered/total nodes
+
+**4. Edges Tab**
+- Filter chips by edge type
+- Source→Type→Target display with arrows
+- Click-to-select with details panel
+- Count of filtered/total edges
+
+**5. MCP Tool: `graph_expand_context`**
+Enables agents to expand search context via graph traversal:
+```json
+{
+  "name": "graph_expand_context",
+  "description": "Expand search context using knowledge graph traversal",
+  "input": {
+    "collection_id": "uuid",
+    "seed_chunk_ids": [1, 2, 3],
+    "seed_node_ids": ["uuid1"],
+    "query": "optional search",
+    "max_depth": 3,
+    "max_nodes": 50,
+    "edge_types": ["calls", "defines"],
+    "node_types": ["symbol", "table"]
+  }
+}
+```
+
+**6. Graph Coverage Card (CollectionView)**
+Per-collection graph statistics displayed alongside MMR Defaults on the Collection Documents page:
+- Total node and edge counts (large bold numbers)
+- Node type badges with colors matching GraphDebugPage (symbol=purple, endpoint=green, table=orange, config=pink)
+- Coverage progress bar showing "X of Y documents indexed" with percentage
+- Color-coded progress: green (80%+), yellow (50-79%), accent (1-49%)
+- "View Graph" link to navigate to `/graph` page
+- Empty state with prompt to build graph when no data exists
+
+```
+┌─ Knowledge Graph Coverage ─────────────────────── View Graph ─┐
+│                                                               │
+│  977 nodes    850 edges                                       │
+│                                                               │
+│  Node Types:                                                  │
+│  ● symbol (848)  ● endpoint (10)                              │
+│                                                               │
+│  Coverage: 119 of 151 documents indexed                  79%  │
+│  ████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░  │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### Technical Details
+
+- **Types**: Uses `@synthesis/shared` types for `KnowledgeNode` and `KnowledgeEdge`
+- **Data fetching**: React Query with loading/error states
+- **State management**: URL-driven state for collection selection and active tab
+- **Accessibility**: ARIA attributes, keyboard navigation, focus states
+- **Styling**: Tailwind CSS with custom design tokens (text-text-primary, bg-bg-primary, etc.)
+- **Visualization**: react-force-graph-2d with custom node rendering and labels
+
+### API Methods
+
+```typescript
+// Get graph statistics for a collection
+async getGraphStats(collectionId: string): Promise<GraphStatsResponse>
+
+// Get graph context from seeds
+async getGraphContext(params: GraphContextRequest): Promise<GraphContextResponse>
+```
+
+### Test Results
+
+- ✅ 52 graph component tests pass (27 NodeList + 25 EdgeList)
+- ✅ 59 MCP graph tools schema tests pass
+- ✅ TypeScript compiles without errors
+
+### MCP Test Configuration
+
+Added test infrastructure to `apps/mcp/package.json`:
+- Added `vitest` as devDependency
+- Added `test` and `test:watch` scripts
+- **116 total MCP tests** now run with `pnpm --filter @synthesis/mcp test`
+  - 57 mobile tools tests (Phase 1)
+  - 59 graph tools tests (Phase 2)
+
+### MCP SDK 1.19.x Compatibility Fix
+
+Updated tool registration for MCP SDK 1.19.x API change:
+- SDK now expects Zod shape objects, not JSON schemas
+- Created `toInputShape()` helper to extract `.shape` from `z.object()` schemas
+- Updated all 13 tool registrations to use `inputSchema: toInputShape(schema)`
+- Separated `graph_expand_context` base schema from `.refine()` validation
+- All tools verified working: `search_rag`, `search_mobile_docs`, `graph_expand_context`, etc.
+
+### Acceptance Criteria
+
+- [x] Graph debug page accessible at `/graph` route
+- [x] Stats tab shows node/edge counts and type breakdowns
+- [x] Visualization tab renders interactive force-directed graph
+- [x] Nodes tab is searchable and filterable by type
+- [x] Edges tab is filterable with source→type→target display
+- [x] MCP tool `graph_expand_context` added with full schema
+- [x] MCP tools compatible with SDK 1.19.x (all 13 tools verified working)
+- [x] Graph coverage card on CollectionView shows node/edge stats and coverage %
+- [x] 52 unit tests pass
+- [x] TypeScript compiles without errors
+- [x] Accessible with keyboard navigation
 
 ---
 
@@ -670,8 +804,9 @@ Add visibility into the knowledge graph through a debug UI and MCP tool for agen
 - [x] Sub-phase 3.2: Graph Builder Pipeline
 - [x] Sub-phase 3.3: Graph Retrieval Service
 - [x] Sub-phase 3.4: RAG & Synthesis Integration
-- [ ] Sub-phase 3.5: Debug UI & MCP Tools
-- [ ] All tests passing
-- [ ] Documentation updated
+- [x] Sub-phase 3.5: Debug UI & MCP Tools
+- [x] All new tests passing (52 graph UI + 59 MCP schema = 111 tests)
+- [x] MCP test infrastructure configured
+- [x] Documentation updated
 - [ ] PR created and reviewed
 - [ ] Merged to develop

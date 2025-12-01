@@ -721,3 +721,76 @@ export type {
   DocumentLanguage,
   DocumentFramework,
 } from '@synthesis/shared';
+
+// ============================================
+// GPT Phase 2: Knowledge Graph Types (re-exported from @synthesis/shared)
+// ============================================
+
+export type {
+  KnowledgeNodeType,
+  KnowledgeEdgeType,
+  KnowledgeNode,
+  KnowledgeEdge,
+  GraphSearchParams,
+  GraphContextResult,
+} from '@synthesis/shared';
+
+// Frontend-specific graph types
+export interface GraphStatsResponse {
+  collection_id: string;
+  total_nodes: number;
+  total_edges: number;
+  nodes_by_type: Record<string, number>;
+  edges_by_type: Record<string, number>;
+}
+
+export interface GraphContextRequest {
+  collection_id: string;
+  seed_chunk_ids?: number[];
+  seed_node_ids?: string[];
+  query?: string;
+  max_depth?: number;
+  max_nodes?: number;
+  edge_types?: string[];
+  node_types?: string[];
+}
+
+export interface GraphContextResponse {
+  nodes: Array<{
+    id: string;
+    collection_id: string;
+    node_type: string;
+    name: string;
+    document_id: string | null;
+    chunk_id: number | null;
+    metadata: Record<string, unknown>;
+    created_at: string;
+  }>;
+  edges: Array<{
+    id: string;
+    collection_id: string;
+    source_node_id: string;
+    target_node_id: string;
+    edge_type: string;
+    metadata: Record<string, unknown>;
+    created_at: string;
+    updated_at: string;
+  }>;
+  chunks: Array<{ id: number; text: string; metadata: Record<string, unknown> }>;
+  stats: {
+    nodesVisited: number;
+    edgesTraversed: number;
+    depthReached: number;
+    durationMs: number;
+  };
+  graph_expansion_enabled: boolean;
+}
+
+export interface GraphBuildResponse {
+  collection_id: string;
+  documents_processed: number;
+  total_nodes_created: number;
+  total_edges_created: number;
+  duration_ms: number;
+  errors: string[];
+}

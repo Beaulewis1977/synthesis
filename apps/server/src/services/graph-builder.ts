@@ -36,6 +36,8 @@ export interface GraphBuilderOptions {
   skipBelongsToEdges?: boolean;
   /** Skip creating symbol -> symbol "depends_on" edges (extends/implements) */
   skipDependsOnEdges?: boolean;
+  /** Force enable graph builder even when ENABLE_GRAPH_BUILDER is not set (for backfills) */
+  forceEnabled?: boolean;
 }
 
 export interface GraphBuilderResult {
@@ -110,8 +112,8 @@ export async function buildGraphForDocument(
   const startTime = Date.now();
   const warnings: string[] = [];
 
-  // Check feature flag
-  if (!isGraphBuilderEnabled()) {
+  // Check feature flag (skip if forceEnabled is set for backfills)
+  if (!options.forceEnabled && !isGraphBuilderEnabled()) {
     return {
       nodesCreated: 0,
       edgesCreated: 0,

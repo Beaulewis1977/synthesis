@@ -21,6 +21,10 @@ import type {
   EmbeddingProfile,
   EmbeddingProfilesResponse,
   FrameworkVersionInfo,
+  GraphBuildResponse,
+  GraphContextRequest,
+  GraphContextResponse,
+  GraphStatsResponse,
   IngestionJob,
   IngestionJobStatusResponse,
   LanguageSupportStatus,
@@ -956,6 +960,40 @@ class ApiClient {
   ): Promise<{ languages: LanguageSupportStatus[] }> {
     return this.request<{ languages: LanguageSupportStatus[] }>(
       `/api/collections/${encodeURIComponent(collectionId)}/language-stats`
+    );
+  }
+
+  // ============================================
+  // GPT Phase 2: Knowledge Graph APIs
+  // ============================================
+
+  /**
+   * Get graph statistics for a collection.
+   * Returns node/edge counts by type.
+   */
+  async getGraphStats(collectionId: string): Promise<GraphStatsResponse> {
+    return this.request<GraphStatsResponse>(`/api/graph/stats/${encodeURIComponent(collectionId)}`);
+  }
+
+  /**
+   * Get graph context from seed nodes via BFS traversal.
+   * Returns nodes, edges, and associated chunks.
+   */
+  async getGraphContext(params: GraphContextRequest): Promise<GraphContextResponse> {
+    return this.request<GraphContextResponse>('/api/graph/context', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  /**
+   * Build/rebuild the knowledge graph for a collection.
+   * This backfills graph data for existing documents.
+   */
+  async buildGraph(collectionId: string): Promise<GraphBuildResponse> {
+    return this.request<GraphBuildResponse>(
+      `/api/graph/build/${encodeURIComponent(collectionId)}`,
+      { method: 'POST' }
     );
   }
 }
