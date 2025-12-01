@@ -777,7 +777,6 @@ export function logIntentDetection(query: string, result: QueryIntentResult): vo
 
   if (shouldLog) {
     // Using console.info for structured logging (not console.log)
-    // biome-ignore lint/suspicious/noConsole: Intentional structured logging for intent detection
     console.info(
       JSON.stringify({
         type: 'query_intent',

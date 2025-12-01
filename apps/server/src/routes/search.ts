@@ -60,6 +60,15 @@ interface SearchRouteResponse {
     intent?: IntentInfo | null;
     /** MMR diversification info (when mmrEnabled is true) */
     mmr?: MMRInfo | null;
+    /** Graph expansion info (when expandWithGraph is true) */
+    graph_expansion?: {
+      enabled: boolean;
+      nodes_visited: number;
+      edges_traversed: number;
+      depth_reached: number;
+      expansion_time_ms: number;
+      chunks_added: number;
+    } | null;
   };
 }
 
@@ -123,6 +132,16 @@ const SearchBodySchema = z
     /** MMR lambda parameter: 0.0 = max diversity, 1.0 = max relevance (default: 0.7) */
     mmr_lambda: z.number().min(0).max(1).optional(),
     mmrLambda: z.number().min(0).max(1).optional(),
+    // GPT Phase 2: Graph expansion
+    /** Enable graph-based context expansion (default: env ENABLE_GRAPH_EXPANSION) */
+    expand_with_graph: z.boolean().optional(),
+    expandWithGraph: z.boolean().optional(),
+    /** Maximum depth for graph traversal (1-10, default: 3 or env GRAPH_MAX_DEPTH) */
+    graph_max_depth: z.number().int().min(1).max(10).optional(),
+    graphMaxDepth: z.number().int().min(1).max(10).optional(),
+    /** Maximum nodes to visit during expansion (1-100, default: 50 or env GRAPH_MAX_NODES) */
+    graph_max_nodes: z.number().int().min(1).max(100).optional(),
+    graphMaxNodes: z.number().int().min(1).max(100).optional(),
   })
   .strict()
   .refine((data) => Boolean(data.collection_id ?? data.collectionId), {
@@ -177,6 +196,13 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       mmrEnabled: camelMmrEnabled,
       mmr_lambda: snakeMmrLambda,
       mmrLambda: camelMmrLambda,
+      // GPT Phase 2: Graph expansion
+      expand_with_graph: snakeExpandWithGraph,
+      expandWithGraph: camelExpandWithGraph,
+      graph_max_depth: snakeGraphMaxDepth,
+      graphMaxDepth: camelGraphMaxDepth,
+      graph_max_nodes: snakeGraphMaxNodes,
+      graphMaxNodes: camelGraphMaxNodes,
     } = validation.data;
 
     // Resolve MMR options from request
@@ -218,6 +244,12 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
     const featureTags = (camelFeatureTags ?? snakeFeatureTags)?.map((tag) => tag.toLowerCase());
     const usageTier = camelUsageTier ?? snakeUsageTier;
 
+    // GPT Phase 2: Graph expansion - default to env setting if not specified
+    const expandWithGraph =
+      camelExpandWithGraph ?? snakeExpandWithGraph ?? process.env.ENABLE_GRAPH_EXPANSION === 'true';
+    const graphMaxDepth = camelGraphMaxDepth ?? snakeGraphMaxDepth;
+    const graphMaxNodes = camelGraphMaxNodes ?? snakeGraphMaxNodes;
+
     const includeRelatedFiles = camelIncludeRelated ?? snakeIncludeRelated ?? false;
     const autoIntent = camelAutoIntent ?? snakeAutoIntent;
     const page = normalizePage(requestPage);
@@ -256,6 +288,10 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       includeRelatedFiles,
       mmrEnabled: mmrEnabled ?? false,
       mmrLambda,
+      // GPT Phase 2: Graph expansion
+      expandWithGraph,
+      graphMaxDepth,
+      graphMaxNodes,
     });
 
     const timerStart = performance.now();
@@ -292,6 +328,10 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
         intent,
         mmrEnabled,
         mmrLambda,
+        // GPT Phase 2: Graph expansion
+        expandWithGraph,
+        graphMaxDepth,
+        graphMaxNodes,
       });
 
       const responsePayload = mapToRouteResponse(result);
@@ -356,6 +396,17 @@ function mapToRouteResponse(result: SmartSearchResponse): SearchRouteResponse {
       diagnostics: result.metadata.diagnostics ?? null,
       intent: result.metadata.intent ?? null,
       mmr: result.metadata.mmr ?? null,
+      // GPT Phase 2: Graph expansion metadata
+      graph_expansion: result.metadata.graphExpansion
+        ? {
+            enabled: result.metadata.graphExpansion.enabled,
+            nodes_visited: result.metadata.graphExpansion.nodesVisited,
+            edges_traversed: result.metadata.graphExpansion.edgesTraversed,
+            depth_reached: result.metadata.graphExpansion.depthReached,
+            expansion_time_ms: result.metadata.graphExpansion.expansionTimeMs,
+            chunks_added: result.metadata.graphExpansion.chunksAdded,
+          }
+        : null,
     },
   };
 }

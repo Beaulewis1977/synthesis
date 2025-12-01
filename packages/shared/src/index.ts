@@ -123,6 +123,108 @@ export type MobileFeatureTag =
   | 'analytics'
   | 'deep_linking';
 
+// =============================================================================
+// GPT Phase 2: Knowledge Graph Types
+// =============================================================================
+
+/**
+ * Knowledge node types representing entities in the codebase graph.
+ * Used to build a lightweight knowledge graph over existing chunks and ASTs.
+ */
+export type KnowledgeNodeType =
+  | 'document' // File-level node
+  | 'chunk' // Chunk-level node
+  | 'symbol' // Function, class, widget, method
+  | 'endpoint' // API endpoint/route
+  | 'table' // Database table
+  | 'column' // Database column
+  | 'config_section'; // Config file section
+
+/**
+ * Knowledge edge types representing relationships between nodes.
+ * Enables graph-style retrieval for end-to-end context expansion.
+ */
+export type KnowledgeEdgeType =
+  | 'calls' // Function calls another function
+  | 'defines' // File defines a symbol
+  | 'belongs_to' // Chunk belongs to document, column belongs to table
+  | 'persists_to' // Function persists data to table
+  | 'configured_by' // Component configured by config section
+  | 'documents' // Doc chunk documents a symbol
+  | 'imports' // File imports another file
+  | 'depends_on'; // Symbol depends on another symbol
+
+/**
+ * Knowledge graph node representing an entity in the codebase.
+ * Nodes are linked to documents and chunks for context retrieval.
+ */
+export interface KnowledgeNode {
+  id: string;
+  collection_id: string;
+  node_type: KnowledgeNodeType;
+  name: string;
+  document_id?: string;
+  chunk_id?: number;
+  metadata: {
+    framework?: string;
+    symbol_kind?: string; // function, class, widget, route, etc.
+    file_path?: string;
+    line_start?: number;
+    line_end?: number;
+    [key: string]: unknown;
+  };
+  created_at: Date;
+}
+
+/**
+ * Knowledge graph edge representing a relationship between nodes.
+ * Edges enable traversal from search results to related context.
+ */
+export interface KnowledgeEdge {
+  id: string;
+  collection_id: string;
+  source_node_id: string;
+  target_node_id: string;
+  edge_type: KnowledgeEdgeType;
+  metadata?: Record<string, unknown>;
+  created_at: Date;
+}
+
+/**
+ * GPT Phase 2: Graph Search Parameters
+ * Input parameters for graph-based context retrieval.
+ */
+export interface GraphSearchParams {
+  collectionId: string;
+  seedChunkIds?: number[];
+  seedNodeIds?: string[];
+  query?: string;
+  maxDepth?: number;
+  maxNodes?: number;
+  edgeTypes?: KnowledgeEdgeType[];
+  nodeTypes?: KnowledgeNodeType[];
+}
+
+/**
+ * GPT Phase 2: Graph Context Result
+ * Result from graph traversal containing nodes, edges, and associated chunks.
+ */
+export interface GraphContextResult {
+  nodes: KnowledgeNode[];
+  edges: KnowledgeEdge[];
+  chunks: Array<{
+    id: number;
+    text: string;
+    metadata: Record<string, unknown>;
+  }>;
+  stats: {
+    nodesVisited: number;
+    edgesTraversed: number;
+    depthReached: number;
+    durationMs: number;
+  };
+}
+
 // Phase 3: Chunk type classification
 export type ChunkType = 'text' | 'code' | 'sql' | 'config' | 'heading' | 'list' | 'analysis';
 

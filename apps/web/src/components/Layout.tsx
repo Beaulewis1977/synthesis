@@ -30,6 +30,12 @@ export function Layout() {
                 🤖 Agent
               </Link>
               <Link
+                to="/graph"
+                className="text-text-secondary hover:text-text-primary transition-colors"
+              >
+                Graph
+              </Link>
+              <Link
                 to="/settings/models"
                 className="text-text-secondary hover:text-text-primary transition-colors"
               >
