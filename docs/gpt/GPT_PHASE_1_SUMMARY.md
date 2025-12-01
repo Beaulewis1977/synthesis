@@ -25,7 +25,7 @@ This phase makes Synthesis a **mobile feature recipe library** for agents buildi
 | 4.2 | Curated Recipe Docs & Collections | ✅ Complete | `feat(gpt-phase1): add recipe docs and ingestion scripts` |
 | 4.3 | Feature-Aware Retrieval | ✅ Complete | `feat(gpt-phase1): add feature-aware search filtering` |
 | 4.4 | UI & MCP Exposure | ✅ Complete | `feat(gpt-phase1): add UI components and MCP tool updates` |
-| 4.5 | Evaluation & Golden Tasks | ⬜ Pending | |
+| 4.5 | Evaluation & Golden Tasks | ✅ Complete | `feat(gpt-phase1): add evaluation harness and golden tasks` |
 
 ---
 
@@ -570,16 +570,207 @@ async performSearch(
 
 ## Sub-Phase 4.5: Evaluation & Golden Tasks
 
-**Status:** ⬜ Pending
+**Completed:** November 2025
+**Commit:** `feat(gpt-phase1): add evaluation harness and golden tasks`
 
-*Summary will be added upon completion.*
+### Purpose
+
+Create an evaluation harness and golden task set to verify that the mobile feature recipes and retrieval system correctly returns relevant documentation for common mobile development scenarios. This provides quality assurance for the entire Phase 1 implementation.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `apps/server/perf/mobile_eval_tasks.json` | Golden task definitions covering 10 evaluation scenarios |
+| `apps/server/perf/mobile_eval_runner.mjs` | Node.js ES module script to run evaluations and generate reports |
+| `apps/server/perf/__tests__/mobile-eval.test.ts` | 33 unit tests for validation logic and schema |
+
+### Golden Task Categories
+
+| Category | Tasks | MCP Tools Used |
+|----------|-------|----------------|
+| Authentication | 3 tasks | search_mobile_docs, find_code_examples |
+| Payments | 1 task | search_mobile_docs |
+| Subscriptions | 1 task | get_feature_recipe |
+| Push Notifications | 1 task | search_mobile_docs |
+| Offline/Sync | 2 tasks | get_feature_recipe, search_mobile_docs |
+| Edge Cases | 2 tasks | search_mobile_docs |
+
+### Golden Tasks Defined
+
+| ID | Description | Expected Outcome |
+|----|-------------|------------------|
+| auth-001 | Email/password auth with Supabase | Supabase recipe found |
+| auth-002 | Social auth (Google/Apple) | Auth examples found |
+| auth-003 | Firebase authentication setup | Firebase docs + recipe |
+| payments-001 | Stripe payments integration | Stripe recipe found |
+| subscriptions-001 | RevenueCat in-app subscriptions | RevenueCat recipe found |
+| notifications-001 | FCM push notifications | Firebase + recipe found |
+| offline-001 | Offline caching with Isar | Isar recipe found |
+| offline-002 | Data sync with conflict resolution | Sync docs found |
+| edge-001 | Non-matching query | Empty results accepted |
+| edge-002 | Ambiguous multi-feature query | Results with metadata |
+
+### Evaluation Runner Features
+
+```bash
+# Usage
+node apps/server/perf/mobile_eval_runner.mjs [options]
+
+# Options
+--collection-id <uuid>  # Override collection ID
+--base-url <url>        # Override API base URL (default: http://localhost:3333)
+--dry-run               # Print tasks without executing
+--output <file>         # Custom output file path
+--verbose               # Include full result details
+--help                  # Show help
+```
+
+### Validation Checks
+
+| Check | Description |
+|-------|-------------|
+| `minResults` | Minimum number of results required |
+| `allowEmptyResults` | Accept zero results (for edge cases) |
+| `requiredUsageTiers` | At least one result with specified tier (OR logic) |
+| `requiredFeatureTags` | At least one result with specified tag (OR logic) |
+| `expectedDocPatterns` | Case-insensitive patterns in doc titles/text (50%+ match) |
+| `verifyMetadataPresent` | All results have non-empty metadata |
+
+### Report Output
+
+The runner generates a markdown report with:
+- Summary table (total, passed, failed, errors, pass rate)
+- Results grouped by category
+- Detailed failure information with check-by-check breakdown
+- Error details for any API failures
+
+### Test Results
+
+| Test Suite | Tests | Status |
+|------------|-------|--------|
+| Schema validation | 8 | ✅ PASS |
+| minResults check | 3 | ✅ PASS |
+| allowEmptyResults check | 2 | ✅ PASS |
+| requiredUsageTiers check | 2 | ✅ PASS |
+| requiredFeatureTags check | 3 | ✅ PASS |
+| expectedDocPatterns check | 3 | ✅ PASS |
+| verifyMetadataPresent check | 2 | ✅ PASS |
+| Score calculation | 2 | ✅ PASS |
+| buildSearchParams | 5 | ✅ PASS |
+| Edge cases | 3 | ✅ PASS |
+| **Total** | **33** | **✅ ALL PASS** |
+
+### Execution Validation
+
+The evaluation harness was executed against real data:
+
+1. **Recipe ingestion**: 6 Flutter recipes ingested into `mobile-recipes` collection
+2. **Metadata propagation**: All chunks updated with `usage_tier`, `feature_tags`, `platform`
+3. **Evaluation run**: 10/10 golden tasks passed (100% pass rate)
+
+```
+Overall: 10/10 passed (100.0%)
+```
+
+Sample passing tasks:
+- auth-001: Supabase authentication → Found recipe with correct metadata
+- payments-001: Stripe payments → Found payments recipe
+- notifications-001: FCM push notifications → Found push_notifications recipe
+- offline-001: Isar offline caching → Found offline recipe
+- edge-001: Non-matching query → Correctly returned 0 results
+
+### Acceptance Criteria
+
+- [x] Golden task definitions cover all 4 core categories (auth, payments, notifications, offline)
+- [x] Tasks use MCP tools (search_mobile_docs, get_feature_recipe)
+- [x] Edge cases included (no matches, ambiguous queries)
+- [x] Evaluation runner executes tasks and validates expectations
+- [x] Runner generates markdown report with pass/fail status
+- [x] Unit tests verify validation logic (33 tests passing)
+- [x] TypeScript compiles without errors (`pnpm typecheck`)
+- [x] **Execution validation passed (10/10 golden tasks)**
+
+---
+
+## Bonus Fix: Web Content Ingestion Quality
+
+**Completed:** December 2025
+**Commit:** `fix(agent): auto-detect HTML URLs and use fetch_web_content`
+
+### Issue
+
+When the Synthesis chat agent ingested web documentation (e.g., Supabase docs), it was using `add_document` which downloads raw HTML with JavaScript/CSS instead of extracting readable content. This resulted in chunks containing `<script>` tags and build artifacts rather than documentation text.
+
+### Root Cause
+
+The `add_document` tool used simple `fetch()` to download URLs, while `fetch_web_content` uses Playwright + Turndown to properly:
+1. Wait for JavaScript to render (`networkidle`)
+2. Extract content from semantic elements (`main`, `article`, `.content`)
+3. Convert HTML to clean markdown
+
+### Solution
+
+**1. Updated Agent System Prompt** (`apps/server/src/agent/agent.ts:52-56`)
+
+Added explicit guidance for tool selection:
+```
+IMPORTANT - Tool Selection for Web Content:
+- For WEB PAGES (HTML documentation sites): ALWAYS use `fetch_web_content`
+- For RAW FILES (PDFs, markdown, code files): Use `add_document`
+- NEVER use `add_document` for HTML web pages
+```
+
+**2. Smart URL Detection in `add_document`** (`apps/server/src/agent/tools.ts:173-214`)
+
+Added automatic detection that redirects HTML URLs to `fetch_web_content`:
+- Detects raw file extensions (`.pdf`, `.md`, `.dart`, `.ts`, `.py`, etc.)
+- Detects raw GitHub URLs (`raw.githubusercontent.com`, `/raw/`)
+- If URL doesn't match raw file patterns → automatically uses `fetch_web_content`
+
+```typescript
+const isRawFile =
+  pathname.endsWith('.pdf') ||
+  pathname.endsWith('.md') ||
+  // ... more extensions
+  url.hostname === 'raw.githubusercontent.com' ||
+  url.hostname.includes('raw.') ||
+  url.pathname.includes('/raw/');
+
+if (!isRawFile) {
+  // Redirect to fetch_web_content for proper HTML extraction
+  const result = await fetchWebContent(db, { url: source, collectionId, mode: 'single' });
+  return createToolResponse('Detected web page URL. Used fetch_web_content...', result);
+}
+```
+
+### Verification
+
+Tested with Supabase auth docs (`https://supabase.com/docs/guides/auth`):
+- Agent correctly chose `fetch_web_content` with `mode: 'crawl'`
+- Successfully fetched 20 pages with clean markdown content
+- All chunks contain readable documentation text (not raw HTML/JS)
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `apps/server/src/agent/agent.ts` | Added web content tool selection guidance to system prompt |
+| `apps/server/src/agent/tools.ts` | Added URL detection to auto-redirect HTML pages to `fetch_web_content` |
+
+### Test Results
+
+- ✅ 11 agent tools tests pass
+- ✅ TypeScript compiles without errors
+- ✅ Manual verification: Supabase docs ingested as clean markdown
 
 ---
 
 ## Phase 1 Completion Checklist
 
-- [ ] All sub-phases complete
-- [ ] All tests passing
-- [ ] Documentation updated
+- [x] All sub-phases complete (4.1-4.5)
+- [x] All tests passing
+- [x] Documentation updated
+- [x] Web content ingestion quality fix applied
 - [ ] PR created and reviewed
 - [ ] Merged to develop

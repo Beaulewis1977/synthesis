@@ -159,7 +159,7 @@ export function createAddDocumentTool(
     definition: {
       name: ADD_DOCUMENT_TOOL_NAME,
       description:
-        'Add a document to the RAG system from a file path or URL and trigger ingestion.',
+        'Add a document to the RAG system from a LOCAL FILE PATH or RAW FILE URL (PDFs, markdown, code files). For HTML web pages, use fetch_web_content instead.',
       input_schema: zodToJsonSchema(inputSchema) as Tool['input_schema'],
     },
     executor: async (args: unknown) => {
@@ -169,6 +169,51 @@ export function createAddDocumentTool(
       const metadata = parsed.metadata ?? {};
 
       const remote = isUrl(source);
+
+      // For remote URLs, check if it's an HTML page that should use fetch_web_content
+      if (remote) {
+        const url = new URL(source);
+        const pathname = url.pathname.toLowerCase();
+        const isRawFile =
+          pathname.endsWith('.pdf') ||
+          pathname.endsWith('.md') ||
+          pathname.endsWith('.txt') ||
+          pathname.endsWith('.json') ||
+          pathname.endsWith('.yaml') ||
+          pathname.endsWith('.yml') ||
+          pathname.endsWith('.xml') ||
+          pathname.endsWith('.csv') ||
+          pathname.endsWith('.dart') ||
+          pathname.endsWith('.ts') ||
+          pathname.endsWith('.tsx') ||
+          pathname.endsWith('.js') ||
+          pathname.endsWith('.jsx') ||
+          pathname.endsWith('.py') ||
+          pathname.endsWith('.go') ||
+          pathname.endsWith('.rs') ||
+          pathname.endsWith('.java') ||
+          pathname.endsWith('.kt') ||
+          pathname.endsWith('.swift') ||
+          url.hostname === 'raw.githubusercontent.com' ||
+          url.hostname.includes('raw.') ||
+          url.pathname.includes('/raw/');
+
+        if (!isRawFile) {
+          // This is likely an HTML web page - redirect to fetch_web_content
+          const result = await fetchWebContent(db, {
+            url: source,
+            collectionId,
+            mode: 'single',
+            titlePrefix: parsed.title,
+          });
+
+          return createToolResponse(
+            `Detected web page URL. Used fetch_web_content for proper HTML extraction. Fetched and queued ${result.processed.length} page(s) for ingestion.`,
+            result.processed
+          );
+        }
+      }
+
       const download = remote ? await downloadRemoteFile(source) : await readLocalFile(source);
       const remoteDownload = remote ? (download as RemoteDownloadResult) : null;
 
