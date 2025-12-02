@@ -35,7 +35,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.4
-        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6))
+        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0))
 
   apps/desktop:
     dependencies:
@@ -85,7 +85,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6))
+        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0))
 
   apps/server:
     dependencies:
@@ -129,8 +129,8 @@ importers:
         specifier: ^5.8.2
         version: 5.8.2
       js-yaml:
-        specifier: ^4.1.0
-        version: 4.1.0
+        specifier: ^4.1.1
+        version: 4.1.1
       lru-cache:
         specifier: ^11.2.2
         version: 11.2.2
@@ -206,7 +206,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.4
-        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6))
+        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0))
 
   apps/web:
     dependencies:
@@ -273,7 +273,7 @@ importers:
         version: 5.4.21(@types/node@22.18.8)
       vitest:
         specifier: ^2.1.4
-        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6))
+        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0))
 
   packages/db:
     dependencies:
@@ -298,7 +298,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.4
-        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6))
+        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0))
 
   packages/shared:
     dependencies:
@@ -317,7 +317,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.4
-        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6))
+        version: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0))
 
 packages:
 
@@ -3198,8 +3198,8 @@ packages:
     resolution: {integrity: sha512-PMSmkqxr106Xa156c2M265Z+FTrPl+oxd/rgOQy2tijQeK5TxQ43psO1ZCwhVOSdnn+RzkzlRz/eY4BgJBYVpg==}
     hasBin: true
 
-  js-yaml@4.1.0:
-    resolution: {integrity: sha512-wpxZs9NoxZaJESJGIZTyDEaYpl0FKSA+FB9aJiyemKhMwkxQg63h4T1KJgUGHpTqPDNRcmmYLugrRjJlBtWvRA==}
+  js-yaml@4.1.1:
+    resolution: {integrity: sha512-qQKT4zQxXl8lLwBtHMWwaTcGfFOZviOJet3Oy/xmGk2gZH677CJM9EvtfdSkgWcATZhj/55JZ0rmy3myCT5lsA==}
     hasBin: true
 
   jsdom@27.0.0:
@@ -6747,7 +6747,7 @@ snapshots:
       std-env: 3.9.0
       test-exclude: 7.0.1
       tinyrainbow: 1.2.0
-      vitest: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6))
+      vitest: 2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0))
     transitivePeerDependencies:
       - supports-color
 
@@ -6913,7 +6913,7 @@ snapshots:
       hosted-git-info: 4.1.0
       is-ci: 3.0.1
       isbinaryfile: 5.0.7
-      js-yaml: 4.1.0
+      js-yaml: 4.1.1
       json5: 2.2.3
       lazy-val: 1.0.5
       minimatch: 10.1.1
@@ -7162,7 +7162,7 @@ snapshots:
       http-proxy-agent: 7.0.2
       https-proxy-agent: 7.0.6
       is-ci: 3.0.1
-      js-yaml: 4.1.0
+      js-yaml: 4.1.1
       source-map-support: 0.5.21
       stat-mode: 1.0.0
       temp-file: 3.4.0
@@ -7596,7 +7596,7 @@ snapshots:
       builder-util-runtime: 9.2.10
       fs-extra: 10.1.0
       iconv-lite: 0.6.3
-      js-yaml: 4.1.0
+      js-yaml: 4.1.1
     optionalDependencies:
       dmg-license: 1.0.11
     transitivePeerDependencies:
@@ -8445,7 +8445,7 @@ snapshots:
       argparse: 1.0.10
       esprima: 4.0.1
 
-  js-yaml@4.1.0:
+  js-yaml@4.1.1:
     dependencies:
       argparse: 2.0.1
 
@@ -10369,7 +10369,7 @@ snapshots:
       '@types/node': 22.18.8
       fsevents: 2.3.3
 
-  vitest@2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)(postcss@8.5.6)):
+  vitest@2.1.9(@types/node@22.18.8)(jsdom@27.0.0(canvas@3.1.0)):
     dependencies:
       '@vitest/expect': 2.1.9
       '@vitest/mocker': 2.1.9(vite@5.4.20(@types/node@22.18.8))
