@@ -97,7 +97,7 @@ const findSymbolUsagesInput = z
 const graphExpandContextInput = z
   .object({
     collectionId: z.string().uuid().describe('The ID of the collection'),
-    seedChunkIds: z.array(z.string()).optional(),
+    seedChunkIds: z.array(z.number().int()).optional(),
     seedNodeIds: z.array(z.string()).optional(),
     query: z.string().optional(),
     maxDepth: z.number().int().min(1).max(5).default(2),

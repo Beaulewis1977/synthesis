@@ -272,7 +272,7 @@ async function executeToolCall(tool, requestParams, config) {
       throw new Error(`API error (${response.status}): ${error}`);
     }
 
-    return response.json();
+    return await response.json();
   } catch (error) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {

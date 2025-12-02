@@ -91,63 +91,69 @@ export async function extractSchema(
   const startTime = performance.now();
   const includeRelationships = params.includeRelationships ?? true;
 
-  // 1. Query table nodes
-  const tableNodes = await queryTableNodes(db, params.collectionId, params.tables);
+  try {
+    // 1. Query table nodes
+    const tableNodes = await queryTableNodes(db, params.collectionId, params.tables);
 
-  if (tableNodes.length === 0) {
+    if (tableNodes.length === 0) {
+      return {
+        tables: [],
+        relationships: [],
+        stats: {
+          totalTables: 0,
+          totalColumns: 0,
+          totalRelationships: 0,
+          extractionDurationMs: performance.now() - startTime,
+        },
+      };
+    }
+
+    // Build lookup map for table nodes by ID
+    const tableNodeMap = new Map<string, TableNodeRow>();
+    for (const node of tableNodes) {
+      tableNodeMap.set(node.id, node);
+    }
+
+    // 2. Query columns and relationships in parallel (if enabled)
+    const [columnsByTable, relationships] = await Promise.all([
+      queryColumnsForTables(db, params.collectionId, tableNodes),
+      includeRelationships
+        ? queryTableRelationships(db, params.collectionId, tableNodeMap)
+        : Promise.resolve([]),
+    ]);
+
+    // 3. Build table schemas with their columns
+    const tables: TableSchema[] = tableNodes.map((tableNode) => ({
+      name: tableNode.name,
+      nodeId: tableNode.id,
+      documentId: tableNode.document_id,
+      columns: columnsByTable.get(tableNode.id) ?? [],
+      metadata: tableNode.metadata ?? {},
+    }));
+
+    // Calculate total columns
+    let totalColumns = 0;
+    for (const table of tables) {
+      totalColumns += table.columns.length;
+    }
+
+    const durationMs = performance.now() - startTime;
+
     return {
-      tables: [],
-      relationships: [],
+      tables,
+      relationships,
       stats: {
-        totalTables: 0,
-        totalColumns: 0,
-        totalRelationships: 0,
-        extractionDurationMs: performance.now() - startTime,
+        totalTables: tables.length,
+        totalColumns,
+        totalRelationships: relationships.length,
+        extractionDurationMs: durationMs,
       },
     };
+  } catch (error) {
+    throw new Error(
+      `Schema extraction failed for collection ${params.collectionId}: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
-
-  // Build lookup map for table nodes by ID
-  const tableNodeMap = new Map<string, TableNodeRow>();
-  for (const node of tableNodes) {
-    tableNodeMap.set(node.id, node);
-  }
-
-  // 2. Query columns and relationships in parallel (if enabled)
-  const [columnsByTable, relationships] = await Promise.all([
-    queryColumnsForTables(db, params.collectionId, tableNodes),
-    includeRelationships
-      ? queryTableRelationships(db, params.collectionId, tableNodeMap)
-      : Promise.resolve([]),
-  ]);
-
-  // 3. Build table schemas with their columns
-  const tables: TableSchema[] = tableNodes.map((tableNode) => ({
-    name: tableNode.name,
-    nodeId: tableNode.id,
-    documentId: tableNode.document_id,
-    columns: columnsByTable.get(tableNode.id) ?? [],
-    metadata: tableNode.metadata ?? {},
-  }));
-
-  // Calculate total columns
-  let totalColumns = 0;
-  for (const table of tables) {
-    totalColumns += table.columns.length;
-  }
-
-  const durationMs = performance.now() - startTime;
-
-  return {
-    tables,
-    relationships,
-    stats: {
-      totalTables: tables.length,
-      totalColumns,
-      totalRelationships: relationships.length,
-      extractionDurationMs: durationMs,
-    },
-  };
 }
 
 // =============================================================================
@@ -441,27 +447,33 @@ export async function getSchemaNodeCounts(
   db: Pool,
   collectionId: string
 ): Promise<{ tables: number; columns: number }> {
-  const result = await db.query(
-    `
-    SELECT
-      node_type,
-      COUNT(*) as count
-    FROM knowledge_nodes
-    WHERE collection_id = $1
-      AND node_type IN ('table', 'column')
-    GROUP BY node_type
-  `,
-    [collectionId]
-  );
+  try {
+    const result = await db.query(
+      `
+      SELECT
+        node_type,
+        COUNT(*) as count
+      FROM knowledge_nodes
+      WHERE collection_id = $1
+        AND node_type IN ('table', 'column')
+      GROUP BY node_type
+    `,
+      [collectionId]
+    );
 
-  const counts = { tables: 0, columns: 0 };
-  for (const row of result.rows) {
-    if (row.node_type === 'table') {
-      counts.tables = Number.parseInt(row.count as string, 10);
-    } else if (row.node_type === 'column') {
-      counts.columns = Number.parseInt(row.count as string, 10);
+    const counts = { tables: 0, columns: 0 };
+    for (const row of result.rows) {
+      if (row.node_type === 'table') {
+        counts.tables = Number.parseInt(row.count as string, 10);
+      } else if (row.node_type === 'column') {
+        counts.columns = Number.parseInt(row.count as string, 10);
+      }
     }
-  }
 
-  return counts;
+    return counts;
+  } catch (error) {
+    throw new Error(
+      `Failed to get schema node counts for collection ${collectionId}: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
