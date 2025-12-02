@@ -64,10 +64,10 @@ export type DiscoverToolsInput = z.infer<typeof discoverToolsInputSchema>;
 // =============================================================================
 
 /**
- * Input schema for enable_tools
+ * Base input schema for enable_tools (without refinement)
  *
- * Enables tools by name, toolpack, or category. At least one must be provided.
- * Idempotent - enabling already-enabled tools is a no-op.
+ * This base schema is used for MCP SDK registration which doesn't support
+ * Zod refinements. The full schema with refinement is used for runtime validation.
  *
  * @example
  * // Enable specific tools
@@ -81,7 +81,7 @@ export type DiscoverToolsInput = z.infer<typeof discoverToolsInputSchema>;
  * // Enable by category
  * { categories: ["mobile"] }
  */
-export const enableToolsInputSchema = z
+export const enableToolsInputSchemaBase = z
   .object({
     tools: z.array(z.string()).optional().describe('Specific tool names to enable'),
     toolpacks: z
@@ -93,14 +93,23 @@ export const enableToolsInputSchema = z
       .optional()
       .describe('Categories to enable (e.g., "mobile", "graph")'),
   })
-  .strict()
-  .refine(
-    (data) =>
-      (data.tools && data.tools.length > 0) ||
-      (data.toolpacks && data.toolpacks.length > 0) ||
-      (data.categories && data.categories.length > 0),
-    { message: 'At least one of tools, toolpacks, or categories is required', path: ['tools'] }
-  );
+  .strict();
+
+/**
+ * Full input schema for enable_tools with validation refinement
+ *
+ * Enables tools by name, toolpack, or category. At least one must be provided.
+ * Idempotent - enabling already-enabled tools is a no-op.
+ *
+ * Use this schema for runtime validation in tool handlers.
+ */
+export const enableToolsInputSchema = enableToolsInputSchemaBase.refine(
+  (data) =>
+    (data.tools && data.tools.length > 0) ||
+    (data.toolpacks && data.toolpacks.length > 0) ||
+    (data.categories && data.categories.length > 0),
+  { message: 'At least one of tools, toolpacks, or categories is required', path: ['tools'] }
+);
 
 export type EnableToolsInput = z.infer<typeof enableToolsInputSchema>;
 

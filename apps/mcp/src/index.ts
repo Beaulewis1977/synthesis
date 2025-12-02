@@ -20,6 +20,15 @@ import { apiClient } from './api.js';
 import { getRateLimiter } from './rate-limiter.js';
 import { DynamicToolRegistry } from './tool-registry.js';
 import { TOOL_METADATA } from './toolpacks.js';
+import { buildDiscoverResult } from './tools/discover.js';
+import { enableTools } from './tools/enable.js';
+import { toToolResult } from './types/gateway-responses.js';
+import {
+  GATEWAY_TOOL_DESCRIPTIONS,
+  discoverToolsInputSchema,
+  enableToolsInputSchema,
+  enableToolsInputSchemaBase,
+} from './types/gateway-schemas.js';
 import { parseEnvConfig } from './types/index.js';
 
 // Load environment variables
@@ -1128,9 +1137,64 @@ dynamicRegistry.registerTool(
 );
 
 // =============================================================================
-// Tool Registration Complete (Phase 5.6.1)
+// Gateway Tools (Phase 5.6.2)
 // =============================================================================
-// All 17 tools are now registered via dynamicRegistry.registerTool() above.
+// Gateway tools are always-on tools for dynamic tool management.
+// They cannot be disabled and are used to discover, enable, and route tool calls.
+
+/**
+ * Gateway Tool 1: synthesis_discover_tools
+ * Discover available tools and toolpacks based on task or list all.
+ */
+dynamicRegistry.registerTool(
+  'synthesis_discover_tools',
+  {
+    description: GATEWAY_TOOL_DESCRIPTIONS.synthesis_discover_tools,
+    inputSchema: toInputShape(discoverToolsInputSchema),
+    toolpack: TOOL_METADATA.synthesis_discover_tools.toolpack,
+    category: TOOL_METADATA.synthesis_discover_tools.category,
+    sensitive: TOOL_METADATA.synthesis_discover_tools.sensitive,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    dynamicRegistry.recordCall('synthesis_discover_tools');
+    const validated = discoverToolsInputSchema.parse(input);
+    const result = buildDiscoverResult(validated, dynamicRegistry);
+    return toToolResult(result);
+  }
+);
+
+/**
+ * Gateway Tool 2: enable_tools
+ * Enable tools by name, toolpack, or category.
+ */
+dynamicRegistry.registerTool(
+  'enable_tools',
+  {
+    description: GATEWAY_TOOL_DESCRIPTIONS.enable_tools,
+    // Use base schema without refine for MCP SDK registration
+    inputSchema: toInputShape(enableToolsInputSchemaBase),
+    toolpack: TOOL_METADATA.enable_tools.toolpack,
+    category: TOOL_METADATA.enable_tools.category,
+    sensitive: TOOL_METADATA.enable_tools.sensitive,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    dynamicRegistry.recordCall('enable_tools');
+    // Use full schema with refine for runtime validation
+    const validated = enableToolsInputSchema.parse(input);
+    const result = enableTools(validated, dynamicRegistry);
+    return toToolResult(result);
+  }
+);
+
+// =============================================================================
+// Tool Registration Complete (Phase 5.6.2)
+// =============================================================================
+// All 19 tools are now registered via dynamicRegistry.registerTool() above:
+// - 17 original tools (Phase 3.5.3)
+// - 2 gateway tools (Phase 5.6.2): synthesis_discover_tools, enable_tools
+//
 // Each tool registration includes:
 // - MCP SDK handle capture for enable/disable operations
 // - Toolpack and category metadata from TOOL_METADATA

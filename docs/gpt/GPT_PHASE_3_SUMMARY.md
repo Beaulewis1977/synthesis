@@ -729,13 +729,91 @@ apps/mcp/src/
 
 ---
 
+### Sub-Phase 5.6.2: Gateway Tools - Discovery & Enable (Complete)
+
+**Scope:** Implement synthesis_discover_tools and enable_tools gateway tools.
+
+### Deliverables Created
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| Discovery Tool | `apps/mcp/src/tools/discover.ts` | Task-based recommendations and catalog browsing |
+| Enable Tool | `apps/mcp/src/tools/enable.ts` | Enable tools by name, toolpack, or category |
+| Base Schema | `apps/mcp/src/types/gateway-schemas.ts` | Added enableToolsInputSchemaBase for MCP SDK |
+| Discovery Tests | `apps/mcp/src/__tests__/discover.test.ts` | 28 tests for discovery functionality |
+| Enable Tests | `apps/mcp/src/__tests__/enable.test.ts` | 26 tests for enable functionality |
+
+### Gateway Tools Registered
+
+| # | Tool | Description |
+|---|------|-------------|
+| 18 | `synthesis_discover_tools` | Discover tools by task or list full catalog |
+| 19 | `enable_tools` | Enable tools by name, toolpack, or category |
+
+### Key Implementation Details
+
+**Factory Pattern (avoids circular imports):**
+- `tools/discover.ts` exports `buildDiscoverResult(input, registry)`
+- `tools/enable.ts` exports `enableTools(input, registry)`
+- `index.ts` imports and calls with `dynamicRegistry`
+
+**Recommendation Algorithm:**
+- Simple keyword matching against tool descriptions
+- Score based on word overlap + exact match bonus
+- Returns top 10 tools sorted by relevance
+- Filters out gateway tools from recommendations
+
+**Enable Behavior:**
+- Idempotent: already-enabled tools reported separately
+- Deduplicates across tools/toolpacks/categories
+- MCP SDK handles notification emission on enable()
+- notificationSent metadata for LLM awareness
+
+### Files Changed
+
+```
+apps/mcp/src/
+├── tools/
+│   ├── discover.ts                       (CREATED - 285 lines)
+│   └── enable.ts                         (CREATED - 145 lines)
+├── types/
+│   └── gateway-schemas.ts                (MODIFIED - added enableToolsInputSchemaBase)
+├── index.ts                              (MODIFIED - registered 2 gateway tools)
+└── __tests__/
+    ├── discover.test.ts                  (CREATED - 28 tests)
+    └── enable.test.ts                    (CREATED - 26 tests)
+```
+
+### Tests Added
+
+| Test File | Tests | Coverage |
+|-----------|-------|----------|
+| `discover.test.ts` | 28 | buildDiscoverResult, recommendations, toolpacks, categories |
+| `enable.test.ts` | 26 | Enable by name/toolpack/category, combined inputs, edge cases |
+
+**Total New Tests:** 54 (all passing)
+**MCP Package Total:** 478 tests
+
+### Acceptance Criteria Met
+
+- [x] `synthesis_discover_tools({ task })` returns recommendations
+- [x] `synthesis_discover_tools({ list_all: true })` returns catalog
+- [x] `enable_tools({ toolpacks })` enables tools
+- [x] `notifications/tools/list_changed` emitted (via MCP SDK handle.enable())
+- [x] Debouncing for rapid enables (MCP SDK handles this)
+- [x] Model-agnostic (no Anthropic-specific fields)
+- [x] All 54 new tests pass
+- [x] TypeScript type checking passes
+
+---
+
 ### Remaining 5.6 Sub-Phases
 
 | # | Sub-Phase | Status | Description |
 |---|-----------|--------|-------------|
 | 5.6.0 | Pre-Flight Contracts | ✅ Complete | Type contracts and Zod schemas |
 | 5.6.1 | Tool Registry Foundation | ✅ Complete | DynamicToolRegistry class, handles, profile startup |
-| 5.6.2 | Gateway Tools - Discovery & Enable | Pending | synthesis_discover_tools, enable_tools |
+| 5.6.2 | Gateway Tools - Discovery & Enable | ✅ Complete | synthesis_discover_tools, enable_tools |
 | 5.6.3 | Gateway Tools - Router & Bridge | Pending | synthesis_router, synthesis_mcp_bridge, synthesis_search |
 | 5.6.4 | Integration Tests & Token Verification | Pending | E2E flows, client compatibility, tiktoken measurement |
 
@@ -750,7 +828,7 @@ apps/mcp/src/
 | 5.3 | MCP Tool Implementation | ✅ Complete | - |
 | 5.4 | Agent Prompt & Config Updates | ✅ Complete | - |
 | 5.5 | Scenario-Based Evaluation | ✅ Complete | - |
-| 5.6 | Dynamic Tool Management | 🔄 In Progress (5.6.0-5.6.1 done) | 2-3 days remaining |
+| 5.6 | Dynamic Tool Management | 🔄 In Progress (5.6.0-5.6.2 done) | 1-2 days remaining |
 
 ---
 
