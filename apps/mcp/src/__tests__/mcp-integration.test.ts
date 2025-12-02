@@ -590,8 +590,15 @@ describe('Global toolRegistry', () => {
 
   it('should have tools registered from index.ts', () => {
     // This test verifies that the global registry was populated
-    // The actual count depends on index.ts executing
-    expect(toolRegistry.size).toBeGreaterThanOrEqual(0);
+    // The actual count depends on index.ts executing and tools having TOOL_METADATA entries
+    // Skip if registry is empty (index.ts may not have run in test environment)
+    if (toolRegistry.size > 0) {
+      expect(toolRegistry.listTools().length).toBeGreaterThan(0);
+      expect(toolRegistry.listTools().length).toBe(toolRegistry.size);
+    } else {
+      // In test environment, index.ts tool registration may not execute
+      expect(toolRegistry.size).toBe(0);
+    }
   });
 });
 

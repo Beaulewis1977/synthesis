@@ -113,8 +113,13 @@ export async function extractSchema(
     tableNodeMap.set(node.id, node);
   }
 
-  // 2. Query column nodes for all tables in one batch
-  const columnsByTable = await queryColumnsForTables(db, params.collectionId, tableNodes);
+  // 2. Query columns and relationships in parallel (if enabled)
+  const [columnsByTable, relationships] = await Promise.all([
+    queryColumnsForTables(db, params.collectionId, tableNodes),
+    includeRelationships
+      ? queryTableRelationships(db, params.collectionId, tableNodeMap)
+      : Promise.resolve([]),
+  ]);
 
   // 3. Build table schemas with their columns
   const tables: TableSchema[] = tableNodes.map((tableNode) => ({
@@ -124,12 +129,6 @@ export async function extractSchema(
     columns: columnsByTable.get(tableNode.id) ?? [],
     metadata: tableNode.metadata ?? {},
   }));
-
-  // 4. Query relationships between tables (if enabled)
-  let relationships: SchemaRelationship[] = [];
-  if (includeRelationships) {
-    relationships = await queryTableRelationships(db, params.collectionId, tableNodeMap);
-  }
 
   // Calculate total columns
   let totalColumns = 0;

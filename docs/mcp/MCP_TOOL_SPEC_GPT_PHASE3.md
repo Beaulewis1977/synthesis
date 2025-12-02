@@ -283,7 +283,7 @@ Use this workflow when the user needs to locate specific implementations, unders
 
 ### 1.6 Tool Selection Decision Tree
 
-```
+```text
 User Query
     |
     +-- Asks about "best way" / "recommended" / "pattern" / "should I"?
@@ -346,27 +346,27 @@ The following feature tags are used across all workflows for filtering and categ
 Complex tasks often require combining workflows. Here are common patterns:
 
 **Pattern 1: Research then Implement**
-```
+```text
 1. FEATURE DESIGN: get_feature_recipe('auth') --> understand pattern
 2. IMPLEMENTATION: find_code_examples('auth', 'flutter') --> get code
 ```
 
 **Pattern 2: Analyze then Extend**
-```
+```text
 1. INTEGRATION: get_project_tech_stack() --> understand current setup
 2. FEATURE DESIGN: get_feature_recipe('push_notifications') --> plan addition
 3. IMPLEMENTATION: find_code_examples() --> implement
 ```
 
 **Pattern 3: Debug and Fix**
-```
+```text
 1. MAINTENANCE: find_symbol_usages('PaymentService') --> locate code
 2. MAINTENANCE: graph_expand_context(seed='PaymentService') --> understand dependencies
 3. MAINTENANCE: get_db_schema(tables=['payments']) --> verify schema
 ```
 
 **Pattern 4: Onboarding to Codebase**
-```
+```text
 1. INTEGRATION: get_project_tech_stack() --> overview
 2. INTEGRATION: find_symbol_usages('App') --> entry points
 3. INTEGRATION: graph_expand_context(seed='App', max_depth=2) --> architecture

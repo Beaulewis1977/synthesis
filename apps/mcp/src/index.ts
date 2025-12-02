@@ -1084,6 +1084,8 @@ const TOOL_DESCRIPTIONS: Record<string, string> = {
 // Note: This registry is for metadata introspection only. Actual schemas and handlers
 // are registered with server.registerTool() above. This supports Phase 5.6 dynamic
 // tool management (enable/disable, toolpack queries, sensitive tool identification).
+// Tools without TOOL_METADATA entries are silently skipped - ensure new tools
+// have corresponding entries in apps/mcp/src/toolpacks.ts to be included in the registry.
 for (const [toolName, description] of Object.entries(TOOL_DESCRIPTIONS)) {
   const metadata = TOOL_METADATA[toolName];
   if (metadata) {

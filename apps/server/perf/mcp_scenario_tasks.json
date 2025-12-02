@@ -8,7 +8,6 @@
       "id": "flutter-supabase-auth",
       "description": "Build a minimal Flutter + Supabase authentication flow. Tests the agent's ability to find recipes, documentation, code examples, and database schema for implementing auth.",
       "category": "authentication",
-      "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
       "steps": [
         {
           "stepId": "1-get-recipe",
@@ -94,7 +93,6 @@
       "id": "flutter-stripe-billing",
       "description": "Add Stripe billing to an existing Flutter app with a Node/TypeScript backend. Tests the agent's ability to understand project tech stack and find payment integration patterns.",
       "category": "payments",
-      "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
       "steps": [
         {
           "stepId": "1-get-tech-stack",
@@ -176,7 +174,6 @@
       "id": "firebase-push-notifications",
       "description": "Add push notifications using Firebase Cloud Messaging to an Android + iOS Flutter app. Tests integration of FCM setup across platforms.",
       "category": "notifications",
-      "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
       "steps": [
         {
           "stepId": "1-get-recipe",
@@ -258,7 +255,6 @@
       "id": "user-settings-trace",
       "description": "Trace and modify the persistence path for user settings in an existing repository. Tests the agent's ability to use graph context expansion and symbol search for code navigation.",
       "category": "maintenance",
-      "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
       "steps": [
         {
           "stepId": "1-get-db-schema",
