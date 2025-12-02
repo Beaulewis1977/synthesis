@@ -1,0 +1,379 @@
+{
+  "timestamp": "2025-12-02T02:20:15.398Z",
+  "config": {
+    "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
+    "baseUrl": "http://localhost:3333"
+  },
+  "scenarios": [
+    {
+      "id": "flutter-supabase-auth",
+      "description": "Build a minimal Flutter + Supabase authentication flow. Tests the agent's ability to find recipes, documentation, code examples, and database schema for implementing auth.",
+      "category": "authentication",
+      "passed": false,
+      "steps": [
+        {
+          "stepId": "1-get-recipe",
+          "tool": "get_feature_recipe",
+          "passed": false,
+          "durationMs": 22,
+          "error": "fetch failed",
+          "checks": []
+        },
+        {
+          "stepId": "2-search-docs",
+          "tool": "search_mobile_docs",
+          "passed": false,
+          "durationMs": 1,
+          "error": "fetch failed",
+          "checks": []
+        },
+        {
+          "stepId": "3-find-examples",
+          "tool": "find_code_examples",
+          "passed": false,
+          "durationMs": 1,
+          "error": "fetch failed",
+          "checks": []
+        },
+        {
+          "stepId": "4-get-db-schema",
+          "tool": "get_db_schema",
+          "passed": false,
+          "durationMs": 0,
+          "error": "fetch failed",
+          "checks": []
+        }
+      ],
+      "toolsUsed": [],
+      "durationMs": 26
+    },
+    {
+      "id": "flutter-stripe-billing",
+      "description": "Add Stripe billing to an existing Flutter app with a Node/TypeScript backend. Tests the agent's ability to understand project tech stack and find payment integration patterns.",
+      "category": "payments",
+      "passed": false,
+      "steps": [
+        {
+          "stepId": "1-get-tech-stack",
+          "tool": "get_project_tech_stack",
+          "passed": false,
+          "durationMs": 0,
+          "error": "fetch failed",
+          "checks": []
+        },
+        {
+          "stepId": "2-get-recipe",
+          "tool": "get_feature_recipe",
+          "passed": false,
+          "durationMs": 0,
+          "error": "fetch failed",
+          "checks": []
+        },
+        {
+          "stepId": "3-find-examples",
+          "tool": "find_code_examples",
+          "passed": false,
+          "durationMs": 1,
+          "error": "fetch failed",
+          "checks": []
+        },
+        {
+          "stepId": "4-search-backend-docs",
+          "tool": "search_mobile_docs",
+          "passed": false,
+          "durationMs": 0,
+          "error": "fetch failed",
+          "checks": []
+        }
+      ],
+      "toolsUsed": [],
+      "durationMs": 3
+    },
+    {
+      "id": "firebase-push-notifications",
+      "description": "Add push notifications using Firebase Cloud Messaging to an Android + iOS Flutter app. Tests integration of FCM setup across platforms.",
+      "category": "notifications",
+      "passed": false,
+      "steps": [
+        {
+          "stepId": "1-get-recipe",
+          "tool": "get_feature_recipe",
+          "passed": false,
+          "durationMs": 0,
+          "error": "fetch failed",
+          "checks": []
+        },
+        {
+          "stepId": "2-find-examples",
+          "tool": "find_code_examples",
+          "passed": false,
+          "durationMs": 1,
+          "error": "fetch failed",
+          "checks": []
+        },
+        {
+          "stepId": "3-get-tech-stack",
+          "tool": "get_project_tech_stack",
+          "passed": false,
+          "durationMs": 1,
+          "error": "fetch failed",
+          "checks": []
+        },
+        {
+          "stepId": "4-search-platform-docs",
+          "tool": "search_mobile_docs",
+          "passed": false,
+          "durationMs": 0,
+          "error": "fetch failed",
+          "checks": []
+        }
+      ],
+      "toolsUsed": [],
+      "durationMs": 2
+    },
+    {
+      "id": "user-settings-trace",
+      "description": "Trace and modify the persistence path for user settings in an existing repository. Tests the agent's ability to use graph context expansion and symbol search for code navigation.",
+      "category": "maintenance",
+      "passed": false,
+      "steps": [
+        {
+          "stepId": "1-get-db-schema",
+          "tool": "get_db_schema",
+          "passed": false,
+          "durationMs": 1,
+          "error": "fetch failed",
+          "checks": []
+        },
+        {
+          "stepId": "2-expand-screen-context",
+          "tool": "graph_expand_context",
+          "passed": false,
+          "durationMs": 1,
+          "error": "fetch failed",
+          "checks": []
+        },
+        {
+          "stepId": "3-find-symbol-usages",
+          "tool": "find_symbol_usages",
+          "passed": false,
+          "durationMs": 0,
+          "error": "fetch failed",
+          "checks": []
+        },
+        {
+          "stepId": "4-expand-repository-context",
+          "tool": "graph_expand_context",
+          "passed": false,
+          "durationMs": 0,
+          "error": "fetch failed",
+          "checks": []
+        }
+      ],
+      "toolsUsed": [],
+      "durationMs": 3
+    }
+  ],
+  "summary": {
+    "totalScenarios": 4,
+    "passed": 0,
+    "failed": 4,
+    "passRate": "0.0%",
+    "toolCoverage": {
+      "get_feature_recipe": 3,
+      "search_mobile_docs": 3,
+      "find_code_examples": 3,
+      "get_db_schema": 2,
+      "get_project_tech_stack": 2,
+      "graph_expand_context": 2,
+      "find_symbol_usages": 1
+    }
+  },
+  "toolCalls": [
+    {
+      "tool": "get_feature_recipe",
+      "params": {
+        "query": "authentication recipe flutter supabase",
+        "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+        "feature_tags": ["auth"],
+        "platform": "mobile",
+        "usage_tier": "recipe"
+      },
+      "durationMs": 22,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "search_mobile_docs",
+      "params": {
+        "query": "supabase auth flutter sign in sign up email password",
+        "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+        "feature_tags": ["auth"],
+        "platform": "mobile"
+      },
+      "durationMs": 1,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "find_code_examples",
+      "params": {
+        "query": "auth supabase flutter login example code",
+        "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+        "feature_tags": ["auth"],
+        "platform": "mobile",
+        "usage_tier": "example"
+      },
+      "durationMs": 1,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "get_db_schema",
+      "params": {
+        "tables": "users,profiles,auth",
+        "include_relationships": true
+      },
+      "durationMs": 0,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "get_project_tech_stack",
+      "params": {},
+      "durationMs": 0,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "get_feature_recipe",
+      "params": {
+        "query": "payments billing stripe integration recipe",
+        "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+        "feature_tags": ["payments", "billing"],
+        "usage_tier": "recipe"
+      },
+      "durationMs": 0,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "find_code_examples",
+      "params": {
+        "query": "stripe checkout flutter payment sheet integration",
+        "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+        "feature_tags": ["payments"],
+        "platform": "mobile",
+        "usage_tier": "example"
+      },
+      "durationMs": 1,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "search_mobile_docs",
+      "params": {
+        "query": "stripe webhooks node typescript backend payment events",
+        "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+        "feature_tags": ["payments", "webhooks"],
+        "platform": "backend"
+      },
+      "durationMs": 0,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "get_feature_recipe",
+      "params": {
+        "query": "push notifications firebase fcm recipe",
+        "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+        "feature_tags": ["push_notifications"],
+        "usage_tier": "recipe"
+      },
+      "durationMs": 0,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "find_code_examples",
+      "params": {
+        "query": "fcm flutter push notification firebase messaging example",
+        "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+        "feature_tags": ["push_notifications"],
+        "platform": "mobile",
+        "usage_tier": "example"
+      },
+      "durationMs": 1,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "get_project_tech_stack",
+      "params": {},
+      "durationMs": 1,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "search_mobile_docs",
+      "params": {
+        "query": "fcm android ios setup configuration firebase messaging platform",
+        "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+        "feature_tags": ["push_notifications"],
+        "platform": "mobile"
+      },
+      "durationMs": 0,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "get_db_schema",
+      "params": {
+        "tables": "user_settings,settings,preferences",
+        "include_relationships": true
+      },
+      "durationMs": 1,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "graph_expand_context",
+      "params": {
+        "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+        "query": "UserSettingsScreen",
+        "max_depth": 3,
+        "max_nodes": 50,
+        "edge_types": ["calls", "imports", "depends_on", "persists_to"]
+      },
+      "durationMs": 1,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "find_symbol_usages",
+      "params": {
+        "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+        "symbol_name": "saveUserSettings",
+        "include_definitions": true,
+        "include_usages": true,
+        "max_results": 20
+      },
+      "durationMs": 0,
+      "success": false,
+      "error": "fetch failed"
+    },
+    {
+      "tool": "graph_expand_context",
+      "params": {
+        "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+        "query": "UserSettingsRepository",
+        "max_depth": 2,
+        "max_nodes": 30,
+        "edge_types": ["calls", "defines", "persists_to", "configured_by"]
+      },
+      "durationMs": 0,
+      "success": false,
+      "error": "fetch failed"
+    }
+  ]
+}

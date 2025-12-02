@@ -1,11 +1,15 @@
 /**
  * GPT Phase 2 Sub-Phase 3.3: Graph Routes
+ * GPT Phase 3 Sub-Phase 5.2: HTTP API Enhancements
  *
  * REST API endpoints for knowledge graph context retrieval.
  *
  * Endpoints:
  * - POST /api/graph/context - Get graph context from seeds
  * - GET /api/graph/stats/:collectionId - Get graph statistics
+ * - POST /api/graph/build/:collectionId - Build/rebuild graph for a collection
+ * - POST /api/graph/symbols - Symbol usage search
+ * - GET /api/graph/schema/:collectionId - Database schema extraction
  */
 
 import { getPool } from '@synthesis/db';
@@ -13,6 +17,8 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { buildGraphForCollection } from '../services/graph-builder.js';
 import { getGraphStats, graphSearch, isGraphExpansionEnabled } from '../services/graph-search.js';
+import { extractSchema, isSchemaExtractionEnabled } from '../services/schema-extractor.js';
+import { findSymbolUsages, isSymbolSearchEnabled } from '../services/symbol-search.js';
 
 // Valid edge types for Zod schema
 const EdgeTypeEnum = z.enum([
@@ -81,6 +87,41 @@ const GraphContextSchema = z
       path: ['seed_chunk_ids'],
     }
   );
+
+// Symbol kind enum for symbol search
+const SymbolKindEnum = z.enum(['function', 'class', 'widget', 'method', 'constant']);
+
+// Schema for POST /api/graph/symbols - Symbol usage search
+const SymbolSearchSchema = z
+  .object({
+    collection_id: z.string().uuid().optional(),
+    collectionId: z.string().uuid().optional(),
+    symbol_name: z.string().min(1).optional(),
+    symbolName: z.string().min(1).optional(),
+    symbol_kind: SymbolKindEnum.optional(),
+    symbolKind: SymbolKindEnum.optional(),
+    include_definitions: z.boolean().optional(),
+    includeDefinitions: z.boolean().optional(),
+    include_usages: z.boolean().optional(),
+    includeUsages: z.boolean().optional(),
+    max_results: z.number().int().min(1).max(100).optional(),
+    maxResults: z.number().int().min(1).max(100).optional(),
+  })
+  .refine((data) => Boolean(data.collection_id ?? data.collectionId), {
+    message: 'collection_id is required',
+    path: ['collection_id'],
+  })
+  .refine((data) => Boolean(data.symbol_name ?? data.symbolName), {
+    message: 'symbol_name is required',
+    path: ['symbol_name'],
+  });
+
+// Schema for GET /api/graph/schema/:collectionId query params
+const SchemaQuerySchema = z.object({
+  tables: z.string().optional(), // comma-separated table names
+  include_relationships: z.coerce.boolean().optional(),
+  includeRelationships: z.coerce.boolean().optional(),
+});
 
 export const graphRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /api/graph/context - Get graph context from seeds
@@ -231,4 +272,126 @@ export const graphRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
   );
+
+  // POST /api/graph/symbols - Symbol usage search
+  fastify.post('/api/graph/symbols', async (request, reply) => {
+    const validation = SymbolSearchSchema.safeParse(request.body);
+
+    if (!validation.success) {
+      return reply.code(400).send({
+        error: 'INVALID_INPUT',
+        details: validation.error.issues,
+      });
+    }
+
+    const data = validation.data;
+
+    // Normalize snake_case/camelCase
+    const collectionId = (data.collection_id ?? data.collectionId) as string;
+    const symbolName = (data.symbol_name ?? data.symbolName) as string;
+    const symbolKind = data.symbol_kind ?? data.symbolKind;
+    const includeDefinitions = data.include_definitions ?? data.includeDefinitions;
+    const includeUsages = data.include_usages ?? data.includeUsages;
+    const maxResults = data.max_results ?? data.maxResults;
+
+    try {
+      const db = getPool();
+      const result = await findSymbolUsages(db, {
+        collectionId,
+        symbolName,
+        symbolKind: symbolKind as
+          | 'function'
+          | 'class'
+          | 'widget'
+          | 'method'
+          | 'constant'
+          | undefined,
+        includeDefinitions,
+        includeUsages,
+        maxResults,
+      });
+
+      return reply.send({
+        symbol: result.symbol,
+        definitions: result.definitions,
+        usages: result.usages,
+        stats: result.stats,
+        symbol_search_enabled: isSymbolSearchEnabled(),
+      });
+    } catch (error) {
+      fastify.log.error(error, 'Symbol search failed');
+      return reply.code(500).send({
+        error: 'SYMBOL_SEARCH_FAILED',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
+  // GET /api/graph/schema/:collectionId - Database schema extraction
+  fastify.get<{
+    Params: { collectionId: string };
+    Querystring: Record<string, string | undefined>;
+  }>('/api/graph/schema/:collectionId', async (request, reply) => {
+    const { collectionId } = request.params;
+
+    // Validate UUID format (permissive - allows any valid hex UUID format)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(collectionId)) {
+      return reply.code(400).send({
+        error: 'INVALID_INPUT',
+        message: 'collectionId must be a valid UUID',
+      });
+    }
+
+    // Validate query parameters
+    const queryValidation = SchemaQuerySchema.safeParse(request.query);
+    if (!queryValidation.success) {
+      return reply.code(400).send({
+        error: 'INVALID_INPUT',
+        details: queryValidation.error.issues,
+      });
+    }
+
+    const queryData = queryValidation.data;
+
+    // Normalize snake_case/camelCase
+    const includeRelationships =
+      queryData.include_relationships ?? queryData.includeRelationships ?? true;
+
+    // Parse comma-separated table names if provided
+    const tables = queryData.tables
+      ? queryData.tables
+          .split(',')
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0)
+      : undefined;
+
+    try {
+      const db = getPool();
+      const result = await extractSchema(db, {
+        collectionId,
+        tables,
+        includeRelationships,
+      });
+
+      return reply.send({
+        collection_id: collectionId,
+        tables: result.tables,
+        relationships: result.relationships,
+        stats: {
+          total_tables: result.stats.totalTables,
+          total_columns: result.stats.totalColumns,
+          total_relationships: result.stats.totalRelationships,
+          extraction_duration_ms: result.stats.extractionDurationMs,
+        },
+        schema_extraction_enabled: isSchemaExtractionEnabled(),
+      });
+    } catch (error) {
+      fastify.log.error(error, 'Schema extraction failed');
+      return reply.code(500).send({
+        error: 'SCHEMA_EXTRACTION_FAILED',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
 };

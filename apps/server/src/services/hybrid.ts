@@ -17,6 +17,8 @@ export interface HybridSearchParams extends Omit<SearchParams, 'topK'> {
     bm25?: number;
   };
   rrfK?: number;
+  // GPT Phase 3: Source quality filtering (inherited from SearchParams but explicitly included for clarity)
+  sourceQuality?: 'official' | 'verified' | 'community';
 }
 
 export interface HybridSearchResult extends SearchResult {
@@ -141,6 +143,8 @@ export async function hybridSearch(
       featureTags: params.featureTags,
       platform: params.platform,
       usageTier: params.usageTier,
+      // GPT Phase 3: Source quality filtering
+      sourceQuality: params.sourceQuality,
     });
     return { result, elapsedMs: performance.now() - start };
   })();
@@ -156,6 +160,8 @@ export async function hybridSearch(
       featureTags: params.featureTags,
       platform: params.platform,
       usageTier: params.usageTier,
+      // GPT Phase 3: Source quality filtering
+      sourceQuality: params.sourceQuality,
     });
     return { result, elapsedMs: performance.now() - start };
   })();

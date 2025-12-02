@@ -142,6 +142,10 @@ const SearchBodySchema = z
     /** Maximum nodes to visit during expansion (1-100, default: 50 or env GRAPH_MAX_NODES) */
     graph_max_nodes: z.number().int().min(1).max(100).optional(),
     graphMaxNodes: z.number().int().min(1).max(100).optional(),
+    // GPT Phase 3: Source quality filtering
+    /** Filter by source quality (official, verified, community) */
+    source_quality: z.enum(['official', 'verified', 'community']).optional(),
+    sourceQuality: z.enum(['official', 'verified', 'community']).optional(),
   })
   .strict()
   .refine((data) => Boolean(data.collection_id ?? data.collectionId), {
@@ -203,6 +207,9 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       graphMaxDepth: camelGraphMaxDepth,
       graph_max_nodes: snakeGraphMaxNodes,
       graphMaxNodes: camelGraphMaxNodes,
+      // GPT Phase 3: Source quality filtering
+      source_quality: snakeSourceQuality,
+      sourceQuality: camelSourceQuality,
     } = validation.data;
 
     // Resolve MMR options from request
@@ -250,6 +257,9 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
     const graphMaxDepth = camelGraphMaxDepth ?? snakeGraphMaxDepth;
     const graphMaxNodes = camelGraphMaxNodes ?? snakeGraphMaxNodes;
 
+    // GPT Phase 3: Source quality filtering
+    const sourceQuality = camelSourceQuality ?? snakeSourceQuality;
+
     const includeRelatedFiles = camelIncludeRelated ?? snakeIncludeRelated ?? false;
     const autoIntent = camelAutoIntent ?? snakeAutoIntent;
     const page = normalizePage(requestPage);
@@ -292,6 +302,8 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
       expandWithGraph,
       graphMaxDepth,
       graphMaxNodes,
+      // GPT Phase 3: Source quality filtering
+      sourceQuality,
     });
 
     const timerStart = performance.now();
@@ -332,6 +344,8 @@ export const searchRoutes: FastifyPluginAsync = async (fastify) => {
         expandWithGraph,
         graphMaxDepth,
         graphMaxNodes,
+        // GPT Phase 3: Source quality filtering
+        sourceQuality,
       });
 
       const responsePayload = mapToRouteResponse(result);

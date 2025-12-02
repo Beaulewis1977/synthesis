@@ -18,6 +18,8 @@ import { z } from 'zod';
 
 import { apiClient } from './api.js';
 import { getRateLimiter } from './rate-limiter.js';
+import { toolRegistry } from './tool-registry.js';
+import { TOOL_METADATA } from './toolpacks.js';
 
 // Load environment variables
 dotenv.config();
@@ -34,11 +36,18 @@ const MCP_PORT = (() => {
 })();
 const MCP_MODE = process.env.MCP_MODE || 'stdio'; // 'stdio' or 'http'
 
-// Initialize MCP Server
-const server = new McpServer({
-  name: 'synthesis-rag',
-  version: '1.0.0',
-});
+// Initialize MCP Server with dynamic tool management capabilities (Phase 3.6)
+const server = new McpServer(
+  {
+    name: 'synthesis-rag',
+    version: '2.0.0', // Bumped for Phase 3 tool registry support
+  },
+  {
+    capabilities: {
+      tools: { listChanged: true }, // Support dynamic tool enable/disable notifications
+    },
+  }
+);
 
 /**
  * Extract the shape from a z.object schema for MCP SDK 1.19.x compatibility.
@@ -757,7 +766,7 @@ server.registerTool(
 );
 
 // =============================================================================
-// GPT Phase 2: Knowledge Graph Context Expansion Tool
+// GPT Phase 2: Knowledge Graph Context Expansion Tools
 // =============================================================================
 
 /**
@@ -863,6 +872,234 @@ server.registerTool(
   }
 );
 
+// =============================================================================
+// GPT Phase 3: Symbol Search, Tech Stack, and DB Schema Tools
+// =============================================================================
+
+/**
+ * Tool 15: find_symbol_usages
+ * Search for symbol definitions and usages across the codebase
+ */
+const findSymbolUsagesInput = z
+  .object({
+    collectionId: z.string().uuid().describe('The ID of the collection to search'),
+    symbolName: z.string().min(1).describe('Name of the symbol to find'),
+    symbolKind: z
+      .enum(['function', 'class', 'widget', 'method', 'constant'])
+      .optional()
+      .describe('Filter by symbol kind'),
+    includeDefinitions: z
+      .boolean()
+      .default(true)
+      .describe('Include definition locations (default: true)'),
+    includeUsages: z.boolean().default(true).describe('Include usage locations (default: true)'),
+    maxResults: z
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(20)
+      .describe('Maximum results to return (default: 20)'),
+  })
+  .strict();
+
+server.registerTool(
+  'find_symbol_usages',
+  {
+    description:
+      'Search for symbol definitions and usages across the codebase. Returns where a function, class, or method is defined and where it is called or imported.',
+    inputSchema: toInputShape(findSymbolUsagesInput),
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    const { collectionId, symbolName, symbolKind, includeDefinitions, includeUsages, maxResults } =
+      findSymbolUsagesInput.parse(input);
+    try {
+      const result = await apiClient.post('/api/graph/symbols', {
+        collection_id: collectionId,
+        symbol_name: symbolName,
+        symbol_kind: symbolKind,
+        include_definitions: includeDefinitions,
+        include_usages: includeUsages,
+        max_results: maxResults,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
+ * Tool 16: get_project_tech_stack
+ * Get the technology stack profile for a project collection
+ */
+const getProjectTechStackInput = z
+  .object({
+    collectionId: z.string().uuid().describe('The ID of the collection'),
+  })
+  .strict();
+
+server.registerTool(
+  'get_project_tech_stack',
+  {
+    description:
+      'Get the technology stack profile for a project collection. Returns detected frameworks, languages, databases, and libraries.',
+    inputSchema: toInputShape(getProjectTechStackInput),
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    const { collectionId } = getProjectTechStackInput.parse(input);
+    try {
+      const result = await apiClient.get(`/api/tech-profiles/${collectionId}`);
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+/**
+ * Tool 17: get_db_schema
+ * Extract database schema from the codebase
+ */
+const getDbSchemaInput = z
+  .object({
+    collectionId: z.string().uuid().describe('The ID of the collection'),
+    tables: z.array(z.string()).optional().describe('Filter to specific table names'),
+    includeRelationships: z
+      .boolean()
+      .default(true)
+      .describe('Include table relationships (default: true)'),
+  })
+  .strict();
+
+server.registerTool(
+  'get_db_schema',
+  {
+    description:
+      'Extract database schema from the codebase. Returns tables, columns, data types, and relationships found in SQL migrations or ORM code.',
+    inputSchema: toInputShape(getDbSchemaInput),
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    const { collectionId, tables, includeRelationships } = getDbSchemaInput.parse(input);
+    try {
+      const queryParams = new URLSearchParams();
+      if (tables && tables.length > 0) {
+        queryParams.set('tables', tables.join(','));
+      }
+      if (includeRelationships !== undefined) {
+        queryParams.set('include_relationships', String(includeRelationships));
+      }
+
+      const queryString = queryParams.toString();
+      const url = `/api/graph/schema/${collectionId}${queryString ? `?${queryString}` : ''}`;
+      const result = await apiClient.get(url);
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+// =============================================================================
+// Tool Registry Initialization
+// =============================================================================
+// Register all tools in the global registry for Phase 5.6 dynamic management.
+// This batch registration populates toolpack, category, and sensitive metadata.
+
+const TOOL_DESCRIPTIONS: Record<string, string> = {
+  search_rag:
+    'Search the RAG knowledge base for relevant information and return matching chunks with citations.',
+  list_collections: 'List all available collections in the RAG system.',
+  list_documents: 'List all documents in a specific collection.',
+  create_collection: 'Create a new collection in the RAG system.',
+  fetch_and_add_document_from_url:
+    'Fetch content from a URL and add it as a document to a collection.',
+  delete_document: 'Delete a document and all its chunks from a collection.',
+  delete_collection: 'Delete an entire collection and all its documents.',
+  add_repo_to_collection: 'Add a Git repository to a collection for indexing.',
+  sync_repo: 'Sync a repository source with its remote origin.',
+  list_repos: 'List all repository sources in a collection.',
+  search_mobile_docs:
+    'Search mobile documentation with feature-aware filtering for Flutter, React Native, Swift, or Kotlin.',
+  find_code_examples: 'Find code examples for mobile development features.',
+  get_feature_recipe: 'Get curated recipe documentation for mobile feature implementation.',
+  graph_expand_context: 'Expand context using knowledge graph traversal from seed nodes.',
+  find_symbol_usages: 'Search for symbol definitions and usages across the codebase.',
+  get_project_tech_stack: 'Get the technology stack profile for a project collection.',
+  get_db_schema: 'Extract database schema from the codebase knowledge graph.',
+};
+
+// Register metadata for all tools that have entries in TOOL_METADATA
+// Note: This registry is for metadata introspection only. Actual schemas and handlers
+// are registered with server.registerTool() above. This supports Phase 5.6 dynamic
+// tool management (enable/disable, toolpack queries, sensitive tool identification).
+// Tools without TOOL_METADATA entries are silently skipped - ensure new tools
+// have corresponding entries in apps/mcp/src/toolpacks.ts to be included in the registry.
+for (const [toolName, description] of Object.entries(TOOL_DESCRIPTIONS)) {
+  const metadata = TOOL_METADATA[toolName];
+  if (metadata) {
+    toolRegistry.register({
+      name: toolName,
+      toolpack: metadata.toolpack,
+      category: metadata.category,
+      description,
+      sensitive: metadata.sensitive,
+      version: '1.0.0',
+    });
+  }
+}
+
 /**
  * Main function to start the MCP server with either stdio or HTTP transport
  */
@@ -873,10 +1110,13 @@ async function main() {
       const stdioTransport = new StdioServerTransport();
       await server.connect(stdioTransport);
 
-      console.error('🚀 Synthesis MCP Server started successfully');
+      console.error('🚀 Synthesis MCP Server v2.0.0 started successfully');
       console.error('   Mode: stdio');
       console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
-      console.error('   Tools: 14 available');
+      console.error(
+        `   Tools: ${toolRegistry.size} registered (${toolRegistry.getSensitiveTools().length} sensitive)`
+      );
+      console.error('   Capabilities: listChanged=true');
       console.error('');
     } else if (MCP_MODE === 'http') {
       // Start HTTP/SSE transport for Claude Desktop and web clients
@@ -957,12 +1197,15 @@ async function main() {
 
       httpServer.listen(MCP_PORT, () => {
         const stats = rateLimiter.getStats();
-        console.error('🚀 Synthesis MCP Server started successfully');
+        console.error('🚀 Synthesis MCP Server v2.0.0 started successfully');
         console.error('   Mode: HTTP/SSE');
         console.error(`   Port: ${MCP_PORT}`);
         console.error(`   URL: http://localhost:${MCP_PORT}`);
         console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
-        console.error('   Tools: 14 available');
+        console.error(
+          `   Tools: ${toolRegistry.size} registered (${toolRegistry.getSensitiveTools().length} sensitive)`
+        );
+        console.error('   Capabilities: listChanged=true');
         console.error(
           `   Rate Limit: ${stats.config.refillRate}/min, burst ${stats.config.burstCapacity}`
         );

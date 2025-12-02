@@ -58,6 +58,8 @@ export interface SmartSearchParams extends SearchParams {
   graphMaxDepth?: number;
   /** Max nodes to visit during expansion (default: env GRAPH_MAX_NODES or 50) */
   graphMaxNodes?: number;
+  /** Filter by source quality (official, verified, community) */
+  sourceQuality?: 'official' | 'verified' | 'community';
 }
 
 export interface SmartSearchResult extends SearchResult {
@@ -282,6 +284,8 @@ export async function smartSearch(
       featureTags: params.featureTags,
       platform: params.platform,
       usageTier: params.usageTier,
+      // GPT Phase 3: Source quality filtering
+      sourceQuality: params.sourceQuality,
     });
     let fusedResults: SmartSearchResult[] = results.map((item) => ({
       ...item,
@@ -419,6 +423,8 @@ export async function smartSearch(
     featureTags: params.featureTags,
     platform: params.platform,
     usageTier: params.usageTier,
+    // GPT Phase 3: Source quality filtering
+    sourceQuality: params.sourceQuality,
   });
 
   const trustApplied = shouldApplyTrustScoring();

@@ -58,7 +58,17 @@ IMPORTANT - Tool Selection for Web Content:
 Current context:
 - You have access to multiple project collections (Flutter, Supabase, etc.)
 - All operations are collection-scoped
-- The user can switch between collections in the UI`;
+- The user can switch between collections in the UI
+
+MCP Tool Selection:
+- Feature design (patterns/best practices): Use \`get_feature_recipe\` first for curated guides
+- Code examples (working samples): Use \`find_code_examples\` to find demo implementations
+- Framework-specific docs: Use \`search_mobile_docs\` with framework/featureTags filters
+- General search: Use \`search_rag\` for broad collection searches
+- Project analysis: Use \`get_project_tech_stack\` and \`get_db_schema\` to understand existing projects
+- Code tracing: Use \`graph_expand_context\` and \`find_symbol_usages\` to trace code flow
+
+For complex tasks, chain tools: get_feature_recipe → find_code_examples → search_mobile_docs`;
 
 function buildPrompt(
   message: string,

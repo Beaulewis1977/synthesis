@@ -33,6 +33,7 @@
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
     "verify:mcp": "bash scripts/verify-mcp-tools.sh",
+    "validate:mcp-scenarios": "node apps/server/perf/mcp_scenario_runner.mjs --dry-run",
     "prepare": "[ -d .git ] && command -v husky >/dev/null && husky install || true"
   },
   "devDependencies": {

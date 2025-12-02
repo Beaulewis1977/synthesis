@@ -44,6 +44,9 @@ export interface SearchCacheKeyInput {
   graphMaxDepth?: number;
   /** Maximum nodes to visit during expansion */
   graphMaxNodes?: number;
+  // GPT Phase 3: Source quality filtering
+  /** Filter by source quality (official, verified, community) */
+  sourceQuality?: string | null;
 }
 
 export function createSearchCacheKey(input: SearchCacheKeyInput): string {
@@ -75,6 +78,8 @@ export function createSearchCacheKey(input: SearchCacheKeyInput): string {
     expandWithGraph: input.expandWithGraph ?? false,
     graphMaxDepth: input.graphMaxDepth ?? null,
     graphMaxNodes: input.graphMaxNodes ?? null,
+    // GPT Phase 3: Source quality filtering
+    sourceQuality: input.sourceQuality ?? null,
   };
 
   const hash = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');

@@ -286,11 +286,19 @@ These endpoints are thin wrappers around existing services, tuned for agent cons
 
 **Problem:** The MCP server needs to expose new capabilities in a strongly typed way.
 
+> **IMPORTANT: Registry Pattern Required**
+>
+> To support Sub-Phase 5.6 (Dynamic Tool Management) without refactoring, implement tools using the registry pattern:
+> - Create `apps/mcp/src/tool-registry.ts` with `ToolDefinition` interface
+> - Register tools with `{ toolpack, category, sensitive }` metadata
+> - Use `server.registerTool()` which returns handles for enable/disable
+> - See `docs/gpt/PHASE_3_SUB_5.6_DYNAMIC_TOOL_MANAGEMENT.md` Section 6.2 for registry structure
+
 ### 5.3.1 Tool Implementation Pattern
 
-**File:** `apps/mcp/src/index.ts`
+**File:** `apps/mcp/src/index.ts` (via tool-registry.ts)
 
-Follow the existing pattern for each new tool:
+Follow the registry pattern for each new tool:
 
 ```typescript
 import { z } from 'zod';
@@ -390,12 +398,14 @@ const GraphExpandContextSchema = z.object({
 
 | File | Action |
 |------|--------|
-| `apps/mcp/src/index.ts` | ADD 6 new tools with Zod schemas |
+| `apps/mcp/src/tool-registry.ts` | CREATE - ToolDefinition interface, registry class (for 5.6 compatibility) |
+| `apps/mcp/src/index.ts` | EDIT - Use registry pattern, add `listChanged: true` capability |
 | `apps/mcp/src/api.ts` | ADD helper methods for new endpoints |
 
 ### 5.3.5 Acceptance Criteria
 
-- [ ] All 6 tools implemented and registered
+- [ ] All 6 tools implemented and registered via tool-registry.ts
+- [ ] Tools include `{ toolpack, category, sensitive }` metadata for 5.6 compatibility
 - [ ] Tools validate input via Zod
 - [ ] Error messages are human-readable
 - [ ] Tools return structured JSON responses
@@ -560,3 +570,50 @@ Each scenario should:
 - Report format: JSON with tool_calls[], sources_found[], success_rate, failure_reasons[]
 
 Once this phase is complete, you will have a set of well‑designed MCP tools and scenarios that let a GPT/Claude agent use Synthesis as a **reliable, high‑level RAG backend** for building and evolving mobile SaaS apps.
+
+---
+
+## 9. Sub-Phase 5.6: Dynamic Tool Management
+
+**Problem:** With 17+ tools, the MCP server consumes ~15,800 tokens of context window space on every session start, even when only a few tools are needed.
+
+**Solution:** Implement dynamic tool management using the MCP TypeScript SDK's first-class support for `enable/disable/update/remove` with automatic `notifications/tools/list_changed`.
+
+**Full Specification:** See [`PHASE_3_SUB_5.6_DYNAMIC_TOOL_MANAGEMENT.md`](./PHASE_3_SUB_5.6_DYNAMIC_TOOL_MANAGEMENT.md)
+
+### 9.1 Key Features
+
+- **5 Always-On Gateway Tools** (~2,000 tokens):
+  - `synthesis_discover_tools` - Task-based tool recommendations
+  - `enable_tools` - Enable toolpacks/categories/specific tools
+  - `synthesis_router` - Auto-enable fallback for client compatibility
+  - `synthesis_mcp_bridge` - Direct MCP calls when visibility stale
+  - `synthesis_search` - General search fallback
+
+- **Toolpacks**: `mobile_core`, `introspection`, `graphing`, `core`
+
+- **Profiles**: `MCP_TOOL_PROFILE=minimal|mobile|full`
+
+- **Router Policy**: `ROUTER_MODE=auto|respect|bypass`, `ROUTER_SENSITIVE_ENFORCE=true|false`
+
+### 9.2 Token Impact
+
+| State | Tools Visible | Est. Tokens |
+|-------|--------------|-------------|
+| Minimal (startup) | 5 | ~2,000 |
+| After mobile_core | 8 | ~3,500 |
+| Full profile | 20+ | ~16,000 |
+| **Savings** | | **~87%** |
+
+### 9.3 Agent Execution Guidance
+
+#### Subagents (Parallel - 5 agents MAX)
+1. `mcp-server-architect` — Always-on tools: synthesis_discover_tools, enable_tools
+2. `mcp-server-architect` — Router tool: synthesis_router with auto-enable logic
+3. `mcp-server-architect` — Bridge tool: synthesis_mcp_bridge implementation
+4. `mcp-server-architect` — Tool registry and toolpack definitions
+5. `mcp-server-architect` — Profile system and startup logic
+
+#### Subagents (Sequential after parallel)
+1. `test-writer` — Tests for all gateway tools and integration flows
+2. `code-standards-reviewer` — Final review (ALWAYS LAST)
