@@ -18,8 +18,24 @@ import { z } from 'zod';
 
 import { apiClient } from './api.js';
 import { getRateLimiter } from './rate-limiter.js';
-import { toolRegistry } from './tool-registry.js';
+import { DynamicToolRegistry } from './tool-registry.js';
 import { TOOL_METADATA } from './toolpacks.js';
+import { executeMcpBridge } from './tools/bridge.js';
+import { buildDiscoverResult } from './tools/discover.js';
+import { enableTools } from './tools/enable.js';
+import { executeViaRouter } from './tools/router.js';
+import { executeSearch } from './tools/search.js';
+import { toToolResult } from './types/gateway-responses.js';
+import {
+  GATEWAY_TOOL_DESCRIPTIONS,
+  bridgeInputSchema,
+  discoverToolsInputSchema,
+  enableToolsInputSchema,
+  enableToolsInputSchemaBase,
+  routerInputSchema,
+  searchInputSchema,
+} from './types/gateway-schemas.js';
+import { parseEnvConfig } from './types/index.js';
 
 // Load environment variables
 dotenv.config();
@@ -48,6 +64,13 @@ const server = new McpServer(
     },
   }
 );
+
+// Parse configuration from environment variables (Phase 5.6.1)
+const config = parseEnvConfig();
+
+// Create dynamic tool registry for enable/disable operations (Phase 5.6.1)
+// This captures MCP SDK handles for profile-based tool management
+export const dynamicRegistry = new DynamicToolRegistry(server, config);
 
 /**
  * Extract the shape from a z.object schema for MCP SDK 1.19.x compatibility.
@@ -82,14 +105,18 @@ const searchRagInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'search_rag',
   {
     description:
       'Search the RAG knowledge base for relevant information and return matching chunks with citations.',
     inputSchema: toInputShape(searchRagInput),
+    toolpack: TOOL_METADATA.search_rag.toolpack,
+    category: TOOL_METADATA.search_rag.category,
+    sensitive: TOOL_METADATA.search_rag.sensitive,
   },
   async (input) => {
+    dynamicRegistry.recordCall('search_rag');
     const { collectionId, query, top_k, min_similarity } = searchRagInput.parse(input);
     try {
       const result = await apiClient.post('/api/search', {
@@ -125,12 +152,16 @@ server.registerTool(
  * Tool 2: list_collections
  * Lists all available document collections.
  */
-server.registerTool(
+dynamicRegistry.registerTool(
   'list_collections',
   {
     description: 'List all available document collections.',
+    toolpack: TOOL_METADATA.list_collections.toolpack,
+    category: TOOL_METADATA.list_collections.category,
+    sensitive: TOOL_METADATA.list_collections.sensitive,
   },
   async () => {
+    dynamicRegistry.recordCall('list_collections');
     try {
       const result = await apiClient.get('/api/collections');
 
@@ -166,14 +197,18 @@ const listDocumentsInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'list_documents',
   {
     description: 'List all documents in a specific collection.',
     inputSchema: toInputShape(listDocumentsInput),
+    toolpack: TOOL_METADATA.list_documents.toolpack,
+    category: TOOL_METADATA.list_documents.category,
+    sensitive: TOOL_METADATA.list_documents.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('list_documents');
     const { collectionId } = listDocumentsInput.parse(input);
     try {
       const result = await apiClient.get(`/api/collections/${collectionId}/documents`);
@@ -211,14 +246,18 @@ const createCollectionInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'create_collection',
   {
     description: 'Create a new document collection.',
     inputSchema: toInputShape(createCollectionInput),
+    toolpack: TOOL_METADATA.create_collection.toolpack,
+    category: TOOL_METADATA.create_collection.category,
+    sensitive: TOOL_METADATA.create_collection.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('create_collection');
     const { name, description } = createCollectionInput.parse(input);
     try {
       const result = await apiClient.post('/api/collections', {
@@ -271,14 +310,18 @@ const fetchDocumentInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'fetch_and_add_document_from_url',
   {
     description: 'Fetch content from a public URL and ingest it as a new document.',
     inputSchema: toInputShape(fetchDocumentInput),
+    toolpack: TOOL_METADATA.fetch_and_add_document_from_url.toolpack,
+    category: TOOL_METADATA.fetch_and_add_document_from_url.category,
+    sensitive: TOOL_METADATA.fetch_and_add_document_from_url.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('fetch_and_add_document_from_url');
     const { url, collectionId, mode, maxPages, titlePrefix } = fetchDocumentInput.parse(input);
     try {
       const result = await apiClient.post('/api/agent/fetch-web-content', {
@@ -322,14 +365,18 @@ const deleteDocumentInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'delete_document',
   {
     description: 'Delete a document and all associated chunks.',
     inputSchema: toInputShape(deleteDocumentInput),
+    toolpack: TOOL_METADATA.delete_document.toolpack,
+    category: TOOL_METADATA.delete_document.category,
+    sensitive: TOOL_METADATA.delete_document.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('delete_document');
     const { docId, confirm } = deleteDocumentInput.parse(input);
     try {
       const result = await apiClient.post('/api/agent/delete-document', {
@@ -370,14 +417,18 @@ const deleteCollectionInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'delete_collection',
   {
     description: 'Delete an entire collection and all its documents. Use with caution.',
     inputSchema: toInputShape(deleteCollectionInput),
+    toolpack: TOOL_METADATA.delete_collection.toolpack,
+    category: TOOL_METADATA.delete_collection.category,
+    sensitive: TOOL_METADATA.delete_collection.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('delete_collection');
     const { collectionId, confirm } = deleteCollectionInput.parse(input);
     try {
       if (!confirm) {
@@ -437,14 +488,18 @@ const addRepoInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'add_repo_to_collection',
   {
     description: 'Add a GitHub/Git repository to a collection for code ingestion.',
     inputSchema: toInputShape(addRepoInput),
+    toolpack: TOOL_METADATA.add_repo_to_collection.toolpack,
+    category: TOOL_METADATA.add_repo_to_collection.category,
+    sensitive: TOOL_METADATA.add_repo_to_collection.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('add_repo_to_collection');
     const { collectionId, repoUrl, defaultBranch, ignoredPaths } = addRepoInput.parse(input);
     try {
       const result = await apiClient.post('/api/repos', {
@@ -486,14 +541,18 @@ const syncRepoInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'sync_repo',
   {
     description: 'Trigger a sync for a repository to pull and ingest latest changes.',
     inputSchema: toInputShape(syncRepoInput),
+    toolpack: TOOL_METADATA.sync_repo.toolpack,
+    category: TOOL_METADATA.sync_repo.category,
+    sensitive: TOOL_METADATA.sync_repo.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('sync_repo');
     const { repoSourceId } = syncRepoInput.parse(input);
     try {
       const result = await apiClient.post(`/api/repos/${repoSourceId}/sync`, {});
@@ -530,14 +589,18 @@ const listReposInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'list_repos',
   {
     description: 'List all repository sources for a collection.',
     inputSchema: toInputShape(listReposInput),
+    toolpack: TOOL_METADATA.list_repos.toolpack,
+    category: TOOL_METADATA.list_repos.category,
+    sensitive: TOOL_METADATA.list_repos.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('list_repos');
     const { collectionId } = listReposInput.parse(input);
     try {
       const result = await apiClient.get(`/api/repos?collection_id=${collectionId}`);
@@ -595,15 +658,19 @@ const searchMobileDocsInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'search_mobile_docs',
   {
     description:
       'Search mobile documentation with feature-aware filtering. Returns docs filtered by platform, feature tags, and framework.',
     inputSchema: toInputShape(searchMobileDocsInput),
+    toolpack: TOOL_METADATA.search_mobile_docs.toolpack,
+    category: TOOL_METADATA.search_mobile_docs.category,
+    sensitive: TOOL_METADATA.search_mobile_docs.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('search_mobile_docs');
     const { collectionId, query, featureTags, platform, framework, top_k } =
       searchMobileDocsInput.parse(input);
     try {
@@ -658,15 +725,19 @@ const findCodeExamplesInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'find_code_examples',
   {
     description:
       'Find code examples and sample implementations. Returns results biased toward example code, demos, and sample projects.',
     inputSchema: toInputShape(findCodeExamplesInput),
+    toolpack: TOOL_METADATA.find_code_examples.toolpack,
+    category: TOOL_METADATA.find_code_examples.category,
+    sensitive: TOOL_METADATA.find_code_examples.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('find_code_examples');
     const { collectionId, query, featureTags, framework, top_k } =
       findCodeExamplesInput.parse(input);
     try {
@@ -723,15 +794,19 @@ const getFeatureRecipeInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'get_feature_recipe',
   {
     description:
       'Get curated recipe documentation for mobile features. Returns opinionated guides and patterns for implementing specific features.',
     inputSchema: toInputShape(getFeatureRecipeInput),
+    toolpack: TOOL_METADATA.get_feature_recipe.toolpack,
+    category: TOOL_METADATA.get_feature_recipe.category,
+    sensitive: TOOL_METADATA.get_feature_recipe.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('get_feature_recipe');
     const { collectionId, featureTags, framework, top_k } = getFeatureRecipeInput.parse(input);
     try {
       const result = await apiClient.post('/api/search', {
@@ -834,15 +909,19 @@ const graphExpandContextInput = graphExpandContextInputBase
     }
   );
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'graph_expand_context',
   {
     description:
       'Expand context from seed nodes using BFS traversal of the knowledge graph. Returns connected nodes, edges, and associated chunks for end-to-end context retrieval.',
     inputSchema: toInputShape(graphExpandContextInputBase),
+    toolpack: TOOL_METADATA.graph_expand_context.toolpack,
+    category: TOOL_METADATA.graph_expand_context.category,
+    sensitive: TOOL_METADATA.graph_expand_context.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('graph_expand_context');
     const validated = graphExpandContextInput.parse(input);
     try {
       const result = await apiClient.post('/api/graph/context', {
@@ -903,15 +982,19 @@ const findSymbolUsagesInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'find_symbol_usages',
   {
     description:
       'Search for symbol definitions and usages across the codebase. Returns where a function, class, or method is defined and where it is called or imported.',
     inputSchema: toInputShape(findSymbolUsagesInput),
+    toolpack: TOOL_METADATA.find_symbol_usages.toolpack,
+    category: TOOL_METADATA.find_symbol_usages.category,
+    sensitive: TOOL_METADATA.find_symbol_usages.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('find_symbol_usages');
     const { collectionId, symbolName, symbolKind, includeDefinitions, includeUsages, maxResults } =
       findSymbolUsagesInput.parse(input);
     try {
@@ -956,15 +1039,19 @@ const getProjectTechStackInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'get_project_tech_stack',
   {
     description:
       'Get the technology stack profile for a project collection. Returns detected frameworks, languages, databases, and libraries.',
     inputSchema: toInputShape(getProjectTechStackInput),
+    toolpack: TOOL_METADATA.get_project_tech_stack.toolpack,
+    category: TOOL_METADATA.get_project_tech_stack.category,
+    sensitive: TOOL_METADATA.get_project_tech_stack.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('get_project_tech_stack');
     const { collectionId } = getProjectTechStackInput.parse(input);
     try {
       const result = await apiClient.get(`/api/tech-profiles/${collectionId}`);
@@ -1006,15 +1093,19 @@ const getDbSchemaInput = z
   })
   .strict();
 
-server.registerTool(
+dynamicRegistry.registerTool(
   'get_db_schema',
   {
     description:
       'Extract database schema from the codebase. Returns tables, columns, data types, and relationships found in SQL migrations or ORM code.',
     inputSchema: toInputShape(getDbSchemaInput),
+    toolpack: TOOL_METADATA.get_db_schema.toolpack,
+    category: TOOL_METADATA.get_db_schema.category,
+    sensitive: TOOL_METADATA.get_db_schema.sensitive,
   },
   // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
   async (input: any) => {
+    dynamicRegistry.recordCall('get_db_schema');
     const { collectionId, tables, includeRelationships } = getDbSchemaInput.parse(input);
     try {
       const queryParams = new URLSearchParams();
@@ -1052,69 +1143,162 @@ server.registerTool(
 );
 
 // =============================================================================
-// Tool Registry Initialization
+// Gateway Tools (Phase 5.6.2)
 // =============================================================================
-// Register all tools in the global registry for Phase 5.6 dynamic management.
-// This batch registration populates toolpack, category, and sensitive metadata.
+// Gateway tools are always-on tools for dynamic tool management.
+// They cannot be disabled and are used to discover, enable, and route tool calls.
 
-const TOOL_DESCRIPTIONS: Record<string, string> = {
-  search_rag:
-    'Search the RAG knowledge base for relevant information and return matching chunks with citations.',
-  list_collections: 'List all available collections in the RAG system.',
-  list_documents: 'List all documents in a specific collection.',
-  create_collection: 'Create a new collection in the RAG system.',
-  fetch_and_add_document_from_url:
-    'Fetch content from a URL and add it as a document to a collection.',
-  delete_document: 'Delete a document and all its chunks from a collection.',
-  delete_collection: 'Delete an entire collection and all its documents.',
-  add_repo_to_collection: 'Add a Git repository to a collection for indexing.',
-  sync_repo: 'Sync a repository source with its remote origin.',
-  list_repos: 'List all repository sources in a collection.',
-  search_mobile_docs:
-    'Search mobile documentation with feature-aware filtering for Flutter, React Native, Swift, or Kotlin.',
-  find_code_examples: 'Find code examples for mobile development features.',
-  get_feature_recipe: 'Get curated recipe documentation for mobile feature implementation.',
-  graph_expand_context: 'Expand context using knowledge graph traversal from seed nodes.',
-  find_symbol_usages: 'Search for symbol definitions and usages across the codebase.',
-  get_project_tech_stack: 'Get the technology stack profile for a project collection.',
-  get_db_schema: 'Extract database schema from the codebase knowledge graph.',
-};
-
-// Register metadata for all tools that have entries in TOOL_METADATA
-// Note: This registry is for metadata introspection only. Actual schemas and handlers
-// are registered with server.registerTool() above. This supports Phase 5.6 dynamic
-// tool management (enable/disable, toolpack queries, sensitive tool identification).
-// Tools without TOOL_METADATA entries are silently skipped - ensure new tools
-// have corresponding entries in apps/mcp/src/toolpacks.ts to be included in the registry.
-for (const [toolName, description] of Object.entries(TOOL_DESCRIPTIONS)) {
-  const metadata = TOOL_METADATA[toolName];
-  if (metadata) {
-    toolRegistry.register({
-      name: toolName,
-      toolpack: metadata.toolpack,
-      category: metadata.category,
-      description,
-      sensitive: metadata.sensitive,
-      version: '1.0.0',
-    });
+/**
+ * Gateway Tool 1: synthesis_discover_tools
+ * Discover available tools and toolpacks based on task or list all.
+ */
+dynamicRegistry.registerTool(
+  'synthesis_discover_tools',
+  {
+    description: GATEWAY_TOOL_DESCRIPTIONS.synthesis_discover_tools,
+    inputSchema: toInputShape(discoverToolsInputSchema),
+    toolpack: TOOL_METADATA.synthesis_discover_tools.toolpack,
+    category: TOOL_METADATA.synthesis_discover_tools.category,
+    sensitive: TOOL_METADATA.synthesis_discover_tools.sensitive,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    dynamicRegistry.recordCall('synthesis_discover_tools');
+    const validated = discoverToolsInputSchema.parse(input);
+    const result = buildDiscoverResult(validated, dynamicRegistry);
+    return toToolResult(result);
   }
-}
+);
+
+/**
+ * Gateway Tool 2: enable_tools
+ * Enable tools by name, toolpack, or category.
+ */
+dynamicRegistry.registerTool(
+  'enable_tools',
+  {
+    description: GATEWAY_TOOL_DESCRIPTIONS.enable_tools,
+    // Use base schema without refine for MCP SDK registration
+    inputSchema: toInputShape(enableToolsInputSchemaBase),
+    toolpack: TOOL_METADATA.enable_tools.toolpack,
+    category: TOOL_METADATA.enable_tools.category,
+    sensitive: TOOL_METADATA.enable_tools.sensitive,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    dynamicRegistry.recordCall('enable_tools');
+    // Use full schema with refine for runtime validation
+    const validated = enableToolsInputSchema.parse(input);
+    const result = enableTools(validated, dynamicRegistry);
+    return toToolResult(result);
+  }
+);
+
+/**
+ * Gateway Tool 3: synthesis_router
+ * Execute any tool with auto-enable support.
+ */
+dynamicRegistry.registerTool(
+  'synthesis_router',
+  {
+    description: GATEWAY_TOOL_DESCRIPTIONS.synthesis_router,
+    inputSchema: toInputShape(routerInputSchema),
+    toolpack: TOOL_METADATA.synthesis_router.toolpack,
+    category: TOOL_METADATA.synthesis_router.category,
+    sensitive: TOOL_METADATA.synthesis_router.sensitive,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    dynamicRegistry.recordCall('synthesis_router');
+    const validated = routerInputSchema.parse(input);
+    const result = await executeViaRouter(validated, dynamicRegistry);
+    return toToolResult(result);
+  }
+);
+
+/**
+ * Gateway Tool 4: synthesis_mcp_bridge
+ * Direct MCP call bypassing local state.
+ */
+dynamicRegistry.registerTool(
+  'synthesis_mcp_bridge',
+  {
+    description: GATEWAY_TOOL_DESCRIPTIONS.synthesis_mcp_bridge,
+    inputSchema: toInputShape(bridgeInputSchema),
+    toolpack: TOOL_METADATA.synthesis_mcp_bridge.toolpack,
+    category: TOOL_METADATA.synthesis_mcp_bridge.category,
+    sensitive: TOOL_METADATA.synthesis_mcp_bridge.sensitive,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    dynamicRegistry.recordCall('synthesis_mcp_bridge');
+    const validated = bridgeInputSchema.parse(input);
+    const result = await executeMcpBridge(validated, dynamicRegistry);
+    return toToolResult(result);
+  }
+);
+
+/**
+ * Gateway Tool 5: synthesis_search
+ * Always-on search fallback.
+ */
+dynamicRegistry.registerTool(
+  'synthesis_search',
+  {
+    description: GATEWAY_TOOL_DESCRIPTIONS.synthesis_search,
+    inputSchema: toInputShape(searchInputSchema),
+    toolpack: TOOL_METADATA.synthesis_search.toolpack,
+    category: TOOL_METADATA.synthesis_search.category,
+    sensitive: TOOL_METADATA.synthesis_search.sensitive,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    dynamicRegistry.recordCall('synthesis_search');
+    const validated = searchInputSchema.parse(input);
+    const result = await executeSearch(validated, apiClient);
+    return toToolResult(result);
+  }
+);
+
+// =============================================================================
+// Tool Registration Complete (Phase 5.6.3)
+// =============================================================================
+// All 22 tools are now registered via dynamicRegistry.registerTool() above:
+// - 17 original tools (Phase 3.5.3)
+// - 5 gateway tools (Phase 5.6.2-5.6.3): synthesis_discover_tools, enable_tools,
+//   synthesis_router, synthesis_mcp_bridge, synthesis_search
+//
+// Each tool registration includes:
+// - MCP SDK handle capture for enable/disable operations
+// - Toolpack and category metadata from TOOL_METADATA
+// - Sensitive flag for gated access
+// - Call recording for usage analytics
+// - Handler storage for router/bridge execution
+//
+// The old toolRegistry.register() loop has been replaced by the unified
+// dynamicRegistry which manages both MCP SDK registration and metadata.
 
 /**
  * Main function to start the MCP server with either stdio or HTTP transport
  */
 async function main() {
   try {
+    // Apply profile-based tool filtering BEFORE connecting (Phase 5.6.1)
+    // This ensures clients receive the correct initial tool list
+    dynamicRegistry.applyProfile(config.profile);
+
     if (MCP_MODE === 'stdio') {
       // Start stdio transport for IDE agents (e.g., Cursor, VSCode)
       const stdioTransport = new StdioServerTransport();
       await server.connect(stdioTransport);
 
+      const snapshot = dynamicRegistry.getSnapshot();
       console.error('🚀 Synthesis MCP Server v2.0.0 started successfully');
       console.error('   Mode: stdio');
+      console.error(`   Profile: ${config.profile}`);
       console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
       console.error(
-        `   Tools: ${toolRegistry.size} registered (${toolRegistry.getSensitiveTools().length} sensitive)`
+        `   Tools: ${snapshot.enabledCount}/${snapshot.totalCount} enabled (${dynamicRegistry.getSensitiveToolCount()} sensitive)`
       );
       console.error('   Capabilities: listChanged=true');
       console.error('');
@@ -1197,13 +1381,15 @@ async function main() {
 
       httpServer.listen(MCP_PORT, () => {
         const stats = rateLimiter.getStats();
+        const snapshot = dynamicRegistry.getSnapshot();
         console.error('🚀 Synthesis MCP Server v2.0.0 started successfully');
         console.error('   Mode: HTTP/SSE');
+        console.error(`   Profile: ${config.profile}`);
         console.error(`   Port: ${MCP_PORT}`);
         console.error(`   URL: http://localhost:${MCP_PORT}`);
         console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
         console.error(
-          `   Tools: ${toolRegistry.size} registered (${toolRegistry.getSensitiveTools().length} sensitive)`
+          `   Tools: ${snapshot.enabledCount}/${snapshot.totalCount} enabled (${dynamicRegistry.getSensitiveToolCount()} sensitive)`
         );
         console.error('   Capabilities: listChanged=true');
         console.error(

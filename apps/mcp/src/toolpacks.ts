@@ -124,6 +124,26 @@ export const TOOLPACKS: ToolpackConfig = {
     ],
     sensitive: ['delete_document', 'delete_collection'], // Destructive operations
   },
+
+  /**
+   * Gateway Pack (5.6.0)
+   *
+   * Always-on tools for dynamic tool management.
+   * These tools are never disabled and control access to other tools.
+   * Primary use: Tool discovery, enabling, routing, and fallback operations
+   */
+  gateway: {
+    description: 'Always-on gateway tools for dynamic tool management',
+    defaultCategory: 'gateway',
+    tools: [
+      'synthesis_discover_tools',
+      'enable_tools',
+      'synthesis_router',
+      'synthesis_mcp_bridge',
+      'synthesis_search',
+    ],
+    sensitive: [], // Gateway tools are not sensitive - they control access
+  },
 };
 
 // =============================================================================
@@ -213,6 +233,7 @@ export function getToolpackCounts(): Record<ToolpackName, number> {
     mobile_core: TOOLPACKS.mobile_core.tools.length,
     introspection: TOOLPACKS.introspection.tools.length,
     graphing: TOOLPACKS.graphing.tools.length,
+    gateway: TOOLPACKS.gateway.tools.length,
   };
 }
 
@@ -258,6 +279,13 @@ export const TOOL_METADATA: Record<
   add_repo_to_collection: { toolpack: 'core', category: 'core', sensitive: false },
   sync_repo: { toolpack: 'core', category: 'core', sensitive: false },
   list_repos: { toolpack: 'core', category: 'core', sensitive: false },
+
+  // Gateway (5.6.0) - Always-on tools for dynamic tool management
+  synthesis_discover_tools: { toolpack: 'gateway', category: 'gateway', sensitive: false },
+  enable_tools: { toolpack: 'gateway', category: 'gateway', sensitive: false },
+  synthesis_router: { toolpack: 'gateway', category: 'gateway', sensitive: false },
+  synthesis_mcp_bridge: { toolpack: 'gateway', category: 'gateway', sensitive: false },
+  synthesis_search: { toolpack: 'gateway', category: 'gateway', sensitive: false },
 };
 
 /**

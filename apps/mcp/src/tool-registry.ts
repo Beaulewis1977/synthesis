@@ -1,17 +1,25 @@
 /**
  * Tool Registry for Synthesis MCP Server
  *
- * Provides infrastructure for tool metadata management to support future
- * dynamic tool management (Sub-Phase 5.6). This module defines:
+ * Provides infrastructure for tool metadata management and dynamic tool
+ * management (Sub-Phase 5.6). This module defines:
  * - ToolDefinition interface with toolpack/category/sensitive metadata
  * - ToolMetadata type for runtime tool introspection
- * - Registry class for tracking registered tools
+ * - ToolRegistry class for tracking registered tools
+ * - DynamicToolRegistry class for MCP handle management with enable/disable
  *
  * @module apps/mcp/src/tool-registry
- * @since GPT Phase 3: Sub-Phase 5.3
+ * @since GPT Phase 3: Sub-Phase 5.3, Extended in Sub-Phase 5.6.1
  */
 
-import type { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { ZodRawShape, ZodTypeAny, z } from 'zod';
+
+import { TOOLPACKS } from './toolpacks.js';
+import { GATEWAY_TOOL_NAMES } from './types/gateway-schemas.js';
+import type { DynamicToolConfig, ProfileName } from './types/profiles.js';
+import { PROFILES, isValidProfile } from './types/profiles.js';
+import type { McpToolHandle, SynthesisToolHandle, ToolState } from './types/tool-handle.js';
 
 // =============================================================================
 // Types & Interfaces
@@ -19,13 +27,15 @@ import type { z } from 'zod';
 
 /**
  * Toolpack names for grouping related tools
+ * Extended in 5.6.0 to include 'gateway' for always-on tools
  */
-export type ToolpackName = 'core' | 'mobile_core' | 'introspection' | 'graphing';
+export type ToolpackName = 'core' | 'mobile_core' | 'introspection' | 'graphing' | 'gateway';
 
 /**
  * Category names for tool classification
+ * Extended in 5.6.0 to include 'gateway' for always-on tools
  */
-export type CategoryName = 'core' | 'mobile' | 'graph' | 'introspection';
+export type CategoryName = 'core' | 'mobile' | 'graph' | 'introspection' | 'gateway';
 
 /**
  * Tool result type returned by MCP tools
@@ -79,6 +89,19 @@ export interface ToolMetadata {
   description: string;
   sensitive: boolean;
   version: string;
+}
+
+/**
+ * Registered tool definition for token measurement (5.6.4)
+ * Contains all information needed to estimate tool token footprint
+ */
+export interface RegisteredToolDefinition {
+  /** Tool name */
+  name: string;
+  /** Tool description */
+  description: string;
+  /** Input schema as JSON Schema object */
+  inputSchemaJson: Record<string, unknown>;
 }
 
 // =============================================================================
@@ -275,7 +298,7 @@ export function createToolMetadata(
  * @returns True if valid toolpack name
  */
 export function isValidToolpack(value: string): value is ToolpackName {
-  return ['core', 'mobile_core', 'introspection', 'graphing'].includes(value);
+  return ['core', 'mobile_core', 'introspection', 'graphing', 'gateway'].includes(value);
 }
 
 /**
@@ -284,5 +307,713 @@ export function isValidToolpack(value: string): value is ToolpackName {
  * @returns True if valid category name
  */
 export function isValidCategory(value: string): value is CategoryName {
-  return ['core', 'mobile', 'graph', 'introspection'].includes(value);
+  return ['core', 'mobile', 'graph', 'introspection', 'gateway'].includes(value);
+}
+
+// =============================================================================
+// Enable/Disable Result Type (5.6.1)
+// =============================================================================
+
+/**
+ * Reason codes for enable/disable operation failures
+ */
+export type EnableDisableReason =
+  | 'already_enabled'
+  | 'already_disabled'
+  | 'gateway_protected'
+  | 'not_found'
+  | 'sensitive_gated';
+
+/**
+ * Result type for enable/disable operations
+ * Provides structured feedback for gateway tool implementations
+ */
+export interface EnableDisableResult {
+  /** Whether the operation succeeded */
+  ok: boolean;
+  /** Reason for failure (only present when ok=false) */
+  reason?: EnableDisableReason;
+}
+
+// =============================================================================
+// Enhanced Registry Snapshot (5.6.1)
+// =============================================================================
+
+/**
+ * Call statistics for usage analysis
+ */
+export interface CallStats {
+  /** Total number of tool calls across all tools */
+  totalCalls: number;
+  /** Top tools by usage (up to 5) */
+  topTools: Array<{ name: string; count: number }>;
+}
+
+/**
+ * Enhanced registry snapshot with call statistics
+ * Extends the base RegistrySnapshot from types/tool-handle.ts
+ */
+export interface EnhancedRegistrySnapshot {
+  /** State of all registered tools */
+  tools: ToolState[];
+  /** Count of currently enabled tools */
+  enabledCount: number;
+  /** Total count of registered tools */
+  totalCount: number;
+  /** Active startup profile */
+  activeProfile: ProfileName;
+  /** Server uptime in milliseconds */
+  uptimeMs: number;
+  /** Call statistics for usage analysis */
+  callStats: CallStats;
+}
+
+// =============================================================================
+// Tool Registration Options (5.6.1)
+// =============================================================================
+
+/**
+ * Options for registering a tool with DynamicToolRegistry
+ */
+export interface DynamicToolOptions {
+  /** Tool description for MCP registration */
+  description: string;
+  /** Input schema shape for MCP SDK (Zod schema shape from z.object().shape) */
+  inputSchema?: ZodRawShape;
+  /** Toolpack this tool belongs to */
+  toolpack: ToolpackName;
+  /** Functional category of the tool */
+  category: CategoryName;
+  /** Whether this tool performs sensitive operations */
+  sensitive?: boolean;
+  /** Tool version for compatibility tracking */
+  version?: string;
+}
+
+// =============================================================================
+// SynthesisToolHandle Factory (5.6.1)
+// =============================================================================
+
+/**
+ * Extended metadata for creating SynthesisToolHandle (5.6.4)
+ * Includes description and inputSchemaJson for token measurement
+ */
+export interface ExtendedToolMetadata extends ToolMetadata {
+  /** Input schema as JSON Schema object (for token measurement) */
+  inputSchemaJson: Record<string, unknown>;
+}
+
+/**
+ * Create a SynthesisToolHandle that wraps an MCP SDK handle
+ *
+ * The wrapper tracks enable state separately from the MCP SDK to provide
+ * accurate state queries without calling the SDK.
+ *
+ * @param mcpHandle The underlying MCP SDK handle
+ * @param metadata Extended tool metadata for the handle
+ * @returns A SynthesisToolHandle with enable/disable methods
+ */
+export function createSynthesisHandle(
+  mcpHandle: McpToolHandle,
+  metadata: ExtendedToolMetadata
+): SynthesisToolHandle {
+  let _isEnabled = true; // All tools start enabled after registration
+
+  return {
+    mcpHandle,
+    name: metadata.name,
+    toolpack: metadata.toolpack,
+    category: metadata.category,
+    sensitive: metadata.sensitive,
+    version: metadata.version,
+    description: metadata.description,
+    inputSchemaJson: metadata.inputSchemaJson,
+    get isEnabled() {
+      return _isEnabled;
+    },
+    enable() {
+      if (!_isEnabled) {
+        mcpHandle.enable();
+        _isEnabled = true;
+      }
+    },
+    disable() {
+      if (_isEnabled) {
+        mcpHandle.disable();
+        _isEnabled = false;
+      }
+    },
+  };
+}
+
+// =============================================================================
+// DynamicToolRegistry Class (5.6.1)
+// =============================================================================
+
+/**
+ * Dynamic Tool Registry for MCP Server
+ *
+ * Manages MCP tool handles for enable/disable operations, profile-based
+ * startup, and toolpack management. This is the core implementation for
+ * Sub-Phase 5.6 dynamic tool management.
+ *
+ * @example
+ * ```typescript
+ * const config = parseEnvConfig();
+ * const registry = new DynamicToolRegistry(server, config);
+ *
+ * // Register a tool
+ * registry.registerTool('search_rag', {
+ *   description: 'Search the RAG knowledge base',
+ *   inputSchema: { collectionId: z.string().uuid() },
+ *   toolpack: 'core',
+ *   category: 'core',
+ * }, async (input) => { ... });
+ *
+ * // Apply startup profile
+ * registry.applyProfile('minimal');
+ *
+ * // Enable tools on demand
+ * registry.enableToolpack('mobile_core');
+ * ```
+ */
+export class DynamicToolRegistry {
+  /** MCP Server instance for tool registration */
+  private server: McpServer;
+
+  /** Map of tool name to SynthesisToolHandle */
+  private handles: Map<string, SynthesisToolHandle> = new Map();
+
+  /** Map of tool name to runtime state */
+  private toolStates: Map<string, ToolState> = new Map();
+
+  /** Map of tool name to handler function (for router/bridge execution) */
+  private handlers: Map<
+    string,
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK handler type is complex
+    (input: any) => Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }>
+  > = new Map();
+
+  /** Dynamic tool configuration from environment */
+  private config: DynamicToolConfig;
+
+  /** Server start time for uptime calculation */
+  private startTime: number;
+
+  /** Current active profile */
+  private activeProfile: ProfileName;
+
+  /** Set of gateway tool names (never disabled) */
+  private readonly gatewayTools: Set<string>;
+
+  /**
+   * Create a new DynamicToolRegistry
+   *
+   * @param server MCP Server instance
+   * @param config Dynamic tool configuration
+   */
+  constructor(server: McpServer, config: DynamicToolConfig) {
+    this.server = server;
+    this.config = config;
+    this.startTime = Date.now();
+    this.activeProfile = config.profile;
+    this.gatewayTools = new Set(GATEWAY_TOOL_NAMES);
+  }
+
+  /**
+   * Register a tool with the MCP server and store the handle
+   *
+   * @param name Tool name
+   * @param options Tool registration options
+   * @param handler Async handler function (typed to match MCP SDK expectations)
+   * @returns The SynthesisToolHandle for the registered tool
+   */
+  registerTool(
+    name: string,
+    options: DynamicToolOptions,
+    handler: (
+      // biome-ignore lint/suspicious/noExplicitAny: MCP SDK handler type is complex
+      input: any
+    ) => Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }>
+  ): SynthesisToolHandle {
+    // Register with MCP SDK
+    const mcpOptions: { description: string; inputSchema?: ZodRawShape } = {
+      description: options.description,
+    };
+    if (options.inputSchema) {
+      mcpOptions.inputSchema = options.inputSchema;
+    }
+
+    // Cast the result to McpToolHandle (MCP SDK returns this type)
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK typing is complex
+    const mcpHandle = (this.server as any).registerTool(name, mcpOptions, handler) as McpToolHandle;
+
+    // Convert Zod schema shape to JSON Schema for token measurement
+    // The schema shape is a plain object with Zod types, serialize for storage
+    const inputSchemaJson: Record<string, unknown> = options.inputSchema
+      ? this.zodShapeToJsonSchema(options.inputSchema)
+      : {};
+
+    // Create extended metadata (5.6.4)
+    const metadata: ExtendedToolMetadata = {
+      name,
+      toolpack: options.toolpack,
+      category: options.category,
+      description: options.description,
+      sensitive: options.sensitive ?? false,
+      version: options.version ?? '1.0.0',
+      inputSchemaJson,
+    };
+
+    // Create wrapped handle
+    const handle = createSynthesisHandle(mcpHandle, metadata);
+    this.handles.set(name, handle);
+
+    // Store handler for router/bridge execution
+    this.handlers.set(name, handler);
+
+    // Initialize tool state
+    this.toolStates.set(name, {
+      name,
+      enabled: true,
+      enabledAt: new Date(),
+      callCount: 0,
+      lastCalledAt: undefined,
+    });
+
+    return handle;
+  }
+
+  /**
+   * Convert a Zod schema shape to a simple JSON Schema representation
+   * Used for token measurement (5.6.4)
+   *
+   * @param shape Zod schema shape from z.object().shape
+   * @returns Simplified JSON Schema representation
+   */
+  private zodShapeToJsonSchema(shape: ZodRawShape): Record<string, unknown> {
+    const properties: Record<string, unknown> = {};
+
+    for (const [key, zodType] of Object.entries(shape)) {
+      // Extract basic type info from Zod schema
+      // We only need enough for token estimation, not full JSON Schema
+      const typeDef = zodType as ZodTypeAny;
+      properties[key] = {
+        // Get the description if available
+        description: typeDef.description ?? undefined,
+        // Simple type inference based on Zod internals
+        type: this.inferZodType(typeDef),
+      };
+    }
+
+    return {
+      type: 'object',
+      properties,
+    };
+  }
+
+  /**
+   * Infer a simple JSON Schema type from a Zod type
+   * Used for token measurement (5.6.4)
+   */
+  private inferZodType(zodType: ZodTypeAny): string {
+    // Access Zod internals to determine type
+    // biome-ignore lint/suspicious/noExplicitAny: Zod internal structure
+    const def = (zodType as any)._def;
+    if (!def) return 'unknown';
+
+    const typeName = def.typeName;
+    switch (typeName) {
+      case 'ZodString':
+        return 'string';
+      case 'ZodNumber':
+        return 'number';
+      case 'ZodBoolean':
+        return 'boolean';
+      case 'ZodArray':
+        return 'array';
+      case 'ZodObject':
+        return 'object';
+      case 'ZodOptional':
+      case 'ZodNullable':
+        // Recurse into wrapped type
+        return this.inferZodType(def.innerType);
+      case 'ZodDefault':
+        return this.inferZodType(def.innerType);
+      case 'ZodEnum':
+        return 'string';
+      case 'ZodUnion':
+        return 'union';
+      case 'ZodLiteral':
+        return typeof def.value;
+      default:
+        return 'unknown';
+    }
+  }
+
+  /**
+   * Enable a tool by name
+   *
+   * @param name Tool name to enable
+   * @returns Result indicating success or failure reason
+   */
+  enable(name: string): EnableDisableResult {
+    const handle = this.handles.get(name);
+    if (!handle) {
+      return { ok: false, reason: 'not_found' };
+    }
+
+    if (handle.isEnabled) {
+      return { ok: false, reason: 'already_enabled' };
+    }
+
+    handle.enable();
+
+    // Update state
+    const state = this.toolStates.get(name);
+    if (state) {
+      state.enabled = true;
+      state.enabledAt = new Date();
+    }
+
+    return { ok: true };
+  }
+
+  /**
+   * Disable a tool by name
+   *
+   * Gateway tools cannot be disabled.
+   *
+   * @param name Tool name to disable
+   * @returns Result indicating success or failure reason
+   */
+  disable(name: string): EnableDisableResult {
+    // Gateway tools cannot be disabled
+    if (this.gatewayTools.has(name)) {
+      return { ok: false, reason: 'gateway_protected' };
+    }
+
+    const handle = this.handles.get(name);
+    if (!handle) {
+      return { ok: false, reason: 'not_found' };
+    }
+
+    if (!handle.isEnabled) {
+      return { ok: false, reason: 'already_disabled' };
+    }
+
+    handle.disable();
+
+    // Update state
+    const state = this.toolStates.get(name);
+    if (state) {
+      state.enabled = false;
+    }
+
+    return { ok: true };
+  }
+
+  /**
+   * Enable all tools in a toolpack
+   *
+   * @param toolpack Toolpack name
+   * @returns Array of tool names that were enabled
+   */
+  enableToolpack(toolpack: ToolpackName): string[] {
+    const packDef = TOOLPACKS[toolpack];
+    if (!packDef) {
+      return [];
+    }
+
+    const enabled: string[] = [];
+    for (const toolName of packDef.tools) {
+      const result = this.enable(toolName);
+      if (result.ok) {
+        enabled.push(toolName);
+      }
+    }
+
+    return enabled;
+  }
+
+  /**
+   * Enable all tools in a category
+   *
+   * @param category Category name
+   * @returns Array of tool names that were enabled
+   */
+  enableCategory(category: CategoryName): string[] {
+    const enabled: string[] = [];
+
+    for (const [name, handle] of this.handles) {
+      if (handle.category === category) {
+        const result = this.enable(name);
+        if (result.ok) {
+          enabled.push(name);
+        }
+      }
+    }
+
+    return enabled;
+  }
+
+  /**
+   * Apply a startup profile
+   *
+   * This disables all non-gateway tools, then enables tools based on the
+   * profile's toolpacks and additionalTools.
+   *
+   * @param profileName Profile name to apply
+   * @throws Error if profile name is invalid
+   */
+  applyProfile(profileName: ProfileName): void {
+    if (!isValidProfile(profileName)) {
+      throw new Error(`Invalid profile: ${profileName}. Valid profiles: minimal, mobile, full`);
+    }
+
+    const profile = PROFILES[profileName];
+    this.activeProfile = profileName;
+
+    // 1. Disable ALL non-gateway tools
+    for (const [name] of this.handles) {
+      if (!this.gatewayTools.has(name)) {
+        this.disable(name);
+      }
+    }
+
+    // 2. Enable tools from profile toolpacks
+    for (const toolpack of profile.toolpacks) {
+      this.enableToolpack(toolpack);
+    }
+
+    // 3. Enable additional individual tools
+    for (const tool of profile.additionalTools) {
+      this.enable(tool);
+    }
+  }
+
+  /**
+   * Check if a tool is currently enabled
+   *
+   * @param name Tool name
+   * @returns True if enabled, false if disabled or not found
+   */
+  isEnabled(name: string): boolean {
+    const handle = this.handles.get(name);
+    return handle?.isEnabled ?? false;
+  }
+
+  /**
+   * Get the count of currently enabled tools
+   *
+   * @returns Number of enabled tools
+   */
+  getEnabledCount(): number {
+    let count = 0;
+    for (const handle of this.handles.values()) {
+      if (handle.isEnabled) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Get the count of sensitive tools
+   *
+   * @returns Number of tools marked as sensitive
+   */
+  getSensitiveToolCount(): number {
+    let count = 0;
+    for (const handle of this.handles.values()) {
+      if (handle.sensitive) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Get the total number of registered tools
+   */
+  get size(): number {
+    return this.handles.size;
+  }
+
+  /**
+   * Record a tool call for statistics
+   *
+   * @param name Tool name that was called
+   */
+  recordCall(name: string): void {
+    const state = this.toolStates.get(name);
+    if (state) {
+      state.callCount++;
+      state.lastCalledAt = new Date();
+    }
+  }
+
+  /**
+   * Get a snapshot of the registry state
+   *
+   * @returns Enhanced registry snapshot with tool states and call statistics
+   */
+  getSnapshot(): EnhancedRegistrySnapshot {
+    const tools: ToolState[] = Array.from(this.toolStates.values());
+    const enabledCount = this.getEnabledCount();
+    const totalCount = this.handles.size;
+    const uptimeMs = Date.now() - this.startTime;
+
+    // Calculate call statistics
+    const totalCalls = tools.reduce((sum, t) => sum + t.callCount, 0);
+    const sortedByUsage = [...tools]
+      .filter((t) => t.callCount > 0)
+      .sort((a, b) => b.callCount - a.callCount)
+      .slice(0, 5)
+      .map((t) => ({ name: t.name, count: t.callCount }));
+
+    return {
+      tools,
+      enabledCount,
+      totalCount,
+      activeProfile: this.activeProfile,
+      uptimeMs,
+      callStats: {
+        totalCalls,
+        topTools: sortedByUsage,
+      },
+    };
+  }
+
+  /**
+   * Get a handle by name
+   *
+   * @param name Tool name
+   * @returns The SynthesisToolHandle or undefined
+   */
+  getHandle(name: string): SynthesisToolHandle | undefined {
+    return this.handles.get(name);
+  }
+
+  /**
+   * List all registered tool names
+   *
+   * @returns Array of tool names
+   */
+  listTools(): string[] {
+    return Array.from(this.handles.keys());
+  }
+
+  /**
+   * List all enabled tool names
+   *
+   * @returns Array of enabled tool names
+   */
+  listEnabledTools(): string[] {
+    return Array.from(this.handles.entries())
+      .filter(([_, handle]) => handle.isEnabled)
+      .map(([name]) => name);
+  }
+
+  /**
+   * Get the current configuration
+   */
+  getConfig(): DynamicToolConfig {
+    return this.config;
+  }
+
+  /**
+   * Get the active profile name
+   */
+  getActiveProfile(): ProfileName {
+    return this.activeProfile;
+  }
+
+  /**
+   * Execute a tool by name with given parameters
+   *
+   * This method is used by gateway tools (router, bridge) to execute tools
+   * programmatically. It bypasses the MCP SDK request flow and calls the
+   * handler directly.
+   *
+   * @param name Tool name to execute
+   * @param params Parameters to pass to the tool
+   * @returns Tool result
+   * @throws Error if tool handler not found
+   */
+  async execute(
+    name: string,
+    params: Record<string, unknown>
+  ): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
+    const handler = this.handlers.get(name);
+    if (!handler) {
+      throw new Error(`Tool handler not found: ${name}`);
+    }
+    return handler(params);
+  }
+
+  /**
+   * Get the handler function for a tool
+   *
+   * This method is used to check if a tool exists before execution.
+   *
+   * @param name Tool name
+   * @returns Handler function or undefined if not found
+   */
+  getToolHandler(name: string):
+    | ((
+        // biome-ignore lint/suspicious/noExplicitAny: MCP SDK handler type is complex
+        input: any
+      ) => Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }>)
+    | undefined {
+    return this.handlers.get(name);
+  }
+
+  /**
+   * Get all registered tool definitions for token measurement (5.6.4)
+   *
+   * Returns the name, description, and JSON schema for each registered tool.
+   * Used by the token measurement utility to estimate context window footprint.
+   *
+   * @returns Array of RegisteredToolDefinition objects
+   */
+  getDefinitions(): RegisteredToolDefinition[] {
+    const definitions: RegisteredToolDefinition[] = [];
+
+    for (const handle of this.handles.values()) {
+      definitions.push({
+        name: handle.name,
+        description: handle.description,
+        inputSchemaJson: handle.inputSchemaJson,
+      });
+    }
+
+    return definitions;
+  }
+
+  /**
+   * Get tool definitions filtered by enabled state (5.6.4)
+   *
+   * Returns definitions only for currently enabled tools.
+   * Useful for measuring the token footprint of a specific profile.
+   *
+   * @param enabledOnly If true, only return definitions for enabled tools
+   * @returns Array of RegisteredToolDefinition objects
+   */
+  getDefinitionsFiltered(enabledOnly: boolean): RegisteredToolDefinition[] {
+    const definitions: RegisteredToolDefinition[] = [];
+
+    for (const handle of this.handles.values()) {
+      if (enabledOnly && !handle.isEnabled) {
+        continue;
+      }
+      definitions.push({
+        name: handle.name,
+        description: handle.description,
+        inputSchemaJson: handle.inputSchemaJson,
+      });
+    }
+
+    return definitions;
+  }
 }

@@ -69,6 +69,12 @@ const ALL_EXPECTED_TOOLS = [
   'find_symbol_usages',
   // Graphing
   'graph_expand_context',
+  // Gateway
+  'synthesis_discover_tools',
+  'enable_tools',
+  'synthesis_router',
+  'synthesis_mcp_bridge',
+  'synthesis_search',
 ];
 
 // Expected sensitive tools
@@ -312,7 +318,13 @@ describe('ToolRegistry', () => {
 describe('Toolpacks', () => {
   describe('TOOLPACKS constant', () => {
     it('should define all expected toolpacks', () => {
-      expect(Object.keys(TOOLPACKS)).toEqual(['mobile_core', 'introspection', 'graphing', 'core']);
+      expect(Object.keys(TOOLPACKS)).toEqual([
+        'mobile_core',
+        'introspection',
+        'graphing',
+        'core',
+        'gateway',
+      ]);
     });
 
     it('should have valid structure for each toolpack', () => {
@@ -445,7 +457,7 @@ describe('Toolpacks', () => {
   describe('listToolpacks', () => {
     it('should return all toolpack names', () => {
       const packs = listToolpacks();
-      expect(packs).toEqual(['mobile_core', 'introspection', 'graphing', 'core']);
+      expect(packs).toEqual(['mobile_core', 'introspection', 'graphing', 'core', 'gateway']);
     });
   });
 
