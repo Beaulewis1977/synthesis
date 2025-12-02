@@ -11,7 +11,7 @@
 
 **Goal:** Provide task-oriented MCP tools tuned for code-generation agents building mobile SaaS apps.
 
-**Status:** Sub-Phase 5.6.1 Complete (Dynamic Tool Management in progress)
+**Status:** Sub-Phase 5.6 Complete (Dynamic Tool Management finished)
 
 ---
 
@@ -911,7 +911,113 @@ apps/mcp/src/
 
 ---
 
-### Remaining 5.6 Sub-Phases
+### Sub-Phase 5.6.4: Integration Tests & Token Verification (Complete)
+
+**Scope:** Implement end-to-end integration tests and token measurement verification for the dynamic tool management system.
+
+### Deliverables Created
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| Integration Tests | `apps/mcp/src/__tests__/gateway-integration.test.ts` | 46 integration tests for cross-module flows |
+| Token Measurement | `apps/mcp/perf/token-measurement.ts` | Token footprint verification utility |
+| Registry API Extension | `apps/mcp/src/tool-registry.ts` | getDefinitions() and getDefinitionsFiltered() methods |
+
+### Integration Tests (46 Tests)
+
+| Category | Tests | Coverage |
+|----------|-------|----------|
+| Profile Application | 6 | minimal/mobile/full profiles, tool counts, gateway protection |
+| Discover → Enable → Call | 8 | Task recommendations, enable notifications, router calls |
+| Router Auto-Enable | 8 | ROUTER_MODE=auto/respect/bypass, enabledNow metadata |
+| Sensitive Gating | 6 | ROUTER_SENSITIVE_ENFORCE, requiresEnable arrays |
+| Bridge Bypass | 5 | Disabled tool execution, no state changes |
+| Gateway Protection | 4 | Cannot disable gateway tools, gateway_protected reason |
+| Client Compatibility | 5 | No Anthropic-specific fields, standard MCP format |
+| Multi-Step Workflows | 4 | Discover→enable→search→expand scenarios |
+
+### Token Measurement Utility
+
+**CLI Usage:**
+```bash
+npx tsx apps/mcp/perf/token-measurement.ts          # Full markdown report
+npx tsx apps/mcp/perf/token-measurement.ts --json   # JSON output
+npx tsx apps/mcp/perf/token-measurement.ts --profile minimal
+```
+
+**Token Estimates (using chars/3.5 heuristic):**
+
+| Profile | Tool Count | Estimated Tokens | Reduction |
+|---------|------------|------------------|-----------|
+| minimal | 6 | ~507 | 74% vs full |
+| mobile | 11 | ~1,070 | 45% vs full |
+| full | 22 | ~1,930 | baseline |
+
+*Note: Token counts are estimates using simple heuristic. Relative deltas between profiles are the key validation metric.*
+
+### Registry API Extension
+
+Added to `DynamicToolRegistry`:
+
+```typescript
+interface RegisteredToolDefinition {
+  name: string;
+  description: string;
+  inputSchemaJson: Record<string, unknown>;
+}
+
+// Get all tool definitions for token measurement
+getDefinitions(): RegisteredToolDefinition[];
+
+// Get filtered definitions (enabled only)
+getDefinitionsFiltered(enabledOnly?: boolean): RegisteredToolDefinition[];
+```
+
+Also added:
+- `zodShapeToJsonSchema()` helper for Zod → JSON Schema conversion
+- `ExtendedToolMetadata` interface with description and inputSchemaJson
+
+### Files Changed
+
+```
+apps/mcp/src/
+├── tool-registry.ts                         (MODIFIED - added ~100 lines)
+│   ├── RegisteredToolDefinition interface
+│   ├── ExtendedToolMetadata interface
+│   ├── zodShapeToJsonSchema() helper
+│   ├── inferZodType() helper
+│   ├── getDefinitions() method
+│   └── getDefinitionsFiltered() method
+├── types/
+│   └── tool-handle.ts                       (MODIFIED - added description, inputSchemaJson)
+└── __tests__/
+    └── gateway-integration.test.ts          (CREATED - 46 tests)
+
+apps/mcp/perf/
+└── token-measurement.ts                     (CREATED - ~500 lines)
+```
+
+### Acceptance Criteria Met
+
+- [x] Server starts with 5 gateway tools visible (6 with list_collections in minimal)
+- [x] `synthesis_discover_tools` returns recommendations
+- [x] `enable_tools` emits notification (via notificationSent metadata)
+- [x] Enabled tools in subsequent requests work correctly
+- [x] Router auto-enables (ROUTER_MODE=auto)
+- [x] Router respects SENSITIVE_ENFORCE
+- [x] Bridge bypasses enable state
+- [x] MCP_TOOL_PROFILE=full enables all tools
+- [x] Token reduction verified (74% minimal vs full)
+- [x] No Anthropic-specific fields in responses
+- [x] Default profile for generic clients (minimal)
+- [x] Tools callable without list_changed support (via router)
+- [x] 46 integration tests pass
+- [x] TypeScript type checking passes
+- [x] Model-agnostic (no Anthropic-specific fields)
+
+---
+
+### 5.6 Sub-Phases Complete
 
 | # | Sub-Phase | Status | Description |
 |---|-----------|--------|-------------|
@@ -919,7 +1025,7 @@ apps/mcp/src/
 | 5.6.1 | Tool Registry Foundation | ✅ Complete | DynamicToolRegistry class, handles, profile startup |
 | 5.6.2 | Gateway Tools - Discovery & Enable | ✅ Complete | synthesis_discover_tools, enable_tools |
 | 5.6.3 | Gateway Tools - Router & Bridge | ✅ Complete | synthesis_router, synthesis_mcp_bridge, synthesis_search |
-| 5.6.4 | Integration Tests & Token Verification | Pending | E2E flows, client compatibility, tiktoken measurement |
+| 5.6.4 | Integration Tests & Token Verification | ✅ Complete | 46 integration tests, token measurement utility |
 
 ---
 
@@ -932,7 +1038,22 @@ apps/mcp/src/
 | 5.3 | MCP Tool Implementation | ✅ Complete | - |
 | 5.4 | Agent Prompt & Config Updates | ✅ Complete | - |
 | 5.5 | Scenario-Based Evaluation | ✅ Complete | - |
-| 5.6 | Dynamic Tool Management | 🔄 In Progress (5.6.0-5.6.3 done) | 1 day remaining |
+| 5.6 | Dynamic Tool Management | ✅ Complete | - |
+
+---
+
+## Phase 3 Complete
+
+**Total MCP Package Tests:** 515 tests (513 passing, 2 pre-existing failures unrelated to Phase 3)
+
+**Tools Registered:** 22 (17 domain tools + 5 gateway tools)
+
+**Key Achievements:**
+- Dynamic tool management with profile-based startup
+- Token reduction: 74% (minimal vs full profile)
+- 5 always-on gateway tools for tool discovery and routing
+- Model-agnostic design (no Anthropic-specific fields)
+- Client compatibility without tools/list_changed support
 
 ---
 

@@ -91,6 +91,19 @@ export interface ToolMetadata {
   version: string;
 }
 
+/**
+ * Registered tool definition for token measurement (5.6.4)
+ * Contains all information needed to estimate tool token footprint
+ */
+export interface RegisteredToolDefinition {
+  /** Tool name */
+  name: string;
+  /** Tool description */
+  description: string;
+  /** Input schema as JSON Schema object */
+  inputSchemaJson: Record<string, unknown>;
+}
+
 // =============================================================================
 // Tool Registry Class
 // =============================================================================
@@ -382,18 +395,27 @@ export interface DynamicToolOptions {
 // =============================================================================
 
 /**
+ * Extended metadata for creating SynthesisToolHandle (5.6.4)
+ * Includes description and inputSchemaJson for token measurement
+ */
+export interface ExtendedToolMetadata extends ToolMetadata {
+  /** Input schema as JSON Schema object (for token measurement) */
+  inputSchemaJson: Record<string, unknown>;
+}
+
+/**
  * Create a SynthesisToolHandle that wraps an MCP SDK handle
  *
  * The wrapper tracks enable state separately from the MCP SDK to provide
  * accurate state queries without calling the SDK.
  *
  * @param mcpHandle The underlying MCP SDK handle
- * @param metadata Tool metadata for the handle
+ * @param metadata Extended tool metadata for the handle
  * @returns A SynthesisToolHandle with enable/disable methods
  */
 export function createSynthesisHandle(
   mcpHandle: McpToolHandle,
-  metadata: ToolMetadata
+  metadata: ExtendedToolMetadata
 ): SynthesisToolHandle {
   let _isEnabled = true; // All tools start enabled after registration
 
@@ -404,6 +426,8 @@ export function createSynthesisHandle(
     category: metadata.category,
     sensitive: metadata.sensitive,
     version: metadata.version,
+    description: metadata.description,
+    inputSchemaJson: metadata.inputSchemaJson,
     get isEnabled() {
       return _isEnabled;
     },
@@ -524,14 +548,21 @@ export class DynamicToolRegistry {
     // biome-ignore lint/suspicious/noExplicitAny: MCP SDK typing is complex
     const mcpHandle = (this.server as any).registerTool(name, mcpOptions, handler) as McpToolHandle;
 
-    // Create metadata
-    const metadata: ToolMetadata = {
+    // Convert Zod schema shape to JSON Schema for token measurement
+    // The schema shape is a plain object with Zod types, serialize for storage
+    const inputSchemaJson: Record<string, unknown> = options.inputSchema
+      ? this.zodShapeToJsonSchema(options.inputSchema)
+      : {};
+
+    // Create extended metadata (5.6.4)
+    const metadata: ExtendedToolMetadata = {
       name,
       toolpack: options.toolpack,
       category: options.category,
       description: options.description,
       sensitive: options.sensitive ?? false,
       version: options.version ?? '1.0.0',
+      inputSchemaJson,
     };
 
     // Create wrapped handle
@@ -551,6 +582,73 @@ export class DynamicToolRegistry {
     });
 
     return handle;
+  }
+
+  /**
+   * Convert a Zod schema shape to a simple JSON Schema representation
+   * Used for token measurement (5.6.4)
+   *
+   * @param shape Zod schema shape from z.object().shape
+   * @returns Simplified JSON Schema representation
+   */
+  private zodShapeToJsonSchema(shape: ZodRawShape): Record<string, unknown> {
+    const properties: Record<string, unknown> = {};
+
+    for (const [key, zodType] of Object.entries(shape)) {
+      // Extract basic type info from Zod schema
+      // We only need enough for token estimation, not full JSON Schema
+      const typeDef = zodType as ZodTypeAny;
+      properties[key] = {
+        // Get the description if available
+        description: typeDef.description ?? undefined,
+        // Simple type inference based on Zod internals
+        type: this.inferZodType(typeDef),
+      };
+    }
+
+    return {
+      type: 'object',
+      properties,
+    };
+  }
+
+  /**
+   * Infer a simple JSON Schema type from a Zod type
+   * Used for token measurement (5.6.4)
+   */
+  private inferZodType(zodType: ZodTypeAny): string {
+    // Access Zod internals to determine type
+    // biome-ignore lint/suspicious/noExplicitAny: Zod internal structure
+    const def = (zodType as any)._def;
+    if (!def) return 'unknown';
+
+    const typeName = def.typeName;
+    switch (typeName) {
+      case 'ZodString':
+        return 'string';
+      case 'ZodNumber':
+        return 'number';
+      case 'ZodBoolean':
+        return 'boolean';
+      case 'ZodArray':
+        return 'array';
+      case 'ZodObject':
+        return 'object';
+      case 'ZodOptional':
+      case 'ZodNullable':
+        // Recurse into wrapped type
+        return this.inferZodType(def.innerType);
+      case 'ZodDefault':
+        return this.inferZodType(def.innerType);
+      case 'ZodEnum':
+        return 'string';
+      case 'ZodUnion':
+        return 'union';
+      case 'ZodLiteral':
+        return typeof def.value;
+      default:
+        return 'unknown';
+    }
   }
 
   /**
@@ -869,5 +967,53 @@ export class DynamicToolRegistry {
       ) => Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }>)
     | undefined {
     return this.handlers.get(name);
+  }
+
+  /**
+   * Get all registered tool definitions for token measurement (5.6.4)
+   *
+   * Returns the name, description, and JSON schema for each registered tool.
+   * Used by the token measurement utility to estimate context window footprint.
+   *
+   * @returns Array of RegisteredToolDefinition objects
+   */
+  getDefinitions(): RegisteredToolDefinition[] {
+    const definitions: RegisteredToolDefinition[] = [];
+
+    for (const handle of this.handles.values()) {
+      definitions.push({
+        name: handle.name,
+        description: handle.description,
+        inputSchemaJson: handle.inputSchemaJson,
+      });
+    }
+
+    return definitions;
+  }
+
+  /**
+   * Get tool definitions filtered by enabled state (5.6.4)
+   *
+   * Returns definitions only for currently enabled tools.
+   * Useful for measuring the token footprint of a specific profile.
+   *
+   * @param enabledOnly If true, only return definitions for enabled tools
+   * @returns Array of RegisteredToolDefinition objects
+   */
+  getDefinitionsFiltered(enabledOnly: boolean): RegisteredToolDefinition[] {
+    const definitions: RegisteredToolDefinition[] = [];
+
+    for (const handle of this.handles.values()) {
+      if (enabledOnly && !handle.isEnabled) {
+        continue;
+      }
+      definitions.push({
+        name: handle.name,
+        description: handle.description,
+        inputSchemaJson: handle.inputSchemaJson,
+      });
+    }
+
+    return definitions;
   }
 }

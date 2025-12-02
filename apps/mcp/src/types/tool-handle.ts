@@ -106,6 +106,12 @@ export interface SynthesisToolHandle {
   /** Tool version for compatibility tracking */
   version: string;
 
+  /** Human-readable description for agent prompts */
+  description: string;
+
+  /** Input schema as JSON Schema (for token measurement) */
+  inputSchemaJson: Record<string, unknown>;
+
   /** Current enable state (tracked separately for metadata) */
   isEnabled: boolean;
 
