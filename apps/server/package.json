@@ -27,7 +27,7 @@
     "fastify": "^4.28.1",
     "gray-matter": "4.0.3",
     "ioredis": "^5.8.2",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.1.1",
     "lru-cache": "^11.2.2",
     "mammoth": "^1.6.0",
     "mdast-util-to-string": "^4.0.0",
