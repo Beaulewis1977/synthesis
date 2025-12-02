@@ -807,6 +807,110 @@ apps/mcp/src/
 
 ---
 
+### Sub-Phase 5.6.3: Gateway Tools - Router & Bridge (Complete)
+
+**Scope:** Implement synthesis_router, synthesis_mcp_bridge, and synthesis_search gateway tools.
+
+### Deliverables Created
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| Router Tool | `apps/mcp/src/tools/router.ts` | Universal tool dispatcher with auto-enable support |
+| Bridge Tool | `apps/mcp/src/tools/bridge.ts` | Direct MCP call bypassing enable/disable state |
+| Search Tool | `apps/mcp/src/tools/search.ts` | Always-on search fallback |
+| Registry Execute Methods | `apps/mcp/src/tool-registry.ts` | Handler storage, execute(), getToolHandler() |
+| Router Tests | `apps/mcp/src/__tests__/router.test.ts` | 25 tests for router functionality |
+| Bridge Tests | `apps/mcp/src/__tests__/bridge.test.ts` | 20 tests for bridge functionality |
+
+### Gateway Tools Registered
+
+| # | Tool | Description |
+|---|------|-------------|
+| 20 | `synthesis_router` | Execute any tool with configurable auto-enable |
+| 21 | `synthesis_mcp_bridge` | Direct execution bypassing enable/disable state |
+| 22 | `synthesis_search` | Always-on search fallback equivalent to search_rag |
+
+### Key Implementation Details
+
+**Router Modes:**
+| Mode | Disabled Tool | Sensitive+Disabled+Enforce | Already Enabled |
+|------|--------------|---------------------------|-----------------|
+| `auto` | Auto-enable, execute | Return gated error | Execute |
+| `respect` | Return gated error | Return gated error | Execute |
+| `bypass` | Execute directly | Execute directly | Execute |
+
+**Router Metadata Returned:**
+```typescript
+_routerMetadata: {
+  enabledNow: boolean,      // true if tool was auto-enabled
+  visibleToClient: boolean, // current enabled state
+  toolVersion: string,      // from tool handle
+  executionMs: number       // execution time
+}
+```
+
+**Bridge Behavior:**
+- Does NOT auto-enable tools
+- Does NOT check enabled state
+- Does NOT emit notifications
+- Executes tool directly via stored handler
+- Emergency fallback for stale client visibility
+
+**Registry Extensions:**
+```typescript
+// Added to DynamicToolRegistry
+private handlers: Map<string, (input: any) => Promise<ToolResult>> = new Map();
+
+// Stores handler during registerTool()
+this.handlers.set(name, handler);
+
+// New methods for router/bridge execution
+async execute(name: string, params: Record<string, unknown>): Promise<ToolResult>;
+getToolHandler(name: string): ((input: any) => Promise<ToolResult>) | undefined;
+```
+
+### Files Changed
+
+```
+apps/mcp/src/
+├── tools/
+│   ├── router.ts                         (CREATED - 228 lines)
+│   ├── bridge.ts                         (CREATED - 102 lines)
+│   └── search.ts                         (CREATED - 111 lines)
+├── tool-registry.ts                      (MODIFIED - added handlers, execute, getToolHandler)
+├── index.ts                              (MODIFIED - registered 3 gateway tools, 22 total)
+└── __tests__/
+    ├── router.test.ts                    (CREATED - 25 tests)
+    └── bridge.test.ts                    (CREATED - 20 tests)
+```
+
+### Tests Added
+
+| Test File | Tests | Coverage |
+|-----------|-------|----------|
+| `router.test.ts` | 25 | Auto mode (8), respect mode (4), bypass mode (4), unknown tool (2), metadata (4), errors (3) |
+| `bridge.test.ts` | 20 | Success (4), not found (3), bypass state (4), server validation (2), error handling (4), result structure (3) |
+
+**Total New Tests:** 45 (all passing)
+**MCP Package Total:** 514 tests (469 passing, 2 pre-existing failures unrelated to 5.6.3)
+
+### Acceptance Criteria Met
+
+- [x] `synthesis_router` auto-enables (ROUTER_MODE=auto)
+- [x] `synthesis_router` respects ROUTER_SENSITIVE_ENFORCE
+- [x] `synthesis_router` returns metadata with enabledNow, visibleToClient, toolVersion, executionMs
+- [x] `synthesis_mcp_bridge` bypasses enable state
+- [x] `synthesis_mcp_bridge` executes via stored handler
+- [x] `synthesis_search` always-on fallback equivalent to search_rag
+- [x] No Anthropic-specific fields or protocol extensions
+- [x] All tools callable without client support for `tools/list_changed`
+- [x] DynamicToolRegistry extended with execute() and getToolHandler()
+- [x] All 45 new tests pass
+- [x] TypeScript type checking passes
+- [x] Model-agnostic (no Anthropic-specific fields)
+
+---
+
 ### Remaining 5.6 Sub-Phases
 
 | # | Sub-Phase | Status | Description |
@@ -814,7 +918,7 @@ apps/mcp/src/
 | 5.6.0 | Pre-Flight Contracts | ✅ Complete | Type contracts and Zod schemas |
 | 5.6.1 | Tool Registry Foundation | ✅ Complete | DynamicToolRegistry class, handles, profile startup |
 | 5.6.2 | Gateway Tools - Discovery & Enable | ✅ Complete | synthesis_discover_tools, enable_tools |
-| 5.6.3 | Gateway Tools - Router & Bridge | Pending | synthesis_router, synthesis_mcp_bridge, synthesis_search |
+| 5.6.3 | Gateway Tools - Router & Bridge | ✅ Complete | synthesis_router, synthesis_mcp_bridge, synthesis_search |
 | 5.6.4 | Integration Tests & Token Verification | Pending | E2E flows, client compatibility, tiktoken measurement |
 
 ---
@@ -828,7 +932,7 @@ apps/mcp/src/
 | 5.3 | MCP Tool Implementation | ✅ Complete | - |
 | 5.4 | Agent Prompt & Config Updates | ✅ Complete | - |
 | 5.5 | Scenario-Based Evaluation | ✅ Complete | - |
-| 5.6 | Dynamic Tool Management | 🔄 In Progress (5.6.0-5.6.2 done) | 1-2 days remaining |
+| 5.6 | Dynamic Tool Management | 🔄 In Progress (5.6.0-5.6.3 done) | 1 day remaining |
 
 ---
 

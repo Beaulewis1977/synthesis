@@ -20,14 +20,20 @@ import { apiClient } from './api.js';
 import { getRateLimiter } from './rate-limiter.js';
 import { DynamicToolRegistry } from './tool-registry.js';
 import { TOOL_METADATA } from './toolpacks.js';
+import { executeMcpBridge } from './tools/bridge.js';
 import { buildDiscoverResult } from './tools/discover.js';
 import { enableTools } from './tools/enable.js';
+import { executeViaRouter } from './tools/router.js';
+import { executeSearch } from './tools/search.js';
 import { toToolResult } from './types/gateway-responses.js';
 import {
   GATEWAY_TOOL_DESCRIPTIONS,
+  bridgeInputSchema,
   discoverToolsInputSchema,
   enableToolsInputSchema,
   enableToolsInputSchemaBase,
+  routerInputSchema,
+  searchInputSchema,
 } from './types/gateway-schemas.js';
 import { parseEnvConfig } from './types/index.js';
 
@@ -1188,18 +1194,86 @@ dynamicRegistry.registerTool(
   }
 );
 
+/**
+ * Gateway Tool 3: synthesis_router
+ * Execute any tool with auto-enable support.
+ */
+dynamicRegistry.registerTool(
+  'synthesis_router',
+  {
+    description: GATEWAY_TOOL_DESCRIPTIONS.synthesis_router,
+    inputSchema: toInputShape(routerInputSchema),
+    toolpack: TOOL_METADATA.synthesis_router.toolpack,
+    category: TOOL_METADATA.synthesis_router.category,
+    sensitive: TOOL_METADATA.synthesis_router.sensitive,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    dynamicRegistry.recordCall('synthesis_router');
+    const validated = routerInputSchema.parse(input);
+    const result = await executeViaRouter(validated, dynamicRegistry);
+    return toToolResult(result);
+  }
+);
+
+/**
+ * Gateway Tool 4: synthesis_mcp_bridge
+ * Direct MCP call bypassing local state.
+ */
+dynamicRegistry.registerTool(
+  'synthesis_mcp_bridge',
+  {
+    description: GATEWAY_TOOL_DESCRIPTIONS.synthesis_mcp_bridge,
+    inputSchema: toInputShape(bridgeInputSchema),
+    toolpack: TOOL_METADATA.synthesis_mcp_bridge.toolpack,
+    category: TOOL_METADATA.synthesis_mcp_bridge.category,
+    sensitive: TOOL_METADATA.synthesis_mcp_bridge.sensitive,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    dynamicRegistry.recordCall('synthesis_mcp_bridge');
+    const validated = bridgeInputSchema.parse(input);
+    const result = await executeMcpBridge(validated, dynamicRegistry);
+    return toToolResult(result);
+  }
+);
+
+/**
+ * Gateway Tool 5: synthesis_search
+ * Always-on search fallback.
+ */
+dynamicRegistry.registerTool(
+  'synthesis_search',
+  {
+    description: GATEWAY_TOOL_DESCRIPTIONS.synthesis_search,
+    inputSchema: toInputShape(searchInputSchema),
+    toolpack: TOOL_METADATA.synthesis_search.toolpack,
+    category: TOOL_METADATA.synthesis_search.category,
+    sensitive: TOOL_METADATA.synthesis_search.sensitive,
+  },
+  // biome-ignore lint/suspicious/noExplicitAny: MCP SDK provides untyped input, validated by Zod
+  async (input: any) => {
+    dynamicRegistry.recordCall('synthesis_search');
+    const validated = searchInputSchema.parse(input);
+    const result = await executeSearch(validated, apiClient);
+    return toToolResult(result);
+  }
+);
+
 // =============================================================================
-// Tool Registration Complete (Phase 5.6.2)
+// Tool Registration Complete (Phase 5.6.3)
 // =============================================================================
-// All 19 tools are now registered via dynamicRegistry.registerTool() above:
+// All 22 tools are now registered via dynamicRegistry.registerTool() above:
 // - 17 original tools (Phase 3.5.3)
-// - 2 gateway tools (Phase 5.6.2): synthesis_discover_tools, enable_tools
+// - 5 gateway tools (Phase 5.6.2-5.6.3): synthesis_discover_tools, enable_tools,
+//   synthesis_router, synthesis_mcp_bridge, synthesis_search
 //
 // Each tool registration includes:
 // - MCP SDK handle capture for enable/disable operations
 // - Toolpack and category metadata from TOOL_METADATA
 // - Sensitive flag for gated access
 // - Call recording for usage analytics
+// - Handler storage for router/bridge execution
 //
 // The old toolRegistry.register() loop has been replaced by the unified
 // dynamicRegistry which manages both MCP SDK registration and metadata.

@@ -463,6 +463,13 @@ export class DynamicToolRegistry {
   /** Map of tool name to runtime state */
   private toolStates: Map<string, ToolState> = new Map();
 
+  /** Map of tool name to handler function (for router/bridge execution) */
+  private handlers: Map<
+    string,
+    // biome-ignore lint/suspicious/noExplicitAny: MCP SDK handler type is complex
+    (input: any) => Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }>
+  > = new Map();
+
   /** Dynamic tool configuration from environment */
   private config: DynamicToolConfig;
 
@@ -530,6 +537,9 @@ export class DynamicToolRegistry {
     // Create wrapped handle
     const handle = createSynthesisHandle(mcpHandle, metadata);
     this.handles.set(name, handle);
+
+    // Store handler for router/bridge execution
+    this.handlers.set(name, handler);
 
     // Initialize tool state
     this.toolStates.set(name, {
@@ -819,5 +829,45 @@ export class DynamicToolRegistry {
    */
   getActiveProfile(): ProfileName {
     return this.activeProfile;
+  }
+
+  /**
+   * Execute a tool by name with given parameters
+   *
+   * This method is used by gateway tools (router, bridge) to execute tools
+   * programmatically. It bypasses the MCP SDK request flow and calls the
+   * handler directly.
+   *
+   * @param name Tool name to execute
+   * @param params Parameters to pass to the tool
+   * @returns Tool result
+   * @throws Error if tool handler not found
+   */
+  async execute(
+    name: string,
+    params: Record<string, unknown>
+  ): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
+    const handler = this.handlers.get(name);
+    if (!handler) {
+      throw new Error(`Tool handler not found: ${name}`);
+    }
+    return handler(params);
+  }
+
+  /**
+   * Get the handler function for a tool
+   *
+   * This method is used to check if a tool exists before execution.
+   *
+   * @param name Tool name
+   * @returns Handler function or undefined if not found
+   */
+  getToolHandler(name: string):
+    | ((
+        // biome-ignore lint/suspicious/noExplicitAny: MCP SDK handler type is complex
+        input: any
+      ) => Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }>)
+    | undefined {
+    return this.handlers.get(name);
   }
 }
