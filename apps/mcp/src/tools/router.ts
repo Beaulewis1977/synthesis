@@ -22,7 +22,6 @@ import type {
   ToolResult,
 } from '../types/gateway-responses.js';
 import type { RouterInput } from '../types/gateway-schemas.js';
-import { isGatewayTool } from '../types/gateway-schemas.js';
 import type { ProfileName } from '../types/profiles.js';
 
 /**

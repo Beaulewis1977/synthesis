@@ -69,6 +69,12 @@ const ALL_EXPECTED_TOOLS = [
   'find_symbol_usages',
   // Graphing
   'graph_expand_context',
+  // Gateway
+  'synthesis_discover_tools',
+  'enable_tools',
+  'synthesis_router',
+  'synthesis_mcp_bridge',
+  'synthesis_search',
 ];
 
 // Expected sensitive tools

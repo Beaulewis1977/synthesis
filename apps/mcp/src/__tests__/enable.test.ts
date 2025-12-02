@@ -8,7 +8,7 @@
  * @since GPT Phase 3: Sub-Phase 5.6.2
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type {
   CategoryName,

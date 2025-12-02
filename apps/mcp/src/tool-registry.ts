@@ -16,7 +16,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ZodRawShape, ZodTypeAny, z } from 'zod';
 
 import { TOOLPACKS } from './toolpacks.js';
-import { GATEWAY_TOOL_NAMES, isGatewayTool } from './types/gateway-schemas.js';
+import { GATEWAY_TOOL_NAMES } from './types/gateway-schemas.js';
 import type { DynamicToolConfig, ProfileName } from './types/profiles.js';
 import { PROFILES, isValidProfile } from './types/profiles.js';
 import type { McpToolHandle, SynthesisToolHandle, ToolState } from './types/tool-handle.js';

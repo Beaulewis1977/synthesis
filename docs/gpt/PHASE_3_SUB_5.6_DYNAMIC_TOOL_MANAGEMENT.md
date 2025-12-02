@@ -21,7 +21,7 @@
 
 ## 1. Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                     ALWAYS-ON TOOLS (~2,000 tokens)                         │
 │  synthesis_discover_tools │ enable_tools │ synthesis_router │               │
@@ -439,13 +439,13 @@ The Synthesis MCP server uses dynamic tool management. Follow this strict order:
 - Returns metadata: `{ enabled_now, visible_to_client, tool_version }`
 
 ### Example: Find Flutter Auth Examples
-```
+
+```text
 1. Try: find_code_examples (if visible)
 2. If not: synthesis_discover_tools({ task: "Find Flutter auth examples with Supabase" })
 3. Then: enable_tools({ toolpacks: ["mobile_core"] })
 4. Then: find_code_examples({ collectionId, query: "auth", framework: "flutter" })
 5. Fallback: synthesis_router({ action: "find_code_examples", params: {...} })
-```
 ```
 
 ---

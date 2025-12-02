@@ -20,7 +20,7 @@
  * @since GPT Phase 3: Sub-Phase 5.6.4
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type {
   CategoryName,
@@ -574,7 +574,7 @@ describe('Integration: Discover → Enable → Call Workflow', () => {
   });
 
   it('re-discover shows updated enabled counts', () => {
-    const { registry, state } = createIntegrationMockRegistry({
+    const { registry } = createIntegrationMockRegistry({
       enabledTools: createMinimalEnabledSet(),
     });
 
@@ -719,7 +719,7 @@ describe('Integration: Router Auto-Enable Flow', () => {
   });
 
   it('auto-enabled tool works on subsequent calls without re-enable', async () => {
-    const { registry, state } = createIntegrationMockRegistry({
+    const { registry } = createIntegrationMockRegistry({
       enabledTools: createMinimalEnabledSet(),
       config: { routerMode: 'auto' },
     });
@@ -770,7 +770,7 @@ describe('Integration: Router Auto-Enable Flow', () => {
   });
 
   it('auto mode records tool call after execution', async () => {
-    const { registry, state } = createIntegrationMockRegistry({
+    const { registry } = createIntegrationMockRegistry({
       enabledTools: createMinimalEnabledSet(),
       config: { routerMode: 'auto' },
     });
@@ -914,7 +914,7 @@ describe('Integration: Bridge Bypass Flow', () => {
   });
 
   it('bridge works when router (respect mode) fails', async () => {
-    const { registry, state } = createIntegrationMockRegistry({
+    const { registry } = createIntegrationMockRegistry({
       enabledTools: createMinimalEnabledSet(),
       config: { routerMode: 'respect' },
     });
@@ -1010,7 +1010,7 @@ describe('Integration: Gateway Tool Protection', () => {
   });
 
   it('gateway tools cannot be accidentally disabled via state mutation', () => {
-    const { registry, state } = createIntegrationMockRegistry({
+    const { registry } = createIntegrationMockRegistry({
       enabledTools: createMinimalEnabledSet(),
     });
 
