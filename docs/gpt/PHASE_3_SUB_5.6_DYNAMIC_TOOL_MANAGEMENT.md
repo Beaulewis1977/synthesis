@@ -45,6 +45,14 @@
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+**Runtime Compatibility:** Synthesis MCP is model-agnostic and works with:
+- Anthropic Claude Code CLI / Claude Desktop (Windows/WSL2)
+- Google Gemini CLI (WSL2)
+- GPT Codex CLI (WSL2)
+- Any MCP-compliant client
+
+Dynamic features (enable_tools, notifications) are optional optimizations.
+
 ---
 
 ## 2. Tool Selection Policy (Strict Order)
@@ -56,6 +64,9 @@ Agents using Synthesis MCP tools MUST follow this cascading policy:
 3. **Enable with** `enable_tools({ toolpacks | categories | tools })`
 4. **If still not visible** (client may ignore updates), call `synthesis_router({ action, params })`
 5. **If router is gated or unsuitable**, use `synthesis_mcp_bridge` to call MCP server tool directly
+
+> **Note:** This policy works with any MCP client. Clients that don't support
+> `notifications/tools/list_changed` still function via `synthesis_router` (auto-enable).
 
 ---
 
@@ -451,6 +462,10 @@ The Synthesis MCP server uses dynamic tool management. Follow this strict order:
 - [ ] `MCP_TOOL_PROFILE=full` enables all tools at startup
 - [ ] All tools remain callable (via native, router, or bridge)
 - [ ] Token reduction verified with `tiktoken` measurement
+- [ ] Server uses MCP TypeScript SDK dynamic tool APIs (enable/disable/update)
+- [ ] Default profile (`minimal`) is fully usable by generic MCP clients
+- [ ] No Anthropic-specific fields or protocol extensions in MCP messages
+- [ ] All tools callable without client support for `tools/list_changed`
 
 ---
 
@@ -570,27 +585,53 @@ The Synthesis MCP server uses dynamic tool management. Follow this strict order:
 ## 14. GitHub Workflow
 
 ```bash
-# All work on single branch
-git checkout feature/gpt-phase3-mcp-task-tools
+# Start fresh from latest develop
+git checkout develop
+git pull origin develop
+
+# Create new branch for Sub-Phase 5.6
+git checkout -b feature/gpt-phase3-dynamic-tool-management
 
 # 5.6.0 - Pre-flight contracts
-git commit -m "feat(gpt-phase3): add dynamic tool management type contracts"
+# ... implement changes ...
+git add -A && git commit -m "feat(gpt-phase3): add dynamic tool management type contracts"
 
 # 5.6.1 - Registry
-git commit -m "feat(gpt-phase3): add tool registry and profile system"
+# ... implement changes ...
+git add -A && git commit -m "feat(gpt-phase3): add tool registry and profile system"
 
 # 5.6.2 - Discovery & Enable
-git commit -m "feat(gpt-phase3): add discovery and enable gateway tools"
+# ... implement changes ...
+git add -A && git commit -m "feat(gpt-phase3): add discovery and enable gateway tools"
 
 # 5.6.3 - Router & Bridge
-git commit -m "feat(gpt-phase3): add router and bridge gateway tools"
+# ... implement changes ...
+git add -A && git commit -m "feat(gpt-phase3): add router and bridge gateway tools"
 
 # 5.6.4 - Integration
-git commit -m "feat(gpt-phase3): add dynamic tool management integration tests"
+# ... implement changes ...
+git add -A && git commit -m "feat(gpt-phase3): add dynamic tool management integration tests"
 
-# Push and PR
-git push -u origin feature/gpt-phase3-mcp-task-tools
-gh pr create --base develop --title "GPT Phase 3: Task-Specific MCP Tools with Dynamic Management"
+# Push branch and create PR
+git push -u origin feature/gpt-phase3-dynamic-tool-management
+gh pr create --base develop --title "GPT Phase 3.5.6: Dynamic Tool Management" --body "## Summary
+- Implements Sub-Phase 5.6: Dynamic Tool Management
+- Reduces MCP tool context from ~15.8k to ~2k tokens
+- Adds gateway tools: discover, enable, router, bridge, search
+- Profile system: minimal, mobile, full
+
+## Sub-phases
+- 5.6.0: Type contracts
+- 5.6.1: Tool registry and profiles
+- 5.6.2: Discovery and enable tools
+- 5.6.3: Router and bridge tools
+- 5.6.4: Integration tests
+
+## Test Plan
+- [ ] All unit tests pass
+- [ ] Integration tests pass
+- [ ] Token measurement verified
+- [ ] Client compatibility tested (Claude Desktop, Cursor)"
 ```
 
 ---
@@ -603,6 +644,25 @@ See MCP resource: `mcp://synthesis/guidance/phase-5.6-execution`
 - Skills: `backend-development`, `mcp-server-architect`
 - MCP: `context7` for SDK docs
 - Subagents: `mcp-server-architect` (parallel), `test-writer` (per sub-phase), `code-standards-reviewer` (final)
+
+---
+
+## 16. Advanced Client Integration Patterns
+
+Synthesis features map to advanced agent capabilities without embedding client-specific logic:
+
+| Advanced Feature | Synthesis Equivalent | Notes |
+|------------------|---------------------|-------|
+| Tool Search Tool | `synthesis_discover_tools` | Semantic discovery via toolpacks |
+| defer_loading | `enable_tools` | Lazy-load tool definitions |
+| Programmatic Tool Calling | `synthesis_router` | Single orchestration entry point |
+| Code Mode (MCP) | TS wrapper library | Future: `servers/synthesis/*.ts` |
+
+**Server remains model-agnostic.** These integrations live in client configs/wrappers.
+
+**Future Work (out of scope for 5.6):**
+- TS wrapper library for Code Mode
+- Example Agent Skills using Synthesis tools
 
 ---
 

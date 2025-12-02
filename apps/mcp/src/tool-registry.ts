@@ -19,13 +19,15 @@ import type { z } from 'zod';
 
 /**
  * Toolpack names for grouping related tools
+ * Extended in 5.6.0 to include 'gateway' for always-on tools
  */
-export type ToolpackName = 'core' | 'mobile_core' | 'introspection' | 'graphing';
+export type ToolpackName = 'core' | 'mobile_core' | 'introspection' | 'graphing' | 'gateway';
 
 /**
  * Category names for tool classification
+ * Extended in 5.6.0 to include 'gateway' for always-on tools
  */
-export type CategoryName = 'core' | 'mobile' | 'graph' | 'introspection';
+export type CategoryName = 'core' | 'mobile' | 'graph' | 'introspection' | 'gateway';
 
 /**
  * Tool result type returned by MCP tools
@@ -275,7 +277,7 @@ export function createToolMetadata(
  * @returns True if valid toolpack name
  */
 export function isValidToolpack(value: string): value is ToolpackName {
-  return ['core', 'mobile_core', 'introspection', 'graphing'].includes(value);
+  return ['core', 'mobile_core', 'introspection', 'graphing', 'gateway'].includes(value);
 }
 
 /**
@@ -284,5 +286,5 @@ export function isValidToolpack(value: string): value is ToolpackName {
  * @returns True if valid category name
  */
 export function isValidCategory(value: string): value is CategoryName {
-  return ['core', 'mobile', 'graph', 'introspection'].includes(value);
+  return ['core', 'mobile', 'graph', 'introspection', 'gateway'].includes(value);
 }

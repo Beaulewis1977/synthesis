@@ -11,7 +11,7 @@
 
 **Goal:** Provide task-oriented MCP tools tuned for code-generation agents building mobile SaaS apps.
 
-**Status:** Sub-Phase 5.5 Complete
+**Status:** Sub-Phase 5.6.0 Complete (Dynamic Tool Management in progress)
 
 ---
 
@@ -470,7 +470,103 @@ apps/server/perf/
 
 ---
 
-## Remaining Sub-Phases
+## In Progress: Sub-Phase 5.6 - Dynamic Tool Management
+
+### Sub-Phase 5.6.0: Pre-Flight Contracts (Complete)
+
+**Scope:** Define TypeScript interfaces and Zod schemas before implementation.
+
+### Deliverables Created
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| Tool Handle Types | `apps/mcp/src/types/tool-handle.ts` | McpToolHandle, SynthesisToolHandle interfaces wrapping MCP SDK 1.19.x |
+| Gateway Schemas | `apps/mcp/src/types/gateway-schemas.ts` | Zod schemas for 5 gateway tools |
+| Gateway Responses | `apps/mcp/src/types/gateway-responses.ts` | Response types with type guards |
+| Profile System | `apps/mcp/src/types/profiles.ts` | minimal/mobile/full profiles with token estimation |
+| Types Barrel | `apps/mcp/src/types/index.ts` | Central export for all types |
+| Type Tests | `apps/mcp/src/types/__tests__/type-contracts.test.ts` | 65 schema validation tests |
+
+### Gateway Tools Defined (5 Always-On Tools)
+
+| # | Tool | Purpose | Estimated Tokens |
+|---|------|---------|------------------|
+| 1 | `synthesis_discover_tools` | Discover available tools/toolpacks by task | ~400 |
+| 2 | `enable_tools` | Enable tools by name, toolpack, or category | ~350 |
+| 3 | `synthesis_router` | Execute any tool with auto-enable support | ~300 |
+| 4 | `synthesis_mcp_bridge` | Direct MCP call bypassing local state | ~250 |
+| 5 | `synthesis_search` | Always-on search fallback | ~350 |
+
+### Profile System
+
+| Profile | Toolpacks | Est. Tokens | Use Case |
+|---------|-----------|-------------|----------|
+| `minimal` | gateway only | ~2,500 | Default startup, token-constrained contexts |
+| `mobile` | gateway + mobile_core | ~5,000 | Mobile development workflows |
+| `full` | all toolpacks | ~16,000 | Unlimited token budgets |
+
+### Key Type Contracts
+
+```typescript
+// Gateway tool input schemas with Zod validation
+discoverToolsInputSchema  // { task?, list_all? }
+enableToolsInputSchema    // { tools?, toolpacks?, categories? } - requires at least one
+routerInputSchema         // { action, params }
+bridgeInputSchema         // { server: 'synthesis', tool, params }
+searchInputSchema         // { collectionId, query, top_k?, min_similarity? }
+
+// Response types with type guards
+RouterResult = RouterSuccess | RouterError
+isRouterError(result)  // Type guard
+isRouterSuccess(result) // Type guard
+
+// Profile configuration
+parseEnvConfig() → { profile, routerMode, sensitiveEnforce, debug }
+```
+
+### Files Changed
+
+```
+apps/mcp/src/types/
+├── __tests__/
+│   └── type-contracts.test.ts        (CREATED - 65 tests)
+├── gateway-responses.ts              (CREATED - response types)
+├── gateway-schemas.ts                (CREATED - Zod schemas)
+├── index.ts                          (CREATED - barrel export)
+├── profiles.ts                       (CREATED - profile system)
+└── tool-handle.ts                    (CREATED - MCP SDK wrapper types)
+
+apps/mcp/src/
+├── tool-registry.ts                  (MODIFIED - added 'gateway' to unions)
+├── toolpacks.ts                      (MODIFIED - added gateway toolpack)
+└── __tests__/
+    └── mcp-integration.test.ts       (MODIFIED - updated for 5 toolpacks)
+```
+
+### Acceptance Criteria Met
+
+- [x] ToolDefinition interface with toolpack, category, sensitive, version fields
+- [x] ToolHandle type for enable/disable operations (wrapping MCP SDK)
+- [x] Response types for all 5 gateway tools
+- [x] Zod schemas for runtime validation
+- [x] Type-level tests via tsc (compiles without errors)
+- [x] Schema validation tests (65 tests passing)
+- [x] 'gateway' toolpack added to TOOLPACKS and TOOL_METADATA
+- [x] Model-agnostic (no Anthropic-specific fields)
+
+### Remaining 5.6 Sub-Phases
+
+| # | Sub-Phase | Status | Description |
+|---|-----------|--------|-------------|
+| 5.6.0 | Pre-Flight Contracts | ✅ Complete | Type contracts and Zod schemas |
+| 5.6.1 | Tool Registry Foundation | Pending | Registry class, handles map, profile startup |
+| 5.6.2 | Gateway Tools - Discovery & Enable | Pending | synthesis_discover_tools, enable_tools |
+| 5.6.3 | Gateway Tools - Router & Bridge | Pending | synthesis_router, synthesis_mcp_bridge, synthesis_search |
+| 5.6.4 | Integration Tests & Token Verification | Pending | E2E flows, client compatibility, tiktoken measurement |
+
+---
+
+## Sub-Phase Progress
 
 | # | Sub-Phase | Status | Est. Time |
 |---|-----------|--------|-----------|
@@ -479,7 +575,7 @@ apps/server/perf/
 | 5.3 | MCP Tool Implementation | ✅ Complete | - |
 | 5.4 | Agent Prompt & Config Updates | ✅ Complete | - |
 | 5.5 | Scenario-Based Evaluation | ✅ Complete | - |
-| 5.6 | Dynamic Tool Management | Pending | 3-4 days |
+| 5.6 | Dynamic Tool Management | 🔄 In Progress (5.6.0 done) | 3-4 days |
 
 ---
 
