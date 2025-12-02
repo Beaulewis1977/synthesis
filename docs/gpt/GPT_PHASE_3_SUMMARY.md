@@ -11,7 +11,7 @@
 
 **Goal:** Provide task-oriented MCP tools tuned for code-generation agents building mobile SaaS apps.
 
-**Status:** Sub-Phase 5.3 Complete
+**Status:** Sub-Phase 5.4 Complete
 
 ---
 
@@ -230,6 +230,64 @@ Updated `apps/mcp/src/index.ts`:
 
 ---
 
+## Completed: Sub-Phase 5.4 - Agent Prompt & Config Updates
+
+### Deliverables Created
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| Agent System Prompt Update | `apps/server/src/agent/agent.ts` | Added ~10 lines of MCP tool selection guidance |
+| Agent Tool Usage Guide | `docs/mcp/MCP_AGENT_TOOL_USAGE_GUIDE.md` | Comprehensive guide for tool selection and workflows |
+
+### Agent System Prompt Enhancement
+
+Added tool selection guidance to `BASE_SYSTEM_PROMPT` in `apps/server/src/agent/agent.ts`:
+
+```
+MCP Tool Selection:
+- Feature design (patterns/best practices): Use get_feature_recipe first for curated guides
+- Code examples (working samples): Use find_code_examples to find demo implementations
+- Framework-specific docs: Use search_mobile_docs with framework/featureTags filters
+- General search: Use search_rag for broad collection searches
+- Project analysis: Use get_project_tech_stack and get_db_schema to understand existing projects
+- Code tracing: Use graph_expand_context and find_symbol_usages to trace code flow
+
+For complex tasks, chain tools: get_feature_recipe → find_code_examples → search_mobile_docs
+```
+
+### Agent Tool Usage Guide
+
+Created comprehensive `docs/mcp/MCP_AGENT_TOOL_USAGE_GUIDE.md` with:
+
+- **Quick Reference Table**: Tool selection by task type
+- **Tool Profiles**: When to use / when NOT to use each tool
+- **Multi-Tool Workflows**: Standard workflows for feature design, bug investigation, refactoring, learning
+- **Worked Examples**: 4 detailed examples (Stripe billing, auth bug, data persistence, symbol lookup)
+- **Anti-Patterns**: Common mistakes and how to avoid them
+- **Tool Selection Checklist**: 5-step decision process
+
+### Files Changed
+
+```
+apps/server/src/agent/
+└── agent.ts                              (MODIFIED - added tool selection guidance)
+
+docs/mcp/
+└── MCP_AGENT_TOOL_USAGE_GUIDE.md         (CREATED - comprehensive usage guide)
+```
+
+### Acceptance Criteria Met
+
+- [x] Agent system prompt includes tool selection guidance (~10 lines)
+- [x] MCP_AGENT_TOOL_USAGE_GUIDE.md created with comprehensive tool guidance
+- [x] Tool profiles document when to use / when NOT to use each tool
+- [x] Multi-tool workflow patterns documented
+- [x] Worked examples cover common scenarios (auth, billing, code tracing)
+- [x] Anti-patterns documented to prevent common mistakes
+- [x] Type checking passes (`pnpm typecheck`)
+
+---
+
 ## Remaining Sub-Phases
 
 | # | Sub-Phase | Status | Est. Time |
@@ -237,7 +295,7 @@ Updated `apps/mcp/src/index.ts`:
 | 5.1 | Task Taxonomy & Tool Design | ✅ Complete | - |
 | 5.2 | HTTP API Enhancements | ✅ Complete | - |
 | 5.3 | MCP Tool Implementation | ✅ Complete | - |
-| 5.4 | Agent Prompt & Config Updates | Pending | 2-3 days |
+| 5.4 | Agent Prompt & Config Updates | ✅ Complete | - |
 | 5.5 | Scenario-Based Evaluation | Pending | 2-3 days |
 | 5.6 | Dynamic Tool Management | Pending | 3-4 days |
 
@@ -317,15 +375,15 @@ apps/mcp/src/
 
 ---
 
-## Next Steps (Sub-Phase 5.4)
+## Next Steps (Sub-Phase 5.5)
 
-Sub-Phase 5.3 added the tool registry infrastructure and tests for 5.6 compatibility.
+Sub-Phase 5.4 added tool selection guidance to the agent system prompt and comprehensive documentation.
 
-For Sub-Phase 5.4 (Agent Prompt & Config Updates), focus on:
-1. Update agent system prompts with tool usage examples
-2. Add tool selection guidance to prompts
-3. Document when to use each tool vs alternatives
-4. Create worked examples for common workflows
+For Sub-Phase 5.5 (Scenario-Based Evaluation), focus on:
+1. Create scenario test files in `.agent-scenarios/mobile-saas/`
+2. Build `mcp_scenario_runner.mjs` harness
+3. Define success criteria for each scenario
+4. Test tool workflows end-to-end
 
 ---
 
