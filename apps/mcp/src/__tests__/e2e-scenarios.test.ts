@@ -632,7 +632,7 @@ describe('MCP E2E Scenarios', () => {
 
       const input = {
         collectionId: VALID_UUID,
-        seedChunkIds: ['chunk-seed-1'],
+        seedChunkIds: [1],
         maxDepth: 2,
         maxNodes: 20,
         edgeTypes: ['calls', 'imports'],
@@ -685,7 +685,7 @@ describe('MCP E2E Scenarios', () => {
     it('should allow multiple seed types', () => {
       const input = {
         collectionId: VALID_UUID,
-        seedChunkIds: ['chunk-1'],
+        seedChunkIds: [1],
         seedNodeIds: ['node-1'],
         query: 'auth',
         maxDepth: 2,

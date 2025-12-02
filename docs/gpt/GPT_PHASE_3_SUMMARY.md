@@ -940,20 +940,21 @@ apps/mcp/src/
 
 **CLI Usage:**
 ```bash
-npx tsx apps/mcp/perf/token-measurement.ts          # Full markdown report
+npx tsx apps/mcp/perf/token-measurement.ts          # Mock estimates (deprecated)
+npx tsx apps/mcp/perf/token-measurement.ts --real   # Real Zod schemas
 npx tsx apps/mcp/perf/token-measurement.ts --json   # JSON output
 npx tsx apps/mcp/perf/token-measurement.ts --profile minimal
 ```
 
-**Token Estimates (using chars/3.5 heuristic):**
+**Token Measurements (Real vs Mock):**
 
-| Profile | Tool Count | Estimated Tokens | Reduction |
-|---------|------------|------------------|-----------|
-| minimal | 6 | ~507 | 74% vs full |
-| mobile | 11 | ~1,070 | 45% vs full |
-| full | 22 | ~1,930 | baseline |
+| Profile | Tool Count | Mock Estimate | Real (Claude Code) | % of 200k Context |
+|---------|------------|---------------|--------------------|-------------------|
+| minimal | 6 | ~507 | **~4,000** | 2.0% |
+| mobile | 11 | ~1,070 | **~8,500** | 4.3% |
+| full | 22 | ~1,930 | **~15,000** | 7.5% |
 
-*Note: Token counts are estimates using simple heuristic. Relative deltas between profiles are the key validation metric.*
+> **⚠️ Important**: Mock measurements are ~8x lower than reality. Use `--real` flag or Claude Code's `/context` command for accurate counts.
 
 ### Registry API Extension
 

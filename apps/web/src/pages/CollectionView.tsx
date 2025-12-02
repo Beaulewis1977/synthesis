@@ -31,11 +31,15 @@ function GraphCoverageCard({
   stats,
   isLoading,
   totalDocuments,
+  collectionId,
 }: {
   stats: GraphStatsResponse | undefined;
   isLoading: boolean;
   totalDocuments: number;
+  collectionId?: string;
 }) {
+  // Build graph URL with collection context if available
+  const graphUrl = collectionId ? `/graph?collection=${collectionId}` : '/graph';
   // Loading skeleton
   if (isLoading) {
     return (
@@ -61,7 +65,7 @@ function GraphCoverageCard({
         </div>
         <p className="text-sm text-text-secondary">
           No graph data available. Visit the{' '}
-          <Link to="/graph" className="text-accent hover:underline">
+          <Link to={graphUrl} className="text-accent hover:underline">
             Graph page
           </Link>{' '}
           to build the knowledge graph for this collection.
@@ -88,7 +92,7 @@ function GraphCoverageCard({
           <Network size={18} className="text-accent" aria-hidden="true" />
           <h4 className="font-medium text-text-primary">Knowledge Graph Coverage</h4>
         </div>
-        <Link to="/graph" className="text-sm text-accent hover:underline">
+        <Link to={graphUrl} className="text-sm text-accent hover:underline">
           View Graph
         </Link>
       </div>
@@ -579,6 +583,7 @@ export function CollectionView() {
           stats={graphStats}
           isLoading={graphStatsLoading}
           totalDocuments={data?.documents.length ?? 0}
+          collectionId={id}
         />
       </div>
 
