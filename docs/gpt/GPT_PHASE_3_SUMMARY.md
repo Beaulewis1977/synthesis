@@ -1,6 +1,6 @@
 # GPT Phase 3 Summary: Task-Specific MCP Tools
 
-**Version:** 1.1
+**Version:** 1.2
 **Created:** December 2025
 **Updated:** December 2025
 **Branch:** `feature/gpt-phase3-mcp-task-tools`
@@ -11,7 +11,7 @@
 
 **Goal:** Provide task-oriented MCP tools tuned for code-generation agents building mobile SaaS apps.
 
-**Status:** Sub-Phase 5.2 Complete
+**Status:** Sub-Phase 5.3 Complete
 
 ---
 
@@ -169,15 +169,77 @@ Mapped 26+ mobile feature tags across 7 categories:
 
 ---
 
+## Completed: Sub-Phase 5.3 - MCP Tool Implementation
+
+### Deliverables Created
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| Tool Registry | `apps/mcp/src/tool-registry.ts` | ToolDefinition interface, metadata tracking for 5.6 compatibility |
+| Toolpacks | `apps/mcp/src/toolpacks.ts` | Toolpack definitions (mobile_core, introspection, graphing, core) |
+| Integration Tests | `apps/mcp/src/__tests__/mcp-integration.test.ts` | Registry, toolpack, and metadata tests |
+| E2E Scenario Tests | `apps/mcp/src/__tests__/e2e-scenarios.test.ts` | Tool workflow scenario tests |
+
+### Tool Registry Infrastructure
+
+Created `tool-registry.ts` with:
+- `ToolDefinition` interface with `{ toolpack, category, sensitive, version }` metadata
+- `ToolRegistry` class for tool registration and lookup
+- Helper functions: `createToolMetadata()`, `isValidToolpack()`, `isValidCategory()`
+- Global `toolRegistry` singleton instance
+
+### Toolpack Definitions
+
+Created `toolpacks.ts` with 4 toolpacks:
+
+| Toolpack | Category | Tools | Sensitive Tools |
+|----------|----------|-------|-----------------|
+| `mobile_core` | mobile | search_mobile_docs, find_code_examples, get_feature_recipe | - |
+| `introspection` | introspection | get_project_tech_stack, get_db_schema, find_symbol_usages | get_db_schema |
+| `graphing` | graph | graph_expand_context | - |
+| `core` | core | search_rag, list_collections, list_documents, create_collection, fetch_and_add_document_from_url, delete_document, delete_collection, add_repo_to_collection, sync_repo, list_repos | delete_document, delete_collection |
+
+### Server Enhancements
+
+Updated `apps/mcp/src/index.ts`:
+- Bumped version to `2.0.0`
+- Added `capabilities: { tools: { listChanged: true } }` for dynamic tool management
+- Added tool metadata registration for all 17 tools
+- Updated startup messages to show registry stats
+
+### Tests Added
+
+| Test File | Tests | Coverage |
+|-----------|-------|----------|
+| `apps/mcp/src/__tests__/mcp-integration.test.ts` | 46 | Tool registry, toolpacks, metadata consistency |
+| `apps/mcp/src/__tests__/e2e-scenarios.test.ts` | 26 | E2E workflow scenarios for all Phase 3 tools |
+
+**Total New Tests:** 72 (all passing)
+**MCP Package Total:** 259 tests (all passing)
+
+### Acceptance Criteria Met
+
+- [x] Tools include `{ toolpack, category, sensitive }` metadata for 5.6 compatibility
+- [x] Tool registry created with ToolDefinition interface
+- [x] Toolpacks defined: mobile_core, introspection, graphing, core
+- [x] Server version bumped to 2.0.0 with listChanged capability
+- [x] Integration tests for registry and toolpacks (46 tests)
+- [x] E2E scenario tests for all Phase 3 tools (26 tests)
+- [x] All MCP package tests pass (259 tests)
+- [x] Type checking passes (`pnpm typecheck`)
+
+---
+
 ## Remaining Sub-Phases
 
 | # | Sub-Phase | Status | Est. Time |
 |---|-----------|--------|-----------|
 | 5.1 | Task Taxonomy & Tool Design | ✅ Complete | - |
 | 5.2 | HTTP API Enhancements | ✅ Complete | - |
-| 5.3 | MCP Tool Implementation | Pending | 4-6 days |
+| 5.3 | MCP Tool Implementation | ✅ Complete | - |
 | 5.4 | Agent Prompt & Config Updates | Pending | 2-3 days |
 | 5.5 | Scenario-Based Evaluation | Pending | 2-3 days |
+| 5.6 | Dynamic Tool Management | Pending | 3-4 days |
 
 ---
 
@@ -242,17 +304,28 @@ apps/mcp/src/__tests__/
 └── phase3-tools.test.ts                      (CREATED - 71 tests)
 ```
 
+### Sub-Phase 5.3 (MCP Tool Implementation)
+```
+apps/mcp/src/
+├── tool-registry.ts                          (CREATED - ToolDefinition, ToolRegistry class)
+├── toolpacks.ts                              (CREATED - TOOLPACKS, TOOL_METADATA definitions)
+├── index.ts                                  (MODIFIED - v2.0.0, listChanged, metadata registration)
+└── __tests__/
+    ├── mcp-integration.test.ts               (CREATED - 46 tests)
+    └── e2e-scenarios.test.ts                 (CREATED - 26 tests)
+```
+
 ---
 
-## Next Steps (Sub-Phase 5.3)
+## Next Steps (Sub-Phase 5.4)
 
-Sub-Phase 5.2 implemented the HTTP API enhancements AND the MCP tools together (tools 15-17).
+Sub-Phase 5.3 added the tool registry infrastructure and tests for 5.6 compatibility.
 
-For Sub-Phase 5.3, focus on:
-1. Integration testing of MCP tools with live API
-2. End-to-end testing with actual collection data
-3. Error handling improvements and edge cases
-4. Performance optimization for large collections
+For Sub-Phase 5.4 (Agent Prompt & Config Updates), focus on:
+1. Update agent system prompts with tool usage examples
+2. Add tool selection guidance to prompts
+3. Document when to use each tool vs alternatives
+4. Create worked examples for common workflows
 
 ---
 

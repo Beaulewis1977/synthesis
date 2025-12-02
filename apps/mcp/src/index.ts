@@ -18,6 +18,8 @@ import { z } from 'zod';
 
 import { apiClient } from './api.js';
 import { getRateLimiter } from './rate-limiter.js';
+import { toolRegistry } from './tool-registry.js';
+import { TOOL_METADATA } from './toolpacks.js';
 
 // Load environment variables
 dotenv.config();
@@ -34,11 +36,18 @@ const MCP_PORT = (() => {
 })();
 const MCP_MODE = process.env.MCP_MODE || 'stdio'; // 'stdio' or 'http'
 
-// Initialize MCP Server
-const server = new McpServer({
-  name: 'synthesis-rag',
-  version: '1.0.0',
-});
+// Initialize MCP Server with dynamic tool management capabilities (Phase 3.6)
+const server = new McpServer(
+  {
+    name: 'synthesis-rag',
+    version: '2.0.0', // Bumped for Phase 3 tool registry support
+  },
+  {
+    capabilities: {
+      tools: { listChanged: true }, // Support dynamic tool enable/disable notifications
+    },
+  }
+);
 
 /**
  * Extract the shape from a z.object schema for MCP SDK 1.19.x compatibility.
@@ -1042,6 +1051,53 @@ server.registerTool(
   }
 );
 
+// =============================================================================
+// Tool Registry Initialization
+// =============================================================================
+// Register all tools in the global registry for Phase 5.6 dynamic management.
+// This batch registration populates toolpack, category, and sensitive metadata.
+
+const TOOL_DESCRIPTIONS: Record<string, string> = {
+  search_rag:
+    'Search the RAG knowledge base for relevant information and return matching chunks with citations.',
+  list_collections: 'List all available collections in the RAG system.',
+  list_documents: 'List all documents in a specific collection.',
+  create_collection: 'Create a new collection in the RAG system.',
+  fetch_and_add_document_from_url:
+    'Fetch content from a URL and add it as a document to a collection.',
+  delete_document: 'Delete a document and all its chunks from a collection.',
+  delete_collection: 'Delete an entire collection and all its documents.',
+  add_repo_to_collection: 'Add a Git repository to a collection for indexing.',
+  sync_repo: 'Sync a repository source with its remote origin.',
+  list_repos: 'List all repository sources in a collection.',
+  search_mobile_docs:
+    'Search mobile documentation with feature-aware filtering for Flutter, React Native, Swift, or Kotlin.',
+  find_code_examples: 'Find code examples for mobile development features.',
+  get_feature_recipe: 'Get curated recipe documentation for mobile feature implementation.',
+  graph_expand_context: 'Expand context using knowledge graph traversal from seed nodes.',
+  find_symbol_usages: 'Search for symbol definitions and usages across the codebase.',
+  get_project_tech_stack: 'Get the technology stack profile for a project collection.',
+  get_db_schema: 'Extract database schema from the codebase knowledge graph.',
+};
+
+// Register metadata for all tools that have entries in TOOL_METADATA
+// Note: This registry is for metadata introspection only. Actual schemas and handlers
+// are registered with server.registerTool() above. This supports Phase 5.6 dynamic
+// tool management (enable/disable, toolpack queries, sensitive tool identification).
+for (const [toolName, description] of Object.entries(TOOL_DESCRIPTIONS)) {
+  const metadata = TOOL_METADATA[toolName];
+  if (metadata) {
+    toolRegistry.register({
+      name: toolName,
+      toolpack: metadata.toolpack,
+      category: metadata.category,
+      description,
+      sensitive: metadata.sensitive,
+      version: '1.0.0',
+    });
+  }
+}
+
 /**
  * Main function to start the MCP server with either stdio or HTTP transport
  */
@@ -1052,10 +1108,13 @@ async function main() {
       const stdioTransport = new StdioServerTransport();
       await server.connect(stdioTransport);
 
-      console.error('🚀 Synthesis MCP Server started successfully');
+      console.error('🚀 Synthesis MCP Server v2.0.0 started successfully');
       console.error('   Mode: stdio');
       console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
-      console.error('   Tools: 17 available');
+      console.error(
+        `   Tools: ${toolRegistry.size} registered (${toolRegistry.getSensitiveTools().length} sensitive)`
+      );
+      console.error('   Capabilities: listChanged=true');
       console.error('');
     } else if (MCP_MODE === 'http') {
       // Start HTTP/SSE transport for Claude Desktop and web clients
@@ -1136,12 +1195,15 @@ async function main() {
 
       httpServer.listen(MCP_PORT, () => {
         const stats = rateLimiter.getStats();
-        console.error('🚀 Synthesis MCP Server started successfully');
+        console.error('🚀 Synthesis MCP Server v2.0.0 started successfully');
         console.error('   Mode: HTTP/SSE');
         console.error(`   Port: ${MCP_PORT}`);
         console.error(`   URL: http://localhost:${MCP_PORT}`);
         console.error(`   Backend API: ${process.env.BACKEND_API_URL || 'http://localhost:3333'}`);
-        console.error('   Tools: 17 available');
+        console.error(
+          `   Tools: ${toolRegistry.size} registered (${toolRegistry.getSensitiveTools().length} sensitive)`
+        );
+        console.error('   Capabilities: listChanged=true');
         console.error(
           `   Rate Limit: ${stats.config.refillRate}/min, burst ${stats.config.burstCapacity}`
         );
