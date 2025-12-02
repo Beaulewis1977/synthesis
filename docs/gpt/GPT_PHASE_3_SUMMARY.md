@@ -11,7 +11,7 @@
 
 **Goal:** Provide task-oriented MCP tools tuned for code-generation agents building mobile SaaS apps.
 
-**Status:** Sub-Phase 5.6.0 Complete (Dynamic Tool Management in progress)
+**Status:** Sub-Phase 5.6.1 Complete (Dynamic Tool Management in progress)
 
 ---
 
@@ -554,12 +554,187 @@ apps/mcp/src/
 - [x] 'gateway' toolpack added to TOOLPACKS and TOOL_METADATA
 - [x] Model-agnostic (no Anthropic-specific fields)
 
+### Sub-Phase 5.6.1: Tool Registry Foundation (Complete)
+
+**Scope:** Implement DynamicToolRegistry class that wraps MCP SDK tool handles for enable/disable operations, profile-based startup, and toolpack management.
+
+### Deliverables Created
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| DynamicToolRegistry Class | `apps/mcp/src/tool-registry.ts` | Main registry class with enable/disable/profile operations |
+| EnableDisableResult Type | `apps/mcp/src/tool-registry.ts` | Structured result type with reason codes |
+| EnhancedRegistrySnapshot | `apps/mcp/src/tool-registry.ts` | Snapshot with callStats for usage analytics |
+| createSynthesisHandle Factory | `apps/mcp/src/tool-registry.ts` | Factory function wrapping MCP SDK handles |
+| Registry Unit Tests | `apps/mcp/src/__tests__/dynamic-tool-registry.test.ts` | 47 tests for DynamicToolRegistry |
+
+### Key Types Added
+
+```typescript
+// Enable/Disable result with reason codes
+type EnableDisableReason =
+  | 'already_enabled'
+  | 'already_disabled'
+  | 'gateway_protected'
+  | 'not_found'
+  | 'sensitive_gated';
+
+interface EnableDisableResult {
+  ok: boolean;
+  reason?: EnableDisableReason;
+}
+
+// Enhanced snapshot with usage analytics
+interface EnhancedRegistrySnapshot {
+  tools: ToolState[];
+  enabledCount: number;
+  totalCount: number;
+  activeProfile: ProfileName;
+  uptimeMs: number;
+  callStats: {
+    totalCalls: number;
+    topTools: Array<{ name: string; count: number }>;  // Top 5 by usage
+  };
+}
+```
+
+### DynamicToolRegistry API
+
+```typescript
+class DynamicToolRegistry {
+  // Registration - captures MCP SDK handles
+  registerTool(name, options, handler): SynthesisToolHandle;
+
+  // Enable/Disable with structured results
+  enable(name: string): EnableDisableResult;
+  disable(name: string): EnableDisableResult;  // Rejects gateway tools
+
+  // Batch operations
+  enableToolpack(toolpack: ToolpackName): string[];
+  enableCategory(category: CategoryName): string[];
+
+  // Profile management (throws on invalid profile)
+  applyProfile(profileName: ProfileName): void;
+
+  // Introspection
+  isEnabled(name: string): boolean;
+  getEnabledCount(): number;
+  getSensitiveToolCount(): number;
+  getSnapshot(): EnhancedRegistrySnapshot;
+
+  // Usage tracking
+  recordCall(name: string): void;
+}
+```
+
+### Key Implementation Details
+
+**MCP SDK Handle Capture:**
+```typescript
+// Each registerTool() call now captures the MCP SDK handle
+const mcpHandle = this.server.registerTool(name, options, handler);
+const handle = createSynthesisHandle(mcpHandle, metadata);
+this.handles.set(name, handle);
+```
+
+**Gateway Tool Protection:**
+- 5 gateway tools cannot be disabled: `synthesis_discover_tools`, `enable_tools`, `synthesis_router`, `synthesis_mcp_bridge`, `synthesis_search`
+- `disable()` returns `{ ok: false, reason: 'gateway_protected' }` for these tools
+
+**Profile Application Sequence:**
+1. Disable ALL non-gateway tools
+2. Enable tools from profile toolpacks
+3. Enable additional individual tools from profile
+
+**Profile Validation:**
+- `applyProfile()` throws on invalid profile name (fail fast)
+- Valid profiles: `minimal`, `mobile`, `full`
+
+### index.ts Refactor
+
+**Changes Made:**
+1. Imported `DynamicToolRegistry` and `parseEnvConfig`
+2. Created `dynamicRegistry` instance with config from environment
+3. Converted all 17 `server.registerTool()` calls to `dynamicRegistry.registerTool()` with metadata
+4. Added `dynamicRegistry.recordCall()` in each tool handler for usage tracking
+5. Called `dynamicRegistry.applyProfile(config.profile)` before `server.connect()`
+6. Updated startup logs to show profile and enabled/total counts
+7. Exported `dynamicRegistry` for gateway tools (5.6.2)
+
+**Startup Logs Updated:**
+```
+🚀 Synthesis MCP Server v2.0.0 started successfully
+   Mode: stdio
+   Profile: minimal
+   Backend API: http://localhost:3333
+   Tools: 6/17 enabled (3 sensitive)
+   Capabilities: listChanged=true
+```
+
+### Files Changed
+
+```
+apps/mcp/src/
+├── tool-registry.ts                    (EXTENDED - +320 lines)
+│   ├── EnableDisableResult type
+│   ├── EnhancedRegistrySnapshot type
+│   ├── DynamicToolOptions interface
+│   ├── createSynthesisHandle() factory
+│   ├── DynamicToolRegistry class
+│   └── getSensitiveToolCount() method
+├── index.ts                            (REFACTORED)
+│   ├── Import DynamicToolRegistry, parseEnvConfig
+│   ├── Create and export dynamicRegistry
+│   ├── Convert 17 server.registerTool() → dynamicRegistry.registerTool()
+│   ├── Add recordCall() to each handler
+│   ├── Call applyProfile() before server.connect()
+│   └── Update startup logs
+└── __tests__/
+    └── dynamic-tool-registry.test.ts   (CREATED - 47 tests)
+```
+
+### Tests Added
+
+| Category | Tests | Description |
+|----------|-------|-------------|
+| createSynthesisHandle | 6 | Handle creation and enable/disable |
+| Registration | 6 | Tool registration with metadata |
+| Enable operations | 6 | Enable with result types, idempotency |
+| Disable operations | 6 | Disable with result types, gateway protection |
+| Batch operations | 4 | enableToolpack, enableCategory |
+| Profile: minimal | 2 | Only gateway + list_collections enabled |
+| Profile: mobile | 2 | Gateway + mobile_core + additionals |
+| Profile: full | 2 | All tools enabled |
+| Profile validation | 2 | Invalid profile throws |
+| Introspection | 3 | isEnabled, getEnabledCount, getSnapshot |
+| Call recording | 6 | recordCall updates state and stats |
+| Configuration | 2 | getConfig, getActiveProfile |
+
+**Total:** 47 new tests (all passing)
+
+### Acceptance Criteria Met
+
+- [x] Tool registry captures MCP SDK handles for enable/disable
+- [x] Tools can be enabled/disabled via handles
+- [x] Profile-based startup (minimal/mobile/full) works correctly
+- [x] Gateway tools cannot be disabled (protected)
+- [x] Profile validation throws on invalid profile name
+- [x] EnableDisableResult type surfaces clear failure reasons
+- [x] EnhancedRegistrySnapshot includes callStats with topTools
+- [x] dynamicRegistry exported from index.ts for 5.6.2
+- [x] Existing tools function unchanged after refactor
+- [x] All 47 new tests pass
+- [x] TypeScript type checking passes
+- [x] Model-agnostic (no Anthropic-specific fields)
+
+---
+
 ### Remaining 5.6 Sub-Phases
 
 | # | Sub-Phase | Status | Description |
 |---|-----------|--------|-------------|
 | 5.6.0 | Pre-Flight Contracts | ✅ Complete | Type contracts and Zod schemas |
-| 5.6.1 | Tool Registry Foundation | Pending | Registry class, handles map, profile startup |
+| 5.6.1 | Tool Registry Foundation | ✅ Complete | DynamicToolRegistry class, handles, profile startup |
 | 5.6.2 | Gateway Tools - Discovery & Enable | Pending | synthesis_discover_tools, enable_tools |
 | 5.6.3 | Gateway Tools - Router & Bridge | Pending | synthesis_router, synthesis_mcp_bridge, synthesis_search |
 | 5.6.4 | Integration Tests & Token Verification | Pending | E2E flows, client compatibility, tiktoken measurement |
@@ -575,7 +750,7 @@ apps/mcp/src/
 | 5.3 | MCP Tool Implementation | ✅ Complete | - |
 | 5.4 | Agent Prompt & Config Updates | ✅ Complete | - |
 | 5.5 | Scenario-Based Evaluation | ✅ Complete | - |
-| 5.6 | Dynamic Tool Management | 🔄 In Progress (5.6.0 done) | 3-4 days |
+| 5.6 | Dynamic Tool Management | 🔄 In Progress (5.6.0-5.6.1 done) | 2-3 days remaining |
 
 ---
 
