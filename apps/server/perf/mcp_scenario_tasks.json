@@ -1,0 +1,398 @@
+{
+  "$schema": "./mcp_scenario_tasks.schema.json",
+  "version": "1.0",
+  "description": "Scenario-based evaluation tasks for testing Phase 3 MCP tools. Each scenario simulates a real-world mobile SaaS development workflow that requires multiple tool calls to complete successfully.",
+  "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
+  "scenarios": [
+    {
+      "id": "flutter-supabase-auth",
+      "description": "Build a minimal Flutter + Supabase authentication flow. Tests the agent's ability to find recipes, documentation, code examples, and database schema for implementing auth.",
+      "category": "authentication",
+      "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
+      "steps": [
+        {
+          "stepId": "1-get-recipe",
+          "description": "Get the recommended authentication recipe for Flutter with Supabase backend",
+          "tool": "get_feature_recipe",
+          "endpoint": "POST /api/search",
+          "params": {
+            "query": "authentication recipe flutter supabase",
+            "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+            "feature_tags": ["auth"],
+            "platform": "mobile",
+            "usage_tier": "recipe"
+          },
+          "expectations": {
+            "minResults": 1,
+            "requiredUsageTiers": ["recipe"],
+            "requiredFeatureTags": ["auth"],
+            "expectedDocPatterns": ["supabase", "authentication", "flutter"]
+          }
+        },
+        {
+          "stepId": "2-search-docs",
+          "description": "Search for official Supabase auth documentation for Flutter integration",
+          "tool": "search_mobile_docs",
+          "endpoint": "POST /api/search",
+          "params": {
+            "query": "supabase auth flutter sign in sign up email password",
+            "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+            "feature_tags": ["auth"],
+            "platform": "mobile"
+          },
+          "expectations": {
+            "minResults": 1,
+            "requiredFeatureTags": ["auth"],
+            "expectedDocPatterns": ["supabase", "flutter", "auth"]
+          }
+        },
+        {
+          "stepId": "3-find-examples",
+          "description": "Find working code examples for Supabase authentication in Flutter",
+          "tool": "find_code_examples",
+          "endpoint": "POST /api/search",
+          "params": {
+            "query": "auth supabase flutter login example code",
+            "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+            "feature_tags": ["auth"],
+            "platform": "mobile",
+            "usage_tier": "example"
+          },
+          "expectations": {
+            "minResults": 1,
+            "requiredUsageTiers": ["example"],
+            "expectedDocPatterns": ["supabase", "auth", "flutter"]
+          }
+        },
+        {
+          "stepId": "4-get-db-schema",
+          "description": "Get the database schema for users table to understand auth data structure",
+          "tool": "get_db_schema",
+          "endpoint": "GET /api/graph/schema/:collectionId",
+          "params": {
+            "tables": "users,profiles,auth",
+            "include_relationships": true
+          },
+          "expectations": {
+            "schemaTablesPresent": ["users"],
+            "includeRelationships": true
+          }
+        }
+      ],
+      "successCriteria": {
+        "requiredTools": [
+          "get_feature_recipe",
+          "find_code_examples",
+          "search_mobile_docs",
+          "get_db_schema"
+        ],
+        "minToolCalls": 4,
+        "allStepsPassed": true
+      }
+    },
+    {
+      "id": "flutter-stripe-billing",
+      "description": "Add Stripe billing to an existing Flutter app with a Node/TypeScript backend. Tests the agent's ability to understand project tech stack and find payment integration patterns.",
+      "category": "payments",
+      "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
+      "steps": [
+        {
+          "stepId": "1-get-tech-stack",
+          "description": "Analyze the project's technology stack to understand the existing architecture",
+          "tool": "get_project_tech_stack",
+          "endpoint": "GET /api/tech-profiles/:collectionId",
+          "params": {},
+          "expectations": {
+            "profileExists": true,
+            "expectedFrameworks": ["flutter", "node"],
+            "techStackFieldsPresent": ["primary_language", "primary_framework", "frameworks"]
+          }
+        },
+        {
+          "stepId": "2-get-recipe",
+          "description": "Get the recommended recipe for implementing payments and billing with Stripe",
+          "tool": "get_feature_recipe",
+          "endpoint": "POST /api/search",
+          "params": {
+            "query": "payments billing stripe integration recipe",
+            "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+            "feature_tags": ["payments", "billing"],
+            "usage_tier": "recipe"
+          },
+          "expectations": {
+            "minResults": 1,
+            "requiredUsageTiers": ["recipe"],
+            "requiredFeatureTags": ["payments"],
+            "expectedDocPatterns": ["stripe", "payment", "billing"]
+          }
+        },
+        {
+          "stepId": "3-find-examples",
+          "description": "Find code examples for Stripe checkout implementation in Flutter",
+          "tool": "find_code_examples",
+          "endpoint": "POST /api/search",
+          "params": {
+            "query": "stripe checkout flutter payment sheet integration",
+            "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+            "feature_tags": ["payments"],
+            "platform": "mobile",
+            "usage_tier": "example"
+          },
+          "expectations": {
+            "minResults": 1,
+            "requiredUsageTiers": ["example"],
+            "expectedDocPatterns": ["stripe", "checkout", "flutter"]
+          }
+        },
+        {
+          "stepId": "4-search-backend-docs",
+          "description": "Search for Stripe webhook handling documentation for Node.js backend",
+          "tool": "search_mobile_docs",
+          "endpoint": "POST /api/search",
+          "params": {
+            "query": "stripe webhooks node typescript backend payment events",
+            "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+            "feature_tags": ["payments", "webhooks"],
+            "platform": "backend"
+          },
+          "expectations": {
+            "minResults": 1,
+            "expectedDocPatterns": ["stripe", "webhook", "node"]
+          }
+        }
+      ],
+      "successCriteria": {
+        "requiredTools": [
+          "get_project_tech_stack",
+          "get_feature_recipe",
+          "find_code_examples",
+          "search_mobile_docs"
+        ],
+        "minToolCalls": 4,
+        "allStepsPassed": true
+      }
+    },
+    {
+      "id": "firebase-push-notifications",
+      "description": "Add push notifications using Firebase Cloud Messaging to an Android + iOS Flutter app. Tests integration of FCM setup across platforms.",
+      "category": "notifications",
+      "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
+      "steps": [
+        {
+          "stepId": "1-get-recipe",
+          "description": "Get the recommended recipe for implementing push notifications with Firebase",
+          "tool": "get_feature_recipe",
+          "endpoint": "POST /api/search",
+          "params": {
+            "query": "push notifications firebase fcm recipe",
+            "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+            "feature_tags": ["push_notifications"],
+            "usage_tier": "recipe"
+          },
+          "expectations": {
+            "minResults": 1,
+            "requiredUsageTiers": ["recipe"],
+            "requiredFeatureTags": ["push_notifications"],
+            "expectedDocPatterns": ["firebase", "fcm", "notification", "push"]
+          }
+        },
+        {
+          "stepId": "2-find-examples",
+          "description": "Find code examples for FCM integration in Flutter",
+          "tool": "find_code_examples",
+          "endpoint": "POST /api/search",
+          "params": {
+            "query": "fcm flutter push notification firebase messaging example",
+            "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+            "feature_tags": ["push_notifications"],
+            "platform": "mobile",
+            "usage_tier": "example"
+          },
+          "expectations": {
+            "minResults": 1,
+            "requiredUsageTiers": ["example"],
+            "expectedDocPatterns": ["fcm", "flutter", "firebase"]
+          }
+        },
+        {
+          "stepId": "3-get-tech-stack",
+          "description": "Verify the project's platform configuration for Android and iOS",
+          "tool": "get_project_tech_stack",
+          "endpoint": "GET /api/tech-profiles/:collectionId",
+          "params": {},
+          "expectations": {
+            "profileExists": true,
+            "techStackFieldsPresent": ["primary_framework", "frameworks"]
+          }
+        },
+        {
+          "stepId": "4-search-platform-docs",
+          "description": "Search for platform-specific FCM setup documentation for Android and iOS",
+          "tool": "search_mobile_docs",
+          "endpoint": "POST /api/search",
+          "params": {
+            "query": "fcm android ios setup configuration firebase messaging platform",
+            "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+            "feature_tags": ["push_notifications"],
+            "platform": "mobile"
+          },
+          "expectations": {
+            "minResults": 1,
+            "requiredFeatureTags": ["push_notifications"],
+            "expectedDocPatterns": ["android", "ios", "fcm", "setup"]
+          }
+        }
+      ],
+      "successCriteria": {
+        "requiredTools": [
+          "get_feature_recipe",
+          "find_code_examples",
+          "get_project_tech_stack",
+          "search_mobile_docs"
+        ],
+        "minToolCalls": 4,
+        "allStepsPassed": true
+      }
+    },
+    {
+      "id": "user-settings-trace",
+      "description": "Trace and modify the persistence path for user settings in an existing repository. Tests the agent's ability to use graph context expansion and symbol search for code navigation.",
+      "category": "maintenance",
+      "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
+      "steps": [
+        {
+          "stepId": "1-get-db-schema",
+          "description": "Get the database schema to understand user_settings table structure",
+          "tool": "get_db_schema",
+          "endpoint": "GET /api/graph/schema/:collectionId",
+          "params": {
+            "tables": "user_settings,settings,preferences",
+            "include_relationships": true
+          },
+          "expectations": {
+            "schemaTablesPresent": ["user_settings"],
+            "includeRelationships": true
+          }
+        },
+        {
+          "stepId": "2-expand-screen-context",
+          "description": "Expand graph context starting from UserSettingsScreen to trace code flow",
+          "tool": "graph_expand_context",
+          "endpoint": "POST /api/graph/context",
+          "params": {
+            "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+            "query": "UserSettingsScreen",
+            "max_depth": 3,
+            "max_nodes": 50,
+            "edge_types": ["calls", "imports", "depends_on", "persists_to"]
+          },
+          "expectations": {
+            "minNodes": 1,
+            "graphExpansionEnabled": true,
+            "expectedNodeTypes": ["symbol", "chunk"],
+            "expectedEdgeTypes": ["calls", "imports"]
+          }
+        },
+        {
+          "stepId": "3-find-symbol-usages",
+          "description": "Find all usages of the saveUserSettings function across the codebase",
+          "tool": "find_symbol_usages",
+          "endpoint": "POST /api/graph/symbols",
+          "params": {
+            "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+            "symbol_name": "saveUserSettings",
+            "include_definitions": true,
+            "include_usages": true,
+            "max_results": 20
+          },
+          "expectations": {
+            "symbolFound": true,
+            "includeDefinitions": true,
+            "includeUsages": true,
+            "symbolSearchEnabled": true
+          }
+        },
+        {
+          "stepId": "4-expand-repository-context",
+          "description": "Expand graph context around UserSettingsRepository to find persistence layer",
+          "tool": "graph_expand_context",
+          "endpoint": "POST /api/graph/context",
+          "params": {
+            "collection_id": "3b035748-5817-4438-8acc-d974c88a6233",
+            "query": "UserSettingsRepository",
+            "max_depth": 2,
+            "max_nodes": 30,
+            "edge_types": ["calls", "defines", "persists_to", "configured_by"]
+          },
+          "expectations": {
+            "minNodes": 1,
+            "graphExpansionEnabled": true,
+            "expectedNodeTypes": ["symbol", "chunk"],
+            "expectedEdgeTypes": ["calls", "defines", "persists_to"]
+          }
+        }
+      ],
+      "successCriteria": {
+        "requiredTools": ["get_db_schema", "graph_expand_context", "find_symbol_usages"],
+        "minToolCalls": 4,
+        "allStepsPassed": true
+      }
+    }
+  ],
+  "toolEndpointMapping": {
+    "search_mobile_docs": {
+      "method": "POST",
+      "endpoint": "/api/search",
+      "description": "Feature-aware mobile documentation search with framework and feature filtering"
+    },
+    "find_code_examples": {
+      "method": "POST",
+      "endpoint": "/api/search",
+      "description": "Find code examples by filtering to usage_tier='example' and code chunks",
+      "requiredParams": {
+        "usage_tier": "example"
+      }
+    },
+    "get_feature_recipe": {
+      "method": "POST",
+      "endpoint": "/api/search",
+      "description": "Get curated recipe for a feature by filtering to usage_tier='recipe'",
+      "requiredParams": {
+        "usage_tier": "recipe"
+      }
+    },
+    "search_rag": {
+      "method": "POST",
+      "endpoint": "/api/search",
+      "description": "Generic RAG search without feature-aware filtering"
+    },
+    "get_project_tech_stack": {
+      "method": "GET",
+      "endpoint": "/api/tech-profiles/:collectionId",
+      "description": "Get technology stack profile for a collection"
+    },
+    "graph_expand_context": {
+      "method": "POST",
+      "endpoint": "/api/graph/context",
+      "description": "Expand context using knowledge graph from seed nodes or query"
+    },
+    "find_symbol_usages": {
+      "method": "POST",
+      "endpoint": "/api/graph/symbols",
+      "description": "Find definitions and usages of a symbol across the codebase"
+    },
+    "get_db_schema": {
+      "method": "GET",
+      "endpoint": "/api/graph/schema/:collectionId",
+      "description": "Extract database schema information from collection"
+    }
+  },
+  "evaluationMetrics": {
+    "toolCallAccuracy": "Percentage of correct tool calls (right tool for the task)",
+    "toolCallCompleteness": "Percentage of required tools that were actually called",
+    "resultRelevance": "Average relevance score of returned results (0-1)",
+    "scenarioSuccessRate": "Percentage of scenarios where all success criteria passed",
+    "averageToolCalls": "Average number of tool calls per scenario",
+    "errorRate": "Percentage of tool calls that resulted in errors"
+  }
+}

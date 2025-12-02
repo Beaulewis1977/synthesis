@@ -86,6 +86,13 @@ This document lists all environment variables used in the Synthesis RAG applicat
 | `MCP_MODE` | Transport mode (stdio/http) | `stdio` | MCP Server |
 | `BACKEND_API_URL` | Backend API URL | `http://localhost:3333` | MCP Server |
 
+### Evaluation Runners
+
+| Variable | Description | Default | Used In |
+|----------|-------------|---------|---------|
+| `EVAL_COLLECTION_ID` | Default collection ID for evaluation scenarios | *none* | Perf runners (`mobile_eval_runner.mjs`, `mcp_scenario_runner.mjs`) |
+| `EVAL_BASE_URL` | Base URL for evaluation API calls (production should set this explicitly; the `http://localhost:3333` fallback in code is for development only) | *none* | Perf runners (`mobile_eval_runner.mjs`, `mcp_scenario_runner.mjs`) |
+
 ### Web Frontend
 
 | Variable | Description | Default | Used In |

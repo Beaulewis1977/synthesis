@@ -11,7 +11,7 @@
 
 **Goal:** Provide task-oriented MCP tools tuned for code-generation agents building mobile SaaS apps.
 
-**Status:** Sub-Phase 5.4 Complete
+**Status:** Sub-Phase 5.5 Complete
 
 ---
 
@@ -375,15 +375,111 @@ apps/mcp/src/
 
 ---
 
-## Next Steps (Sub-Phase 5.5)
+## Completed: Sub-Phase 5.5 - Scenario-Based Evaluation
 
-Sub-Phase 5.4 added tool selection guidance to the agent system prompt and comprehensive documentation.
+### Deliverables Created
 
-For Sub-Phase 5.5 (Scenario-Based Evaluation), focus on:
-1. Create scenario test files in `.agent-scenarios/mobile-saas/`
-2. Build `mcp_scenario_runner.mjs` harness
-3. Define success criteria for each scenario
-4. Test tool workflows end-to-end
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| Scenarios Directory | `.agent-scenarios/mobile-saas/` | Agent workflow scenario definitions |
+| Flutter Supabase Auth | `.agent-scenarios/mobile-saas/flutter_supabase_auth.md` | Auth flow implementation scenario |
+| Stripe Billing | `.agent-scenarios/mobile-saas/flutter_stripe_billing.md` | Payment integration scenario |
+| Firebase Push | `.agent-scenarios/mobile-saas/firebase_push_notifications.md` | FCM implementation scenario |
+| User Settings Trace | `.agent-scenarios/mobile-saas/user_settings_trace.md` | Code tracing scenario |
+| Scenario Tasks Config | `apps/server/perf/mcp_scenario_tasks.json` | JSON configuration for all scenarios |
+| Scenario Runner | `apps/server/perf/mcp_scenario_runner.mjs` | Multi-step scenario execution script |
+
+### Scenario Definitions (4 Total)
+
+| # | Scenario | Category | Primary Tools | Steps |
+|---|----------|----------|---------------|-------|
+| 1 | Flutter + Supabase Auth | authentication | get_feature_recipe, find_code_examples, search_mobile_docs, get_db_schema | 4 |
+| 2 | Stripe Billing Integration | payments | get_project_tech_stack, get_feature_recipe, find_code_examples, search_mobile_docs | 4 |
+| 3 | Firebase Push Notifications | notifications | get_feature_recipe, find_code_examples, get_project_tech_stack, search_mobile_docs | 4 |
+| 4 | User Settings Persistence Trace | maintenance | get_db_schema, graph_expand_context, find_symbol_usages | 4 |
+
+### Scenario Runner Features
+
+**CLI Options:**
+- `--collection-id <uuid>` - Override collection ID
+- `--base-url <url>` - API base URL (default: http://localhost:3333)
+- `--scenario <id>` - Run specific scenario only
+- `--dry-run` - Validate config without API calls
+- `--output <file>` - Custom output file path
+- `--verbose` - Detailed output
+
+**Two Execution Modes:**
+1. **Dry-run mode**: Validates scenario config, prints steps, no API calls (for CI/validation)
+2. **Live mode**: Calls actual HTTP endpoints against running server
+
+**Tool-to-Endpoint Mapping:**
+| Tool | HTTP Endpoint |
+|------|---------------|
+| search_mobile_docs, find_code_examples, get_feature_recipe | POST /api/search |
+| get_project_tech_stack | GET /api/tech-profiles/:collectionId |
+| graph_expand_context | POST /api/graph/context |
+| find_symbol_usages | POST /api/graph/symbols |
+| get_db_schema | GET /api/graph/schema/:collectionId |
+
+**Report Outputs:**
+- JSON file: `mcp_scenario_results_<timestamp>.json`
+- Markdown file: `mcp_scenario_results_<timestamp>.md`
+
+### Validation Checks (17 Types)
+
+The runner validates step results against expectations:
+- minResults, requiredUsageTiers, requiredFeatureTags
+- expectedDocPatterns, profileExists, expectedFrameworks
+- techStackFieldsPresent, schemaTablesPresent, includeRelationships
+- minNodes, graphExpansionEnabled, expectedNodeTypes, expectedEdgeTypes
+- symbolFound, includeDefinitions, includeUsages, symbolSearchEnabled
+
+### Files Changed
+
+```
+.agent-scenarios/
+└── mobile-saas/
+    ├── README.md                                 (CREATED - directory overview)
+    ├── flutter_supabase_auth.md                  (CREATED - auth scenario)
+    ├── flutter_stripe_billing.md                 (CREATED - billing scenario)
+    ├── firebase_push_notifications.md            (CREATED - notifications scenario)
+    └── user_settings_trace.md                    (CREATED - code tracing scenario)
+
+apps/server/perf/
+├── mcp_scenario_tasks.json                       (CREATED - scenario configuration)
+└── mcp_scenario_runner.mjs                       (CREATED - ~700 lines runner script)
+```
+
+### Acceptance Criteria Met
+
+- [x] 4 scenario definition files created in `.agent-scenarios/mobile-saas/`
+- [x] `mcp_scenario_runner.mjs` executes multi-step scenarios
+- [x] Runner supports dry-run mode (validated via `--dry-run`)
+- [x] Runner supports live mode with actual API calls
+- [x] JSON report includes: tool_calls[], sources_found[], success_rate, failure_reasons[]
+- [x] Markdown report includes summary table and tool coverage matrix
+- [x] Each scenario uses 1+ new tools (not just generic search)
+- [x] All 6 new MCP tools covered across scenarios:
+  - `get_feature_recipe` (3 scenarios)
+  - `find_code_examples` (4 scenarios)
+  - `search_mobile_docs` (3 scenarios)
+  - `get_project_tech_stack` (3 scenarios)
+  - `get_db_schema` (2 scenarios)
+  - `graph_expand_context` (1 scenario)
+  - `find_symbol_usages` (1 scenario)
+
+---
+
+## Remaining Sub-Phases
+
+| # | Sub-Phase | Status | Est. Time |
+|---|-----------|--------|-----------|
+| 5.1 | Task Taxonomy & Tool Design | ✅ Complete | - |
+| 5.2 | HTTP API Enhancements | ✅ Complete | - |
+| 5.3 | MCP Tool Implementation | ✅ Complete | - |
+| 5.4 | Agent Prompt & Config Updates | ✅ Complete | - |
+| 5.5 | Scenario-Based Evaluation | ✅ Complete | - |
+| 5.6 | Dynamic Tool Management | Pending | 3-4 days |
 
 ---
 
