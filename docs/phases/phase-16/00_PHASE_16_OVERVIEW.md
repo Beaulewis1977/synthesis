@@ -44,7 +44,8 @@ This document outlines the planned enhancements to Synthesis for multi-provider 
 | Kimi (Moonshot) | OpenAI-compatible | TBD | P2 |
 
 **Architecture:**
-```
+
+```text
 ChatProvider Interface
 ├── AnthropicChatProvider (with tools)
 ├── OpenAIChatProvider (with tools)
@@ -193,7 +194,7 @@ interface ChatResponse {
 
 ### SSE Streaming Format
 
-```
+```text
 event: token
 data: {"content": "Hello"}
 
@@ -220,7 +221,7 @@ We'll use `getConfig('chat')` to get the active chat provider.
 
 ## Files to Create
 
-```
+```text
 apps/server/src/
 ├── services/
 │   └── chat-providers/
@@ -266,8 +267,8 @@ apps/web/src/
 
 ## Reference Links
 
-- Claude Agent SDK WSL2 issue: https://github.com/anthropics/claude-agent-sdk-typescript/issues/20
-- Docker root user fix: https://github.com/anthropics/claude-agent-sdk-typescript/issues/74
+- Claude Agent SDK WSL2 issue: <https://github.com/anthropics/claude-agent-sdk-typescript/issues/20>
+- Docker root user fix: <https://github.com/anthropics/claude-agent-sdk-typescript/issues/74>
 - Current agent code: `apps/server/src/agent/agent.ts`
 - Model config service: `apps/server/src/services/model-config-service.ts`
 - Settings UI: `apps/web/src/pages/settings/ModelsPage.tsx`

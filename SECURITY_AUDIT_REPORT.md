@@ -117,11 +117,11 @@ The `.env` file contains real, active API keys that could be exposed if accident
 
 **Immediate Actions Required:**
 1. **REVOKE ALL EXPOSED KEYS IMMEDIATELY** from respective provider dashboards:
-   - https://console.anthropic.com/settings/keys
-   - https://console.cloud.google.com/apis/credentials
-   - https://platform.openai.com/api-keys
-   - https://dash.voyageai.com/api-keys
-   - https://dashboard.cohere.com/api-keys
+   - <https://console.anthropic.com/settings/keys>
+   - <https://console.cloud.google.com/apis/credentials>
+   - <https://platform.openai.com/api-keys>
+   - <https://dash.voyageai.com/api-keys>
+   - <https://dashboard.cohere.com/api-keys>
 
 2. Check git history for committed keys:
    ```bash
@@ -412,8 +412,9 @@ const HKDF_INFO = process.env.API_KEY_ENCRYPTION_INFO ?? 'synthesis-api-key-encr
 
 **Severity:** MEDIUM
 **Location:** `apps/server/src/agent/utils/storage.ts` (Lines 243-249)
+**Status:** ✅ **FIXED in this PR**
 
-**Code:**
+**Original Issue:**
 ```typescript
 export async function readLocalFile(filePath: string) {
   const buffer = await fs.readFile(filePath);
@@ -421,13 +422,13 @@ export async function readLocalFile(filePath: string) {
 }
 ```
 
-**Recommendation:**
+**Applied Fix (Lines 246-251):**
 ```typescript
 export async function readLocalFile(filePath: string) {
-  const resolved = path.resolve(filePath);
+  const resolvedPath = path.resolve(filePath);
   const resolvedRoot = path.resolve(STORAGE_ROOT);
-  if (!resolved.startsWith(resolvedRoot)) {
-    throw new Error('File path is outside allowed directory');
+  if (!resolvedPath.startsWith(resolvedRoot)) {
+    throw new Error(`File path is outside allowed directory: ${filePath}`);
   }
   const buffer = await fs.readFile(filePath);
 }
@@ -439,15 +440,17 @@ export async function readLocalFile(filePath: string) {
 
 **Severity:** MEDIUM
 **Location:** `apps/server/src/index.ts` (Line 43)
+**Status:** ✅ **FIXED in this PR**
 
-**Code:**
+**Original Issue:**
 ```typescript
 const HOST = process.env.HOST || '0.0.0.0';  // Binds to all interfaces
 ```
 
-**Recommendation:**
+**Applied Fix:**
 ```typescript
-const HOST = process.env.HOST || 'localhost';  // Default to localhost
+// Environment-aware default: localhost for dev, 0.0.0.0 for Docker
+const HOST = process.env.HOST || (process.env.DOCKER === 'true' ? '0.0.0.0' : 'localhost');
 ```
 
 ---
