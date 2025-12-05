@@ -243,6 +243,13 @@ export async function downloadRemoteFile(url: string): Promise<RemoteDownloadRes
 export async function readLocalFile(
   filePath: string
 ): Promise<{ buffer: Buffer; contentType: string }> {
+  // Validate path is within STORAGE_ROOT to prevent path traversal
+  const resolvedPath = path.resolve(filePath);
+  const resolvedRoot = path.resolve(STORAGE_ROOT);
+  if (!resolvedPath.startsWith(resolvedRoot + path.sep) && resolvedPath !== resolvedRoot) {
+    throw new Error('File path is outside allowed storage directory');
+  }
+
   const buffer = await fs.readFile(filePath);
   const contentType = inferContentType(filePath);
   return { buffer, contentType };
