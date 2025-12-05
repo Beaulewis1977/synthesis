@@ -40,7 +40,7 @@ import { disconnectRedis } from './services/redis.js';
 import { startStaleCheckScheduler, stopStaleCheckScheduler } from './services/stale-check-job.js';
 
 const PORT = Number(process.env.SERVER_PORT) || 3333;
-const HOST = process.env.HOST || '0.0.0.0';
+const HOST = process.env.HOST || (process.env.DOCKER === 'true' ? '0.0.0.0' : 'localhost');
 
 // Initialize database pool
 if (!process.env.DATABASE_URL || process.env.DATABASE_URL.trim() === '') {
