@@ -387,3 +387,27 @@ feat(phase-16X): short description
 - Current agent code: `apps/server/src/agent/agent.ts`
 - Model config service: `apps/server/src/services/model-config-service.ts`
 - Settings UI: `apps/web/src/pages/settings/ModelsPage.tsx`
+
+---
+
+## Notes
+
+### WSL2 Claude CLI Path Workaround (Phase 16A)
+
+**Issue:** The Claude Agent SDK uses a pre-compiled binary that crashes on WSL2 due to glibc/syscall incompatibilities ([Issue #20](https://github.com/anthropics/claude-agent-sdk-typescript/issues/20), [Issue #5823](https://github.com/anthropics/claude-code/issues/5823)).
+
+**Workaround:** Use `pathToClaudeCodeExecutable` pointing to the npm/pnpm-installed Claude Code CLI (JavaScript-based), not the native binary.
+
+**Current Implementation:**
+```typescript
+const CLAUDE_CLI_PATH = process.env.CLAUDE_CLI_PATH || 'claude';
+```
+
+**For WSL2 users:** Set `CLAUDE_CLI_PATH` environment variable to the pnpm-installed path:
+```bash
+export CLAUDE_CLI_PATH="/home/<username>/.local/share/pnpm/claude"
+```
+
+**For non-WSL2 users:** The default `'claude'` (in PATH) works if Claude Code is installed via npm/pnpm globally.
+
+**CodeRabbit Review Note:** The hardcoded path was flagged and changed to use env var with `'claude'` fallback. WSL2 users must set `CLAUDE_CLI_PATH` explicitly. This is documented but not enforced at runtime to avoid breaking non-WSL2 deployments.

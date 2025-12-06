@@ -1,6 +1,9 @@
 import type { Pool } from 'pg';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  MCP_SERVER_NAME,
+  MCP_TOOL_NAMES,
+  buildAgentMcpServer,
   buildAgentTools,
   createAddDocumentTool,
   createDeleteDocumentTool,
@@ -356,5 +359,49 @@ describe('agent tools', () => {
     for (const name of expectedNames) {
       expect(typeof toolExecutors[name]).toBe('function');
     }
+  });
+});
+
+// =============================================================================
+// MCP Server Format Tests (for Claude Agent SDK)
+// =============================================================================
+
+describe('MCP Server format', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('MCP_SERVER_NAME is correctly defined', () => {
+    expect(MCP_SERVER_NAME).toBe('synthesis-rag-tools');
+  });
+
+  it('MCP_TOOL_NAMES includes all expected tools', () => {
+    const expectedToolNames = [
+      'mcp__synthesis-rag-tools__search_rag',
+      'mcp__synthesis-rag-tools__add_document',
+      'mcp__synthesis-rag-tools__fetch_web_content',
+      'mcp__synthesis-rag-tools__list_collections',
+      'mcp__synthesis-rag-tools__list_documents',
+      'mcp__synthesis-rag-tools__get_document_status',
+      'mcp__synthesis-rag-tools__delete_document',
+      'mcp__synthesis-rag-tools__restart_ingest',
+      'mcp__synthesis-rag-tools__summarize_document',
+    ];
+
+    expect(MCP_TOOL_NAMES).toEqual(expectedToolNames);
+    expect(MCP_TOOL_NAMES.length).toBe(9);
+  });
+
+  it('buildAgentMcpServer returns a valid MCP server object', () => {
+    const db = createDbMock();
+    const server = buildAgentMcpServer(db, {
+      collectionId: '11111111-1111-4111-8111-111111111111',
+    });
+
+    // Server should be defined - SDK returns an object with type: 'sdk'
+    expect(server).toBeDefined();
+    expect(typeof server).toBe('object');
+    // The SDK wraps the server with type: 'sdk' property
+    expect(server).toHaveProperty('type', 'sdk');
   });
 });
