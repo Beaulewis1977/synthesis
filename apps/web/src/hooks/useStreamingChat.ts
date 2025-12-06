@@ -5,7 +5,7 @@
  * Handles real-time token streaming, tool execution progress, and error handling.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // =============================================================================
 // Types
@@ -44,8 +44,12 @@ export interface UseStreamingChatOptions {
   onToolStart?: (tool: string, input?: unknown) => void;
   /** Called when a tool completes */
   onToolEnd?: (tool: string) => void;
-  /** Called when streaming completes successfully */
-  onComplete?: (content: string, usage: StreamingUsage | null) => void;
+  /** Called when streaming completes successfully (includes toolCalls to avoid stale closure) */
+  onComplete?: (
+    content: string,
+    usage: StreamingUsage | null,
+    toolCalls: StreamingToolCall[]
+  ) => void;
   /** Called on error */
   onError?: (error: string) => void;
 }
@@ -71,6 +75,19 @@ export function useStreamingChat(options: UseStreamingChatOptions = {}) {
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Use ref for options to avoid re-creating streamChat on every render
+  const optionsRef = useRef(options);
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   /**
    * Start streaming a chat message
@@ -141,7 +158,7 @@ export function useStreamingChat(options: UseStreamingChatOptions = {}) {
                   fullContent,
                   toolCalls,
                   setState,
-                  options,
+                  optionsRef.current,
                   (content) => {
                     fullContent = content;
                   }
@@ -164,10 +181,10 @@ export function useStreamingChat(options: UseStreamingChatOptions = {}) {
 
         const message = error instanceof Error ? error.message : 'Unknown error';
         setState((s) => ({ ...s, isStreaming: false, error: message }));
-        options.onError?.(message);
+        optionsRef.current.onError?.(message);
       }
     },
-    [options]
+    [] // No dependencies - uses refs for stable references
   );
 
   /**
@@ -175,6 +192,7 @@ export function useStreamingChat(options: UseStreamingChatOptions = {}) {
    */
   const cancelStream = useCallback(() => {
     abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
     setState((s) => ({ ...s, isStreaming: false }));
   }, []);
 
@@ -272,10 +290,10 @@ function processEvent(
       if (data.usage) {
         const usage = data.usage as StreamingUsage;
         setState((s) => ({ ...s, usage, isStreaming: false }));
-        options.onComplete?.(fullContent, usage);
+        options.onComplete?.(fullContent, usage, toolCalls);
       } else {
         setState((s) => ({ ...s, isStreaming: false }));
-        options.onComplete?.(fullContent, null);
+        options.onComplete?.(fullContent, null, toolCalls);
       }
       break;
 

@@ -89,7 +89,6 @@ export const agentStreamRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Track accumulated content for session persistence
     let fullContent = '';
-    let streamSuccess = false;
     const toolCalls: Array<{
       id: string;
       tool: string;
@@ -153,11 +152,8 @@ export const agentStreamRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      // Mark stream as successful (only persist if no errors)
-      streamSuccess = true;
-
-      // Persist to session if provided (only on success)
-      if (body.session_id && streamSuccess) {
+      // Persist to session if provided (only on success - we're in try block)
+      if (body.session_id) {
         try {
           await addChatMessage(body.session_id, 'user', body.message);
           await addChatMessage(body.session_id, 'assistant', fullContent, {
@@ -214,9 +210,9 @@ function handleStreamChunk(
 
     case 'tool_end':
       if (chunk.toolCall) {
-        const tc = toolCalls.find((t) => t.id === chunk.toolCall?.id);
-        if (tc) {
-          tc.status = 'completed';
+        const toolCall = toolCalls.find((t) => t.id === chunk.toolCall?.id);
+        if (toolCall) {
+          toolCall.status = 'completed';
         }
         sendSSE(reply, 'tool_end', {
           id: chunk.toolCall?.id ?? null,

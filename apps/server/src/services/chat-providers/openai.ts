@@ -136,6 +136,8 @@ export class OpenAIChatProvider implements ChatProvider {
 
       // Track accumulated tool calls by index
       const toolCallsAccum = new Map<number, { id: string; name: string; arguments: string }>();
+      // Track which tool indices have emitted tool_start to avoid duplicates
+      const emittedToolStarts = new Set<number>();
       let finishReason: string | null = null;
       let promptTokens = 0;
       let completionTokens = 0;
@@ -163,11 +165,14 @@ export class OpenAIChatProvider implements ChatProvider {
             if (tc.id) existing.id = tc.id;
             if (tc.function?.name) {
               existing.name = tc.function.name;
-              // Yield tool_start when we first see the name
-              yield {
-                type: 'tool_start',
-                toolCall: { id: existing.id, name: existing.name },
-              };
+              // Yield tool_start only once per tool (when we first see the name)
+              if (!emittedToolStarts.has(tc.index)) {
+                emittedToolStarts.add(tc.index);
+                yield {
+                  type: 'tool_start',
+                  toolCall: { id: existing.id, name: existing.name },
+                };
+              }
             }
             if (tc.function?.arguments) {
               existing.arguments += tc.function.arguments;

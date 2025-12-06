@@ -34,13 +34,14 @@ export function ChatPage() {
     toolCalls: streamingToolCalls,
     streamChat,
   } = useStreamingChat({
-    onComplete: (content) => {
+    onComplete: (content, _usage, toolCalls) => {
       // Add completed streaming message to messages array
+      // Note: toolCalls passed as parameter to avoid stale closure
       const assistantMessage: ChatMessageType = {
         id: createMessageId(),
         role: 'assistant',
         content,
-        tool_calls: streamingToolCalls.map((tc, idx) => ({
+        tool_calls: toolCalls.map((tc, idx) => ({
           id: tc.id ?? `tool-${idx}`,
           tool: tc.tool,
           status: tc.status,
