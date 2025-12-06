@@ -240,8 +240,8 @@ describe('AnthropicChatProvider', () => {
         totalTokens: 110,
       });
 
-      // Verify stop reason
-      expect(result.stopReason).toBe('tool_use');
+      // Verify stop reason - 'end_turn' because all tools completed successfully
+      expect(result.stopReason).toBe('end_turn');
     });
 
     it('handles chat without tool calls', async () => {
@@ -343,7 +343,8 @@ describe('AnthropicChatProvider', () => {
       expect(result.toolCalls).toHaveLength(1);
       expect(result.toolCalls[0].name).toBe('search_rag');
       expect(result.content).toContain('error');
-      expect(result.stopReason).toBe('tool_use');
+      // stopReason is 'end_turn' because the conversation completed (tool error was handled)
+      expect(result.stopReason).toBe('end_turn');
     });
 
     it('handles max turns exceeded', async () => {

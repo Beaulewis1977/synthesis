@@ -214,7 +214,7 @@ describe('OpenAIChatProvider', () => {
 
       expect(result.content).toBe('Hello! How can I help you today?');
       expect(result.toolCalls).toHaveLength(0);
-      expect(result.stopReason).toBe('stop_sequence');
+      expect(result.stopReason).toBe('end_turn'); // 'stop' maps to 'end_turn' for natural completion
       expect(result.usage).toEqual({
         inputTokens: 50,
         outputTokens: 15,
@@ -769,7 +769,8 @@ describe('OpenAIChatProvider', () => {
   // ===========================================================================
 
   describe('stop reason mapping', () => {
-    it('should map "stop" to "stop_sequence"', async () => {
+    it('should map "stop" to "end_turn"', async () => {
+      // OpenAI's 'stop' indicates natural completion, mapped to 'end_turn' for consistency
       mockChatCompletionsCreate.mockResolvedValue(
         createMockOpenAIResponse({
           content: 'Response',
@@ -783,7 +784,7 @@ describe('OpenAIChatProvider', () => {
         model: 'gpt-4o',
       });
 
-      expect(result.stopReason).toBe('stop_sequence');
+      expect(result.stopReason).toBe('end_turn');
     });
 
     it('should map "length" to "max_tokens"', async () => {

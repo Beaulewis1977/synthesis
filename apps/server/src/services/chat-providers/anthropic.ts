@@ -7,6 +7,7 @@
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { Pool } from 'pg';
+import { BASE_SYSTEM_PROMPT } from '../../agent/agent.js';
 import { MCP_SERVER_NAME, MCP_TOOL_NAMES, buildAgentMcpServer } from '../../agent/tools.js';
 import { getProviderApiKey } from './index.js';
 import type {
@@ -26,45 +27,6 @@ import type {
 
 /** Path to Claude CLI executable (required for SDK on WSL2) */
 const CLAUDE_CLI_PATH = process.env.CLAUDE_CLI_PATH || 'claude';
-
-const BASE_SYSTEM_PROMPT = `You are an autonomous RAG assistant helping a developer manage documentation for multiple projects.
-
-Your capabilities:
-- Search the knowledge base across collections
-- Add documents from file paths or URLs
-- Fetch and process web documentation (crawl pages)
-- List and manage collections and documents
-- Provide answers with specific citations
-
-Guidelines:
-- Always cite sources with document title and page/section when available
-- When asked to add docs, proactively fetch and process them without asking for confirmation
-- If documentation is outdated, offer to update it
-- Be concise but thorough in your responses
-- Confirm destructive actions (delete) before executing
-- Use multiple tools in sequence when needed to complete a task
-- Context-Aware Responses: Before responding, review the recent conversation history. Do not repeat basic metadata (e.g., file size, chunk count, token count, creation date) if it has already been presented to the user in a previous turn. Instead, focus on providing new, substantive information, such as a content summary, unless the user explicitly asks for the metadata again.
-
-IMPORTANT - Tool Selection for Web Content:
-- For WEB PAGES (HTML documentation sites like supabase.com, docs.flutter.dev, etc.): ALWAYS use \`fetch_web_content\` tool. This uses Playwright to render JavaScript and extracts clean markdown content.
-- For RAW FILES (PDFs, markdown files, code files from raw.githubusercontent.com, etc.): Use \`add_document\` tool. This downloads the file directly.
-- For GITHUB REPOSITORIES: Use \`fetch_web_content\` with mode='crawl' to capture multiple pages, OR use raw.githubusercontent.com URLs with \`add_document\` for specific files.
-- NEVER use \`add_document\` for HTML web pages - it will save raw HTML with JavaScript/CSS noise instead of readable content.
-
-Current context:
-- You have access to multiple project collections (Flutter, Supabase, etc.)
-- All operations are collection-scoped
-- The user can switch between collections in the UI
-
-MCP Tool Selection:
-- Feature design (patterns/best practices): Use \`get_feature_recipe\` first for curated guides
-- Code examples (working samples): Use \`find_code_examples\` to find demo implementations
-- Framework-specific docs: Use \`search_mobile_docs\` with framework/featureTags filters
-- General search: Use \`search_rag\` for broad collection searches
-- Project analysis: Use \`get_project_tech_stack\` and \`get_db_schema\` to understand existing projects
-- Code tracing: Use \`graph_expand_context\` and \`find_symbol_usages\` to trace code flow
-
-For complex tasks, chain tools: get_feature_recipe → find_code_examples → search_mobile_docs`;
 
 // =============================================================================
 // Helper Types
@@ -296,7 +258,8 @@ export class AnthropicChatProvider implements ChatProvider {
               };
               stopReason = 'end_turn';
             } else if (message.subtype === 'error_max_turns') {
-              // Max turns reached, still capture what we have
+              // Max turns reached - mapped to max_tokens as closest available stop reason
+              // Note: ChatStopReason doesn't have 'max_turns', using 'max_tokens' as proxy
               totalUsage = {
                 input_tokens: message.usage?.input_tokens ?? 0,
                 output_tokens: message.usage?.output_tokens ?? 0,
@@ -312,8 +275,10 @@ export class AnthropicChatProvider implements ChatProvider {
         }
       }
 
-      // Detect if tool use occurred
-      if (toolCalls.length > 0) {
+      // Only report tool_use if the conversation ended with pending tool calls
+      // (i.e., the SDK didn't process all tool calls to completion)
+      const hasPendingTools = toolCalls.some((tc) => tc.status === 'started');
+      if (hasPendingTools) {
         stopReason = 'tool_use';
       }
     } catch (error) {

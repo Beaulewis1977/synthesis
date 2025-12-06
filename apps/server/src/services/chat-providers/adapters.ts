@@ -331,6 +331,10 @@ export function mapAnthropicStopReason(
 
 /**
  * Map OpenAI finish reason to normalized format
+ *
+ * OpenAI's 'stop' indicates the model finished naturally (reached end or a stop sequence).
+ * We map this to 'end_turn' for consistency with other providers (Google maps STOP -> end_turn).
+ * Use 'content_filter' for OpenAI-specific filtering stops if needed.
  */
 export function mapOpenAIStopReason(
   reason: string | null | undefined
@@ -341,7 +345,7 @@ export function mapOpenAIStopReason(
     case 'length':
       return 'max_tokens';
     case 'stop':
-      return 'stop_sequence';
+      return 'end_turn'; // Natural completion, consistent with Google's STOP -> end_turn
     default:
       return 'end_turn';
   }
