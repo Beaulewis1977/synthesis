@@ -17,6 +17,7 @@ import {
   type ToolContext,
   getConfiguredChatProvider,
 } from '../services/chat-providers/index.js';
+import { getModelConfigService } from '../services/model-config-service.js';
 
 // =============================================================================
 // Schemas
@@ -85,6 +86,7 @@ export const agentStreamRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Track accumulated content for session persistence
     let fullContent = '';
+    let streamSuccess = false;
     const toolCalls: Array<{
       id: string;
       tool: string;
@@ -129,7 +131,6 @@ export const agentStreamRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       // Get model from config (provider was already configured with it)
-      const { getModelConfigService } = await import('../services/model-config-service.js');
       const configService = getModelConfigService(db);
       const chatConfig = await configService.getChatModelConfig();
 
@@ -141,7 +142,7 @@ export const agentStreamRoutes: FastifyPluginAsync = async (fastify) => {
         tools: chatTools,
         maxTokens: 4096,
       })) {
-        handleStreamChunk(reply, chunk, fullContent, toolCalls);
+        handleStreamChunk(reply, chunk, toolCalls);
 
         // Accumulate content
         if (chunk.type === 'text' && chunk.text) {
@@ -149,8 +150,11 @@ export const agentStreamRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      // Persist to session if provided
-      if (body.session_id) {
+      // Mark stream as successful (only persist if no errors)
+      streamSuccess = true;
+
+      // Persist to session if provided (only on success)
+      if (body.session_id && streamSuccess) {
         try {
           await addChatMessage(body.session_id, 'user', body.message);
           await addChatMessage(body.session_id, 'assistant', fullContent, {
@@ -177,7 +181,6 @@ export const agentStreamRoutes: FastifyPluginAsync = async (fastify) => {
 function handleStreamChunk(
   reply: FastifyReply,
   chunk: ChatStreamChunk,
-  _fullContent: string,
   toolCalls: Array<{
     id: string;
     tool: string;

@@ -241,9 +241,18 @@ function processEvent(
     case 'tool_end':
       if (data.tool && typeof data.tool === 'string') {
         const id = typeof data.id === 'string' ? data.id : undefined;
-        const tc = id
-          ? toolCalls.find((t) => t.id === id)
-          : toolCalls.find((t) => t.tool === data.tool && t.status === 'started');
+        let tc: StreamingToolCall | undefined;
+        if (id) {
+          tc = toolCalls.find((t) => t.id === id);
+        } else {
+          // Fallback: only match if exactly one tool with this name is started
+          const candidates = toolCalls.filter(
+            (t) => t.tool === data.tool && t.status === 'started'
+          );
+          if (candidates.length === 1) {
+            tc = candidates[0];
+          }
+        }
         if (tc) {
           tc.status = 'completed';
           setState((s) => ({ ...s, toolCalls: [...toolCalls] }));

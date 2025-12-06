@@ -233,8 +233,8 @@ export function ChatPage() {
       }
     }
 
-    // Use streaming chat
-    const history = messages.slice(-10).map((msg) => ({
+    // Use streaming chat - include current user message in history
+    const history = [...messages.slice(-9), userMessage].map((msg) => ({
       role: msg.role as 'user' | 'assistant',
       content: msg.content,
     }));

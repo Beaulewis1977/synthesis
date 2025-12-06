@@ -34,9 +34,14 @@ export function StreamingMessage({ content, isStreaming, toolCalls }: StreamingM
     <div className="mb-md flex justify-start" data-role="assistant" data-streaming={isStreaming}>
       <div className="max-w-[80%] rounded-lg px-4 py-3 bg-bg-secondary text-text-primary border border-border">
         {/* Streaming content with cursor */}
-        <div ref={contentRef} className="whitespace-pre-wrap break-words">
+        <div ref={contentRef} className="whitespace-pre-wrap break-words" aria-live="polite">
           {content || (isStreaming ? '' : 'Thinking...')}
-          {isStreaming && <span className="inline-block w-2 h-4 ml-0.5 bg-accent animate-pulse" />}
+          {isStreaming && (
+            <span
+              className="inline-block w-2 h-4 ml-0.5 bg-accent animate-pulse"
+              aria-hidden="true"
+            />
+          )}
         </div>
 
         {/* Tool calls in progress */}
@@ -48,7 +53,7 @@ export function StreamingMessage({ content, isStreaming, toolCalls }: StreamingM
             <div className="flex flex-wrap gap-2">
               {toolCalls.map((call, idx) => (
                 <span
-                  key={`${call.tool}-${idx}`}
+                  key={call.id ?? `${call.tool}-${idx}`}
                   className={`inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors ${
                     call.status === 'started'
                       ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300'
@@ -56,9 +61,12 @@ export function StreamingMessage({ content, isStreaming, toolCalls }: StreamingM
                   }`}
                 >
                   {call.status === 'started' ? (
-                    <span className="inline-block w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                    <span
+                      className="inline-block w-2 h-2 rounded-full bg-yellow-500 animate-pulse"
+                      aria-label="In progress"
+                    />
                   ) : (
-                    <span>&#10003;</span>
+                    <span aria-label="Completed">&#10003;</span>
                   )}
                   <span>{call.tool}</span>
                 </span>
