@@ -12,17 +12,15 @@ import type {
 } from 'openai/resources/chat/completions.js';
 import type { Pool } from 'pg';
 import { buildAgentTools } from '../../agent/tools.js';
-import {
-  fromOpenAIToolCall,
-  mapOpenAIStopReason,
-  toOpenAIMessages,
-  toOpenAITool,
-} from './adapters.js';
+import { mapOpenAIStopReason, toOpenAIMessages, toOpenAITool } from './adapters.js';
 import { getProviderApiKey } from './index.js';
 import type {
   ChatParams,
   ChatProvider,
   ChatResponse,
+  ChatStopReason,
+  ChatStreamChunk,
+  ChatToolCall,
   ProviderCapabilities,
   ToolContext,
 } from './types.js';
@@ -51,9 +49,60 @@ export class OpenAIChatProvider implements ChatProvider {
   ) {}
 
   /**
-   * Send chat message with manual tool execution loop
+   * Send chat message with manual tool execution loop (non-streaming)
+   * Internally uses streamChat() and accumulates results
    */
   async chat(params: ChatParams): Promise<ChatResponse> {
+    let content = '';
+    const toolCalls: ChatToolCall[] = [];
+    let usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+    let stopReason: ChatStopReason = 'end_turn';
+
+    for await (const chunk of this.streamChat(params)) {
+      switch (chunk.type) {
+        case 'text':
+          content += chunk.text ?? '';
+          break;
+        case 'tool_start':
+          if (chunk.toolCall?.id && chunk.toolCall?.name) {
+            toolCalls.push({
+              id: chunk.toolCall.id,
+              name: chunk.toolCall.name,
+              input: chunk.toolCall.input, // May be undefined, updated in tool_end
+            });
+          }
+          break;
+        case 'tool_end':
+          // Update tool call with parsed input (available after arguments accumulated)
+          if (chunk.toolCall?.id && chunk.toolCall?.input !== undefined) {
+            const tc = toolCalls.find((t) => t.id === chunk.toolCall?.id);
+            if (tc) {
+              tc.input = chunk.toolCall.input;
+            }
+          }
+          break;
+        case 'done':
+          usage = chunk.usage ?? usage;
+          stopReason = chunk.stopReason ?? stopReason;
+          break;
+      }
+    }
+
+    return {
+      content,
+      toolCalls,
+      stopReason,
+      usage,
+      model: params.model,
+      provider: 'openai',
+    };
+  }
+
+  /**
+   * Send chat message with streaming support
+   * Implements manual tool execution loop with OpenAI streaming API
+   */
+  async *streamChat(params: ChatParams): AsyncGenerator<ChatStreamChunk, void, unknown> {
     // Get API key
     const apiKey = await getProviderApiKey(this.db, 'openai');
     if (!apiKey) {
@@ -79,85 +128,152 @@ export class OpenAIChatProvider implements ChatProvider {
     // Manual tool execution loop (max 10 turns)
     const MAX_TURNS = 10;
     let turnCount = 0;
-    let finalResponse: OpenAI.Chat.Completions.ChatCompletion | null = null;
 
     while (turnCount < MAX_TURNS) {
       turnCount++;
 
-      // Call OpenAI API
-      const response = await client.chat.completions.create({
+      // Create streaming request
+      const stream = await client.chat.completions.create({
         model: params.model,
         messages,
         tools: openaiTools,
         max_tokens: params.maxTokens,
         temperature: params.temperature,
         stop: params.stopSequences,
+        stream: true,
       });
 
-      const choice = response.choices[0];
-      if (!choice) {
-        throw new Error('OpenAI returned no choices');
+      // Track accumulated tool calls by index
+      const toolCallsAccum = new Map<number, { id: string; name: string; arguments: string }>();
+      // Track which tool indices have emitted tool_start to avoid duplicates
+      const emittedToolStarts = new Set<number>();
+      let finishReason: string | null = null;
+      let promptTokens = 0;
+      let completionTokens = 0;
+
+      for await (const chunk of stream) {
+        const choice = chunk.choices[0];
+        if (!choice) continue;
+
+        finishReason = choice.finish_reason ?? finishReason;
+        const delta = choice.delta;
+
+        // Stream text content
+        if (delta?.content) {
+          yield { type: 'text', text: delta.content };
+        }
+
+        // Accumulate tool calls (streamed incrementally by index)
+        if (delta?.tool_calls) {
+          for (const tc of delta.tool_calls) {
+            const existing = toolCallsAccum.get(tc.index) ?? {
+              id: '',
+              name: '',
+              arguments: '',
+            };
+            if (tc.id) existing.id = tc.id;
+            if (tc.function?.name) {
+              existing.name = tc.function.name;
+              // Yield tool_start only once per tool (when we first see the name)
+              if (!emittedToolStarts.has(tc.index)) {
+                emittedToolStarts.add(tc.index);
+                yield {
+                  type: 'tool_start',
+                  toolCall: { id: existing.id, name: existing.name },
+                };
+              }
+            }
+            if (tc.function?.arguments) {
+              existing.arguments += tc.function.arguments;
+            }
+            toolCallsAccum.set(tc.index, existing);
+          }
+        }
+
+        // Capture usage from final chunk
+        if (chunk.usage) {
+          promptTokens = chunk.usage.prompt_tokens ?? 0;
+          completionTokens = chunk.usage.completion_tokens ?? 0;
+        }
       }
 
-      // Check for tool calls
-      const toolCalls = choice.message.tool_calls;
-      if (!toolCalls || toolCalls.length === 0) {
-        // No more tool calls - we're done
-        finalResponse = response;
-        break;
+      // If no tool calls, we're done
+      if (finishReason !== 'tool_calls' || toolCallsAccum.size === 0) {
+        yield {
+          type: 'done',
+          usage: {
+            inputTokens: promptTokens,
+            outputTokens: completionTokens,
+            totalTokens: promptTokens + completionTokens,
+          },
+          stopReason: mapOpenAIStopReason(finishReason),
+        };
+        return;
       }
+
+      // Execute tool calls
+      const toolCallsArray = Array.from(toolCallsAccum.values());
 
       // Add assistant message with tool calls to history
       messages.push({
         role: 'assistant',
-        content: choice.message.content,
-        tool_calls: toolCalls,
+        content: null,
+        tool_calls: toolCallsArray.map((tc) => ({
+          id: tc.id,
+          type: 'function' as const,
+          function: { name: tc.name, arguments: tc.arguments },
+        })),
       });
 
-      // Execute each tool and collect results
-      const toolResults: ChatCompletionMessageParam[] = [];
-
-      for (const toolCall of toolCalls) {
+      // Execute each tool
+      for (const tc of toolCallsArray) {
         try {
-          // Parse tool call
-          const normalizedToolCall = fromOpenAIToolCall(toolCall);
+          const input = JSON.parse(tc.arguments);
+          const normalizedName = tc.name;
+          const executor = toolExecutors[normalizedName];
 
-          // Find and execute tool
-          const executor = toolExecutors[normalizedToolCall.name];
           if (!executor) {
-            throw new Error(`Unknown tool: ${normalizedToolCall.name}`);
+            throw new Error(`Unknown tool: ${normalizedName}`);
           }
 
-          // Execute tool (returns JSON string)
-          const result = await executor(normalizedToolCall.input);
+          const result = await executor(input);
 
-          // Add tool result message
-          toolResults.push({
+          // Yield tool_end with parsed input
+          yield { type: 'tool_end', toolCall: { id: tc.id, name: tc.name, input } };
+
+          // Add tool result to messages
+          messages.push({
             role: 'tool',
             content: result,
-            tool_call_id: toolCall.id,
+            tool_call_id: tc.id,
           });
         } catch (error) {
-          // Add error as tool result
           const errorMessage = error instanceof Error ? error.message : 'Tool execution failed';
-          toolResults.push({
+          // Include input even on error (may have been parsed successfully)
+          const parsedInput = (() => {
+            try {
+              return JSON.parse(tc.arguments);
+            } catch {
+              return undefined;
+            }
+          })();
+          yield { type: 'tool_end', toolCall: { id: tc.id, name: tc.name, input: parsedInput } };
+          messages.push({
             role: 'tool',
             content: JSON.stringify({ error: errorMessage }),
-            tool_call_id: toolCall.id,
+            tool_call_id: tc.id,
           });
         }
       }
-
-      // Append tool results to conversation
-      messages.push(...toolResults);
+      // Continue to next turn
     }
 
-    if (!finalResponse) {
-      throw new Error(`Max turns (${MAX_TURNS}) reached without completion`);
-    }
-
-    // Build normalized response
-    return this.buildResponse(finalResponse, params.model);
+    // Max turns reached (not token limit, so use end_turn)
+    yield {
+      type: 'done',
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      stopReason: 'end_turn',
+    };
   }
 
   /**
@@ -185,50 +301,9 @@ export class OpenAIChatProvider implements ChatProvider {
 
     // Convert normalized messages to OpenAI format
     const openaiMessages = toOpenAIMessages(params.messages);
-    // Cast to SDK types - our adapter types are compatible at runtime
-    messages.push(...(openaiMessages as ChatCompletionMessageParam[]));
+    messages.push(...openaiMessages);
 
     return messages;
-  }
-
-  /**
-   * Build normalized ChatResponse from OpenAI response
-   */
-  private buildResponse(
-    response: OpenAI.Chat.Completions.ChatCompletion,
-    requestedModel: string
-  ): ChatResponse {
-    const choice = response.choices[0];
-    if (!choice) {
-      throw new Error('OpenAI returned no choices');
-    }
-
-    const message = choice.message;
-
-    // Extract text content
-    const content = message.content ?? '';
-
-    // Extract tool calls (should be empty in final response)
-    const toolCalls = (message.tool_calls ?? []).map(fromOpenAIToolCall);
-
-    // Map stop reason
-    const stopReason = mapOpenAIStopReason(choice.finish_reason);
-
-    // Extract usage
-    const usage = {
-      inputTokens: response.usage?.prompt_tokens ?? 0,
-      outputTokens: response.usage?.completion_tokens ?? 0,
-      totalTokens: response.usage?.total_tokens ?? 0,
-    };
-
-    return {
-      content,
-      toolCalls,
-      stopReason,
-      usage,
-      model: response.model || requestedModel,
-      provider: 'openai',
-    };
   }
 }
 

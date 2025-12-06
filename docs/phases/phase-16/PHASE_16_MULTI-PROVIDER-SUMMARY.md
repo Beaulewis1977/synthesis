@@ -217,14 +217,89 @@ while (turnCount < MAX_TURNS) {
 
 ---
 
-## Phase 16C: Streaming & UI - NOT STARTED
+## Phase 16C: Streaming & UI - COMPLETED
 
-**Planned work:**
-1. Add SSE endpoint for streaming responses
-2. Implement optimistic message display
-3. Add loading/typing indicators
-4. Token-by-token rendering
-5. Progress for tool execution
+**Status:** COMPLETED
+**Branch:** `feature/phase-16-multi-provider-chat`
+**Date:** 2025-12-06
+
+### Implementation
+
+1. **Backend: Provider `streamChat()` methods**
+   - All providers now implement `streamChat()` as async generators
+   - `chat()` methods refactored to internally call `streamChat()` and accumulate results
+   - Single source of truth for streaming logic per provider
+
+2. **Backend: SSE endpoint `/api/agent/chat/stream`**
+   - New route in `apps/server/src/routes/agent-stream.ts`
+   - Streams `ChatStreamChunk` events as SSE
+   - Event types: `token`, `tool_start`, `tool_end`, `done`, `error`
+   - Session persistence on stream completion
+
+3. **Frontend: Streaming hook and components**
+   - `useStreamingChat` hook for SSE consumption
+   - `StreamingMessage` component with cursor animation and tool progress
+   - ChatPage updated to use streaming by default
+
+### Files Created/Modified
+
+| File | Changes |
+|------|---------|
+| `apps/server/src/services/chat-providers/anthropic.ts` | Added `streamChat()`, refactored `chat()` |
+| `apps/server/src/services/chat-providers/openai.ts` | Added `streamChat()` with streaming tool loop |
+| `apps/server/src/services/chat-providers/ollama.ts` | Added `streamChat()` |
+| `apps/server/src/routes/agent-stream.ts` | NEW: SSE streaming endpoint |
+| `apps/server/src/index.ts` | Registered `agentStreamRoutes` |
+| `apps/web/src/hooks/useStreamingChat.ts` | NEW: SSE client hook |
+| `apps/web/src/components/StreamingMessage.tsx` | NEW: Streaming message UI |
+| `apps/web/src/pages/ChatPage.tsx` | Updated to use streaming |
+
+### SSE Event Format
+
+```
+event: token
+data: {"content": "Hello"}
+
+event: tool_start
+data: {"tool": "search_rag", "input": {...}}
+
+event: tool_end
+data: {"tool": "search_rag"}
+
+event: done
+data: {"usage": {...}, "stopReason": "end_turn"}
+
+event: error
+data: {"message": "..."}
+```
+
+### Architecture
+
+```typescript
+// Provider interface with streaming
+interface ChatProvider {
+  chat(params: ChatParams): Promise<ChatResponse>;
+  streamChat?(params: ChatParams): AsyncGenerator<ChatStreamChunk, void, unknown>;
+}
+
+// chat() now delegates to streamChat()
+async chat(params: ChatParams): Promise<ChatResponse> {
+  let content = '';
+  for await (const chunk of this.streamChat(params)) {
+    if (chunk.type === 'text') content += chunk.text;
+    // ...accumulate
+  }
+  return { content, ... };
+}
+```
+
+### Verification
+
+| Check | Status |
+|-------|--------|
+| `pnpm typecheck` | ✅ PASS |
+| `pnpm typecheck:server` | ✅ PASS |
+| `pnpm --filter @synthesis/web typecheck` | ✅ PASS |
 
 ---
 
@@ -260,5 +335,5 @@ while (turnCount < MAX_TURNS) {
 3. ~~Begin Phase 16B: Multi-Provider Chat implementation~~ ✅ DONE
 4. ~~Implement Phase 16D: Tool Adapters~~ ✅ DONE (merged with 16B)
 5. Merge PR #150 to develop
-6. Begin Phase 16C: Streaming & UI
+6. ~~Phase 16C: Streaming & UI~~ ✅ DONE
 7. Begin Phase 16E: Additional Providers (Google, GLM, Kimi)

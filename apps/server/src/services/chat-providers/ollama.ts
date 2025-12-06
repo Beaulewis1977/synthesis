@@ -11,6 +11,8 @@ import type {
   ChatParams,
   ChatProvider,
   ChatResponse,
+  ChatStopReason,
+  ChatStreamChunk,
   ProviderCapabilities,
   ToolContext,
 } from './types.js';
@@ -21,19 +23,6 @@ import type {
 interface OllamaMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
-}
-
-/**
- * Ollama chat response format
- */
-interface OllamaChatResponse {
-  message: {
-    role: string;
-    content: string;
-  };
-  done: boolean;
-  prompt_eval_count?: number;
-  eval_count?: number;
 }
 
 /**
@@ -69,15 +58,43 @@ export class OllamaChatProvider implements ChatProvider {
    * Send chat message (non-streaming)
    */
   async chat(params: ChatParams): Promise<ChatResponse> {
-    // Convert normalized messages to Ollama format
+    let content = '';
+    let usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+    let stopReason: ChatStopReason = 'end_turn';
+
+    for await (const chunk of this.streamChat(params)) {
+      switch (chunk.type) {
+        case 'text':
+          content += chunk.text ?? '';
+          break;
+        case 'done':
+          usage = chunk.usage ?? usage;
+          stopReason = chunk.stopReason ?? stopReason;
+          break;
+      }
+    }
+
+    return {
+      content,
+      toolCalls: [], // Ollama doesn't support tools
+      stopReason,
+      usage,
+      model: params.model,
+      provider: 'ollama',
+    };
+  }
+
+  /**
+   * Stream chat message
+   */
+  async *streamChat(params: ChatParams): AsyncGenerator<ChatStreamChunk, void, unknown> {
     const messages = this.toOllamaMessages(params);
 
     try {
-      // Call Ollama chat API
       const response = await this.client.chat({
         model: params.model,
         messages,
-        stream: false,
+        stream: true,
         options: {
           temperature: params.temperature,
           num_predict: params.maxTokens,
@@ -85,33 +102,35 @@ export class OllamaChatProvider implements ChatProvider {
         },
       });
 
-      // Validate response
-      const ollamaResponse = response as OllamaChatResponse;
-      if (ollamaResponse.message?.content == null) {
-        throw new Error('Ollama response missing message content');
+      let inputTokens = 0;
+      let outputTokens = 0;
+
+      for await (const part of response) {
+        // Yield text chunks
+        if (part.message?.content) {
+          yield { type: 'text', text: part.message.content };
+        }
+
+        // Capture token counts from final part
+        if (part.done) {
+          inputTokens = part.prompt_eval_count ?? 0;
+          outputTokens = part.eval_count ?? 0;
+        }
       }
 
-      // Extract token counts (may not be present in all models)
-      const inputTokens = ollamaResponse.prompt_eval_count ?? 0;
-      const outputTokens = ollamaResponse.eval_count ?? 0;
-
-      // Return normalized response
-      return {
-        content: ollamaResponse.message.content,
-        toolCalls: [], // Ollama doesn't support tools
-        stopReason: 'end_turn',
+      // Yield done with usage
+      yield {
+        type: 'done',
         usage: {
           inputTokens,
           outputTokens,
           totalTokens: inputTokens + outputTokens,
         },
-        model: params.model,
-        provider: 'ollama',
+        stopReason: 'end_turn',
       };
     } catch (error) {
-      // Wrap Ollama errors with context
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Ollama chat failed: ${message}`);
+      throw new Error(`Ollama streaming chat failed: ${message}`);
     }
   }
 
