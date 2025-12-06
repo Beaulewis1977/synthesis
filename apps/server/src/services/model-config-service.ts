@@ -45,7 +45,7 @@ export function isValidFeature(feature: string): feature is ModelFeature {
 export function isValidProviderForFeature(feature: ModelFeature, provider: string): boolean {
   // LLM features
   if (['chat', 'summary', 'ocr', 'contradiction'].includes(feature)) {
-    return ['anthropic', 'openai', 'ollama', 'google'].includes(provider);
+    return ['anthropic', 'openai', 'ollama', 'google', 'zhipu', 'moonshot'].includes(provider);
   }
 
   // Embedding features

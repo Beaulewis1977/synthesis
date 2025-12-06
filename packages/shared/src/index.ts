@@ -490,7 +490,7 @@ export type ModelFeature =
 /**
  * LLM providers
  */
-export type LLMProvider = 'anthropic' | 'openai' | 'ollama' | 'google';
+export type LLMProvider = 'anthropic' | 'openai' | 'ollama' | 'google' | 'zhipu' | 'moonshot';
 
 /**
  * Reranker providers
@@ -580,21 +580,21 @@ export const DEFAULT_MODEL_CONFIGS: Record<ModelFeature, Omit<ModelConfig, 'sour
   chat: {
     feature: 'chat',
     provider: 'anthropic',
-    model: 'claude-3-5-haiku-20241022',
+    model: 'claude-3-5-haiku-latest',
     localOnly: false,
     enabled: true,
   },
   summary: {
     feature: 'summary',
     provider: 'anthropic',
-    model: 'claude-3-5-haiku-20241022',
+    model: 'claude-3-5-haiku-latest',
     localOnly: false,
     enabled: true,
   },
   ocr: {
     feature: 'ocr',
     provider: 'anthropic',
-    model: 'claude-3-5-haiku-20241022',
+    model: 'claude-3-5-haiku-latest',
     localOnly: false,
     enabled: true,
   },
@@ -629,7 +629,7 @@ export const DEFAULT_MODEL_CONFIGS: Record<ModelFeature, Omit<ModelConfig, 'sour
   contradiction: {
     feature: 'contradiction',
     provider: 'anthropic',
-    model: 'claude-3-5-haiku-20241022',
+    model: 'claude-3-5-haiku-latest',
     localOnly: false,
     enabled: false,
   },
@@ -641,10 +641,10 @@ export const DEFAULT_MODEL_CONFIGS: Record<ModelFeature, Omit<ModelConfig, 'sour
 export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   anthropic: {
     models: [
-      'claude-3-5-haiku-20241022',
-      'claude-3-5-sonnet-20241022',
-      'claude-3-opus-20240229',
-      'claude-sonnet-4-20250514',
+      'claude-sonnet-4-5-20250929',
+      'claude-haiku-4-5-20251001',
+      'claude-opus-4-5-20251101',
+      'claude-3-5-haiku-latest',
     ],
     requiresApiKey: true,
     apiKeyEnvVar: 'ANTHROPIC_API_KEY',
@@ -653,14 +653,13 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   openai: {
     models: [
       // Chat models
-      'gpt-4o',
-      'gpt-4o-mini',
-      'gpt-4-turbo',
-      'gpt-5-mini-2025-08-07',
-      'gpt-5-nano-2025-08-07',
+      'gpt-4.1-nano',
+      'gpt-5-mini',
+      'gpt-5-nano',
+      'gpt-5.1-codex-mini',
       // Embedding models
       'text-embedding-3-large',
-      'text-embedding-3-small',
+      'text-embedding-ada-002',
     ],
     requiresApiKey: true,
     apiKeyEnvVar: 'OPENAI_API_KEY',
@@ -670,12 +669,15 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
     models: [
       // Embedding models
       'nomic-embed-text',
+      'manutic/nomic-embed-code:latest',
       // Chat models
       'llama3.2',
       'mistral',
       'codellama',
       'phi3',
       'gpt-oss-20b',
+      // OCR models
+      'DeepSeek-OCR',
     ],
     requiresApiKey: false,
     isLocal: true,
@@ -683,18 +685,30 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   google: {
     models: [
       // Chat models
-      'gemini-1.5-pro',
-      'gemini-1.5-flash',
-      'gemini-2.5-flash-lite',
+      'gemini-3-pro-preview',
       'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
+      'gemini-2.5-pro',
       // Vision models
-      'gemini-2.5-flash-image',
+      'gemini-3-pro-image-preview',
       // Embedding models
       'text-embedding-004',
       'gemini-embedding-001',
     ],
     requiresApiKey: true,
     apiKeyEnvVar: 'GOOGLE_API_KEY',
+    isLocal: false,
+  },
+  zhipu: {
+    models: ['GLM-4.6', 'GLM-4.5-Air'],
+    requiresApiKey: true,
+    apiKeyEnvVar: 'ZHIPU_API_KEY',
+    isLocal: false,
+  },
+  moonshot: {
+    models: ['kimi-k2-0905-preview', 'kimi-k2-thinking', 'kimi-k2-thinking-turbo'],
+    requiresApiKey: true,
+    apiKeyEnvVar: 'MOONSHOT_API_KEY',
     isLocal: false,
   },
   voyage: {

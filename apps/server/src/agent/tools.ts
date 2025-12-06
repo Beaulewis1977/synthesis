@@ -1,3 +1,4 @@
+import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import Anthropic from '@anthropic-ai/sdk';
 import type { Tool } from '@anthropic-ai/sdk/resources/messages.js';
 import { createDocument, getDocument, getDocumentChunks, getPool } from '@synthesis/db';
@@ -37,6 +38,33 @@ type ToolExecutor = (input: unknown) => Promise<string>;
 function createToolResponse(message: string, payload?: unknown): string {
   const text = payload ? `${message}\n\n${JSON.stringify(payload, null, 2)}` : message;
   return text;
+}
+
+// =============================================================================
+// MCP Tool Result Format (for Claude Agent SDK)
+// =============================================================================
+
+/**
+ * MCP tool result format required by Claude Agent SDK
+ * Uses index signature for SDK compatibility
+ */
+export interface McpToolResult {
+  [key: string]: unknown;
+  content: Array<{ type: 'text'; text: string }>;
+  isError?: boolean;
+}
+
+/**
+ * Create an MCP-compatible tool result
+ */
+function createMcpToolResult(text: string, isError = false): McpToolResult {
+  const result: McpToolResult = {
+    content: [{ type: 'text' as const, text }],
+  };
+  if (isError) {
+    result.isError = true;
+  }
+  return result;
 }
 
 type JsonSchema =
@@ -724,4 +752,572 @@ export function buildAgentTools(
   }
 
   return { tools, toolExecutors };
+}
+
+// =============================================================================
+// MCP Server Format (for Claude Agent SDK)
+// =============================================================================
+
+/** MCP server name used for tool namespacing */
+export const MCP_SERVER_NAME = 'synthesis-rag-tools';
+
+/** List of all tool names (for allowedTools configuration) */
+export const MCP_TOOL_NAMES = [
+  `mcp__${MCP_SERVER_NAME}__${SEARCH_TOOL_NAME}`,
+  `mcp__${MCP_SERVER_NAME}__${ADD_DOCUMENT_TOOL_NAME}`,
+  `mcp__${MCP_SERVER_NAME}__${FETCH_WEB_CONTENT_TOOL_NAME}`,
+  `mcp__${MCP_SERVER_NAME}__${LIST_COLLECTIONS_TOOL_NAME}`,
+  `mcp__${MCP_SERVER_NAME}__${LIST_DOCUMENTS_TOOL_NAME}`,
+  `mcp__${MCP_SERVER_NAME}__${GET_DOCUMENT_STATUS_TOOL_NAME}`,
+  `mcp__${MCP_SERVER_NAME}__${DELETE_DOCUMENT_TOOL_NAME}`,
+  `mcp__${MCP_SERVER_NAME}__${RESTART_INGEST_TOOL_NAME}`,
+  `mcp__${MCP_SERVER_NAME}__${SUMMARIZE_DOCUMENT_TOOL_NAME}`,
+] as const;
+
+/**
+ * Build an MCP server with all RAG tools for Claude Agent SDK.
+ *
+ * This is the new SDK-compatible format that replaces the manual agentic loop.
+ * Tools are automatically executed by the SDK when Claude requests them.
+ */
+export function buildAgentMcpServer(db: Pool, context: ToolContext) {
+  return createSdkMcpServer({
+    name: MCP_SERVER_NAME,
+    version: '1.0.0',
+    tools: [
+      // search_rag
+      tool(
+        SEARCH_TOOL_NAME,
+        'Search the RAG knowledge base for relevant information and return matching chunks with citations.',
+        {
+          query: z.string().min(1).describe('Search query'),
+          collection_id: z
+            .string()
+            .uuid()
+            .optional()
+            .describe('Collection ID (defaults to active collection)'),
+          top_k: z
+            .number()
+            .int()
+            .min(1)
+            .max(50)
+            .optional()
+            .describe('Number of results (default: 5)'),
+          min_similarity: z
+            .number()
+            .min(0)
+            .max(1)
+            .optional()
+            .describe('Minimum similarity threshold (default: 0.5)'),
+          search_mode: z.enum(['vector', 'hybrid']).optional().describe('Search mode'),
+        },
+        async (args) => {
+          try {
+            const searchResult = await smartSearch(db, {
+              query: args.query,
+              collectionId: args.collection_id ?? context.collectionId,
+              topK: args.top_k ?? 5,
+              minSimilarity: args.min_similarity ?? 0.5,
+              mode: args.search_mode,
+            });
+            const payload = {
+              query: searchResult.query,
+              results: searchResult.results,
+              total_results: searchResult.totalResults,
+              search_time_ms: searchResult.searchTimeMs,
+              metadata: searchResult.metadata,
+            };
+            return createMcpToolResult(
+              createToolResponse(
+                `Search (${searchResult.metadata.searchMode}) completed for "${payload.query}". Returning ${payload.total_results} result(s).`,
+                payload
+              )
+            );
+          } catch (error) {
+            return createMcpToolResult(
+              `Error searching: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              true
+            );
+          }
+        }
+      ),
+
+      // add_document
+      tool(
+        ADD_DOCUMENT_TOOL_NAME,
+        'Add a document to the RAG system from a LOCAL FILE PATH or RAW FILE URL (PDFs, markdown, code files). For HTML web pages, use fetch_web_content instead.',
+        {
+          source: z.string().min(1).describe('File path or URL'),
+          collection_id: z.string().uuid().optional().describe('Collection ID'),
+          title: z.string().min(1).optional().describe('Document title'),
+          metadata: z.record(z.any()).optional().describe('Additional metadata'),
+        },
+        async (args) => {
+          try {
+            const collectionId = args.collection_id ?? context.collectionId;
+            const source = args.source.trim();
+            const metadata = args.metadata ?? {};
+            const remote = isUrl(source);
+
+            // For remote URLs, check if it's an HTML page
+            if (remote) {
+              const url = new URL(source);
+              const pathname = url.pathname.toLowerCase();
+              const isRawFile =
+                pathname.endsWith('.pdf') ||
+                pathname.endsWith('.md') ||
+                pathname.endsWith('.txt') ||
+                pathname.endsWith('.json') ||
+                pathname.endsWith('.yaml') ||
+                pathname.endsWith('.yml') ||
+                pathname.endsWith('.xml') ||
+                pathname.endsWith('.csv') ||
+                pathname.endsWith('.dart') ||
+                pathname.endsWith('.ts') ||
+                pathname.endsWith('.tsx') ||
+                pathname.endsWith('.js') ||
+                pathname.endsWith('.jsx') ||
+                pathname.endsWith('.py') ||
+                pathname.endsWith('.go') ||
+                pathname.endsWith('.rs') ||
+                pathname.endsWith('.java') ||
+                pathname.endsWith('.kt') ||
+                pathname.endsWith('.swift') ||
+                url.hostname === 'raw.githubusercontent.com' ||
+                url.hostname.includes('raw.') ||
+                url.pathname.includes('/raw/');
+
+              if (!isRawFile) {
+                const result = await fetchWebContent(db, {
+                  url: source,
+                  collectionId,
+                  mode: 'single',
+                  titlePrefix: args.title,
+                });
+                return createMcpToolResult(
+                  createToolResponse(
+                    `Detected web page URL. Used fetch_web_content for proper HTML extraction. Fetched and queued ${result.processed.length} page(s) for ingestion.`,
+                    result.processed
+                  )
+                );
+              }
+            }
+
+            const download = remote
+              ? await downloadRemoteFile(source)
+              : await readLocalFile(source);
+            const remoteDownload = remote ? (download as RemoteDownloadResult) : null;
+            const referenceName = remoteDownload?.fileName ?? source;
+            const contentType = inferContentType(
+              referenceName,
+              remoteDownload?.contentType ?? download.contentType
+            );
+            const extension = inferExtension(contentType, referenceName);
+            const title = args.title?.trim()?.length
+              ? args.title.trim()
+              : inferTitle(referenceName);
+
+            const document = await createDocument({
+              collection_id: collectionId,
+              title,
+              file_path: undefined,
+              content_type: contentType,
+              file_size: download.buffer.length,
+              source_url: remote ? source : undefined,
+            });
+
+            if (Object.keys(metadata).length > 0) {
+              await db.query('UPDATE documents SET metadata = $1 WHERE id = $2', [
+                metadata,
+                document.id,
+              ]);
+            }
+
+            const filePath = await writeDocumentFile(
+              collectionId,
+              document.id,
+              extension,
+              download.buffer
+            );
+            await updateDocumentStatusSafe(db, document.id, 'pending', undefined, filePath);
+
+            ingestDocument(document.id).catch((error: unknown) => {
+              console.error(`Ingestion failed for ${document.id}`, error);
+            });
+
+            return createMcpToolResult(
+              createToolResponse('Document queued for ingestion.', {
+                doc_id: document.id,
+                title,
+                collection_id: collectionId,
+                content_type: contentType,
+                file_path: filePath,
+                metadata,
+              })
+            );
+          } catch (error) {
+            return createMcpToolResult(
+              `Error adding document: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              true
+            );
+          }
+        }
+      ),
+
+      // fetch_web_content
+      tool(
+        FETCH_WEB_CONTENT_TOOL_NAME,
+        'Fetch web content (single page or crawl) and ingest it into the active collection.',
+        {
+          url: z.string().url().describe('Web page URL'),
+          collection_id: z.string().uuid().optional().describe('Collection ID'),
+          mode: z.enum(['single', 'crawl']).optional().describe('Fetch mode (default: single)'),
+          max_pages: z
+            .number()
+            .int()
+            .min(1)
+            .max(200)
+            .optional()
+            .describe('Max pages to crawl (default: 25)'),
+          title_prefix: z.string().min(1).optional().describe('Title prefix for documents'),
+        },
+        async (args) => {
+          try {
+            const collectionId = args.collection_id ?? context.collectionId;
+            const result = await fetchWebContent(db, {
+              url: args.url,
+              collectionId,
+              mode: args.mode ?? 'single',
+              maxPages: args.max_pages ?? 25,
+              titlePrefix: args.title_prefix,
+            });
+            return createMcpToolResult(
+              createToolResponse(
+                `Fetched and queued ${result.processed.length} page(s) for ingestion.`,
+                result.processed
+              )
+            );
+          } catch (error) {
+            return createMcpToolResult(
+              `Failed to fetch content from ${args.url}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              true
+            );
+          }
+        }
+      ),
+
+      // list_collections
+      tool(
+        LIST_COLLECTIONS_TOOL_NAME,
+        'List available collections with document counts.',
+        {},
+        async () => {
+          try {
+            const { rows } = await db.query<{
+              id: string;
+              name: string;
+              description: string | null;
+              doc_count: string;
+              created_at: Date;
+            }>(`
+              SELECT c.id, c.name, c.description, COUNT(d.id)::text AS doc_count, c.created_at
+              FROM collections c
+              LEFT JOIN documents d ON d.collection_id = c.id
+              GROUP BY c.id
+              ORDER BY c.created_at DESC
+            `);
+            const collections = rows.map((row) => ({
+              id: row.id,
+              name: row.name,
+              description: row.description,
+              doc_count: Number(row.doc_count),
+              created_at: row.created_at,
+            }));
+            return createMcpToolResult(
+              createToolResponse('Collections retrieved.', { collections })
+            );
+          } catch (error) {
+            return createMcpToolResult(
+              `Error listing collections: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              true
+            );
+          }
+        }
+      ),
+
+      // list_documents
+      tool(
+        LIST_DOCUMENTS_TOOL_NAME,
+        'List documents in a collection with status information.',
+        {
+          collection_id: z.string().uuid().optional().describe('Collection ID'),
+          status: z
+            .enum(['pending', 'extracting', 'chunking', 'embedding', 'complete', 'error', 'all'])
+            .optional()
+            .describe('Filter by status (default: all)'),
+          limit: z.number().int().min(1).max(200).optional().describe('Max results (default: 50)'),
+        },
+        async (args) => {
+          try {
+            const collectionId = args.collection_id ?? context.collectionId;
+            const params: Array<string | number> = [collectionId];
+            let paramIndex = 2;
+            let statusFilter = '';
+            if (args.status && args.status !== 'all') {
+              statusFilter = `AND d.status = $${paramIndex++}`;
+              params.push(args.status);
+            }
+            params.push(args.limit ?? 50);
+
+            const { rows } = await db.query<{
+              id: string;
+              title: string;
+              status: string;
+              file_size: number | null;
+              source_url: string | null;
+              created_at: Date;
+              updated_at: Date;
+              chunk_count: string;
+              token_count: string | null;
+            }>(
+              `SELECT d.id, d.title, d.status, d.file_size, d.source_url, d.created_at, d.updated_at,
+                COUNT(ch.id)::text AS chunk_count, SUM(ch.token_count)::text AS token_count
+               FROM documents d
+               LEFT JOIN chunks ch ON ch.doc_id = d.id
+               WHERE d.collection_id = $1 ${statusFilter}
+               GROUP BY d.id
+               ORDER BY d.created_at DESC
+               LIMIT $${paramIndex}`,
+              params
+            );
+
+            const documents = rows.map((row) => ({
+              id: row.id,
+              title: row.title,
+              status: row.status,
+              file_size: row.file_size,
+              source_url: row.source_url,
+              created_at: row.created_at,
+              updated_at: row.updated_at,
+              chunk_count: Number(row.chunk_count),
+              token_count: row.token_count ? Number(row.token_count) : null,
+            }));
+            return createMcpToolResult(
+              createToolResponse(`Retrieved ${documents.length} document(s).`, { documents })
+            );
+          } catch (error) {
+            return createMcpToolResult(
+              `Error listing documents: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              true
+            );
+          }
+        }
+      ),
+
+      // get_document_status
+      tool(
+        GET_DOCUMENT_STATUS_TOOL_NAME,
+        'Check the processing status of a document.',
+        {
+          doc_id: z.string().uuid().describe('Document ID'),
+        },
+        async (args) => {
+          try {
+            const { rows } = await db.query<{
+              id: string;
+              title: string;
+              status: string;
+              error_message: string | null;
+              created_at: Date;
+              processed_at: Date | null;
+              file_path: string | null;
+              chunk_count: string;
+              total_tokens: string | null;
+            }>(
+              `SELECT d.id, d.title, d.status, d.error_message, d.created_at, d.processed_at, d.file_path,
+                COUNT(ch.id)::text AS chunk_count, SUM(ch.token_count)::text AS total_tokens
+               FROM documents d
+               LEFT JOIN chunks ch ON ch.doc_id = d.id
+               WHERE d.id = $1
+               GROUP BY d.id`,
+              [args.doc_id]
+            );
+
+            if (rows.length === 0) {
+              return createMcpToolResult(createToolResponse(`Document ${args.doc_id} not found.`));
+            }
+
+            const doc = rows[0];
+            const payload = {
+              doc_id: doc.id,
+              title: doc.title,
+              status: doc.status,
+              error: doc.error_message,
+              created_at: doc.created_at,
+              processed_at: doc.processed_at,
+              chunk_count: Number(doc.chunk_count),
+              total_tokens: doc.total_tokens ? Number(doc.total_tokens) : null,
+              file_path: doc.file_path,
+            };
+            return createMcpToolResult(
+              createToolResponse(`Status retrieved for document ${doc.title}.`, payload)
+            );
+          } catch (error) {
+            return createMcpToolResult(
+              `Error getting document status: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              true
+            );
+          }
+        }
+      ),
+
+      // delete_document
+      tool(
+        DELETE_DOCUMENT_TOOL_NAME,
+        'Delete a document and all associated chunks (requires confirm=true).',
+        {
+          doc_id: z.string().uuid().describe('Document ID'),
+          confirm: z.boolean().optional().describe('Confirm deletion'),
+        },
+        async (args) => {
+          try {
+            if (!args.confirm) {
+              return createMcpToolResult(
+                createToolResponse(
+                  'Deletion not confirmed. Set confirm=true to permanently remove the document.'
+                )
+              );
+            }
+            const result = await deleteDocumentById(db, { docId: args.doc_id });
+            return createMcpToolResult(
+              createToolResponse(`Document ${result.title} deleted.`, {
+                doc_id: result.docId,
+                title: result.title,
+              })
+            );
+          } catch (error) {
+            return createMcpToolResult(
+              error instanceof Error ? error.message : 'Failed to delete document.',
+              true
+            );
+          }
+        }
+      ),
+
+      // restart_ingest
+      tool(
+        RESTART_INGEST_TOOL_NAME,
+        'Retry ingestion for a document that previously failed or is stuck.',
+        {
+          doc_id: z.string().uuid().describe('Document ID'),
+        },
+        async (args) => {
+          try {
+            const document = await getDocument(args.doc_id);
+            if (!document) {
+              return createMcpToolResult(createToolResponse(`Document ${args.doc_id} not found.`));
+            }
+            if (!document.file_path) {
+              return createMcpToolResult(
+                createToolResponse(`Document ${document.id} has no stored file to ingest.`)
+              );
+            }
+
+            await db.query(
+              `UPDATE documents
+               SET status = 'pending', error_message = NULL, processed_at = NULL, updated_at = NOW()
+               WHERE id = $1`,
+              [document.id]
+            );
+
+            ingestDocument(document.id).catch((error: unknown) => {
+              console.error(`Re-ingestion failed for ${document.id}`, error);
+            });
+
+            return createMcpToolResult(
+              createToolResponse(`Re-ingestion started for document ${document.title}.`)
+            );
+          } catch (error) {
+            return createMcpToolResult(
+              `Error restarting ingest: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              true
+            );
+          }
+        }
+      ),
+
+      // summarize_document
+      tool(
+        SUMMARIZE_DOCUMENT_TOOL_NAME,
+        'Summarize a document using Claude based on its stored chunks.',
+        {
+          doc_id: z.string().uuid().describe('Document ID'),
+          max_chunks: z
+            .number()
+            .int()
+            .min(1)
+            .max(25)
+            .optional()
+            .describe('Max chunks to include (default: 10)'),
+        },
+        async (args) => {
+          try {
+            const modelConfigService = getModelConfigService(db);
+            const summaryConfig = await modelConfigService.getSummaryModelConfig();
+
+            if (summaryConfig.provider === 'anthropic' && !process.env.ANTHROPIC_API_KEY) {
+              return createMcpToolResult(
+                createToolResponse(
+                  'Summarization unavailable: ANTHROPIC_API_KEY environment variable is not set.'
+                )
+              );
+            }
+
+            const document = await getDocument(args.doc_id);
+            if (!document) {
+              return createMcpToolResult(createToolResponse(`Document ${args.doc_id} not found.`));
+            }
+
+            const chunks = await getDocumentChunks(document.id);
+            if (chunks.length === 0) {
+              return createMcpToolResult(
+                createToolResponse(`Document ${document.title} has no chunks to summarize.`)
+              );
+            }
+
+            const selectedChunks = chunks.slice(0, args.max_chunks ?? 10);
+            const combinedText = selectedChunks.map((chunk) => chunk.text).join('\n\n');
+
+            const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+            const response = await client.messages.create({
+              model: summaryConfig.model,
+              max_tokens: 512,
+              system:
+                'You are a documentation assistant that summarizes technical documents concisely with key points and citations when possible.',
+              messages: [
+                {
+                  role: 'user',
+                  content: `Summarize the following document titled "${document.title}". Highlight the main points and include section references if provided.\n\n${combinedText}`,
+                },
+              ],
+            });
+
+            const summary = extractTextContent(response);
+            return createMcpToolResult(
+              createToolResponse(`Summary generated for document ${document.title}.`, {
+                doc_id: document.id,
+                title: document.title,
+                summary,
+              })
+            );
+          } catch (error) {
+            return createMcpToolResult(
+              `Error summarizing document: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              true
+            );
+          }
+        }
+      ),
+    ],
+  });
 }

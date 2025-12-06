@@ -34,14 +34,16 @@ This document outlines the planned enhancements to Synthesis for multi-provider 
 **Goal:** Use same chat UI with switchable LLM providers
 
 **Providers to support:**
-| Provider | API Type | Tool Calling | Priority |
-|----------|----------|--------------|----------|
-| Anthropic | Native SDK | Yes | P0 |
-| OpenAI | OpenAI SDK | Yes | P0 |
-| Ollama | OpenAI-compatible | Limited | P0 |
-| Google | Google AI SDK | Yes | P1 |
-| GLM 4 (Z.AI) | OpenAI-compatible | TBD | P2 |
-| Kimi (Moonshot) | OpenAI-compatible | TBD | P2 |
+| Provider | Base URL | Models | Tool Support | Priority |
+|----------|----------|--------|--------------|----------|
+| Anthropic | `https://api.anthropic.com/v1` | claude-sonnet-4-5-20250929, claude-haiku-4-5-20251001, claude-opus-4-5-20251101, claude-3-5-haiku-latest | Yes | P0 |
+| OpenAI | `https://api.openai.com/v1` | gpt-4.1-nano, gpt-5-mini, gpt-5-nano, gpt-5.1-codex-mini | Yes | P0 |
+| Ollama | `http://localhost:11434/v1` | llama3.2, mistral, codellama, phi3, gpt-oss-20b | Limited | P0 |
+| Google | `https://generativelanguage.googleapis.com/v1beta` | gemini-3-pro-preview, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-2.5-pro | Yes | P1 |
+| Z.AI (Zhipu) | `https://api.z.ai/api/paas/v4` | GLM-4.6, GLM-4.5-Air | Yes | P2 |
+| Moonshot | `https://api.moonshot.cn/v1` | kimi-k2-0905-preview, kimi-k2-thinking, kimi-k2-thinking-turbo | Yes | P2 |
+
+**Note:** Z.AI also has a coding-specific endpoint: `https://api.z.ai/api/coding/paas/v4`
 
 **Architecture:**
 
@@ -121,17 +123,52 @@ ChatProvider Interface
 | Anthropic | Native tool_use blocks |
 | OpenAI | function_call / tools |
 | Google | functionDeclarations |
+| Z.AI (Zhipu) | OpenAI-compatible tools |
+| Moonshot | OpenAI-compatible tools |
 | Ollama | Limited (depends on model) |
 
 ---
 
 ## Implementation Phases
 
-### Phase 16A: Foundation (Docker + SDK Test)
-1. Test Claude Agent SDK workaround
-2. If fails, create Docker service config for server
-3. Verify SDK works in Docker
-4. Create provider abstraction interface
+### Phase 16A: Foundation (SDK Swap)
+**Status:** SDK workaround test PASSED ✅ - No Docker fallback needed!
+
+**Commits:**
+1. ✅ `feat(phase-16a): test Claude Agent SDK workaround` - DONE
+2. `feat(phase-16a): replace Anthropic SDK with Claude Agent SDK`
+
+**Remaining Tasks:**
+1. Replace `@anthropic-ai/sdk` with `@anthropic-ai/claude-code` in agent.ts
+2. Use `query()` with `pathToClaudeCodeExecutable: '/home/kngpnn/.local/share/pnpm/claude'`
+3. Remove manual 10-turn agentic loop (SDK handles tool execution internally)
+4. Adapt tool definitions for Claude Agent SDK format if needed
+5. Update response parsing for new SDK structure
+6. Test with existing RAG tools (search_rag, add_document, etc.)
+7. Create ChatProvider interface and types in `services/chat-providers/`
+
+**Key Change:**
+```typescript
+// FROM: Manual Anthropic SDK + 10-turn loop
+import Anthropic from '@anthropic-ai/sdk';
+const response = await anthropic.messages.create({...});
+while (turn < maxTurns) { /* manual tool handling */ }
+
+// TO: Claude Agent SDK (handles loop internally)
+import { query } from '@anthropic-ai/claude-code';
+const result = await query({
+  prompt: userMessage,
+  options: { pathToClaudeCodeExecutable: '/home/kngpnn/.local/share/pnpm/claude' }
+});
+```
+
+**Files to modify:**
+- `apps/server/src/agent/agent.ts` - Main SDK swap
+- `apps/server/src/agent/tools.ts` - May need format changes
+- `apps/server/package.json` - Add `@anthropic-ai/claude-code` dependency
+
+**Skills:** `synthesis-architecture`, `llm-provider-integration`, `backend-development`
+**Subagents:** `Explore` (find existing agent patterns), `Plan` (design interface)
 
 ### Phase 16B: Multi-Provider Chat
 1. Implement ChatProvider interface
@@ -140,6 +177,9 @@ ChatProvider Interface
 4. Add OllamaChatProvider
 5. Wire up model selector to provider selection
 
+**Skills:** `synthesis-architecture`, `llm-provider-integration`
+**Subagents:** `Explore` (research patterns), `test-writer` (provider tests), `code-reviewer` (after implementation)
+
 ### Phase 16C: Streaming & UI
 1. Add SSE endpoint for streaming responses
 2. Implement optimistic message display
@@ -147,17 +187,33 @@ ChatProvider Interface
 4. Token-by-token rendering
 5. Progress for tool execution
 
+**Skills:** `sse-streaming`, `frontend-design`, `synthesis-architecture`
+**Subagents:** `frontend-ui-architect` (streaming UI), `Explore` (find React patterns), `test-writer` (E2E tests)
+
 ### Phase 16D: Tool Adapters
 1. Create tool format converter for OpenAI
 2. Create tool format converter for Google
 3. Test tool calling across providers
 4. Graceful fallback for non-tool providers
 
+**Skills:** `llm-provider-integration`, `synthesis-architecture`
+**Subagents:** `Explore` (tool format research), `test-writer` (tool calling tests), `code-reviewer`
+
 ### Phase 16E: Additional Providers
 1. Add Google AI provider
 2. Add OpenAI-compatible provider base
 3. Add GLM 4 (Z.AI) support
 4. Add Kimi (Moonshot) support
+
+**Skills:** `llm-provider-integration` (see references/google.md, zhipu.md, moonshot.md)
+**Subagents:** `context7-docs-fetcher` (latest SDK docs), `test-writer`, `code-reviewer`
+
+### Cross-Phase Resources
+**Throughout all phases:**
+- `git-github-workflow-manager` - PR creation and management
+- `doc-writer` - Update docs after each phase
+- `brainstorming` - Design decisions when multiple approaches exist
+- `planning` - Break down complex tasks
 
 ---
 
@@ -265,6 +321,65 @@ apps/web/src/
 
 ---
 
+## GitHub Workflow
+
+### Branch Strategy
+- **Base branch:** `develop`
+- **Feature branch:** `feature/phase-16-multi-provider-chat`
+- All PRs target `develop`, merge to `main` only for stable releases
+
+### Commit Strategy
+Each sub-phase (16A, 16B, etc.) gets its own commits. Group related changes:
+
+| Phase | Commits | PR Strategy |
+|-------|---------|-------------|
+| 16A: Foundation | 1-2 commits (SDK test + provider interface) | Single PR |
+| 16B: Multi-Provider | 3-4 commits (interface + each provider) | Single PR |
+| 16C: Streaming & UI | 2-3 commits (backend SSE + frontend) | Single PR |
+| 16D: Tool Adapters | 1-2 commits (adapters + tests) | Single PR |
+| 16E: Additional Providers | 1 commit per provider | Single PR |
+
+### Workflow Steps
+
+1. **Start work on a sub-phase:**
+   ```bash
+   git checkout develop && git pull
+   git checkout -b feature/phase-16-multi-provider-chat
+   ```
+
+2. **Commit logical units of work:**
+   ```bash
+   # After completing provider interface
+   git add -A && git commit -m "feat(phase-16a): add ChatProvider interface and types"
+
+   # After completing Anthropic provider
+   git add -A && git commit -m "feat(phase-16b): implement AnthropicChatProvider"
+   ```
+
+3. **Push and create PR when sub-phase complete:**
+   ```bash
+   git push -u origin feature/phase-16-multi-provider-chat
+   gh pr create --base develop --title "feat(phase-16a): foundation and provider interface"
+   ```
+
+4. **After PR merge, continue on same branch or create new:**
+   ```bash
+   git checkout develop && git pull
+   # Continue on same branch for related work, or create new branch
+   ```
+
+### Commit Message Format
+```text
+feat(phase-16X): short description
+
+- Detail 1
+- Detail 2
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+```
+
+---
+
 ## Reference Links
 
 - Claude Agent SDK WSL2 issue: <https://github.com/anthropics/claude-agent-sdk-typescript/issues/20>
@@ -272,3 +387,27 @@ apps/web/src/
 - Current agent code: `apps/server/src/agent/agent.ts`
 - Model config service: `apps/server/src/services/model-config-service.ts`
 - Settings UI: `apps/web/src/pages/settings/ModelsPage.tsx`
+
+---
+
+## Notes
+
+### WSL2 Claude CLI Path Workaround (Phase 16A)
+
+**Issue:** The Claude Agent SDK uses a pre-compiled binary that crashes on WSL2 due to glibc/syscall incompatibilities ([Issue #20](https://github.com/anthropics/claude-agent-sdk-typescript/issues/20), [Issue #5823](https://github.com/anthropics/claude-code/issues/5823)).
+
+**Workaround:** Use `pathToClaudeCodeExecutable` pointing to the npm/pnpm-installed Claude Code CLI (JavaScript-based), not the native binary.
+
+**Current Implementation:**
+```typescript
+const CLAUDE_CLI_PATH = process.env.CLAUDE_CLI_PATH || 'claude';
+```
+
+**For WSL2 users:** Set `CLAUDE_CLI_PATH` environment variable to the pnpm-installed path:
+```bash
+export CLAUDE_CLI_PATH="/home/<username>/.local/share/pnpm/claude"
+```
+
+**For non-WSL2 users:** The default `'claude'` (in PATH) works if Claude Code is installed via npm/pnpm globally.
+
+**CodeRabbit Review Note:** The hardcoded path was flagged and changed to use env var with `'claude'` fallback. WSL2 users must set `CLAUDE_CLI_PATH` explicitly. This is documented but not enforced at runtime to avoid breaking non-WSL2 deployments.
