@@ -68,8 +68,17 @@ export class OpenAIChatProvider implements ChatProvider {
             toolCalls.push({
               id: chunk.toolCall.id,
               name: chunk.toolCall.name,
-              input: chunk.toolCall.input,
+              input: chunk.toolCall.input, // May be undefined, updated in tool_end
             });
+          }
+          break;
+        case 'tool_end':
+          // Update tool call with parsed input (available after arguments accumulated)
+          if (chunk.toolCall?.id && chunk.toolCall?.input !== undefined) {
+            const tc = toolCalls.find((t) => t.id === chunk.toolCall?.id);
+            if (tc) {
+              tc.input = chunk.toolCall.input;
+            }
           }
           break;
         case 'done':
@@ -229,8 +238,8 @@ export class OpenAIChatProvider implements ChatProvider {
 
           const result = await executor(input);
 
-          // Yield tool_end
-          yield { type: 'tool_end', toolCall: { id: tc.id, name: tc.name } };
+          // Yield tool_end with parsed input
+          yield { type: 'tool_end', toolCall: { id: tc.id, name: tc.name, input } };
 
           // Add tool result to messages
           messages.push({
@@ -240,7 +249,15 @@ export class OpenAIChatProvider implements ChatProvider {
           });
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Tool execution failed';
-          yield { type: 'tool_end', toolCall: { id: tc.id, name: tc.name } };
+          // Include input even on error (may have been parsed successfully)
+          const parsedInput = (() => {
+            try {
+              return JSON.parse(tc.arguments);
+            } catch {
+              return undefined;
+            }
+          })();
+          yield { type: 'tool_end', toolCall: { id: tc.id, name: tc.name, input: parsedInput } };
           messages.push({
             role: 'tool',
             content: JSON.stringify({ error: errorMessage }),
@@ -251,11 +268,11 @@ export class OpenAIChatProvider implements ChatProvider {
       // Continue to next turn
     }
 
-    // Max turns reached
+    // Max turns reached (not token limit, so use end_turn)
     yield {
       type: 'done',
       usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-      stopReason: 'max_tokens',
+      stopReason: 'end_turn',
     };
   }
 
