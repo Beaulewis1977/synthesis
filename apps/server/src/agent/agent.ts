@@ -1,7 +1,19 @@
-import { query } from '@anthropic-ai/claude-agent-sdk';
+/**
+ * Agent Chat Orchestrator
+ *
+ * Phase 16B: Refactored to use ChatProvider abstraction for multi-provider support.
+ * Supports Anthropic (Claude Agent SDK), OpenAI (manual tool loop), and Ollama (basic chat).
+ */
+
 import type { Pool } from 'pg';
+import {
+  type ChatMessage,
+  type ChatTool,
+  type ToolContext,
+  getConfiguredChatProvider,
+} from '../services/chat-providers/index.js';
 import { getModelConfigService } from '../services/model-config-service.js';
-import { MCP_SERVER_NAME, MCP_TOOL_NAMES, buildAgentMcpServer } from './tools.js';
+import { buildAgentTools } from './tools.js';
 
 // =============================================================================
 // Types
@@ -38,10 +50,7 @@ export interface AgentChatResult {
 // Configuration
 // =============================================================================
 
-/** Path to Claude CLI executable (required for SDK on WSL2) */
-const CLAUDE_CLI_PATH = process.env.CLAUDE_CLI_PATH || 'claude';
-
-const BASE_SYSTEM_PROMPT = `You are an autonomous RAG assistant helping a developer manage documentation for multiple projects.
+export const BASE_SYSTEM_PROMPT = `You are an autonomous RAG assistant helping a developer manage documentation for multiple projects.
 
 Your capabilities:
 - Search the knowledge base across collections
@@ -85,36 +94,39 @@ For complex tasks, chain tools: get_feature_recipe → find_code_examples → se
 // =============================================================================
 
 /**
- * Build the prompt with context for the agent
+ * Build chat messages from agent params and history
  */
-function buildPrompt(
-  message: string,
-  collectionId: string,
-  history: AgentConversationMessage[]
-): string {
-  const sections: string[] = [
-    `Active collection ID: ${collectionId}`,
-    'When you need additional context, call the `search_rag` tool to retrieve relevant chunks before answering.',
-  ];
+function buildChatMessages(params: AgentChatParams): ChatMessage[] {
+  const messages: ChatMessage[] = [];
 
-  if (history.length > 0) {
-    const formattedHistory = history
-      .map((entry) => `${entry.role === 'assistant' ? 'Assistant' : 'User'}: ${entry.content}`)
-      .join('\n');
-    sections.push(`Conversation so far:\n${formattedHistory}`);
+  // Add conversation history
+  for (const entry of params.history ?? []) {
+    messages.push({
+      role: entry.role,
+      content: entry.content,
+    });
   }
 
-  sections.push(`Current user message:\n${message}`);
-  return sections.join('\n\n');
+  // Add current user message
+  messages.push({
+    role: 'user',
+    content: params.message,
+  });
+
+  return messages;
 }
 
 /**
- * Extract the tool name without the MCP prefix
+ * Convert tool definitions to ChatTool format
  */
-function extractToolName(fullName: string): string {
-  // Format: mcp__synthesis-rag-tools__search_rag → search_rag
-  const prefix = `mcp__${MCP_SERVER_NAME}__`;
-  return fullName.startsWith(prefix) ? fullName.slice(prefix.length) : fullName;
+function buildChatTools(db: Pool, context: ToolContext): ChatTool[] {
+  const { tools } = buildAgentTools(db, context);
+
+  return tools.map((tool) => ({
+    name: tool.name,
+    description: tool.description ?? '',
+    inputSchema: tool.input_schema as ChatTool['inputSchema'],
+  }));
 }
 
 // =============================================================================
@@ -122,162 +134,89 @@ function extractToolName(fullName: string): string {
 // =============================================================================
 
 /**
- * Run an agent chat using the Claude Agent SDK.
+ * Run an agent chat using the configured ChatProvider.
  *
- * This replaces the manual 10-turn agentic loop with the SDK's query() function,
- * which handles tool execution automatically.
+ * Phase 16B: Uses ChatProvider abstraction for multi-provider support.
+ * - Anthropic: Uses Claude Agent SDK with MCP tools
+ * - OpenAI: Uses manual tool execution loop
+ * - Ollama: Basic chat without tools
  */
 export async function runAgentChat(db: Pool, params: AgentChatParams): Promise<AgentChatResult> {
-  // Get chat model configuration
+  const context: ToolContext = { collectionId: params.collectionId };
+  const history = params.history ?? [];
+
+  // Get the configured chat provider
+  const provider = await getConfiguredChatProvider(db, context);
+
+  // Get model configuration
   const modelConfigService = getModelConfigService(db);
   const chatConfig = await modelConfigService.getChatModelConfig();
 
-  // Validate API key for Anthropic provider
-  if (chatConfig.provider === 'anthropic' && !process.env.ANTHROPIC_API_KEY) {
-    throw new Error('ANTHROPIC_API_KEY environment variable must be set to use the agent.');
-  }
-
-  const history = params.history ?? [];
-
-  // Build MCP server with all RAG tools
-  const mcpServer = buildAgentMcpServer(db, { collectionId: params.collectionId });
+  // Build messages from history and current message
+  const messages = buildChatMessages(params);
 
   // Build system prompt with collection context
   const systemPrompt = `${BASE_SYSTEM_PROMPT}\n\nActive collection ID: ${params.collectionId}`;
 
-  // Build user prompt with history context
-  const prompt = buildPrompt(params.message, params.collectionId, history);
+  // Build tools if provider supports them
+  const chatTools = provider.capabilities.supportsTools ? buildChatTools(db, context) : undefined;
 
-  // Track tool calls and results
-  const toolCalls: AgentToolCall[] = [];
-  let assistantMessage = '';
-  let totalUsage: Record<string, unknown> = {};
-
-  try {
-    // Use Claude Agent SDK query()
-    const response = query({
-      prompt,
-      options: {
-        pathToClaudeCodeExecutable: CLAUDE_CLI_PATH,
-        systemPrompt,
-        model: chatConfig.model,
-        mcpServers: {
-          [MCP_SERVER_NAME]: mcpServer,
-        },
-        allowedTools: [...MCP_TOOL_NAMES],
-        permissionMode: 'bypassPermissions',
-        maxTurns: 10,
-      },
-    });
-
-    // Process streaming response
-    for await (const message of response) {
-      switch (message.type) {
-        case 'system':
-          // Session initialization - could store session_id for future use
-          if (message.subtype === 'init') {
-            // Session started
-          }
-          break;
-
-        case 'assistant':
-          // Extract text content from assistant message
-          if (typeof message.message?.content === 'string') {
-            assistantMessage = message.message.content;
-          } else if (Array.isArray(message.message?.content)) {
-            const textBlocks = message.message.content.filter(
-              (block: { type: string }) => block.type === 'text'
-            );
-            assistantMessage = textBlocks
-              .map((block: { type: string; text?: string }) => block.text ?? '')
-              .join('\n')
-              .trim();
-          }
-          break;
-
-        case 'user':
-          // Tool results from user turns
-          if (message.message?.content && Array.isArray(message.message.content)) {
-            for (const block of message.message.content) {
-              if (block.type === 'tool_result') {
-                // Find the matching tool call and update its result
-                const toolCall = toolCalls.find(
-                  (tc) => tc.id === block.tool_use_id && tc.status === 'started'
-                );
-                if (toolCall) {
-                  toolCall.status = block.is_error ? 'error' : 'completed';
-                  // Extract text from content array
-                  if (Array.isArray(block.content)) {
-                    const textParts = block.content
-                      .filter((c: { type: string }) => c.type === 'text')
-                      .map((c: { type: string; text?: string }) => c.text ?? '');
-                    toolCall.result = textParts.join('\n');
-                  } else {
-                    toolCall.result = block.content;
-                  }
-                }
-              } else if (block.type === 'tool_use') {
-                // Track tool call start
-                toolCalls.push({
-                  id: block.id,
-                  tool: extractToolName(block.name),
-                  input: block.input,
-                  status: 'started',
-                  serverName: MCP_SERVER_NAME,
-                });
-              }
-            }
-          }
-          break;
-
-        case 'result':
-          // Final result with usage stats
-          if (message.subtype === 'success') {
-            if (message.result && typeof message.result === 'string') {
-              // Use result as final message if we don't have one
-              if (!assistantMessage) {
-                assistantMessage = message.result;
-              }
-            }
-            // Capture usage statistics
-            totalUsage = {
-              input_tokens: message.usage?.input_tokens ?? 0,
-              output_tokens: message.usage?.output_tokens ?? 0,
-              total_cost_usd: message.total_cost_usd ?? 0,
-              num_turns: message.num_turns ?? 0,
-              duration_ms: message.duration_ms ?? 0,
-            };
-          } else if (message.subtype === 'error_max_turns') {
-            // Max turns reached, still capture what we have
-            totalUsage = {
-              input_tokens: message.usage?.input_tokens ?? 0,
-              output_tokens: message.usage?.output_tokens ?? 0,
-              num_turns: message.num_turns ?? 0,
-            };
-          }
-          break;
-
-        default:
-          // Handle other message types as needed
-          break;
-      }
-    }
-  } catch (error) {
-    console.error('Agent query failed:', error);
-    throw error;
+  // Check if RAG features are needed but provider doesn't support tools
+  if (!provider.capabilities.supportsTools) {
+    // Warn user that RAG features are limited
+    console.warn(
+      `[Agent] Provider '${provider.name}' does not support tool calling. ` +
+        'RAG search and document management will not be available. ' +
+        'Consider switching to Anthropic or OpenAI for full functionality.'
+    );
   }
 
-  // Build updated conversation history
-  const updatedHistory: AgentConversationMessage[] = [
-    ...history,
-    { role: 'user', content: params.message },
-    { role: 'assistant', content: assistantMessage },
-  ];
+  try {
+    // Call the provider
+    const response = await provider.chat({
+      messages,
+      model: chatConfig.model,
+      systemPrompt,
+      tools: chatTools,
+      maxTokens: 4096,
+    });
 
-  return {
-    message: assistantMessage,
-    toolCalls,
-    history: updatedHistory,
-    usage: totalUsage,
-  };
+    // Build updated conversation history
+    const updatedHistory: AgentConversationMessage[] = [
+      ...history,
+      { role: 'user', content: params.message },
+      { role: 'assistant', content: response.content },
+    ];
+
+    // Convert tool calls to agent format
+    const agentToolCalls: AgentToolCall[] = response.toolCalls.map((tc) => ({
+      id: tc.id,
+      tool: tc.name,
+      input: tc.input,
+      status: 'completed' as const,
+      result: undefined, // Tool results are embedded in the response flow
+    }));
+
+    return {
+      message: response.content,
+      toolCalls: agentToolCalls,
+      history: updatedHistory,
+      usage: {
+        input_tokens: response.usage.inputTokens,
+        output_tokens: response.usage.outputTokens,
+        total_tokens: response.usage.totalTokens,
+        provider: response.provider,
+        model: response.model,
+      },
+    };
+  } catch (error) {
+    // Handle provider-specific errors
+    console.error(`[Agent] Chat failed with provider '${provider.name}':`, error);
+
+    // Re-throw with context
+    if (error instanceof Error) {
+      throw new Error(`Chat provider '${provider.name}' error: ${error.message}`);
+    }
+    throw error;
+  }
 }

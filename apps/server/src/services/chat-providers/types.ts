@@ -2,10 +2,12 @@
  * Chat Provider Types
  *
  * Phase 16A: Provider-agnostic interfaces for multi-provider chat support.
+ * Phase 16B: Updated with factory context for tool support.
  * These types normalize the differences between Anthropic, OpenAI, Google, etc.
  */
 
 import type { LLMProvider } from '@synthesis/shared';
+import type { Pool } from 'pg';
 
 /**
  * Extended provider type including P2 providers (Zhipu, Moonshot)
@@ -198,6 +200,15 @@ export interface ChatProvider {
 }
 
 /**
- * Factory function signature for creating providers
+ * Context required for tool execution in providers
  */
-export type ChatProviderFactory = () => ChatProvider;
+export interface ToolContext {
+  /** Active collection ID for scoped operations */
+  collectionId: string;
+}
+
+/**
+ * Factory function signature for creating providers
+ * Phase 16B: Updated to accept db pool and tool context
+ */
+export type ChatProviderFactory = (db: Pool, context: ToolContext) => ChatProvider;

@@ -115,14 +115,105 @@ See: [Issue #20](https://github.com/anthropics/claude-agent-sdk-typescript/issue
 
 ---
 
-## Phase 16B: Multi-Provider Chat - NOT STARTED
+## Phase 16B+D: Multi-Provider Chat with Tool Support - COMPLETED
 
-**Planned work:**
-1. Implement ChatProvider interface for each provider
-2. Add AnthropicChatProvider (uses Claude Agent SDK)
-3. Add OpenAIChatProvider
-4. Add OllamaChatProvider
-5. Wire up model selector to provider selection
+**Status:** COMPLETED
+**Branch:** `feature/phase-16-multi-provider-chat`
+**Date:** 2025-12-06
+**PR:** [#150](https://github.com/Beaulewis1977/synthesis/pull/150)
+
+### Commits
+
+1. **34d89c3** - `feat(phase-16b+d): implement multi-provider chat (Anthropic, OpenAI, Ollama)`
+   - Created AnthropicChatProvider using Claude Agent SDK with MCP tools
+   - Created OpenAIChatProvider with manual 10-turn tool execution loop
+   - Created OllamaChatProvider for basic local chat (no tool support)
+   - Updated ChatProvider interface with ToolContext
+   - Refactored agent.ts to use ChatProvider abstraction
+   - Added graceful fallback warning for non-tool providers
+
+2. **9ff418a** - `test(phase-16b): add multi-provider chat tests`
+   - anthropic.test.ts: 14 tests (SDK integration, tool calls, error handling)
+   - openai.test.ts: 25 tests (tool execution loop, max turns, stop reasons)
+   - ollama.test.ts: 16 tests (basic chat, message conversion, configuration)
+   - Total: 55 tests, all passing
+
+### Files Created/Modified
+
+| File | Changes |
+|------|---------|
+| `apps/server/src/services/chat-providers/types.ts` | Added ToolContext interface, updated ChatProviderFactory signature |
+| `apps/server/src/services/chat-providers/anthropic.ts` | NEW: Anthropic provider using Claude Agent SDK `query()` |
+| `apps/server/src/services/chat-providers/openai.ts` | NEW: OpenAI provider with manual tool execution loop |
+| `apps/server/src/services/chat-providers/ollama.ts` | NEW: Ollama provider for local models |
+| `apps/server/src/services/chat-providers/index.ts` | Updated registry with db/context, registered all providers |
+| `apps/server/src/agent/agent.ts` | Refactored to use ChatProvider abstraction |
+| `apps/server/src/services/chat-providers/__tests__/anthropic.test.ts` | NEW: 14 tests |
+| `apps/server/src/services/chat-providers/__tests__/openai.test.ts` | NEW: 25 tests |
+| `apps/server/src/services/chat-providers/__tests__/ollama.test.ts` | NEW: 16 tests |
+
+### Provider Capabilities
+
+| Provider | Tool Support | Streaming | Vision | Max Context |
+|----------|--------------|-----------|--------|-------------|
+| Anthropic | ✅ MCP tools via SDK | ✅ | ✅ | 200K |
+| OpenAI | ✅ Manual 10-turn loop | ✅ | ✅ | 128K |
+| Ollama | ❌ (graceful fallback) | ✅ | ❌ | 8K |
+
+### Architecture
+
+#### ChatProvider Interface
+```typescript
+interface ChatProvider {
+  readonly name: ChatProviderType;
+  readonly capabilities: ProviderCapabilities;
+  chat(params: ChatParams): Promise<ChatResponse>;
+  isConfigured(): Promise<boolean>;
+}
+```
+
+#### ToolContext (for scoped operations)
+```typescript
+interface ToolContext {
+  collectionId: string;
+}
+```
+
+#### Provider Factory Pattern
+```typescript
+type ChatProviderFactory = (db: Pool, context: ToolContext) => ChatProvider;
+
+// Registry
+registerChatProvider('anthropic', createAnthropicProvider);
+registerChatProvider('openai', createOpenAIProvider);
+registerChatProvider('ollama', createOllamaProvider);
+```
+
+#### OpenAI Tool Execution Loop
+```typescript
+// Manual 10-turn loop for OpenAI tool calling
+const MAX_TURNS = 10;
+while (turnCount < MAX_TURNS) {
+  const response = await client.chat.completions.create({...});
+  if (!response.choices[0].message.tool_calls) break;
+
+  // Execute tools using buildAgentTools() executors
+  for (const toolCall of toolCalls) {
+    const result = await toolExecutors[toolCall.name](toolCall.input);
+    messages.push({ role: 'tool', content: result, tool_call_id: toolCall.id });
+  }
+}
+```
+
+### Verification
+
+| Check | Status |
+|-------|--------|
+| `pnpm typecheck` | ✅ PASS |
+| anthropic.test.ts (14 tests) | ✅ PASS |
+| openai.test.ts (25 tests) | ✅ PASS |
+| ollama.test.ts (16 tests) | ✅ PASS |
+| Total: 55 tests | ✅ PASS |
 
 ---
 
@@ -134,16 +225,6 @@ See: [Issue #20](https://github.com/anthropics/claude-agent-sdk-typescript/issue
 3. Add loading/typing indicators
 4. Token-by-token rendering
 5. Progress for tool execution
-
----
-
-## Phase 16D: Tool Adapters - NOT STARTED
-
-**Planned work:**
-1. Create tool format converter for OpenAI
-2. Create tool format converter for Google
-3. Test tool calling across providers
-4. Graceful fallback for non-tool providers
 
 ---
 
@@ -174,6 +255,10 @@ See: [Issue #20](https://github.com/anthropics/claude-agent-sdk-typescript/issue
 
 ## Next Steps
 
-1. Commit the pending Phase 16A changes
-2. Create PR for Phase 16A
-3. Begin Phase 16B: Multi-Provider Chat implementation
+1. ~~Commit the pending Phase 16A changes~~ ✅ DONE
+2. ~~Create PR for Phase 16A~~ ✅ DONE
+3. ~~Begin Phase 16B: Multi-Provider Chat implementation~~ ✅ DONE
+4. ~~Implement Phase 16D: Tool Adapters~~ ✅ DONE (merged with 16B)
+5. Merge PR #150 to develop
+6. Begin Phase 16C: Streaming & UI
+7. Begin Phase 16E: Additional Providers (Google, GLM, Kimi)
