@@ -1262,8 +1262,7 @@ export function buildAgentMcpServer(db: Pool, context: ToolContext) {
         },
         async (args) => {
           try {
-            const dbPool = getPool();
-            const modelConfigService = getModelConfigService(dbPool);
+            const modelConfigService = getModelConfigService(db);
             const summaryConfig = await modelConfigService.getSummaryModelConfig();
 
             if (summaryConfig.provider === 'anthropic' && !process.env.ANTHROPIC_API_KEY) {
