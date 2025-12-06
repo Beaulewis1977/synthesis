@@ -209,23 +209,71 @@ const result = await query({
 **Subagents:** `context7-docs-fetcher` (latest SDK docs), `test-writer`, `code-reviewer`
 
 ### Phase 16F: Dynamic Tool Registry & Advanced Toolpacks
-**Goal:** Restore full tool parity (22+ tools) and optimize context usage by porting the dynamic registry pattern to the new `ChatProvider` architecture.
+**Goal:** Restore full tool parity (22+ tools) and optimize context usage by porting the dynamic registry pattern to the ChatProvider architecture.
 
-**Context:** The old MCP server (Phase 6) had 20+ tools organized in packs (Mobile, Introspection, Graphing) but only exposed a small set of "Gateway" tools initially to save context tokens. The new `claude-agent-sdk` implementation in Phase 16A exposes only the 9 Core tools and lacks this dynamic capability.
+**Context:** The MCP server (Phase 5-6) has 22 tools in 5 toolpacks with dynamic enable/disable via gateway tools. The main server has only 9 core tools with no dynamic capability. Phase 16A-E established a ChatProvider abstraction with provider-specific tool execution patterns.
+
+**Key Files:**
+- `apps/mcp/src/tool-registry.ts` - Reference DynamicToolRegistry implementation
+- `apps/mcp/src/toolpacks.ts` - Toolpack definitions to port
+- `apps/server/src/agent/tools.ts` - Current 9-tool implementation
+- `apps/server/src/services/chat-providers/` - Provider-specific tool handling
 
 **Plan:**
-1.  **Port Advanced Toolpacks**: Move logic from `apps/mcp` to `apps/server/src/agent/tools/`:
-    -   `mobile-core/`: `search_mobile_docs`, `find_code_examples`, `get_feature_recipe`
-    -   `introspection/`: `get_project_tech_stack`, `get_db_schema`, `find_symbol_usages`
-    -   `graphing/`: `graph_expand_context`
-2.  **Implement Server-Side Dynamic Registry**: Create `apps/server/src/services/tool-registry.ts` to manage tool visibility based on session state.
-3.  **Implement Gateway Tools**:
-    -   `discover_tools`: Lists available toolpacks (low token cost).
-    -   `enable_tools`: Dynamically updates the session's enabled tool list.
-4.  **Update Chat Logic**: Refactor `agent.ts` to re-generate the `tools` array passed to the provider whenever `enable_tools` is called, allowing the agent to "expand" its capabilities mid-conversation.
 
-**Skills:** `synthesis-architecture`, `backend-development`, `agentic-design`
-**Subagents:** `Plan` (registry design), `test-writer` (dynamic flow tests)
+1. **Unify Tool Definitions (Single Source of Truth)**
+   - Create `apps/server/src/agent/tool-definitions/` with unified tool schema
+   - Each tool exports: `{ name, description, inputSchema, executor, metadata }`
+   - Metadata includes: `{ toolpack, category, sensitive, version }`
+   - Adapters generate MCP format and ChatTool format from same source
+
+2. **Port Advanced Toolpacks**
+   - `mobile-core/`: search_mobile_docs, find_code_examples, get_feature_recipe
+   - `introspection/`: get_project_tech_stack, get_db_schema, find_symbol_usages
+   - `graphing/`: graph_expand_context
+   - Preserve sensitive flags for security gating
+
+3. **Implement Server-Side Tool Registry**
+   - Create `apps/server/src/services/tool-registry.ts`
+   - Port `DynamicToolRegistry` pattern from MCP server
+   - Support enable/disable by name, toolpack, or category
+   - Session-scoped state (in-memory with optional Redis persistence)
+
+4. **Implement Gateway Tools**
+   - `discover_tools`: List available toolpacks (low token cost)
+   - `enable_tools`: Dynamically update session's enabled tool list
+   - Gateway tools always enabled (cannot be disabled)
+
+5. **Update ChatProvider Integration**
+   - **Anthropic**: Rebuild MCP server on tool state change via callback
+   - **OpenAI/Google/Zhipu/Moonshot**: Pass dynamic executor map to loop
+   - Add `onToolStateChange(callback)` hook in registry
+
+6. **Add Session Management**
+   - Track enabled tools per session (sessionId from chat request)
+   - Default profile: 'core' toolpack enabled
+   - Cleanup: Auto-expire sessions after 30 minutes
+
+**Provider-Specific Considerations:**
+
+| Provider | Dynamic Tool Strategy |
+|----------|----------------------|
+| Anthropic | Rebuild MCP server on `enable_tools`, pass to `query()` |
+| OpenAI | Update `tools[]` and `toolExecutors` map per request |
+| Google | Same as OpenAI (function declarations) |
+| Zhipu/Moonshot | Same as OpenAI (OpenAI-compatible) |
+| Ollama | No change (no tool support) |
+
+**Skills:** `synthesis-architecture`, `llm-provider-integration`, `sse-streaming`, `backend-development`
+**Subagents:** `Explore`, `Plan`, `mcp-server-architect`, `test-writer`, `code-reviewer`, `doc-writer`
+
+**Estimated Commits:**
+1. `feat(phase-16f): unify tool definitions with single source of truth`
+2. `feat(phase-16f): implement server-side tool registry with enable/disable`
+3. `feat(phase-16f): add gateway tools (discover_tools, enable_tools)`
+4. `feat(phase-16f): integrate dynamic tools with ChatProvider`
+5. `feat(phase-16f): add session management and cleanup`
+6. `test(phase-16f): add dynamic tool flow tests`
 
 ### Cross-Phase Resources
 **Throughout all phases:**

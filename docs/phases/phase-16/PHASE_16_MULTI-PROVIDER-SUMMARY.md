@@ -4,7 +4,7 @@
 
 This document tracks the implementation progress of Phase 16: Multi-Provider Chat & UI Improvements.
 
-**Status:** Phases 16A-16E IMPLEMENTED (16E pending commit)
+**Status:** Phases 16A-16E MERGED, Phase 16F IN PROGRESS
 
 ---
 
@@ -354,10 +354,11 @@ async chat(params: ChatParams): Promise<ChatResponse> {
 
 ---
 
-## Phase 16E: Additional Providers - IMPLEMENTED
+## Phase 16E: Additional Providers - MERGED
 
-**Status:** IMPLEMENTED (pending commit)
-**Branch:** `feature/phase-16-multi-provider-chat`
+**Status:** MERGED
+**Branch:** `feature/phase-16e-additional-providers`
+**PR:** [#152](https://github.com/Beaulewis1977/synthesis/pull/152) (merged)
 **Date:** 2025-12-06
 
 ### Overview
@@ -452,6 +453,126 @@ Added three new chat providers: Google Gemini, Z.AI (Zhipu GLM-4), and Moonshot 
 
 ---
 
+## Phase 16F: Dynamic Tool Registry & Advanced Toolpacks - IN PROGRESS
+
+**Status:** IN PROGRESS
+**Branch:** `feature/phase-16f-dynamic-tools`
+**Date:** 2025-12-06
+
+### Overview
+
+Implementing a unified tool definition system and dynamic tool registry to restore full tool parity (22+ tools) and optimize context usage by porting the dynamic registry pattern from the MCP server to the ChatProvider architecture.
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `apps/server/src/agent/tool-definitions/types.ts` | Core types: UnifiedToolDefinition, ToolMetadata, ToolpackName, ProfileName |
+| `apps/server/src/agent/tool-definitions/adapters.ts` | Format converters: zodToJsonSchema, toMcpSdkTool, toChatTool |
+| `apps/server/src/agent/tool-definitions/toolpacks.ts` | Toolpack and profile definitions (minimal, core, full) |
+| `apps/server/src/agent/tool-definitions/index.ts` | Main exports and factory functions |
+| `apps/server/src/agent/tool-definitions/core/*.ts` | 9 core tools in unified format |
+| `apps/server/src/agent/tool-definitions/gateway/*.ts` | Gateway tools (discover_tools, enable_tools) |
+| `apps/server/src/services/tool-registry.ts` | DynamicToolRegistry with session management |
+| `apps/server/src/services/__tests__/tool-registry.test.ts` | 22 tests |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `docs/phases/phase-16/00_PHASE_16_OVERVIEW.md` | Updated Phase 16F specification |
+
+### Architecture
+
+#### UnifiedToolDefinition (Single Source of Truth)
+```typescript
+interface UnifiedToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: z.ZodTypeAny;
+  metadata: ToolMetadata;
+  createExecutor: (db: Pool, context: ToolContext) => ToolExecutor;
+}
+
+interface ToolMetadata {
+  toolpack: ToolpackName;  // 'core' | 'gateway' | 'mobile_core' | 'introspection' | 'graphing'
+  category: CategoryName;
+  sensitive: boolean;
+  version: string;
+}
+```
+
+#### DynamicToolRegistry
+```typescript
+class DynamicToolRegistry {
+  registerTool(definition: UnifiedToolDefinition): void;
+  getOrCreateSession(sessionId: string): SessionToolState;
+  enableTool(sessionId: string, toolName: string): EnableDisableResult;
+  disableTool(sessionId: string, toolName: string): EnableDisableResult;
+  applyProfile(sessionId: string, profileName: ProfileName): void;
+  onToolStateChange(callback: ToolStateChangeCallback): () => void;
+}
+```
+
+#### Toolpacks & Profiles
+```typescript
+// Toolpacks group related tools
+const TOOLPACKS = {
+  core: { tools: ['search_rag', 'add_document', ...], sensitiveTools: [] },
+  gateway: { tools: ['discover_tools', 'enable_tools'], sensitiveTools: [] },
+  // mobile_core, introspection, graphing (to be ported)
+};
+
+// Profiles define default tool sets
+const PROFILES = {
+  minimal: { toolpacks: ['gateway'] },           // Only gateway tools
+  core: { toolpacks: ['gateway', 'core'] },      // Default
+  full: { toolpacks: ['gateway', 'core', ...] }, // All toolpacks
+};
+```
+
+#### Gateway Tools
+- `discover_tools`: List available toolpacks (low token cost)
+- `enable_tools`: Dynamically enable/disable tools, toolpacks, or apply profiles
+- Gateway tools are **always enabled** and cannot be disabled
+
+### Core Tools Ported (9 total)
+
+| Tool | Description |
+|------|-------------|
+| `search_rag` | Search the RAG knowledge base |
+| `add_document` | Add document to collection |
+| `fetch_web_content` | Fetch and summarize web content |
+| `list_collections` | List available collections |
+| `list_documents` | List documents in collection |
+| `get_document_status` | Check document processing status |
+| `delete_document` | Delete a document |
+| `restart_ingest` | Restart failed document ingestion |
+| `summarize_document` | Summarize document using Claude |
+
+### Verification
+
+| Check | Status |
+|-------|--------|
+| `pnpm --filter @synthesis/server typecheck` | ✅ PASS |
+| tool-registry.test.ts (22 tests) | ✅ PASS |
+
+### Commits (Planned)
+
+1. `feat(phase-16f): add unified tool definitions and dynamic registry` ← Current
+2. `feat(phase-16f): integrate dynamic tools with ChatProvider`
+3. `feat(phase-16f): add session management and cleanup`
+4. `test(phase-16f): add dynamic tool flow tests`
+
+### Remaining Work
+
+- [ ] Integrate registry with ChatProvider (rebuild tools on state change)
+- [ ] Port mobile-core, introspection, graphing toolpacks
+- [ ] Add integration tests for dynamic tool flows
+- [ ] Optional: Redis persistence for session state
+
+---
+
 ## All Dependencies Added
 
 - `@anthropic-ai/claude-agent-sdk` - Claude Agent SDK for agentic workflows
@@ -476,5 +597,10 @@ Added three new chat providers: Google Gemini, Z.AI (Zhipu GLM-4), and Moonshot 
 4. ~~Implement Phase 16D: Tool Adapters~~ ✅ MERGED (with 16B)
 5. ~~Merge PR #150 to develop~~ ✅ MERGED
 6. ~~Phase 16C: Streaming & UI~~ ✅ MERGED (PR #151)
-7. ~~Phase 16E: Additional Providers (Google, GLM, Kimi)~~ ✅ IMPLEMENTED (pending commit)
-8. Create PR for Phase 16E and merge to develop
+7. ~~Phase 16E: Additional Providers (Google, GLM, Kimi)~~ ✅ MERGED (PR #152)
+8. Phase 16F: Dynamic Tool Registry & Advanced Toolpacks - IN PROGRESS
+   - [ ] Commit unified tool definitions and registry
+   - [ ] Integrate with ChatProvider
+   - [ ] Add session management
+   - [ ] Add integration tests
+   - [ ] Create PR and merge to develop
