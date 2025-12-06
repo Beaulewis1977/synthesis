@@ -557,17 +557,27 @@ const PROFILES = {
 | `pnpm --filter @synthesis/server typecheck` | ✅ PASS |
 | tool-registry.test.ts (22 tests) | ✅ PASS |
 
-### Commits (Planned)
+### Commits
 
-1. `feat(phase-16f): add unified tool definitions and dynamic registry` ← Current
-2. `feat(phase-16f): integrate dynamic tools with ChatProvider`
-3. `feat(phase-16f): add session management and cleanup`
-4. `test(phase-16f): add dynamic tool flow tests`
+1. **aeafabb** - `feat(phase-16f): add unified tool definitions and dynamic registry` ✅
+   - UnifiedToolDefinition type and adapters
+   - DynamicToolRegistry with session management
+   - 9 core tools + 2 gateway tools ported
+   - 22 tests passing
+
+2. **bdd9827** - `feat(phase-16f): integrate dynamic tools with ChatProvider` ✅
+   - Registry bridge for session-aware tool filtering
+   - All 6 providers updated (Anthropic, OpenAI, Google, Zhipu, Moonshot, Ollama)
+   - Routes pass sessionId through context
+
+3. Session management included in commit 1 (30-min auto-cleanup)
+
+4. `test(phase-16f): add dynamic tool flow tests` - PENDING
 
 ### Remaining Work
 
-- [ ] Integrate registry with ChatProvider (rebuild tools on state change)
-- [ ] Port mobile-core, introspection, graphing toolpacks
+- [x] Integrate registry with ChatProvider (complete)
+- [ ] Port mobile-core, introspection, graphing toolpacks (future phase)
 - [ ] Add integration tests for dynamic tool flows
 - [ ] Optional: Redis persistence for session state
 
