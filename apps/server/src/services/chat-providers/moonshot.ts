@@ -22,6 +22,7 @@ import type { Pool } from 'pg';
 import { buildAgentTools } from '../../agent/tools.js';
 import { mapOpenAIStopReason, toOpenAIMessages, toOpenAITool } from './adapters.js';
 import { getProviderApiKey } from './index.js';
+import { ensureRegistryInitialized, getSessionAgentTools } from './registry-bridge.js';
 import type {
   ChatParams,
   ChatProvider,
@@ -125,8 +126,11 @@ export class MoonshotChatProvider implements ChatProvider {
       baseURL: 'https://api.moonshot.cn/v1',
     });
 
-    // Build tools and executors
-    const { toolExecutors } = buildAgentTools(this.db, this.context);
+    // Initialize registry and build tools filtered by session
+    ensureRegistryInitialized();
+    const { toolExecutors } = this.context.sessionId
+      ? getSessionAgentTools(this.db, this.context)
+      : buildAgentTools(this.db, this.context);
 
     // Convert tools to OpenAI format
     const openaiTools: ChatCompletionTool[] | undefined = params.tools

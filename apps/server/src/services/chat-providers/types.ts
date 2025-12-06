@@ -207,6 +207,8 @@ export interface ChatProvider {
 export interface ToolContext {
   /** Active collection ID for scoped operations */
   collectionId: string;
+  /** Optional session ID for dynamic tool filtering (Phase 16F) */
+  sessionId?: string;
 }
 
 /**

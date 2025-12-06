@@ -74,7 +74,10 @@ export const agentStreamRoutes: FastifyPluginAsync = async (fastify) => {
 
     const body = validation.data;
     const db = getPool();
-    const context: ToolContext = { collectionId: body.collection_id };
+    const context: ToolContext = {
+      collectionId: body.collection_id,
+      sessionId: body.session_id, // Phase 16F: Pass session ID for dynamic tool filtering
+    };
 
     // Hijack reply to manually control raw response (prevents Fastify auto-send)
     reply.hijack();

@@ -10,6 +10,12 @@ import type { Pool } from 'pg';
 import { BASE_SYSTEM_PROMPT } from '../../agent/agent.js';
 import { MCP_SERVER_NAME, MCP_TOOL_NAMES, buildAgentMcpServer } from '../../agent/tools.js';
 import { getProviderApiKey } from './index.js';
+import {
+  MCP_SERVER_NAME as REGISTRY_MCP_SERVER_NAME,
+  ensureRegistryInitialized,
+  getSessionMcpServer,
+  getSessionMcpToolNames,
+} from './registry-bridge.js';
 import type {
   ChatMessage,
   ChatParams,
@@ -114,8 +120,17 @@ export class AnthropicChatProvider implements ChatProvider {
    * Stream chat chunks using Claude Agent SDK query()
    */
   async *streamChat(params: ChatParams): AsyncGenerator<ChatStreamChunk, void, unknown> {
-    // Build MCP server with all RAG tools
-    const mcpServer = buildAgentMcpServer(this.db, this.context);
+    // Initialize registry and build MCP server with session-filtered tools
+    ensureRegistryInitialized();
+    const mcpServer = this.context.sessionId
+      ? getSessionMcpServer(this.db, this.context)
+      : buildAgentMcpServer(this.db, this.context);
+
+    // Get allowed tool names (filtered by session if available)
+    const serverName = this.context.sessionId ? REGISTRY_MCP_SERVER_NAME : MCP_SERVER_NAME;
+    const allowedTools = this.context.sessionId
+      ? getSessionMcpToolNames(this.context.sessionId)
+      : [...MCP_TOOL_NAMES];
 
     // Build system prompt with collection context
     const systemPrompt = params.systemPrompt
@@ -133,9 +148,9 @@ export class AnthropicChatProvider implements ChatProvider {
         systemPrompt,
         model: params.model,
         mcpServers: {
-          [MCP_SERVER_NAME]: mcpServer,
+          [serverName]: mcpServer,
         },
-        allowedTools: [...MCP_TOOL_NAMES],
+        allowedTools,
         permissionMode: 'bypassPermissions',
         maxTurns: 10,
       },
