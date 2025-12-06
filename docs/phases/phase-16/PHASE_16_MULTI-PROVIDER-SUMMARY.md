@@ -4,11 +4,13 @@
 
 This document tracks the implementation progress of Phase 16: Multi-Provider Chat & UI Improvements.
 
+**Status:** Phases 16A-16E IMPLEMENTED (16E pending commit)
+
 ---
 
-## Phase 16A: Claude Agent SDK Migration - COMPLETED
+## Phase 16A: Claude Agent SDK Migration - MERGED
 
-**Status:** COMPLETED
+**Status:** MERGED
 **Branch:** `feature/phase-16-multi-provider-chat`
 **Date:** 2025-12-06
 
@@ -20,11 +22,13 @@ This document tracks the implementation progress of Phase 16: Multi-Provider Cha
    - Added tool format adapters
    - Created provider registry pattern
 
-2. **Pending commit** - `feat(phase-16a): migrate agent to Claude Agent SDK query()`
+2. **90b9ee1** - `feat(phase-16a): migrate agent to Claude Agent SDK query()`
    - Replaced manual Anthropic SDK 10-turn loop with SDK's `query()` function
    - Added `buildAgentMcpServer()` with 9 MCP tools
    - Kept legacy `buildAgentTools()` for backward compatibility
    - Updated tests with SDK mocks and MCP format validation
+
+3. **cca2125** - `fix(phase-16a): use injected db pool in summarize_document MCP tool`
 
 ### Files Modified
 
@@ -115,12 +119,12 @@ See: [Issue #20](https://github.com/anthropics/claude-agent-sdk-typescript/issue
 
 ---
 
-## Phase 16B+D: Multi-Provider Chat with Tool Support - COMPLETED
+## Phase 16B+D: Multi-Provider Chat with Tool Support - MERGED
 
-**Status:** COMPLETED
+**Status:** MERGED
 **Branch:** `feature/phase-16-multi-provider-chat`
 **Date:** 2025-12-06
-**PR:** [#150](https://github.com/Beaulewis1977/synthesis/pull/150)
+**PR:** [#150](https://github.com/Beaulewis1977/synthesis/pull/150) (merged)
 
 ### Commits
 
@@ -137,6 +141,8 @@ See: [Issue #20](https://github.com/anthropics/claude-agent-sdk-typescript/issue
    - openai.test.ts: 25 tests (tool execution loop, max turns, stop reasons)
    - ollama.test.ts: 16 tests (basic chat, message conversion, configuration)
    - Total: 55 tests, all passing
+
+3. **cc76258** - `fix(phase-16b): address CodeRabbit review feedback`
 
 ### Files Created/Modified
 
@@ -217,11 +223,53 @@ while (turnCount < MAX_TURNS) {
 
 ---
 
-## Phase 16C: Streaming & UI - COMPLETED
+## Phase 16C: Streaming & UI - MERGED
 
-**Status:** COMPLETED
+**Status:** MERGED
 **Branch:** `feature/phase-16-multi-provider-chat`
 **Date:** 2025-12-06
+**PR:** [#151](https://github.com/Beaulewis1977/synthesis/pull/151) (merged)
+
+### Commits
+
+1. **c0d16be** - `feat(phase-16c): implement SSE streaming for real-time chat responses`
+   - Added `streamChat()` to all providers (Anthropic, OpenAI, Ollama)
+   - Refactored `chat()` to delegate to `streamChat()` internally
+   - Created SSE endpoint `/api/agent/chat/stream`
+   - Created `useStreamingChat` hook for SSE consumption
+   - Created `StreamingMessage` component with cursor animation
+   - Updated ChatPage to use streaming by default
+
+2. **0a52d1e** - `fix(phase-16c): address PR #151 review feedback`
+   - `adapters.ts`: Changed `content: ''` to `content: null` for assistant tool_calls (OpenAI spec)
+   - `useStreamingChat.ts`: Removed duplicate `onComplete` call, fixed dependency array
+
+3. **f8fa387** - `fix(phase-16c): address additional PR #151 review feedback`
+   - `agent-stream.ts`: Don't persist partial messages on stream error
+   - `agent-stream.ts`: Remove unused `_fullContent` parameter
+   - `agent-stream.ts`: Convert dynamic import to static import
+   - `ChatPage.tsx`: Include current user message in history
+   - `useStreamingChat.ts`: Defensive tool matching
+   - `StreamingMessage.tsx`: Accessibility improvements (aria-live, aria-hidden, aria-labels)
+
+4. **1196160** - `fix(phase-16c): add reply.hijack() and remove duplicate end() call`
+   - Added `reply.hijack()` for proper Fastify SSE handling
+   - Removed duplicate `reply.raw.end()` call
+
+5. **460e85a** - `fix(phase-16c): address remaining PR #151 review feedback`
+   - `useStreamingChat.ts`: Add useEffect cleanup on unmount
+   - `useStreamingChat.ts`: Use optionsRef to avoid re-renders
+   - `useStreamingChat.ts`: Clear abortControllerRef after abort
+   - `useStreamingChat.ts`: Pass toolCalls to onComplete (avoid stale closure)
+   - `ChatPage.tsx`: Use toolCalls parameter from onComplete
+   - `agent-stream.ts`: Rename `tc` to `toolCall` for consistency
+   - `agent-stream.ts`: Remove redundant `streamSuccess` variable
+   - `openai.ts`: Track emitted tool_start events to avoid duplicates
+
+6. **5347e39** - `fix(phase-16c): fix openai.ts tool call input and stopReason bugs`
+   - Include parsed `input` in `tool_end` events
+   - Add `tool_end` handler in `chat()` to update tool call inputs
+   - Fix `stopReason` from `'max_tokens'` to `'end_turn'` when max turns reached
 
 ### Implementation
 
@@ -232,13 +280,15 @@ while (turnCount < MAX_TURNS) {
 
 2. **Backend: SSE endpoint `/api/agent/chat/stream`**
    - New route in `apps/server/src/routes/agent-stream.ts`
+   - Uses `reply.hijack()` for proper Fastify SSE handling
    - Streams `ChatStreamChunk` events as SSE
    - Event types: `token`, `tool_start`, `tool_end`, `done`, `error`
-   - Session persistence on stream completion
+   - Session persistence on stream completion (only on success)
 
 3. **Frontend: Streaming hook and components**
-   - `useStreamingChat` hook for SSE consumption
+   - `useStreamingChat` hook for SSE consumption with proper cleanup
    - `StreamingMessage` component with cursor animation and tool progress
+   - Accessibility: aria-live, aria-hidden, aria-labels
    - ChatPage updated to use streaming by default
 
 ### Files Created/Modified
@@ -246,13 +296,14 @@ while (turnCount < MAX_TURNS) {
 | File | Changes |
 |------|---------|
 | `apps/server/src/services/chat-providers/anthropic.ts` | Added `streamChat()`, refactored `chat()` |
-| `apps/server/src/services/chat-providers/openai.ts` | Added `streamChat()` with streaming tool loop |
+| `apps/server/src/services/chat-providers/openai.ts` | Added `streamChat()` with streaming tool loop, tool input in events |
 | `apps/server/src/services/chat-providers/ollama.ts` | Added `streamChat()` |
-| `apps/server/src/routes/agent-stream.ts` | NEW: SSE streaming endpoint |
+| `apps/server/src/services/chat-providers/adapters.ts` | Fixed `content: null` for assistant tool_calls |
+| `apps/server/src/routes/agent-stream.ts` | NEW: SSE streaming endpoint with `reply.hijack()` |
 | `apps/server/src/index.ts` | Registered `agentStreamRoutes` |
-| `apps/web/src/hooks/useStreamingChat.ts` | NEW: SSE client hook |
-| `apps/web/src/components/StreamingMessage.tsx` | NEW: Streaming message UI |
-| `apps/web/src/pages/ChatPage.tsx` | Updated to use streaming |
+| `apps/web/src/hooks/useStreamingChat.ts` | NEW: SSE client hook with cleanup and optionsRef |
+| `apps/web/src/components/StreamingMessage.tsx` | NEW: Streaming message UI with accessibility |
+| `apps/web/src/pages/ChatPage.tsx` | Updated to use streaming with toolCalls parameter |
 
 ### SSE Event Format
 
@@ -303,19 +354,108 @@ async chat(params: ChatParams): Promise<ChatResponse> {
 
 ---
 
-## Phase 16E: Additional Providers - NOT STARTED
+## Phase 16E: Additional Providers - IMPLEMENTED
 
-**Planned work:**
-1. Add Google AI provider
-2. Add OpenAI-compatible provider base
-3. Add GLM 4 (Z.AI) support
-4. Add Kimi (Moonshot) support
+**Status:** IMPLEMENTED (pending commit)
+**Branch:** `feature/phase-16-multi-provider-chat`
+**Date:** 2025-12-06
+
+### Overview
+
+Added three new chat providers: Google Gemini, Z.AI (Zhipu GLM-4), and Moonshot (Kimi K2).
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `apps/server/src/services/chat-providers/google.ts` | Google Gemini provider with native SDK |
+| `apps/server/src/services/chat-providers/zhipu.ts` | Z.AI GLM-4 provider (OpenAI-compatible) |
+| `apps/server/src/services/chat-providers/moonshot.ts` | Moonshot Kimi provider with thinking mode |
+| `apps/server/src/services/chat-providers/openai-compatible.ts` | Base utilities for OpenAI-compatible providers |
+| `apps/server/src/services/chat-providers/__tests__/google.test.ts` | 30 tests |
+| `apps/server/src/services/chat-providers/__tests__/zhipu.test.ts` | 26 tests |
+| `apps/server/src/services/chat-providers/__tests__/moonshot.test.ts` | 29 tests |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `apps/server/src/services/chat-providers/index.ts` | Added imports and registration for Google, Zhipu, Moonshot |
+| `apps/server/package.json` | Added `@google/generative-ai` dependency |
+
+### Provider Capabilities
+
+| Provider | Tool Support | Streaming | Vision | Max Context | Base URL |
+|----------|--------------|-----------|--------|-------------|----------|
+| Google | ✅ Manual loop | ✅ | ✅ | 1M | Native SDK |
+| Z.AI (Zhipu) | ✅ Manual loop | ✅ | ❌ | 128K | `api.z.ai/api/paas/v4` |
+| Moonshot | ✅ Manual loop | ✅ | ❌ | 256K | `api.moonshot.cn/v1` |
+
+### Models Supported
+
+**Google Gemini:**
+- gemini-3-pro-preview
+- gemini-2.5-flash
+- gemini-2.5-flash-lite
+- gemini-2.5-pro
+- gemini-3-pro-image-preview
+
+**Z.AI (Zhipu):**
+- GLM-4.6
+- GLM-4.5-Air
+
+**Moonshot (Kimi):**
+- kimi-k2-0905-preview
+- kimi-k2-thinking (with thinking mode)
+- kimi-k2-thinking-turbo (with thinking mode)
+
+### Implementation Details
+
+#### Google Provider
+- Uses native `@google/generative-ai` SDK
+- Converts JSON Schema types to Google `SchemaType` enum
+- System prompts via `systemInstruction` parameter
+- Function calls use `functionDeclarations` format
+
+#### Z.AI Provider
+- OpenAI-compatible API at `https://api.z.ai/api/paas/v4`
+- Uses standard OpenAI SDK with custom `baseURL`
+- Manual 10-turn tool execution loop
+
+#### Moonshot Provider
+- OpenAI-compatible API at `https://api.moonshot.cn/v1`
+- Special **thinking mode** for reasoning models
+- Enabled via `extra_body: { thinking: { type: "enabled", max_tokens: 4096 } }`
+- Auto-detected from model name containing "thinking"
+
+### Environment Variables
+
+| Variable | Provider | Purpose |
+|----------|----------|---------|
+| `GOOGLE_API_KEY` | Google | Gemini API key |
+| `ZHIPU_API_KEY` | Z.AI | GLM API key |
+| `MOONSHOT_API_KEY` | Moonshot | Kimi API key |
+
+### Verification
+
+| Check | Status |
+|-------|--------|
+| `pnpm --filter @synthesis/server typecheck` | ✅ PASS |
+| google.test.ts (30 tests) | ✅ PASS |
+| zhipu.test.ts (26 tests) | ✅ PASS |
+| moonshot.test.ts (29 tests) | ✅ PASS |
+| **Total: 85 new tests** | ✅ ALL PASS |
+
+### Dependencies Added
+
+- `@google/generative-ai` - Google Generative AI SDK for Gemini models
 
 ---
 
-## Dependencies Added
+## All Dependencies Added
 
 - `@anthropic-ai/claude-agent-sdk` - Claude Agent SDK for agentic workflows
+- `@google/generative-ai` - Google Generative AI SDK for Gemini models
 
 ---
 
@@ -330,10 +470,11 @@ async chat(params: ChatParams): Promise<ChatResponse> {
 
 ## Next Steps
 
-1. ~~Commit the pending Phase 16A changes~~ ✅ DONE
-2. ~~Create PR for Phase 16A~~ ✅ DONE
-3. ~~Begin Phase 16B: Multi-Provider Chat implementation~~ ✅ DONE
-4. ~~Implement Phase 16D: Tool Adapters~~ ✅ DONE (merged with 16B)
-5. Merge PR #150 to develop
-6. ~~Phase 16C: Streaming & UI~~ ✅ DONE
-7. Begin Phase 16E: Additional Providers (Google, GLM, Kimi)
+1. ~~Commit the pending Phase 16A changes~~ ✅ MERGED
+2. ~~Create PR for Phase 16A~~ ✅ MERGED
+3. ~~Begin Phase 16B: Multi-Provider Chat implementation~~ ✅ MERGED
+4. ~~Implement Phase 16D: Tool Adapters~~ ✅ MERGED (with 16B)
+5. ~~Merge PR #150 to develop~~ ✅ MERGED
+6. ~~Phase 16C: Streaming & UI~~ ✅ MERGED (PR #151)
+7. ~~Phase 16E: Additional Providers (Google, GLM, Kimi)~~ ✅ IMPLEMENTED (pending commit)
+8. Create PR for Phase 16E and merge to develop

@@ -208,6 +208,25 @@ const result = await query({
 **Skills:** `llm-provider-integration` (see references/google.md, zhipu.md, moonshot.md)
 **Subagents:** `context7-docs-fetcher` (latest SDK docs), `test-writer`, `code-reviewer`
 
+### Phase 16F: Dynamic Tool Registry & Advanced Toolpacks
+**Goal:** Restore full tool parity (22+ tools) and optimize context usage by porting the dynamic registry pattern to the new `ChatProvider` architecture.
+
+**Context:** The old MCP server (Phase 6) had 20+ tools organized in packs (Mobile, Introspection, Graphing) but only exposed a small set of "Gateway" tools initially to save context tokens. The new `claude-agent-sdk` implementation in Phase 16A exposes only the 9 Core tools and lacks this dynamic capability.
+
+**Plan:**
+1.  **Port Advanced Toolpacks**: Move logic from `apps/mcp` to `apps/server/src/agent/tools/`:
+    -   `mobile-core/`: `search_mobile_docs`, `find_code_examples`, `get_feature_recipe`
+    -   `introspection/`: `get_project_tech_stack`, `get_db_schema`, `find_symbol_usages`
+    -   `graphing/`: `graph_expand_context`
+2.  **Implement Server-Side Dynamic Registry**: Create `apps/server/src/services/tool-registry.ts` to manage tool visibility based on session state.
+3.  **Implement Gateway Tools**:
+    -   `discover_tools`: Lists available toolpacks (low token cost).
+    -   `enable_tools`: Dynamically updates the session's enabled tool list.
+4.  **Update Chat Logic**: Refactor `agent.ts` to re-generate the `tools` array passed to the provider whenever `enable_tools` is called, allowing the agent to "expand" its capabilities mid-conversation.
+
+**Skills:** `synthesis-architecture`, `backend-development`, `agentic-design`
+**Subagents:** `Plan` (registry design), `test-writer` (dynamic flow tests)
+
 ### Cross-Phase Resources
 **Throughout all phases:**
 - `git-github-workflow-manager` - PR creation and management
@@ -338,6 +357,7 @@ Each sub-phase (16A, 16B, etc.) gets its own commits. Group related changes:
 | 16C: Streaming & UI | 2-3 commits (backend SSE + frontend) | Single PR |
 | 16D: Tool Adapters | 1-2 commits (adapters + tests) | Single PR |
 | 16E: Additional Providers | 1 commit per provider | Single PR |
+| 16F: Dynamic Tools | 3-4 commits (registry + gateway tools) | Single PR |
 
 ### Workflow Steps
 

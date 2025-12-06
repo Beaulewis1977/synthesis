@@ -1,8 +1,8 @@
 /**
- * OpenAI Chat Provider Tests
+ * Z.AI (Zhipu) Chat Provider Tests
  *
- * Phase 16B: Unit tests for OpenAIChatProvider
- * Tests the manual 10-turn tool execution loop and API integration.
+ * Phase 16B: Unit tests for ZhipuChatProvider
+ * Tests the manual 10-turn tool execution loop and OpenAI-compatible API integration.
  */
 
 import type { Pool } from 'pg';
@@ -77,10 +77,6 @@ function createMockToolExecutors() {
   };
 }
 
-/**
- * Create a mock streaming response for OpenAI
- * Returns an async generator that yields streaming chunks
- */
 function createMockOpenAIResponse(options: {
   content?: string | null;
   toolCalls?: Array<{
@@ -104,7 +100,7 @@ function createMockOpenAIResponse(options: {
       index: number;
       delta: {
         role?: string;
-        content?: string | null;
+        content?: string;
         tool_calls?: Array<{
           index: number;
           id?: string;
@@ -127,7 +123,7 @@ function createMockOpenAIResponse(options: {
       id: 'chatcmpl-test',
       object: 'chat.completion.chunk',
       created: Date.now(),
-      model: options.model ?? 'gpt-4o',
+      model: options.model ?? 'glm-4.6',
       choices: [
         {
           index: 0,
@@ -146,7 +142,7 @@ function createMockOpenAIResponse(options: {
         id: 'chatcmpl-test',
         object: 'chat.completion.chunk',
         created: Date.now(),
-        model: options.model ?? 'gpt-4o',
+        model: options.model ?? 'glm-4.6',
         choices: [
           {
             index: 0,
@@ -172,7 +168,7 @@ function createMockOpenAIResponse(options: {
     id: 'chatcmpl-test',
     object: 'chat.completion.chunk',
     created: Date.now(),
-    model: options.model ?? 'gpt-4o',
+    model: options.model ?? 'glm-4.6',
     choices: [
       {
         index: 0,
@@ -187,7 +183,7 @@ function createMockOpenAIResponse(options: {
     },
   });
 
-  // Return an async iterator (mimics OpenAI streaming response)
+  // Return an async iterator
   return (async function* () {
     for (const chunk of chunks) {
       yield chunk;
@@ -199,10 +195,11 @@ function createMockOpenAIResponse(options: {
 // Tests
 // =============================================================================
 
-let OpenAIChatProvider: typeof import('../openai.js')['OpenAIChatProvider'];
-let createOpenAIProvider: typeof import('../openai.js')['createOpenAIProvider'];
+let ZhipuChatProvider: typeof import('../zhipu.js')['ZhipuChatProvider'];
+let createZhipuProvider: typeof import('../zhipu.js')['createZhipuProvider'];
+let OpenAI: typeof import('openai').default;
 
-describe('OpenAIChatProvider', () => {
+describe('ZhipuChatProvider', () => {
   const mockPool = createMockPool();
   const mockContext = { collectionId: '11111111-1111-4111-8111-111111111111' };
 
@@ -210,7 +207,7 @@ describe('OpenAIChatProvider', () => {
     vi.clearAllMocks();
 
     // Default API key configured
-    mockGetProviderApiKey.mockResolvedValue('test-openai-key');
+    mockGetProviderApiKey.mockResolvedValue('test-zhipu-key');
 
     // Default tool executors
     const mockExecutors = createMockToolExecutors();
@@ -220,9 +217,12 @@ describe('OpenAIChatProvider', () => {
     });
 
     // Import after mocks are set up
-    const module = await import('../openai.js');
-    OpenAIChatProvider = module.OpenAIChatProvider;
-    createOpenAIProvider = module.createOpenAIProvider;
+    const module = await import('../zhipu.js');
+    ZhipuChatProvider = module.ZhipuChatProvider;
+    createZhipuProvider = module.createZhipuProvider;
+
+    const openaiModule = await import('openai');
+    OpenAI = openaiModule.default;
   });
 
   afterEach(() => {
@@ -235,16 +235,16 @@ describe('OpenAIChatProvider', () => {
 
   describe('provider properties', () => {
     it('should have correct name', () => {
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
-      expect(provider.name).toBe('openai');
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
+      expect(provider.name).toBe('zhipu');
     });
 
     it('should have correct capabilities', () => {
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       expect(provider.capabilities).toEqual({
         supportsTools: true,
         supportsStreaming: true,
-        supportsVision: true,
+        supportsVision: false,
         maxContextTokens: 128000,
       });
     });
@@ -253,17 +253,17 @@ describe('OpenAIChatProvider', () => {
   describe('isConfigured', () => {
     it('should return true when API key is configured', async () => {
       mockGetProviderApiKey.mockResolvedValue('test-api-key');
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
 
       const result = await provider.isConfigured();
 
       expect(result).toBe(true);
-      expect(mockGetProviderApiKey).toHaveBeenCalledWith(mockPool, 'openai');
+      expect(mockGetProviderApiKey).toHaveBeenCalledWith(mockPool, 'zhipu');
     });
 
     it('should return false when API key is not configured', async () => {
       mockGetProviderApiKey.mockResolvedValue(null);
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
 
       const result = await provider.isConfigured();
 
@@ -287,10 +287,10 @@ describe('OpenAIChatProvider', () => {
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Hello' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
       });
 
       expect(result.content).toBe('Hello! How can I help you today?');
@@ -301,8 +301,8 @@ describe('OpenAIChatProvider', () => {
         outputTokens: 15,
         totalTokens: 65,
       });
-      expect(result.model).toBe('gpt-4o');
-      expect(result.provider).toBe('openai');
+      expect(result.model).toBe('glm-4.6');
+      expect(result.provider).toBe('zhipu');
     });
 
     it('should handle system prompt correctly', async () => {
@@ -312,10 +312,10 @@ describe('OpenAIChatProvider', () => {
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       await provider.chat({
         messages: [{ role: 'user', content: 'Who are you?' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
         systemPrompt: 'You are a helpful assistant.',
       });
 
@@ -333,10 +333,10 @@ describe('OpenAIChatProvider', () => {
         createMockOpenAIResponse({ content: 'Response' })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
         maxTokens: 1000,
         temperature: 0.7,
         stopSequences: ['END'],
@@ -344,7 +344,7 @@ describe('OpenAIChatProvider', () => {
 
       expect(mockChatCompletionsCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          model: 'gpt-4o',
+          model: 'glm-4.6',
           max_tokens: 1000,
           temperature: 0.7,
           stop: ['END'],
@@ -360,13 +360,30 @@ describe('OpenAIChatProvider', () => {
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
       });
 
       expect(result.content).toBe('');
+    });
+
+    it('should create OpenAI client with Zhipu baseURL', async () => {
+      mockChatCompletionsCreate.mockResolvedValue(
+        createMockOpenAIResponse({ content: 'Response' })
+      );
+
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
+      await provider.chat({
+        messages: [{ role: 'user', content: 'Test' }],
+        model: 'glm-4.6',
+      });
+
+      expect(OpenAI).toHaveBeenCalledWith({
+        apiKey: 'test-zhipu-key',
+        baseURL: 'https://api.z.ai/api/paas/v4',
+      });
     });
   });
 
@@ -425,10 +442,10 @@ describe('OpenAIChatProvider', () => {
           })
         );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Search for test query' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
         tools: mockTools,
       });
 
@@ -477,10 +494,10 @@ describe('OpenAIChatProvider', () => {
           })
         );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Search and list docs' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
         tools: mockTools,
       });
 
@@ -539,10 +556,10 @@ describe('OpenAIChatProvider', () => {
           })
         );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Complex query' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
         tools: mockTools,
       });
 
@@ -560,10 +577,10 @@ describe('OpenAIChatProvider', () => {
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
         tools: mockTools,
       });
 
@@ -602,7 +619,8 @@ describe('OpenAIChatProvider', () => {
         toolExecutors,
       });
 
-      // Always return tool calls to trigger max turns
+      // Always return tool calls to trigger infinite loop
+      // Use mockImplementation to create a new stream each time
       mockChatCompletionsCreate.mockImplementation(() =>
         createMockOpenAIResponse({
           content: null,
@@ -620,10 +638,11 @@ describe('OpenAIChatProvider', () => {
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
+
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Trigger loop' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
         tools: [
           {
             name: 'search_rag',
@@ -636,10 +655,11 @@ describe('OpenAIChatProvider', () => {
         ],
       });
 
-      // Should complete gracefully with end_turn (not throw)
-      expect(result.stopReason).toBe('end_turn');
-      // Should have called 10 times (max turns)
+      // Should have called 10 times
       expect(mockChatCompletionsCreate).toHaveBeenCalledTimes(10);
+      // Should complete with end_turn (not throw)
+      expect(result.stopReason).toBe('end_turn');
+      expect(result.content).toBe('');
     });
   });
 
@@ -651,44 +671,32 @@ describe('OpenAIChatProvider', () => {
     it('should throw error when API key is not configured', async () => {
       mockGetProviderApiKey.mockResolvedValue(null);
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
 
       await expect(
         provider.chat({
           messages: [{ role: 'user', content: 'Test' }],
-          model: 'gpt-4o',
+          model: 'glm-4.6',
         })
-      ).rejects.toThrow('OpenAI API key not configured');
+      ).rejects.toThrow('Zhipu API key not configured');
     });
 
     it('should handle empty stream gracefully', async () => {
-      // Return an empty stream with just a finish chunk
-      mockChatCompletionsCreate.mockImplementation(() =>
+      // Return an empty async iterator (no chunks)
+      mockChatCompletionsCreate.mockResolvedValue(
         (async function* () {
-          yield {
-            id: 'chatcmpl-test',
-            object: 'chat.completion.chunk',
-            created: Date.now(),
-            model: 'gpt-4o',
-            choices: [
-              {
-                index: 0,
-                delta: {},
-                finish_reason: 'stop',
-              },
-            ],
-            usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-          };
+          // Empty stream
         })()
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
+
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
       });
 
-      // Should complete with empty content
+      // Should complete with default values
       expect(result.content).toBe('');
       expect(result.stopReason).toBe('end_turn');
     });
@@ -727,10 +735,10 @@ describe('OpenAIChatProvider', () => {
           })
         );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Search' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
         tools: [
           {
             name: 'search_rag',
@@ -782,10 +790,10 @@ describe('OpenAIChatProvider', () => {
           })
         );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Use unknown tool' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
         tools: [
           {
             name: 'unknown_tool',
@@ -836,10 +844,10 @@ describe('OpenAIChatProvider', () => {
           })
         );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
         tools: [
           {
             name: 'search_rag',
@@ -873,10 +881,10 @@ describe('OpenAIChatProvider', () => {
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
       });
 
       expect(result.stopReason).toBe('end_turn');
@@ -890,10 +898,10 @@ describe('OpenAIChatProvider', () => {
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
       });
 
       expect(result.stopReason).toBe('max_tokens');
@@ -907,10 +915,10 @@ describe('OpenAIChatProvider', () => {
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
       });
 
       expect(result.stopReason).toBe('end_turn');
@@ -921,12 +929,12 @@ describe('OpenAIChatProvider', () => {
   // Factory Function Tests
   // ===========================================================================
 
-  describe('createOpenAIProvider factory', () => {
-    it('should create an OpenAIChatProvider instance', () => {
-      const provider = createOpenAIProvider(mockPool, mockContext);
+  describe('createZhipuProvider factory', () => {
+    it('should create a ZhipuChatProvider instance', () => {
+      const provider = createZhipuProvider(mockPool, mockContext);
 
-      expect(provider).toBeInstanceOf(OpenAIChatProvider);
-      expect(provider.name).toBe('openai');
+      expect(provider).toBeInstanceOf(ZhipuChatProvider);
+      expect(provider.name).toBe('zhipu');
     });
   });
 
@@ -940,14 +948,14 @@ describe('OpenAIChatProvider', () => {
         createMockOpenAIResponse({ content: 'Response' })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       await provider.chat({
         messages: [
           { role: 'user', content: 'First message' },
           { role: 'assistant', content: 'First response' },
           { role: 'user', content: 'Second message' },
         ],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
       });
 
       expect(mockChatCompletionsCreate).toHaveBeenCalledWith(
@@ -977,10 +985,10 @@ describe('OpenAIChatProvider', () => {
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
       });
 
       expect(result.usage).toEqual({
@@ -991,18 +999,18 @@ describe('OpenAIChatProvider', () => {
     });
 
     it('should handle missing usage data', async () => {
-      // Stream without usage data in final chunk
-      mockChatCompletionsCreate.mockImplementation(() =>
+      // Return stream with no usage info in final chunk
+      mockChatCompletionsCreate.mockResolvedValue(
         (async function* () {
           yield {
             id: 'chatcmpl-test',
             object: 'chat.completion.chunk',
             created: Date.now(),
-            model: 'gpt-4o',
+            model: 'glm-4.6',
             choices: [
               {
                 index: 0,
-                delta: { content: 'Response' },
+                delta: { role: 'assistant', content: 'Response' },
                 finish_reason: null,
               },
             ],
@@ -1011,7 +1019,7 @@ describe('OpenAIChatProvider', () => {
             id: 'chatcmpl-test',
             object: 'chat.completion.chunk',
             created: Date.now(),
-            model: 'gpt-4o',
+            model: 'glm-4.6',
             choices: [
               {
                 index: 0,
@@ -1024,10 +1032,10 @@ describe('OpenAIChatProvider', () => {
         })()
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new ZhipuChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'glm-4.6',
       });
 
       expect(result.usage).toEqual({

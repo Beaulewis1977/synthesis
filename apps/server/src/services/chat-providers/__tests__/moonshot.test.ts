@@ -1,8 +1,9 @@
 /**
- * OpenAI Chat Provider Tests
+ * Moonshot (Kimi) Chat Provider Tests
  *
- * Phase 16B: Unit tests for OpenAIChatProvider
+ * Phase 16D: Unit tests for MoonshotChatProvider
  * Tests the manual 10-turn tool execution loop and API integration.
+ * Uses OpenAI-compatible API with thinking mode support.
  */
 
 import type { Pool } from 'pg';
@@ -78,10 +79,10 @@ function createMockToolExecutors() {
 }
 
 /**
- * Create a mock streaming response for OpenAI
+ * Create a mock OpenAI streaming response
  * Returns an async generator that yields streaming chunks
  */
-function createMockOpenAIResponse(options: {
+function createMockOpenAIStreamResponse(options: {
   content?: string | null;
   toolCalls?: Array<{
     id: string;
@@ -94,51 +95,26 @@ function createMockOpenAIResponse(options: {
   totalTokens?: number;
   model?: string;
 }) {
-  // Create streaming response chunks
-  const chunks: Array<{
-    id: string;
-    object: string;
-    created: number;
-    model: string;
-    choices: Array<{
-      index: number;
-      delta: {
-        role?: string;
-        content?: string | null;
-        tool_calls?: Array<{
-          index: number;
-          id?: string;
-          type?: string;
-          function?: { name?: string; arguments?: string };
-        }>;
-      };
-      finish_reason: string | null;
-    }>;
-    usage?: {
-      prompt_tokens: number;
-      completion_tokens: number;
-      total_tokens: number;
-    };
-  }> = [];
+  const chunks: unknown[] = [];
 
-  // If there's content, stream it
+  // If we have content, create text chunks
   if (options.content) {
     chunks.push({
       id: 'chatcmpl-test',
       object: 'chat.completion.chunk',
       created: Date.now(),
-      model: options.model ?? 'gpt-4o',
+      model: options.model ?? 'kimi-k2-0905-preview',
       choices: [
         {
           index: 0,
-          delta: { role: 'assistant', content: options.content },
+          delta: { content: options.content },
           finish_reason: null,
         },
       ],
     });
   }
 
-  // If there are tool calls, stream them
+  // If we have tool calls, create tool call chunks
   if (options.toolCalls) {
     for (let i = 0; i < options.toolCalls.length; i++) {
       const tc = options.toolCalls[i];
@@ -146,7 +122,7 @@ function createMockOpenAIResponse(options: {
         id: 'chatcmpl-test',
         object: 'chat.completion.chunk',
         created: Date.now(),
-        model: options.model ?? 'gpt-4o',
+        model: options.model ?? 'kimi-k2-0905-preview',
         choices: [
           {
             index: 0,
@@ -156,7 +132,10 @@ function createMockOpenAIResponse(options: {
                   index: i,
                   id: tc.id,
                   type: 'function',
-                  function: { name: tc.function.name, arguments: tc.function.arguments },
+                  function: {
+                    name: tc.function.name,
+                    arguments: tc.function.arguments,
+                  },
                 },
               ],
             },
@@ -172,7 +151,7 @@ function createMockOpenAIResponse(options: {
     id: 'chatcmpl-test',
     object: 'chat.completion.chunk',
     created: Date.now(),
-    model: options.model ?? 'gpt-4o',
+    model: options.model ?? 'kimi-k2-0905-preview',
     choices: [
       {
         index: 0,
@@ -187,7 +166,7 @@ function createMockOpenAIResponse(options: {
     },
   });
 
-  // Return an async iterator (mimics OpenAI streaming response)
+  // Return async generator
   return (async function* () {
     for (const chunk of chunks) {
       yield chunk;
@@ -199,10 +178,10 @@ function createMockOpenAIResponse(options: {
 // Tests
 // =============================================================================
 
-let OpenAIChatProvider: typeof import('../openai.js')['OpenAIChatProvider'];
-let createOpenAIProvider: typeof import('../openai.js')['createOpenAIProvider'];
+let MoonshotChatProvider: typeof import('../moonshot.js')['MoonshotChatProvider'];
+let createMoonshotProvider: typeof import('../moonshot.js')['createMoonshotProvider'];
 
-describe('OpenAIChatProvider', () => {
+describe('MoonshotChatProvider', () => {
   const mockPool = createMockPool();
   const mockContext = { collectionId: '11111111-1111-4111-8111-111111111111' };
 
@@ -210,7 +189,7 @@ describe('OpenAIChatProvider', () => {
     vi.clearAllMocks();
 
     // Default API key configured
-    mockGetProviderApiKey.mockResolvedValue('test-openai-key');
+    mockGetProviderApiKey.mockResolvedValue('test-moonshot-key');
 
     // Default tool executors
     const mockExecutors = createMockToolExecutors();
@@ -220,9 +199,9 @@ describe('OpenAIChatProvider', () => {
     });
 
     // Import after mocks are set up
-    const module = await import('../openai.js');
-    OpenAIChatProvider = module.OpenAIChatProvider;
-    createOpenAIProvider = module.createOpenAIProvider;
+    const module = await import('../moonshot.js');
+    MoonshotChatProvider = module.MoonshotChatProvider;
+    createMoonshotProvider = module.createMoonshotProvider;
   });
 
   afterEach(() => {
@@ -235,17 +214,17 @@ describe('OpenAIChatProvider', () => {
 
   describe('provider properties', () => {
     it('should have correct name', () => {
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
-      expect(provider.name).toBe('openai');
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
+      expect(provider.name).toBe('moonshot');
     });
 
     it('should have correct capabilities', () => {
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       expect(provider.capabilities).toEqual({
         supportsTools: true,
         supportsStreaming: true,
-        supportsVision: true,
-        maxContextTokens: 128000,
+        supportsVision: false,
+        maxContextTokens: 256000,
       });
     });
   });
@@ -253,17 +232,17 @@ describe('OpenAIChatProvider', () => {
   describe('isConfigured', () => {
     it('should return true when API key is configured', async () => {
       mockGetProviderApiKey.mockResolvedValue('test-api-key');
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
 
       const result = await provider.isConfigured();
 
       expect(result).toBe(true);
-      expect(mockGetProviderApiKey).toHaveBeenCalledWith(mockPool, 'openai');
+      expect(mockGetProviderApiKey).toHaveBeenCalledWith(mockPool, 'moonshot');
     });
 
     it('should return false when API key is not configured', async () => {
       mockGetProviderApiKey.mockResolvedValue(null);
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
 
       const result = await provider.isConfigured();
 
@@ -278,7 +257,7 @@ describe('OpenAIChatProvider', () => {
   describe('chat without tools', () => {
     it('should complete successfully with simple text response', async () => {
       mockChatCompletionsCreate.mockResolvedValue(
-        createMockOpenAIResponse({
+        createMockOpenAIStreamResponse({
           content: 'Hello! How can I help you today?',
           finishReason: 'stop',
           promptTokens: 50,
@@ -287,10 +266,10 @@ describe('OpenAIChatProvider', () => {
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Hello' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
       });
 
       expect(result.content).toBe('Hello! How can I help you today?');
@@ -301,21 +280,21 @@ describe('OpenAIChatProvider', () => {
         outputTokens: 15,
         totalTokens: 65,
       });
-      expect(result.model).toBe('gpt-4o');
-      expect(result.provider).toBe('openai');
+      expect(result.model).toBe('kimi-k2-0905-preview');
+      expect(result.provider).toBe('moonshot');
     });
 
     it('should handle system prompt correctly', async () => {
       mockChatCompletionsCreate.mockResolvedValue(
-        createMockOpenAIResponse({
+        createMockOpenAIStreamResponse({
           content: 'I am a helpful assistant.',
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       await provider.chat({
         messages: [{ role: 'user', content: 'Who are you?' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
         systemPrompt: 'You are a helpful assistant.',
       });
 
@@ -330,13 +309,13 @@ describe('OpenAIChatProvider', () => {
 
     it('should pass optional parameters correctly', async () => {
       mockChatCompletionsCreate.mockResolvedValue(
-        createMockOpenAIResponse({ content: 'Response' })
+        createMockOpenAIStreamResponse({ content: 'Response' })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
         maxTokens: 1000,
         temperature: 0.7,
         stopSequences: ['END'],
@@ -344,7 +323,7 @@ describe('OpenAIChatProvider', () => {
 
       expect(mockChatCompletionsCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          model: 'gpt-4o',
+          model: 'kimi-k2-0905-preview',
           max_tokens: 1000,
           temperature: 0.7,
           stop: ['END'],
@@ -354,16 +333,16 @@ describe('OpenAIChatProvider', () => {
 
     it('should handle empty content response', async () => {
       mockChatCompletionsCreate.mockResolvedValue(
-        createMockOpenAIResponse({
+        createMockOpenAIStreamResponse({
           content: null,
           finishReason: 'stop',
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
       });
 
       expect(result.content).toBe('');
@@ -402,7 +381,7 @@ describe('OpenAIChatProvider', () => {
       // First call: model wants to use a tool
       mockChatCompletionsCreate
         .mockResolvedValueOnce(
-          createMockOpenAIResponse({
+          createMockOpenAIStreamResponse({
             content: null,
             toolCalls: [
               {
@@ -419,16 +398,16 @@ describe('OpenAIChatProvider', () => {
         )
         // Second call: model returns final response after tool execution
         .mockResolvedValueOnce(
-          createMockOpenAIResponse({
+          createMockOpenAIStreamResponse({
             content: 'Based on the search results, I found relevant information.',
             finishReason: 'stop',
           })
         );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Search for test query' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
         tools: mockTools,
       });
 
@@ -447,7 +426,7 @@ describe('OpenAIChatProvider', () => {
       // First call: model wants to use multiple tools
       mockChatCompletionsCreate
         .mockResolvedValueOnce(
-          createMockOpenAIResponse({
+          createMockOpenAIStreamResponse({
             content: null,
             toolCalls: [
               {
@@ -471,16 +450,16 @@ describe('OpenAIChatProvider', () => {
           })
         )
         .mockResolvedValueOnce(
-          createMockOpenAIResponse({
+          createMockOpenAIStreamResponse({
             content: 'Completed both searches.',
             finishReason: 'stop',
           })
         );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Search and list docs' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
         tools: mockTools,
       });
 
@@ -499,7 +478,7 @@ describe('OpenAIChatProvider', () => {
       // Turn 1: First tool call
       mockChatCompletionsCreate
         .mockResolvedValueOnce(
-          createMockOpenAIResponse({
+          createMockOpenAIStreamResponse({
             content: null,
             toolCalls: [
               {
@@ -516,7 +495,7 @@ describe('OpenAIChatProvider', () => {
         )
         // Turn 2: Second tool call based on first results
         .mockResolvedValueOnce(
-          createMockOpenAIResponse({
+          createMockOpenAIStreamResponse({
             content: null,
             toolCalls: [
               {
@@ -533,16 +512,16 @@ describe('OpenAIChatProvider', () => {
         )
         // Turn 3: Final response
         .mockResolvedValueOnce(
-          createMockOpenAIResponse({
+          createMockOpenAIStreamResponse({
             content: 'After multiple tool calls, here is the answer.',
             finishReason: 'stop',
           })
         );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Complex query' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
         tools: mockTools,
       });
 
@@ -554,16 +533,16 @@ describe('OpenAIChatProvider', () => {
 
     it('should convert tools to OpenAI function format', async () => {
       mockChatCompletionsCreate.mockResolvedValue(
-        createMockOpenAIResponse({
+        createMockOpenAIStreamResponse({
           content: 'Response',
           finishReason: 'stop',
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
         tools: mockTools,
       });
 
@@ -595,35 +574,41 @@ describe('OpenAIChatProvider', () => {
   // ===========================================================================
 
   describe('max turns limit', () => {
-    it('should complete with end_turn when max turns (10) is reached', async () => {
+    it('should stop after max turns (10) is reached', async () => {
       const toolExecutors = createMockToolExecutors();
       mockBuildAgentTools.mockReturnValue({
         tools: [],
         toolExecutors,
       });
 
-      // Always return tool calls to trigger max turns
-      mockChatCompletionsCreate.mockImplementation(() =>
-        createMockOpenAIResponse({
+      // Create a counter to generate unique IDs for each call
+      let callCount = 0;
+
+      // Always return tool calls to trigger infinite loop
+      // Use mockImplementation to generate a new stream each time
+      mockChatCompletionsCreate.mockImplementation(async () => {
+        callCount++;
+        return createMockOpenAIStreamResponse({
           content: null,
           toolCalls: [
             {
-              id: 'call-loop',
+              id: `call-loop-${callCount}`,
               type: 'function',
               function: {
                 name: 'search_rag',
-                arguments: JSON.stringify({ query: 'loop' }),
+                arguments: JSON.stringify({ query: `loop-${callCount}` }),
               },
             },
           ],
           finishReason: 'tool_calls',
-        })
-      );
+        });
+      });
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
+
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Trigger loop' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
         tools: [
           {
             name: 'search_rag',
@@ -636,9 +621,9 @@ describe('OpenAIChatProvider', () => {
         ],
       });
 
-      // Should complete gracefully with end_turn (not throw)
+      // Should stop with end_turn after max turns
       expect(result.stopReason).toBe('end_turn');
-      // Should have called 10 times (max turns)
+      // Should have called 10 times
       expect(mockChatCompletionsCreate).toHaveBeenCalledTimes(10);
     });
   });
@@ -651,44 +636,35 @@ describe('OpenAIChatProvider', () => {
     it('should throw error when API key is not configured', async () => {
       mockGetProviderApiKey.mockResolvedValue(null);
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
 
       await expect(
         provider.chat({
           messages: [{ role: 'user', content: 'Test' }],
-          model: 'gpt-4o',
+          model: 'kimi-k2-0905-preview',
         })
-      ).rejects.toThrow('OpenAI API key not configured');
+      ).rejects.toThrow('Moonshot API key not configured');
     });
 
-    it('should handle empty stream gracefully', async () => {
-      // Return an empty stream with just a finish chunk
-      mockChatCompletionsCreate.mockImplementation(() =>
+    it('should handle response with no choices gracefully', async () => {
+      // Return a stream with empty choices array - should just return empty response
+      mockChatCompletionsCreate.mockResolvedValue(
         (async function* () {
           yield {
             id: 'chatcmpl-test',
-            object: 'chat.completion.chunk',
-            created: Date.now(),
-            model: 'gpt-4o',
-            choices: [
-              {
-                index: 0,
-                delta: {},
-                finish_reason: 'stop',
-              },
-            ],
+            choices: [], // No choices
             usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
           };
         })()
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
       });
 
-      // Should complete with empty content
+      // Should return empty content with end_turn
       expect(result.content).toBe('');
       expect(result.stopReason).toBe('end_turn');
     });
@@ -704,7 +680,7 @@ describe('OpenAIChatProvider', () => {
       // First call: tool call that will fail
       mockChatCompletionsCreate
         .mockResolvedValueOnce(
-          createMockOpenAIResponse({
+          createMockOpenAIStreamResponse({
             content: null,
             toolCalls: [
               {
@@ -721,16 +697,16 @@ describe('OpenAIChatProvider', () => {
         )
         // Second call: model handles error and responds
         .mockResolvedValueOnce(
-          createMockOpenAIResponse({
+          createMockOpenAIStreamResponse({
             content: 'I encountered an error with the search tool.',
             finishReason: 'stop',
           })
         );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Search' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
         tools: [
           {
             name: 'search_rag',
@@ -760,7 +736,7 @@ describe('OpenAIChatProvider', () => {
 
       mockChatCompletionsCreate
         .mockResolvedValueOnce(
-          createMockOpenAIResponse({
+          createMockOpenAIStreamResponse({
             content: null,
             toolCalls: [
               {
@@ -776,16 +752,16 @@ describe('OpenAIChatProvider', () => {
           })
         )
         .mockResolvedValueOnce(
-          createMockOpenAIResponse({
+          createMockOpenAIStreamResponse({
             content: 'I do not recognize that tool.',
             finishReason: 'stop',
           })
         );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Use unknown tool' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
         tools: [
           {
             name: 'unknown_tool',
@@ -814,7 +790,7 @@ describe('OpenAIChatProvider', () => {
 
       mockChatCompletionsCreate
         .mockResolvedValueOnce(
-          createMockOpenAIResponse({
+          createMockOpenAIStreamResponse({
             content: null,
             toolCalls: [
               {
@@ -830,16 +806,16 @@ describe('OpenAIChatProvider', () => {
           })
         )
         .mockResolvedValueOnce(
-          createMockOpenAIResponse({
+          createMockOpenAIStreamResponse({
             content: 'Handled error.',
             finishReason: 'stop',
           })
         );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
         tools: [
           {
             name: 'search_rag',
@@ -865,18 +841,18 @@ describe('OpenAIChatProvider', () => {
 
   describe('stop reason mapping', () => {
     it('should map "stop" to "end_turn"', async () => {
-      // OpenAI's 'stop' indicates natural completion, mapped to 'end_turn' for consistency
+      // Moonshot's 'stop' indicates natural completion, mapped to 'end_turn' for consistency
       mockChatCompletionsCreate.mockResolvedValue(
-        createMockOpenAIResponse({
+        createMockOpenAIStreamResponse({
           content: 'Response',
           finishReason: 'stop',
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
       });
 
       expect(result.stopReason).toBe('end_turn');
@@ -884,16 +860,16 @@ describe('OpenAIChatProvider', () => {
 
     it('should map "length" to "max_tokens"', async () => {
       mockChatCompletionsCreate.mockResolvedValue(
-        createMockOpenAIResponse({
+        createMockOpenAIStreamResponse({
           content: 'Truncated response...',
           finishReason: 'length',
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
       });
 
       expect(result.stopReason).toBe('max_tokens');
@@ -901,16 +877,16 @@ describe('OpenAIChatProvider', () => {
 
     it('should map unknown reason to "end_turn"', async () => {
       mockChatCompletionsCreate.mockResolvedValue(
-        createMockOpenAIResponse({
+        createMockOpenAIStreamResponse({
           content: 'Response',
           finishReason: 'unknown_reason',
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
       });
 
       expect(result.stopReason).toBe('end_turn');
@@ -921,12 +897,12 @@ describe('OpenAIChatProvider', () => {
   // Factory Function Tests
   // ===========================================================================
 
-  describe('createOpenAIProvider factory', () => {
-    it('should create an OpenAIChatProvider instance', () => {
-      const provider = createOpenAIProvider(mockPool, mockContext);
+  describe('createMoonshotProvider factory', () => {
+    it('should create a MoonshotChatProvider instance', () => {
+      const provider = createMoonshotProvider(mockPool, mockContext);
 
-      expect(provider).toBeInstanceOf(OpenAIChatProvider);
-      expect(provider.name).toBe('openai');
+      expect(provider).toBeInstanceOf(MoonshotChatProvider);
+      expect(provider.name).toBe('moonshot');
     });
   });
 
@@ -937,17 +913,17 @@ describe('OpenAIChatProvider', () => {
   describe('message conversion', () => {
     it('should convert user messages correctly', async () => {
       mockChatCompletionsCreate.mockResolvedValue(
-        createMockOpenAIResponse({ content: 'Response' })
+        createMockOpenAIStreamResponse({ content: 'Response' })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       await provider.chat({
         messages: [
           { role: 'user', content: 'First message' },
           { role: 'assistant', content: 'First response' },
           { role: 'user', content: 'Second message' },
         ],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
       });
 
       expect(mockChatCompletionsCreate).toHaveBeenCalledWith(
@@ -969,7 +945,7 @@ describe('OpenAIChatProvider', () => {
   describe('usage tracking', () => {
     it('should track token usage correctly', async () => {
       mockChatCompletionsCreate.mockResolvedValue(
-        createMockOpenAIResponse({
+        createMockOpenAIStreamResponse({
           content: 'Response',
           promptTokens: 200,
           completionTokens: 100,
@@ -977,10 +953,10 @@ describe('OpenAIChatProvider', () => {
         })
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
       });
 
       expect(result.usage).toEqual({
@@ -991,14 +967,12 @@ describe('OpenAIChatProvider', () => {
     });
 
     it('should handle missing usage data', async () => {
-      // Stream without usage data in final chunk
-      mockChatCompletionsCreate.mockImplementation(() =>
+      // Create stream without usage data
+      mockChatCompletionsCreate.mockResolvedValue(
         (async function* () {
+          // Content chunk
           yield {
             id: 'chatcmpl-test',
-            object: 'chat.completion.chunk',
-            created: Date.now(),
-            model: 'gpt-4o',
             choices: [
               {
                 index: 0,
@@ -1007,11 +981,9 @@ describe('OpenAIChatProvider', () => {
               },
             ],
           };
+          // Final chunk with no usage
           yield {
             id: 'chatcmpl-test',
-            object: 'chat.completion.chunk',
-            created: Date.now(),
-            model: 'gpt-4o',
             choices: [
               {
                 index: 0,
@@ -1024,16 +996,146 @@ describe('OpenAIChatProvider', () => {
         })()
       );
 
-      const provider = new OpenAIChatProvider(mockPool, mockContext);
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
       const result = await provider.chat({
         messages: [{ role: 'user', content: 'Test' }],
-        model: 'gpt-4o',
+        model: 'kimi-k2-0905-preview',
       });
 
       expect(result.usage).toEqual({
         inputTokens: 0,
         outputTokens: 0,
         totalTokens: 0,
+      });
+    });
+  });
+
+  // ===========================================================================
+  // Thinking Mode Tests
+  // ===========================================================================
+
+  describe('thinking mode', () => {
+    it('should enable thinking mode for kimi-k2-thinking models', async () => {
+      mockChatCompletionsCreate.mockResolvedValue(
+        createMockOpenAIStreamResponse({
+          content: 'Thoughtful response',
+          model: 'kimi-k2-thinking',
+        })
+      );
+
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
+      await provider.chat({
+        messages: [{ role: 'user', content: 'Test' }],
+        model: 'kimi-k2-thinking',
+      });
+
+      expect(mockChatCompletionsCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'kimi-k2-thinking',
+          extra_body: {
+            thinking: { type: 'enabled', max_tokens: 4096 },
+          },
+        })
+      );
+    });
+
+    it('should enable thinking mode for kimi-k2-thinking-turbo models', async () => {
+      mockChatCompletionsCreate.mockResolvedValue(
+        createMockOpenAIStreamResponse({
+          content: 'Thoughtful response',
+          model: 'kimi-k2-thinking-turbo',
+        })
+      );
+
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
+      await provider.chat({
+        messages: [{ role: 'user', content: 'Test' }],
+        model: 'kimi-k2-thinking-turbo',
+      });
+
+      expect(mockChatCompletionsCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'kimi-k2-thinking-turbo',
+          extra_body: {
+            thinking: { type: 'enabled', max_tokens: 4096 },
+          },
+        })
+      );
+    });
+
+    it('should not enable thinking mode for non-thinking models', async () => {
+      mockChatCompletionsCreate.mockResolvedValue(
+        createMockOpenAIStreamResponse({
+          content: 'Response',
+        })
+      );
+
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
+      await provider.chat({
+        messages: [{ role: 'user', content: 'Test' }],
+        model: 'kimi-k2-0905-preview',
+      });
+
+      // Verify extra_body is not included
+      const call = mockChatCompletionsCreate.mock.calls[0][0];
+      expect(call.extra_body).toBeUndefined();
+    });
+
+    it('should handle thinking mode in tool execution flow', async () => {
+      const toolExecutors = createMockToolExecutors();
+      mockBuildAgentTools.mockReturnValue({
+        tools: [],
+        toolExecutors,
+      });
+
+      // First call with tool use
+      mockChatCompletionsCreate
+        .mockResolvedValueOnce(
+          createMockOpenAIStreamResponse({
+            content: null,
+            toolCalls: [
+              {
+                id: 'call-1',
+                type: 'function',
+                function: {
+                  name: 'search_rag',
+                  arguments: JSON.stringify({ query: 'test' }),
+                },
+              },
+            ],
+            finishReason: 'tool_calls',
+          })
+        )
+        .mockResolvedValueOnce(
+          createMockOpenAIStreamResponse({
+            content: 'Final thoughtful response',
+            finishReason: 'stop',
+          })
+        );
+
+      const provider = new MoonshotChatProvider(mockPool, mockContext);
+      await provider.chat({
+        messages: [{ role: 'user', content: 'Complex question' }],
+        model: 'kimi-k2-thinking',
+        tools: [
+          {
+            name: 'search_rag',
+            description: 'Search',
+            inputSchema: { type: 'object', properties: {} },
+          },
+        ],
+      });
+
+      // Verify both calls have extra_body for thinking mode
+      expect(mockChatCompletionsCreate).toHaveBeenCalledTimes(2);
+      const firstCall = mockChatCompletionsCreate.mock.calls[0][0];
+      const secondCall = mockChatCompletionsCreate.mock.calls[1][0];
+
+      expect(firstCall.extra_body).toEqual({
+        thinking: { type: 'enabled', max_tokens: 4096 },
+      });
+      expect(secondCall.extra_body).toEqual({
+        thinking: { type: 'enabled', max_tokens: 4096 },
       });
     });
   });

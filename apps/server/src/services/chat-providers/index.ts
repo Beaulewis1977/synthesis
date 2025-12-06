@@ -11,9 +11,12 @@ import type { Pool } from 'pg';
 import { getApiKeyService } from '../api-key-service.js';
 import { getModelConfigService } from '../model-config-service.js';
 import { createAnthropicProvider } from './anthropic.js';
+import { createGoogleProvider } from './google.js';
+import { createMoonshotProvider } from './moonshot.js';
 import { createOllamaProvider } from './ollama.js';
 import { createOpenAIProvider } from './openai.js';
 import type { ChatProvider, ChatProviderFactory, ChatProviderType, ToolContext } from './types.js';
+import { createZhipuProvider } from './zhipu.js';
 
 // =============================================================================
 // Provider Registry
@@ -240,5 +243,8 @@ export * from './adapters.js';
 
 // Register all available chat providers
 registerChatProvider('anthropic', createAnthropicProvider);
+registerChatProvider('google', createGoogleProvider);
+registerChatProvider('moonshot', createMoonshotProvider);
 registerChatProvider('openai', createOpenAIProvider);
 registerChatProvider('ollama', createOllamaProvider);
+registerChatProvider('zhipu', createZhipuProvider);
