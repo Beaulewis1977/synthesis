@@ -76,6 +76,9 @@ export const agentStreamRoutes: FastifyPluginAsync = async (fastify) => {
     const db = getPool();
     const context: ToolContext = { collectionId: body.collection_id };
 
+    // Hijack reply to manually control raw response (prevents Fastify auto-send)
+    reply.hijack();
+
     // Set SSE headers
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -103,7 +106,7 @@ export const agentStreamRoutes: FastifyPluginAsync = async (fastify) => {
         sendSSE(reply, 'error', {
           message: `Provider '${provider.name}' does not support streaming. Use non-streaming endpoint.`,
         });
-        reply.raw.end();
+        // Note: reply.raw.end() is called in the finally block
         return;
       }
 
