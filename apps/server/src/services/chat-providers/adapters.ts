@@ -5,6 +5,7 @@
  * Each provider has slightly different tool/function calling schemas.
  */
 
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions.js';
 import type { ChatContentBlock, ChatMessage, ChatTool, ChatToolCall } from './types.js';
 
 // =============================================================================
@@ -145,12 +146,7 @@ export interface OpenAIToolCall {
 /**
  * OpenAI message format
  */
-export interface OpenAIMessage {
-  role: 'user' | 'assistant' | 'system' | 'tool';
-  content: string | null;
-  tool_calls?: OpenAIToolCall[];
-  tool_call_id?: string;
-}
+export type OpenAIMessage = ChatCompletionMessageParam;
 
 /**
  * Convert normalized tool to OpenAI function format
@@ -192,7 +188,7 @@ export function toOpenAIMessages(messages: ChatMessage[]): OpenAIMessage[] {
     if (typeof msg.content === 'string') {
       return [
         {
-          role: msg.role,
+          role: msg.role as 'user' | 'assistant' | 'system',
           content: msg.content ?? '',
         },
       ];
@@ -227,8 +223,8 @@ function toOpenAIMessageWithContent(msg: ChatMessage): OpenAIMessage[] {
   if (toolCalls.length > 0) {
     return [
       {
-        role: 'assistant',
-        content: null,
+        role: 'assistant' as const,
+        content: '',
         tool_calls: toolCalls.map((tc) => ({
           id: tc.id ?? '',
           type: 'function' as const,
@@ -249,7 +245,7 @@ function toOpenAIMessageWithContent(msg: ChatMessage): OpenAIMessage[] {
 
   return [
     {
-      role: msg.role,
+      role: msg.role as 'user' | 'assistant' | 'system',
       content: text,
     },
   ];

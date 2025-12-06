@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ChatHistorySidebar } from '../components/ChatHistorySidebar';
 import { ChatMessage } from '../components/ChatMessage';
+import { StreamingMessage } from '../components/StreamingMessage';
 import { SynthesisView } from '../components/SynthesisView';
+import { useStreamingChat } from '../hooks/useStreamingChat';
 import { apiClient } from '../lib/api';
 import type { ChatMessage as ChatMessageType } from '../types';
 
@@ -24,6 +26,38 @@ export function ChatPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Streaming chat hook
+  const {
+    isStreaming,
+    content: streamingContent,
+    toolCalls: streamingToolCalls,
+    streamChat,
+  } = useStreamingChat({
+    onComplete: (content) => {
+      // Add completed streaming message to messages array
+      const assistantMessage: ChatMessageType = {
+        id: createMessageId(),
+        role: 'assistant',
+        content,
+        tool_calls: streamingToolCalls.map((tc, idx) => ({
+          id: tc.id ?? `tool-${idx}`,
+          tool: tc.tool,
+          status: tc.status,
+        })),
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    },
+    onError: (error) => {
+      // Add error message to chat
+      const errorMessage: ChatMessageType = {
+        id: `error-${createMessageId()}`,
+        role: 'assistant',
+        content: `Sorry, I encountered an error: ${error}. Please try again.`,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    },
+  });
 
   const createMessageId = () => {
     const randomSource = typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;
@@ -162,16 +196,16 @@ export function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const trimmedMessage = inputValue.trim();
-    if (!trimmedMessage) return;
+    if (!trimmedMessage || !collectionId) return;
 
     // Store last user query for synthesis view
     setLastUserQuery(trimmedMessage);
 
-    // Add user message to chat immediately
+    // Add user message to chat immediately (optimistic UI)
     const userMessage: ChatMessageType = {
       id: createMessageId(),
       role: 'user',
@@ -184,8 +218,33 @@ export function ChatPage() {
     // Re-focus input
     setTimeout(() => inputRef.current?.focus(), 0);
 
-    // Send to API
-    chatMutation.mutate(trimmedMessage);
+    // Create session if needed
+    let currentSessionId = sessionId;
+    if (!currentSessionId) {
+      try {
+        const title = trimmedMessage.slice(0, 30) + (trimmedMessage.length > 30 ? '...' : '');
+        const { session } = await apiClient.createChatSession(collectionId, title);
+        currentSessionId = session.id;
+        setSessionId(currentSessionId);
+        setSearchParams({ session: currentSessionId });
+        refetchSessions();
+      } catch (error) {
+        console.error('Failed to create session:', error);
+      }
+    }
+
+    // Use streaming chat
+    const history = messages.slice(-10).map((msg) => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    }));
+
+    streamChat({
+      message: trimmedMessage,
+      collection_id: collectionId,
+      session_id: currentSessionId ?? undefined,
+      history,
+    });
   };
 
   const handleNewChat = () => {
@@ -217,7 +276,7 @@ export function ChatPage() {
     }
   };
 
-  const isLoading = chatMutation.isPending;
+  const isLoading = chatMutation.isPending || isStreaming;
 
   return (
     <div className="h-[calc(100vh-120px)] flex">
@@ -352,8 +411,16 @@ export function ChatPage() {
                   {messages.map((msg) => (
                     <ChatMessage key={msg.id} message={msg} />
                   ))}
-                  {/* Loading indicator */}
-                  {isLoading && (
+                  {/* Streaming message indicator */}
+                  {isStreaming && (
+                    <StreamingMessage
+                      content={streamingContent}
+                      isStreaming={true}
+                      toolCalls={streamingToolCalls}
+                    />
+                  )}
+                  {/* Legacy loading indicator (for non-streaming fallback) */}
+                  {chatMutation.isPending && !isStreaming && (
                     <div className="mb-md flex justify-start">
                       <div className="max-w-[80%] rounded-lg px-4 py-3 bg-bg-secondary text-text-primary border border-border">
                         <div className="flex items-center gap-2">
