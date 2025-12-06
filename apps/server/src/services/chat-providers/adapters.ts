@@ -224,7 +224,7 @@ function toOpenAIMessageWithContent(msg: ChatMessage): OpenAIMessage[] {
     return [
       {
         role: 'assistant' as const,
-        content: '',
+        content: null, // Per OpenAI spec: null when assistant has tool_calls
         tool_calls: toolCalls.map((tc) => ({
           id: tc.id ?? '',
           type: 'function' as const,

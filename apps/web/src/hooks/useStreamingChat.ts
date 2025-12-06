@@ -153,9 +153,9 @@ export function useStreamingChat(options: UseStreamingChatOptions = {}) {
           }
         }
 
-        // Complete
-        setState((s) => ({ ...s, isStreaming: false }));
-        options.onComplete?.(fullContent, state.usage);
+        // Note: onComplete is called in processEvent 'done' handler with up-to-date usage
+        // Only set isStreaming false if 'done' event wasn't received (edge case)
+        setState((s) => (s.isStreaming ? { ...s, isStreaming: false } : s));
       } catch (error) {
         if ((error as Error).name === 'AbortError') {
           setState((s) => ({ ...s, isStreaming: false }));
@@ -167,7 +167,7 @@ export function useStreamingChat(options: UseStreamingChatOptions = {}) {
         options.onError?.(message);
       }
     },
-    [options, state.usage]
+    [options]
   );
 
   /**
