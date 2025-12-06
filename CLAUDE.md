@@ -4,15 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Synthesis** is an autonomous RAG (Retrieval-Augmented Generation) system powered by Claude Agent SDK for multi-project documentation management. The system enables developers to manage multiple documentation collections, search semantically using pgvector, and interact via a chat UI, MCP server, or external AI agents.
+**Synthesis** is an autonomous RAG (Retrieval-Augmented Generation) system for multi-project documentation management. The system enables developers to manage multiple documentation collections, search semantically using pgvector, and interact via a chat UI, MCP server, or external AI agents.
 
 **Tech Stack:**
 - Backend: Node.js 22, Fastify, TypeScript
 - Frontend: React, Vite, Tailwind CSS
 - Database: PostgreSQL 16 + pgvector 0.7.4
-- AI: Claude Agent SDK (Claude Opus 4 Sonnet), Ollama (local fallback)
-- Embeddings: Multi-provider support (Ollama, OpenAI, Voyage)
+- AI: Anthropic SDK (Claude models), Ollama (local fallback)
+- Embeddings: Multi-provider (Ollama, OpenAI, Voyage)
 - Search: Hybrid search with Reciprocal Rank Fusion (RRF)
+- Caching: Redis for search/rerank caching
 - Deployment: Docker Compose
 - Monorepo: pnpm workspaces + Turbo
 
@@ -20,102 +21,66 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Initial Setup
 ```bash
-# Install dependencies
 pnpm install
+cp .env.example .env  # Configure ANTHROPIC_API_KEY
 
-# Copy environment file and configure API keys
-cp .env.example .env
-# Edit .env with ANTHROPIC_API_KEY and other settings
-
-# Start infrastructure services (PostgreSQL + Ollama)
+# Start infrastructure (PostgreSQL + Ollama + Redis)
 pnpm docker:dev
-# OR: docker compose up -d synthesis-db synthesis-ollama
+# OR: docker compose up -d synthesis-db synthesis-ollama synthesis-redis
 
-# Apply database migrations
+# Apply migrations
 pnpm --filter @synthesis/db migrate
 
-# Pull Ollama models (required for embeddings)
+# Pull Ollama models
 ollama pull nomic-embed-text
 ollama pull llama3.2:3b  # optional for local chat
 ```
 
 ### Development Workflow
 ```bash
-# Start backend server (port 3333)
+# Backend (port 3333)
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/synthesis" \
 ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
 OLLAMA_BASE_URL="http://localhost:11434" \
 STORAGE_PATH="/home/kngpnn/dev/synthesis/storage" \
 pnpm --filter @synthesis/server dev
 
-# Start frontend (port 5173)
+# Frontend (port 5173)
 pnpm --filter @synthesis/web dev
 
-# Start MCP server (optional, for external agents)
+# Desktop app (Tauri)
+pnpm --filter @synthesis/desktop dev
+
+# MCP server (optional)
 pnpm --filter @synthesis/mcp dev
 ```
 
 ### Testing & Quality
 ```bash
-# Run all tests across workspace
-pnpm test
-
-# Run tests in watch mode
-pnpm test:watch
-
-# Type checking
-pnpm typecheck
-
-# Type check specific workspace
-pnpm --filter @synthesis/server typecheck
-pnpm typecheck:server  # shortcut
-
-# Lint & format (uses Biome)
-pnpm lint
-pnpm lint:fix
-pnpm format
-
-# Test coverage
-pnpm test:coverage
+pnpm test              # All tests
+pnpm test:watch        # Watch mode
+pnpm typecheck         # Type checking
+pnpm typecheck:server  # Server only
+pnpm lint && pnpm format
 ```
 
 ### Docker Operations
 ```bash
-# Start only infrastructure (db + ollama)
-pnpm docker:dev
-
-# Start all services including app
-pnpm docker:up
-# OR: docker compose --profile app up -d
-
-# Stop all services
-pnpm docker:down
-
-# View logs
-pnpm docker:logs
+pnpm docker:dev   # Infrastructure only (db + ollama + redis)
+pnpm docker:up    # All services
+pnpm docker:down  # Stop all
+pnpm docker:logs  # View logs
 ```
 
 ### Database Operations
 ```bash
-# Run migrations
 pnpm --filter @synthesis/db migrate
-
-# Connect to database
 docker compose exec synthesis-db psql -U postgres -d synthesis
-
-# Verify pgvector extension
-docker compose exec synthesis-db psql -U postgres -d synthesis -c "\dx"
 ```
 
-### Verification & Health Checks
+### Health Checks
 ```bash
-# Check backend health
 curl http://localhost:3333/health
-
-# Test MCP tools
-pnpm verify:mcp
-
-# Check Ollama
 curl http://localhost:11434/api/tags
 ```
 
@@ -125,341 +90,180 @@ curl http://localhost:11434/api/tags
 ```
 synthesis/
 ├── apps/
-│   ├── server/          # Fastify backend API
-│   ├── web/            # React frontend (Vite)
-│   └── mcp/            # MCP server (Model Context Protocol)
+│   ├── server/     # Fastify backend API
+│   ├── web/        # React frontend (Vite)
+│   ├── desktop/    # Desktop app (Tauri)
+│   └── mcp/        # MCP server
 ├── packages/
-│   ├── db/             # Database client, migrations, queries
-│   └── shared/         # Shared types and utilities
-└── docs/               # Comprehensive planning & phase docs
+│   ├── db/         # Database client, migrations, queries
+│   └── shared/     # Shared types and utilities
+└── docs/           # Planning & phase docs
 ```
 
 ### Key Backend Components (`apps/server/src/`)
 ```
-├── agent/
-│   ├── agent.ts        # Claude Agent SDK orchestrator (10-turn agentic loop)
-│   └── tools.ts        # Agent tool definitions & executors
-├── routes/
-│   ├── agent.ts        # POST /api/agent/chat (chat with agent)
-│   ├── collections.ts  # CRUD for collections
-│   ├── search.ts       # POST /api/search (vector search)
-│   └── ingest.ts       # POST /api/ingest (file upload)
-├── pipeline/
-│   ├── extract.ts      # PDF/DOCX/MD extraction
-│   ├── chunk.ts        # Text chunking (800 chars, 150 overlap)
-│   ├── embed.ts        # Multi-provider embedding orchestration
-│   └── ingest.ts       # Pipeline orchestration
-├── services/
-│   ├── search.ts       # Smart search orchestrator (hybrid/vector modes)
-│   ├── hybrid.ts       # Hybrid search with RRF fusion
-│   ├── vector.ts       # Pure vector similarity search
-│   ├── bm25.ts         # BM25 full-text search
-│   ├── embedding-router.ts  # Provider selection logic
-│   ├── ollama.ts       # Ollama embedding client
-│   ├── openai.ts       # OpenAI embedding client
-│   ├── voyage.ts       # Voyage embedding client
-│   └── scraper.ts      # Web fetching (Playwright)
-└── db/
-    └── queries.ts      # SQL queries for collections/docs/chunks
+├── agent/          # Agent orchestrator & tools
+├── routes/         # HTTP endpoints (collections, search, ingest, chat)
+├── pipeline/       # Extract → Chunk → Embed pipeline
+├── services/       # Search, embeddings, reranking, synthesis
+└── db/             # Server-specific queries
 ```
-
-### Agent System
-The Claude Agent SDK orchestrator (`apps/server/src/agent/agent.ts`) implements a **10-turn agentic loop** with:
-- **Model**: `claude-3-7-sonnet-20250219` (Claude Opus 4 Sonnet)
-- **Max Tokens**: 4096
-- **Tools**: search_rag, add_document, fetch_web_content, list_documents, get_document, delete_document, list_collections, get_collection
-- **Multi-step workflows**: Agent autonomously chains tool calls to complete complex tasks
-- **Context-aware**: Reviews conversation history to avoid repeating metadata
 
 ### Database Schema
 ```sql
 collections (id, name, description, created_at, updated_at)
-documents (id, collection_id, title, file_path, status, metadata JSONB, ...)
+documents (id, collection_id, title, file_path, status, metadata JSONB)
 chunks (id, doc_id, chunk_index, text, embedding VECTOR(768|1024|1536), metadata JSONB)
 ```
-- **Vector index**: HNSW for cosine similarity search
-- **Full-text search**: tsvector column with GIN index for BM25
-- **Cascade deletes**: Collections → Documents → Chunks
-- **Variable dimensions**: Supports 768 (Ollama), 1024 (Voyage), 1536 (OpenAI)
+- **Vector index**: HNSW for cosine similarity
+- **Full-text search**: tsvector with GIN index for BM25
+- **Variable dimensions**: 768 (Ollama), 1024 (Voyage), 1536 (OpenAI)
 
-### Search Architecture (Phase 8)
+### Search Architecture
+- **Vector mode** (default): Query → Embed → pgvector cosine → Top-K
+- **Hybrid mode**: Vector + BM25 → Reciprocal Rank Fusion
+- **Trust scoring** (optional): Boosts by source quality and recency
 
-**Smart Search** (`services/search.ts`) automatically routes to the best search strategy:
+### Multi-Provider Embeddings
+- **Ollama** (nomic-embed-text): Free local, general docs
+- **Voyage** (voyage-code-2): Code documentation
+- **OpenAI** (text-embedding-3-large): Personal writing
+- Auto-detection routes content to appropriate provider
 
-#### Vector-Only Mode (default)
+### RAG Pipeline
 ```
-Query → Embed → pgvector cosine similarity → Top-K results
+Upload → Extract (PDF/DOCX/MD) → Chunk (800 chars) → Provider Selection → Embed → pgvector
 ```
-
-#### Hybrid Mode (SEARCH_MODE=hybrid)
-```
-Query → [Vector Search + BM25 Search] → Reciprocal Rank Fusion → Top-K results
-```
-
-**Reciprocal Rank Fusion (RRF):**
-- Combines vector and BM25 rankings
-- Formula: `score = Σ(weight / (k + rank))`
-- Default k=60, weights: vector=0.7, bm25=0.3
-- Configurable via `HYBRID_VECTOR_WEIGHT` and `HYBRID_BM25_WEIGHT`
-
-**Trust Scoring** (optional, `ENABLE_TRUST_SCORING=true`):
-- Boosts results based on source quality:
-  - Official: 1.0x
-  - Verified: 0.85x
-  - Community: 0.6x
-  - Unknown: 0.5x
-- Applies recency weighting:
-  - <6 months: 1.0x
-  - 6-12 months: 0.9x
-  - >12 months: 0.7x
-
-### Multi-Provider Embeddings (Phase 8)
-
-**Provider Selection** (`services/embedding-router.ts`):
-- **Ollama** (nomic-embed-text, 768 dims): Free local embeddings, good for general docs
-- **OpenAI** (text-embedding-3-large, 1536 dims): Best for personal writing/notes
-- **Voyage** (voyage-code-2, 1024 dims): Optimized for code documentation
-
-**Automatic Content Detection:**
-```typescript
-// Code content → Voyage (CODE_EMBEDDING_PROVIDER)
-if (hasCodePatterns(text) || metadata.doc_type === 'code_sample') {
-  provider = 'voyage';
-}
-
-// Personal writing → OpenAI (WRITING_EMBEDDING_PROVIDER)
-if (metadata.doc_type === 'personal_writing') {
-  provider = 'openai';
-}
-
-// Documentation → Ollama (DOC_EMBEDDING_PROVIDER, default)
-else {
-  provider = 'ollama';
-}
-```
-
-**Code Pattern Detection:**
-- Looks for `import/export`, `class/interface`, `function`, JSX syntax
-- Language hints (Dart, TypeScript, Python, etc.)
-- Automatically routes to code-specialized embeddings
-
-### RAG Pipeline Flow
-```
-Upload → Extract (PDF/DOCX/MD) → Chunk (800 chars, 150 overlap)
-      → Provider Selection → Embed (Ollama/OpenAI/Voyage) → Upsert to pgvector
-```
-
-**Metadata Tracking:**
-- `embedding_provider`: Which provider was used (ollama/openai/voyage)
-- `doc_type`: Content type (code_sample, personal_writing, etc.)
-- `source_quality`: Trust level (official, verified, community)
-- `last_verified`: ISO timestamp for recency scoring
 
 ### MCP Server
-Exposes RAG capabilities to external AI agents (Cursor, Windsurf, Claude Desktop):
-- **stdio mode**: For WSL/IDE agents (JSON-RPC over stdin/stdout)
-- **SSE mode**: For Windows Claude Desktop (Server-Sent Events)
+Exposes RAG to external agents (Cursor, Windsurf, Claude Desktop):
+- **stdio**: WSL/IDE agents
+- **SSE**: Windows Claude Desktop
 
-## Important Implementation Details
-
-### Environment Variables (Phase 8 Updates)
+## Environment Variables
 
 **Required:**
-- `DATABASE_URL`: PostgreSQL connection string
-- `ANTHROPIC_API_KEY`: Required for Claude Agent SDK
-- `OLLAMA_BASE_URL`: Local Ollama endpoint (default: http://localhost:11434)
+- `DATABASE_URL`: PostgreSQL connection
+- `ANTHROPIC_API_KEY`: For Anthropic SDK
+- `OLLAMA_BASE_URL`: Local Ollama (default: http://localhost:11434)
 
-**Search Configuration:**
+**Search:**
 - `SEARCH_MODE`: `vector` (default) or `hybrid`
 - `ENABLE_TRUST_SCORING`: `false` (default) or `true`
-- `HYBRID_VECTOR_WEIGHT`: Default 0.7
-- `HYBRID_BM25_WEIGHT`: Default 0.3
-- `FTS_LANGUAGE`: PostgreSQL full-text search language (default: english)
+- `HYBRID_VECTOR_WEIGHT`/`HYBRID_BM25_WEIGHT`: Default 0.7/0.3
 
-**Embedding Providers:**
-- `DOC_EMBEDDING_PROVIDER`: Default provider for docs (default: ollama)
-- `CODE_EMBEDDING_PROVIDER`: Provider for code (default: voyage)
-- `WRITING_EMBEDDING_PROVIDER`: Provider for personal notes (default: openai)
-- `EMBEDDING_MODEL`: Ollama model name (default: nomic-embed-text)
-- `OPENAI_API_KEY`: Required if using OpenAI provider
-- `VOYAGE_API_KEY`: Required if using Voyage provider
+**Embeddings:**
+- `DOC_EMBEDDING_PROVIDER`: Default ollama
+- `CODE_EMBEDDING_PROVIDER`: Default voyage
+- `WRITING_EMBEDDING_PROVIDER`: Default openai
+- `OPENAI_API_KEY`/`VOYAGE_API_KEY`: If using those providers
 
 **Other:**
-- `STORAGE_PATH`: Local file storage for uploaded documents
-- `SERVER_PORT`, `WEB_PORT`, `MCP_PORT`: Service ports
+- `STORAGE_PATH`: File storage location
+- `REDIS_URL`: Redis for caching (optional)
 
-### Hybrid Search Implementation
+## Skills & Patterns
 
-**Key file:** `apps/server/src/services/hybrid.ts`
+**Project skills** (`.claude/skills/`):
+- `synthesis-architecture` - Routes, services, agent tools, db patterns
+- `llm-provider-integration` - Multi-provider LLM (OpenAI, Anthropic, Google, Ollama, Zhipu, Moonshot)
+- `sse-streaming` - Server-Sent Events for Fastify + React streaming
 
-Hybrid search runs vector and BM25 searches in parallel, then fuses results:
+**Global skills** (useful for this project):
+- `backend-development` - Node.js/Fastify patterns, API design
+- `frontend-design` - React UI components and patterns
+- `gh` - GitHub CLI for PRs and issues
+- `planning` - Breaking down implementation tasks
+- `brainstorming` - Design decisions and alternatives
+- `creating-subagents` - Custom subagents for context efficiency
+
+### Import Patterns
 ```typescript
-const [vectorResults, bm25Results] = await Promise.all([
-  searchCollection(db, { query, collectionId, topK: expandedTopK }),
-  bm25Search(db, { query, collectionId, topK: expandedTopK })
-]);
-
-const fused = fuseResults(vectorResults, bm25Results, weights, rrfK);
+// From apps/server
+import { getPool, query } from '@synthesis/db';
+import { PROVIDER_INFO, ModelFeature } from '@synthesis/shared';
+import { smartSearch } from './services/search.js';
 ```
 
-**RRF Fusion Logic:**
-1. Fetch 3x topK results from each method
-2. Compute RRF score: `1 / (k + rank + 1)` per result per method
-3. Weight scores: `vectorScore * 0.7 + bm25Score * 0.3`
-4. Sort by fused score, return topK
+### Key API Endpoints
+- `POST /api/agent/chat` - Chat with RAG agent
+- `POST /api/search` - Vector/hybrid search
+- `POST /api/ingest` - Upload documents
+- `GET/POST /api/collections` - CRUD collections
+- `GET/POST /api/documents` - CRUD documents
 
-### Embedding Provider Selection
+## Implementation Notes
 
-**Key file:** `apps/server/src/services/embedding-router.ts`
+### Agent System
+The chat agent (`apps/server/src/agent/agent.ts`) implements a 10-turn agentic loop:
+- Tools: search_rag, add_document, fetch_web_content, list_documents, etc.
+- Multi-step workflows with autonomous tool chaining
 
-Provider selection happens at embedding time:
+### Agent Tools
+See `synthesis-architecture` skill for full patterns. Key points:
+- Definitions in `buildAgentTools()` in `tools.ts`
+- Zod schemas for validation
+- Return JSON strings for Claude parsing
+
+### ModelConfigService
+Singleton for model configuration with 60s cache:
 ```typescript
-const config = selectEmbeddingProvider(content, {
-  type: metadata.doc_type,      // 'code' | 'docs' | 'personal'
-  language: metadata.language,   // e.g., 'typescript'
-  isPersonalCollection: true     // personal notes collection flag
-});
-
-// Returns: { provider: 'voyage', model: 'voyage-code-2', dimensions: 1024 }
+import { getModelConfigService } from './services/model-config-service.js';
+const configService = getModelConfigService(db);
+const chatConfig = await configService.getConfig('chat');
+// Returns: { provider: 'anthropic', model: 'claude-...', source: 'db' }
 ```
-
-**Important:** Mixed-provider collections work because search infers the provider from collection metadata and uses the same provider for query embedding.
-
-### Agent Tool Execution
-When implementing or modifying agent tools:
-1. Tool definitions go in `buildAgentTools()` in `apps/server/src/agent/tools.ts`
-2. Each tool has a Zod schema for input validation
-3. Executors are async functions that receive validated input
-4. Return structured results that Claude can parse (prefer JSON strings)
-5. Context (`collectionId`) is passed via tool context
 
 ### Vector Search
-Vector similarity search uses pgvector's cosine distance operator (`<=>`):
 ```sql
-SELECT text, embedding <=> $1::vector AS distance
-FROM chunks
-WHERE doc_id IN (SELECT id FROM documents WHERE collection_id = $2)
-ORDER BY embedding <=> $1::vector
-LIMIT $3
+SELECT text, embedding <=> $1::vector AS distance FROM chunks ...
 ```
-
-**Provider Inference:** Search automatically detects which embedding provider was used for a collection and uses the same provider for query embedding to ensure dimension compatibility.
+Provider auto-inferred from collection metadata for dimension compatibility.
 
 ### File Processing
-- Supported formats: PDF, DOCX, Markdown
-- Max upload size: 100MB (configured in multipart plugin)
-- Storage: Files saved to `${STORAGE_PATH}/${collectionId}/${docId}.*`
-- Status tracking: pending → extracting → chunking → embedding → complete
-- Metadata enrichment: Provider, doc_type, language auto-detected
+- Formats: PDF, DOCX, Markdown
+- Max: 100MB
+- Status: pending → extracting → chunking → embedding → complete
 
-### Testing Strategy
-- Unit tests using Vitest
-- Tests located alongside source files in `__tests__/` directories
-- Coverage target: Critical paths (agent tools, pipeline, search)
-- Mock Anthropic SDK and database in tests
-
-## Common Development Patterns
-
-### Adding a New Agent Tool
-1. Define tool schema and executor in `apps/server/src/agent/tools.ts`
-2. Add to `buildAgentTools()` return value
-3. Update system prompt in `apps/server/src/agent/agent.ts` if needed
-4. Write unit tests in `apps/server/src/agent/__tests__/tools.test.ts`
-
-### Adding a New Embedding Provider
-1. Create client module in `apps/server/src/services/` (see `openai.ts`, `voyage.ts`)
-2. Implement `embed()` function with signature: `(texts: string[]) => Promise<number[][]>`
-3. Add provider config to `PROVIDER_CONFIGS` in `embedding-router.ts`
-4. Update `isEmbeddingProvider()` type guard
-5. Update `.env.example` with new provider config
-
-### Switching Search Modes
-```bash
-# Vector-only (default, fastest)
-SEARCH_MODE=vector
-
-# Hybrid with RRF fusion (better recall)
-SEARCH_MODE=hybrid
-
-# Enable trust scoring (boosts official sources)
-ENABLE_TRUST_SCORING=true
-
-# Adjust hybrid weights (must sum to 1.0)
-HYBRID_VECTOR_WEIGHT=0.8
-HYBRID_BM25_WEIGHT=0.2
-```
-
-### Database Queries
-- Use parameterized queries ($1, $2) to prevent SQL injection
-- Connection pooling via `@synthesis/db` package
-- Always await `pool.query()` calls
-- Handle errors gracefully with try/catch
-
-### Frontend State Management
-- React Query for server state caching
-- React Context for active collection
-- Local state for UI (forms, modals)
-- API client in `apps/web/src/lib/api.ts`
-
-### Adding New Routes
-1. Create route file in `apps/server/src/routes/`
-2. Register with Fastify in `apps/server/src/index.ts`
-3. Use Zod schemas for request validation
-4. Return typed responses with proper error handling
+### Testing
+- Vitest with tests in `__tests__/` directories
+- Mock Anthropic SDK and database
 
 ## Development Notes
 
 ### Phase Progression
-The project has been developed in phases (see `docs/phases/`):
-- **Phase 1-2**: Database + ingestion pipeline
-- **Phase 3**: Agent tools + search
-- **Phase 4**: Autonomous web crawling
-- **Phase 5**: Frontend UI + collections
-- **Phase 6**: MCP server
-- **Phase 7**: Docker integration
-- **Phase 8**: Hybrid search + multi-model embeddings (COMPLETED)
-- **Phase 9**: Reranking + synthesis engine (COMPLETED - Oct 2025)
-- **Phase 10**: Code chunking (COMPLETED - Oct 2025)
-- **Phase 11**: Trust & Recency Badges (COMPLETED - Nov 2025)
-- **Phase 12**: Cost Dashboard & Synthesis View (COMPLETED - Nov 2025)
-- **Phase 13**: Code Intelligence & File Relationships (COMPLETED - Nov 2025)
-- **Phase 14**: Tech Stack Filtering (COMPLETED - Nov 2025)
-- **Phase 15**: Integration & Polish (IN PROGRESS - Nov 2025)
-  - **Day 1**: Integration Testing (COMPLETED - 23 tests, 345 total passing)
-  - **Day 2**: Performance Optimization (COMPLETED - Caching, instrumentation, Prometheus metrics)
-  - **Day 3**: Frontend Polish (IN PROGRESS - Testing complete, UI fixes pending)
-  - **Day 4**: Documentation Updates (PLANNED)
+- **Phase 1-7**: Foundation (DB, pipeline, agent, crawling, UI, MCP, Docker)
+- **Phase 8**: Hybrid search + multi-model embeddings
+- **Phase 9**: Reranking + synthesis engine
+- **Phase 10**: Code chunking
+- **Phase 11**: Trust & Recency Badges
+- **Phase 12**: Cost Dashboard & Synthesis View
+- **Phase 13**: Code Intelligence & File Relationships
+- **Phase 14**: Tech Stack Filtering
+- **Phase 15**: Integration & Polish (COMPLETED)
+- **Phase 16**: Multi-Provider Chat & UI Improvements (IN PROGRESS)
 
-### Current Branch Strategy
-- Feature branches: `feature/phase-X-description` or `feat/phase-X-description`
-- Main branch: `develop`
-- No explicit main branch configured (local development focused)
+### Branch Strategy
+- Feature branches: `feature/phase-X-description`
+- Integration branch: `develop`
+- All work branches off `develop`
 
-### Current Development Status (Phase 15)
-- **Active Branch**: `feat/phase-15-day-3-frontend-polish`
-- **Latest Merged**: Phase 15 Day 2 (PR #105 - Performance Optimization)
-- **In Progress**: Phase 15 Day 3 - Frontend Polish & Accessibility
-  - Testing infrastructure: 15 Playwright E2E tests passing (mobile, keyboard, accessibility)
-  - Issues identified: 8 color contrast failures, 4 touch target issues, Lighthouse performance 56
-  - Remaining work: Color adjustments, touch target sizing, bundle optimization, manual testing
+### Current Status
+- **Active Branch**: `feature/phase-16-multi-provider-chat`
+- **Focus**: Multi-provider chat (Anthropic, OpenAI, Ollama, Google, GLM, Kimi), SSE streaming, UI improvements
 
-### Performance Considerations
-- Ollama embeddings: ~50 chunks/sec with GPU
-- OpenAI embeddings: ~100 chunks/sec (API limit dependent)
-- Voyage embeddings: ~80 chunks/sec (API limit dependent)
-- Vector search: <500ms with HNSW index
-- Hybrid search: ~800ms (parallel vector + BM25)
-- Agent multi-step: <10 seconds for 3-step workflows
-- Consider batch embedding for large documents (all providers support batching)
+### Performance
+- Ollama embeddings: ~50 chunks/sec (GPU)
+- Vector search: <500ms (HNSW)
+- Hybrid search: ~800ms (parallel)
+- Agent multi-step: <10s for 3-step workflows
 
-### Known Limitations (Current)
+### Known Limitations
 - No authentication (local use only)
-- No background job queue (synchronous processing)
-- No query caching (Redis planned for Phase 2+)
+- No background job queue (synchronous)
 - Single Postgres/Ollama instance
-- BM25 requires PostgreSQL full-text search setup (applied via migrations)
 
-### Troubleshooting
+## Troubleshooting
 
 **Ollama not responding:**
 ```bash
@@ -476,7 +280,6 @@ docker compose logs synthesis-db
 **pgvector errors:**
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
-\dx
 ```
 
 **Port conflicts:**
@@ -486,45 +289,16 @@ kill -9 <PID>
 ```
 
 **Mixed provider dimension errors:**
-- Ensure query uses same provider as collection documents
 - Check `embedding_provider` in document metadata
-- Smart search automatically handles this via `inferCollectionEmbeddingHint()`
+- Smart search handles this via `inferCollectionEmbeddingHint()`
 
 **BM25 not working:**
 ```sql
--- Verify tsvector column exists
-\d chunks
-
--- Check if GIN index exists
-\di chunks_fts_idx
+\d chunks  -- Verify tsvector column
+\di chunks_fts_idx  -- Check GIN index
 ```
-
-## Key Documentation Files
-
-For deeper understanding of specific areas:
-- Architecture: `docs/02_ARCHITECTURE.md`
-- Database schema: `docs/03_DATABASE_SCHEMA.md`
-- Agent tools specification: `docs/04_AGENT_TOOLS.md`
-- API specification: `docs/05_API_SPEC.md`
-- RAG pipeline: `docs/06_PIPELINE.md`
-- Environment setup: `docs/10_ENV_SETUP.md`
-- Phase 8 overview: `docs/phases/phase-8/00_PHASE_8_OVERVIEW.md`
-- Hybrid search architecture: `docs/phases/phase-8/01_HYBRID_SEARCH_ARCHITECTURE.md`
-- Embedding providers: `docs/phases/phase-8/02_EMBEDDING_PROVIDERS.md`
-- Trust scoring: `docs/phases/phase-8/04_TRUST_SCORING.md`
-- Phase details: `docs/phases/`
-
-## Critical Code Locations
-
-- Agent orchestrator: `apps/server/src/agent/agent.ts:94` (runAgentChat function)
-- Tool definitions: `apps/server/src/agent/tools.ts`
-- Smart search orchestrator: `apps/server/src/services/search.ts:42` (smartSearch function)
-- Hybrid search with RRF: `apps/server/src/services/hybrid.ts:26` (hybridSearch function)
-- RRF fusion logic: `apps/server/src/services/hybrid.ts:72` (fuseResults function)
-- Provider selection: `apps/server/src/services/embedding-router.ts:45` (selectEmbeddingProvider)
-- Code detection: `apps/server/src/services/embedding-router.ts:83` (isCodeContent)
-- Trust scoring: `apps/server/src/services/search.ts:202` (applyTrustScoring)
-- Vector search logic: `apps/server/src/services/vector.ts`
-- Database pool initialization: `apps/server/src/index.ts:22-27`
-- RAG pipeline: `apps/server/src/pipeline/ingest.ts`
-- Migration runner: `packages/db/src/migrate.ts`
+- all branches must be off of develop and all pr's will be to develop for merging after i review them
+- don't commit or push without my permission, ever
+- always look for specialized subagents or create subagents with the subagent skill to save on context window bloat
+- be sure to use context7 mcp server when needed
+- when having trouble- stop, take a deep breath and then research, web search, plan, then fix
