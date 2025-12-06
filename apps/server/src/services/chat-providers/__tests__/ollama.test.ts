@@ -36,6 +36,40 @@ function createMockContext(): ToolContext {
   };
 }
 
+/**
+ * Create a mock streaming response for Ollama
+ * Returns an async generator that yields streaming chunks
+ */
+function createMockOllamaStreamResponse(options: {
+  content?: string;
+  promptEvalCount?: number;
+  evalCount?: number;
+}) {
+  return (async function* () {
+    // Yield content chunk
+    if (options.content) {
+      yield {
+        message: {
+          role: 'assistant',
+          content: options.content,
+        },
+        done: false,
+      };
+    }
+
+    // Yield final chunk with token counts
+    yield {
+      message: {
+        role: 'assistant',
+        content: '',
+      },
+      done: true,
+      prompt_eval_count: options.promptEvalCount ?? 0,
+      eval_count: options.evalCount ?? 0,
+    };
+  })();
+}
+
 // =============================================================================
 // Tests
 // =============================================================================
@@ -104,15 +138,13 @@ describe('OllamaChatProvider', () => {
 
   describe('chat', () => {
     it('should send chat with simple message and return normalized response', async () => {
-      chatMock.mockResolvedValue({
-        message: {
-          role: 'assistant',
+      chatMock.mockImplementation(() =>
+        createMockOllamaStreamResponse({
           content: 'Hello! How can I help you today?',
-        },
-        done: true,
-        prompt_eval_count: 15,
-        eval_count: 10,
-      });
+          promptEvalCount: 15,
+          evalCount: 10,
+        })
+      );
 
       const db = createMockPool();
       const context = createMockContext();
@@ -128,7 +160,7 @@ describe('OllamaChatProvider', () => {
       expect(chatMock).toHaveBeenCalledWith({
         model: 'llama3.2:3b',
         messages: [{ role: 'user', content: 'Hello' }],
-        stream: false,
+        stream: true,
         options: {
           temperature: undefined,
           num_predict: undefined,
@@ -149,15 +181,13 @@ describe('OllamaChatProvider', () => {
     });
 
     it('should include system prompt as first message', async () => {
-      chatMock.mockResolvedValue({
-        message: {
-          role: 'assistant',
+      chatMock.mockImplementation(() =>
+        createMockOllamaStreamResponse({
           content: 'I am a helpful assistant.',
-        },
-        done: true,
-        prompt_eval_count: 30,
-        eval_count: 8,
-      });
+          promptEvalCount: 30,
+          evalCount: 8,
+        })
+      );
 
       const db = createMockPool();
       const context = createMockContext();
@@ -182,15 +212,13 @@ describe('OllamaChatProvider', () => {
     });
 
     it('should handle conversation history with multiple messages', async () => {
-      chatMock.mockResolvedValue({
-        message: {
-          role: 'assistant',
+      chatMock.mockImplementation(() =>
+        createMockOllamaStreamResponse({
           content: 'The answer is 4.',
-        },
-        done: true,
-        prompt_eval_count: 50,
-        eval_count: 6,
-      });
+          promptEvalCount: 50,
+          evalCount: 6,
+        })
+      );
 
       const db = createMockPool();
       const context = createMockContext();
@@ -219,15 +247,13 @@ describe('OllamaChatProvider', () => {
     });
 
     it('should extract text from complex content blocks', async () => {
-      chatMock.mockResolvedValue({
-        message: {
-          role: 'assistant',
+      chatMock.mockImplementation(() =>
+        createMockOllamaStreamResponse({
           content: 'I received your text messages.',
-        },
-        done: true,
-        prompt_eval_count: 40,
-        eval_count: 8,
-      });
+          promptEvalCount: 40,
+          evalCount: 8,
+        })
+      );
 
       const db = createMockPool();
       const context = createMockContext();
@@ -258,13 +284,11 @@ describe('OllamaChatProvider', () => {
     });
 
     it('should skip system messages in the messages array', async () => {
-      chatMock.mockResolvedValue({
-        message: {
-          role: 'assistant',
+      chatMock.mockImplementation(() =>
+        createMockOllamaStreamResponse({
           content: 'Response.',
-        },
-        done: true,
-      });
+        })
+      );
 
       const db = createMockPool();
       const context = createMockContext();
@@ -292,13 +316,11 @@ describe('OllamaChatProvider', () => {
     });
 
     it('should pass optional parameters to Ollama', async () => {
-      chatMock.mockResolvedValue({
-        message: {
-          role: 'assistant',
+      chatMock.mockImplementation(() =>
+        createMockOllamaStreamResponse({
           content: 'Done.',
-        },
-        done: true,
-      });
+        })
+      );
 
       const db = createMockPool();
       const context = createMockContext();
@@ -317,7 +339,7 @@ describe('OllamaChatProvider', () => {
       expect(chatMock).toHaveBeenCalledWith({
         model: 'llama3.2:3b',
         messages: [{ role: 'user', content: 'Test' }],
-        stream: false,
+        stream: true,
         options: {
           temperature: 0.7,
           num_predict: 500,
@@ -327,14 +349,12 @@ describe('OllamaChatProvider', () => {
     });
 
     it('should handle response without token counts', async () => {
-      chatMock.mockResolvedValue({
-        message: {
-          role: 'assistant',
+      chatMock.mockImplementation(() =>
+        createMockOllamaStreamResponse({
           content: 'Response without counts.',
-        },
-        done: true,
-        // No prompt_eval_count or eval_count
-      });
+          // No promptEvalCount or evalCount (defaults to 0)
+        })
+      );
 
       const db = createMockPool();
       const context = createMockContext();
@@ -354,14 +374,13 @@ describe('OllamaChatProvider', () => {
       });
     });
 
-    it('should throw error when response has no message content', async () => {
-      chatMock.mockResolvedValue({
-        message: {
-          role: 'assistant',
-          // content is undefined
-        },
-        done: true,
-      });
+    it('should handle empty content response', async () => {
+      // Stream with only final chunk (no content)
+      chatMock.mockImplementation(() =>
+        createMockOllamaStreamResponse({
+          content: '',
+        })
+      );
 
       const db = createMockPool();
       const context = createMockContext();
@@ -372,10 +391,9 @@ describe('OllamaChatProvider', () => {
         model: 'llama3.2:3b',
       };
 
-      await expect(provider.chat(params)).rejects.toThrow('Ollama chat failed:');
-      await expect(provider.chat(params)).rejects.toThrow(
-        'Ollama response missing message content'
-      );
+      const response = await provider.chat(params);
+      expect(response.content).toBe('');
+      expect(response.stopReason).toBe('end_turn');
     });
 
     it('should wrap Ollama SDK errors with context', async () => {
@@ -390,7 +408,9 @@ describe('OllamaChatProvider', () => {
         model: 'llama3.2:3b',
       };
 
-      await expect(provider.chat(params)).rejects.toThrow('Ollama chat failed: Connection refused');
+      await expect(provider.chat(params)).rejects.toThrow(
+        'Ollama streaming chat failed: Connection refused'
+      );
     });
 
     it('should handle non-Error thrown values', async () => {
@@ -405,7 +425,9 @@ describe('OllamaChatProvider', () => {
         model: 'llama3.2:3b',
       };
 
-      await expect(provider.chat(params)).rejects.toThrow('Ollama chat failed: String error');
+      await expect(provider.chat(params)).rejects.toThrow(
+        'Ollama streaming chat failed: String error'
+      );
     });
   });
 

@@ -4,7 +4,7 @@
 
 This document tracks the implementation progress of Phase 16: Multi-Provider Chat & UI Improvements.
 
-**Status:** Phases 16A-16D MERGED, Phase 16E NOT STARTED
+**Status:** Phases 16A-16E IMPLEMENTED (16E pending commit)
 
 ---
 
@@ -354,19 +354,108 @@ async chat(params: ChatParams): Promise<ChatResponse> {
 
 ---
 
-## Phase 16E: Additional Providers - NOT STARTED
+## Phase 16E: Additional Providers - IMPLEMENTED
 
-**Planned work:**
-1. Add Google AI provider
-2. Add OpenAI-compatible provider base
-3. Add GLM 4 (Z.AI) support
-4. Add Kimi (Moonshot) support
+**Status:** IMPLEMENTED (pending commit)
+**Branch:** `feature/phase-16-multi-provider-chat`
+**Date:** 2025-12-06
+
+### Overview
+
+Added three new chat providers: Google Gemini, Z.AI (Zhipu GLM-4), and Moonshot (Kimi K2).
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `apps/server/src/services/chat-providers/google.ts` | Google Gemini provider with native SDK |
+| `apps/server/src/services/chat-providers/zhipu.ts` | Z.AI GLM-4 provider (OpenAI-compatible) |
+| `apps/server/src/services/chat-providers/moonshot.ts` | Moonshot Kimi provider with thinking mode |
+| `apps/server/src/services/chat-providers/openai-compatible.ts` | Base utilities for OpenAI-compatible providers |
+| `apps/server/src/services/chat-providers/__tests__/google.test.ts` | 30 tests |
+| `apps/server/src/services/chat-providers/__tests__/zhipu.test.ts` | 26 tests |
+| `apps/server/src/services/chat-providers/__tests__/moonshot.test.ts` | 29 tests |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `apps/server/src/services/chat-providers/index.ts` | Added imports and registration for Google, Zhipu, Moonshot |
+| `apps/server/package.json` | Added `@google/generative-ai` dependency |
+
+### Provider Capabilities
+
+| Provider | Tool Support | Streaming | Vision | Max Context | Base URL |
+|----------|--------------|-----------|--------|-------------|----------|
+| Google | ✅ Manual loop | ✅ | ✅ | 1M | Native SDK |
+| Z.AI (Zhipu) | ✅ Manual loop | ✅ | ❌ | 128K | `api.z.ai/api/paas/v4` |
+| Moonshot | ✅ Manual loop | ✅ | ❌ | 256K | `api.moonshot.cn/v1` |
+
+### Models Supported
+
+**Google Gemini:**
+- gemini-3-pro-preview
+- gemini-2.5-flash
+- gemini-2.5-flash-lite
+- gemini-2.5-pro
+- gemini-3-pro-image-preview
+
+**Z.AI (Zhipu):**
+- GLM-4.6
+- GLM-4.5-Air
+
+**Moonshot (Kimi):**
+- kimi-k2-0905-preview
+- kimi-k2-thinking (with thinking mode)
+- kimi-k2-thinking-turbo (with thinking mode)
+
+### Implementation Details
+
+#### Google Provider
+- Uses native `@google/generative-ai` SDK
+- Converts JSON Schema types to Google `SchemaType` enum
+- System prompts via `systemInstruction` parameter
+- Function calls use `functionDeclarations` format
+
+#### Z.AI Provider
+- OpenAI-compatible API at `https://api.z.ai/api/paas/v4`
+- Uses standard OpenAI SDK with custom `baseURL`
+- Manual 10-turn tool execution loop
+
+#### Moonshot Provider
+- OpenAI-compatible API at `https://api.moonshot.cn/v1`
+- Special **thinking mode** for reasoning models
+- Enabled via `extra_body: { thinking: { type: "enabled", max_tokens: 4096 } }`
+- Auto-detected from model name containing "thinking"
+
+### Environment Variables
+
+| Variable | Provider | Purpose |
+|----------|----------|---------|
+| `GOOGLE_API_KEY` | Google | Gemini API key |
+| `ZHIPU_API_KEY` | Z.AI | GLM API key |
+| `MOONSHOT_API_KEY` | Moonshot | Kimi API key |
+
+### Verification
+
+| Check | Status |
+|-------|--------|
+| `pnpm --filter @synthesis/server typecheck` | ✅ PASS |
+| google.test.ts (30 tests) | ✅ PASS |
+| zhipu.test.ts (26 tests) | ✅ PASS |
+| moonshot.test.ts (29 tests) | ✅ PASS |
+| **Total: 85 new tests** | ✅ ALL PASS |
+
+### Dependencies Added
+
+- `@google/generative-ai` - Google Generative AI SDK for Gemini models
 
 ---
 
-## Dependencies Added
+## All Dependencies Added
 
 - `@anthropic-ai/claude-agent-sdk` - Claude Agent SDK for agentic workflows
+- `@google/generative-ai` - Google Generative AI SDK for Gemini models
 
 ---
 
@@ -387,4 +476,5 @@ async chat(params: ChatParams): Promise<ChatResponse> {
 4. ~~Implement Phase 16D: Tool Adapters~~ ✅ MERGED (with 16B)
 5. ~~Merge PR #150 to develop~~ ✅ MERGED
 6. ~~Phase 16C: Streaming & UI~~ ✅ MERGED (PR #151)
-7. **BEGIN Phase 16E: Additional Providers (Google, GLM, Kimi)**
+7. ~~Phase 16E: Additional Providers (Google, GLM, Kimi)~~ ✅ IMPLEMENTED (pending commit)
+8. Create PR for Phase 16E and merge to develop

@@ -162,6 +162,8 @@ export interface ChatStreamChunk {
   usage?: TokenUsage;
   /** For done chunks - the stop reason */
   stopReason?: ChatStopReason;
+  /** For done chunks - fallback text when no content was streamed (Anthropic SDK) */
+  fallbackText?: string;
 }
 
 /**

@@ -201,6 +201,8 @@ export class AnthropicChatProvider implements ChatProvider {
                   (message.usage?.input_tokens ?? 0) + (message.usage?.output_tokens ?? 0),
               },
               stopReason: 'end_turn',
+              // Include result text as fallback when no assistant message was streamed
+              fallbackText: typeof message.result === 'string' ? message.result : undefined,
             };
           } else if (message.subtype === 'error_max_turns') {
             yield {
@@ -227,6 +229,7 @@ export class AnthropicChatProvider implements ChatProvider {
     const toolCalls: ChatToolCall[] = [];
     let usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
     let stopReason: ChatStopReason = 'end_turn';
+    let fallbackText: string | undefined;
 
     try {
       for await (const chunk of this.streamChat(params)) {
@@ -246,6 +249,7 @@ export class AnthropicChatProvider implements ChatProvider {
           case 'done':
             usage = chunk.usage ?? usage;
             stopReason = chunk.stopReason ?? stopReason;
+            fallbackText = chunk.fallbackText;
             break;
         }
       }
@@ -254,8 +258,11 @@ export class AnthropicChatProvider implements ChatProvider {
       throw error;
     }
 
+    // Use fallback text when no content was captured from assistant messages
+    const finalContent = content || fallbackText || '';
+
     return {
-      content,
+      content: finalContent,
       toolCalls,
       stopReason,
       usage,

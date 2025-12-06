@@ -19,6 +19,7 @@
     "@fastify/compress": "^7.0.1",
     "@fastify/cors": "^9.0.1",
     "@fastify/multipart": "^8.3.0",
+    "@google/generative-ai": "^0.24.1",
     "@synthesis/db": "workspace:*",
     "@synthesis/shared": "workspace:*",
     "@voyageai/voyageai": "npm:voyageai@^0.0.8",
