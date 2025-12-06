@@ -2,6 +2,7 @@
  * Chat Provider Registry
  *
  * Phase 16A: Registry pattern for multi-provider chat support.
+ * Phase 16B: Updated with context-aware provider creation.
  * Follows singleton pattern from model-config-service.ts.
  */
 
@@ -9,7 +10,10 @@ import { PROVIDER_INFO } from '@synthesis/shared';
 import type { Pool } from 'pg';
 import { getApiKeyService } from '../api-key-service.js';
 import { getModelConfigService } from '../model-config-service.js';
-import type { ChatProvider, ChatProviderFactory, ChatProviderType } from './types.js';
+import { createAnthropicProvider } from './anthropic.js';
+import { createOllamaProvider } from './ollama.js';
+import { createOpenAIProvider } from './openai.js';
+import type { ChatProvider, ChatProviderFactory, ChatProviderType, ToolContext } from './types.js';
 
 // =============================================================================
 // Provider Registry
@@ -18,8 +22,16 @@ import type { ChatProvider, ChatProviderFactory, ChatProviderType } from './type
 /** Provider factory registry */
 const providerFactories = new Map<ChatProviderType, ChatProviderFactory>();
 
-/** Cached provider instances (lazy initialization) */
-const providerInstances = new Map<ChatProviderType, ChatProvider>();
+/**
+ * Cache key for provider instances
+ * Includes provider name and context for proper isolation
+ */
+function getCacheKey(name: ChatProviderType, collectionId: string): string {
+  return `${name}:${collectionId}`;
+}
+
+/** Cached provider instances (lazy initialization, keyed by provider+context) */
+const providerInstances = new Map<string, ChatProvider>();
 
 /**
  * Register a chat provider factory
@@ -30,12 +42,19 @@ export function registerChatProvider(name: ChatProviderType, factory: ChatProvid
 }
 
 /**
- * Get a chat provider by name (cached)
+ * Get a chat provider by name with context (cached per context)
+ * Phase 16B: Updated to accept db and context for tool support
  * @throws Error if provider not registered
  */
-export function getChatProvider(name: ChatProviderType): ChatProvider {
+export function getChatProvider(
+  name: ChatProviderType,
+  db: Pool,
+  context: ToolContext
+): ChatProvider {
+  const cacheKey = getCacheKey(name, context.collectionId);
+
   // Check cache first
-  let provider = providerInstances.get(name);
+  let provider = providerInstances.get(cacheKey);
   if (provider) {
     return provider;
   }
@@ -50,21 +69,25 @@ export function getChatProvider(name: ChatProviderType): ChatProvider {
   }
 
   // Create and cache instance
-  provider = factory();
-  providerInstances.set(name, provider);
+  provider = factory(db, context);
+  providerInstances.set(cacheKey, provider);
   return provider;
 }
 
 /**
  * Get the configured chat provider from ModelConfigService
+ * Phase 16B: Updated to accept context for tool support
  * Uses the 'chat' feature configuration
  */
-export async function getConfiguredChatProvider(db: Pool): Promise<ChatProvider> {
+export async function getConfiguredChatProvider(
+  db: Pool,
+  context: ToolContext
+): Promise<ChatProvider> {
   const configService = getModelConfigService(db);
   const config = await configService.getChatModelConfig();
 
   const providerName = config.provider as ChatProviderType;
-  const provider = getChatProvider(providerName);
+  const provider = getChatProvider(providerName, db, context);
 
   // Validate provider is configured (has API key if required)
   const isConfigured = await provider.isConfigured();
@@ -87,13 +110,17 @@ export function getRegisteredProviders(): ChatProviderType[] {
 
 /**
  * Get list of configured (ready to use) providers
+ * Phase 16B: Updated to accept db and context
  */
-export async function getAvailableChatProviders(): Promise<ChatProviderType[]> {
+export async function getAvailableChatProviders(
+  db: Pool,
+  context: ToolContext
+): Promise<ChatProviderType[]> {
   const available: ChatProviderType[] = [];
 
   for (const name of providerFactories.keys()) {
     try {
-      const provider = getChatProvider(name);
+      const provider = getChatProvider(name, db, context);
       const isConfigured = await provider.isConfigured();
       if (isConfigured) {
         available.push(name);
@@ -108,10 +135,15 @@ export async function getAvailableChatProviders(): Promise<ChatProviderType[]> {
 
 /**
  * Check if a provider supports tools
+ * Phase 16B: Updated to accept db and context
  */
-export function providerSupportsTools(name: ChatProviderType): boolean {
+export function providerSupportsTools(
+  name: ChatProviderType,
+  db: Pool,
+  context: ToolContext
+): boolean {
   try {
-    const provider = getChatProvider(name);
+    const provider = getChatProvider(name, db, context);
     return provider.capabilities.supportsTools;
   } catch {
     return false;
@@ -120,10 +152,15 @@ export function providerSupportsTools(name: ChatProviderType): boolean {
 
 /**
  * Check if a provider supports streaming
+ * Phase 16B: Updated to accept db and context
  */
-export function providerSupportsStreaming(name: ChatProviderType): boolean {
+export function providerSupportsStreaming(
+  name: ChatProviderType,
+  db: Pool,
+  context: ToolContext
+): boolean {
   try {
-    const provider = getChatProvider(name);
+    const provider = getChatProvider(name, db, context);
     return provider.capabilities.supportsStreaming;
   } catch {
     return false;
@@ -198,16 +235,10 @@ export * from './types.js';
 export * from './adapters.js';
 
 // =============================================================================
-// Provider Registration
+// Provider Registration (Phase 16B)
 // =============================================================================
 
-// Note: Provider implementations will be added in Phase 16B
-// They will register themselves when imported:
-//
-// import { createAnthropicProvider } from './anthropic.js';
-// import { createOpenAIProvider } from './openai.js';
-// import { createOllamaProvider } from './ollama.js';
-//
-// registerChatProvider('anthropic', createAnthropicProvider);
-// registerChatProvider('openai', createOpenAIProvider);
-// registerChatProvider('ollama', createOllamaProvider);
+// Register all available chat providers
+registerChatProvider('anthropic', createAnthropicProvider);
+registerChatProvider('openai', createOpenAIProvider);
+registerChatProvider('ollama', createOllamaProvider);
