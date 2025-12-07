@@ -33,6 +33,7 @@ import type {
   ModelConfigResponse,
   ModelConfigUpdate,
   ModelFeature,
+  OllamaModelsResponse,
   RelatedFilesResponse,
   RepositorySource,
   RepositorySourcesResponse,
@@ -108,6 +109,11 @@ class ApiClient {
         error.status = response.status;
         error.body = parsedBody;
         throw error;
+      }
+
+      // Handle 204 No Content (e.g., DELETE operations)
+      if (response.status === 204) {
+        return undefined as T;
       }
 
       return response.json();
@@ -245,11 +251,17 @@ class ApiClient {
 
   /**
    * Create a new chat session.
+   * Phase 16G: Added provider/model parameters for per-chat model persistence.
    */
-  async createChatSession(collectionId: string, title: string): Promise<{ session: ChatSession }> {
+  async createChatSession(
+    collectionId: string,
+    title: string,
+    provider?: string,
+    model?: string
+  ): Promise<{ session: ChatSession }> {
     return this.request<{ session: ChatSession }>('/api/chats', {
       method: 'POST',
-      body: JSON.stringify({ collectionId, title }),
+      body: JSON.stringify({ collectionId, title, provider, model }),
     });
   }
 
@@ -295,6 +307,24 @@ class ApiClient {
       method: 'PATCH',
       body: JSON.stringify({ title }),
     });
+  }
+
+  /**
+   * Update chat session model configuration.
+   * Phase 16G: Per-chat model persistence.
+   */
+  async updateChatSessionModel(
+    sessionId: string,
+    provider: string,
+    model: string
+  ): Promise<{ session: ChatSession }> {
+    return this.request<{ session: ChatSession }>(
+      `/api/chats/${encodeURIComponent(sessionId)}/model`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ provider, model }),
+      }
+    );
   }
 
   /**
@@ -734,6 +764,14 @@ class ApiClient {
     );
   }
 
+  /**
+   * Get available Ollama models.
+   * Phase 16G: Dynamic model discovery.
+   */
+  async getOllamaModels(): Promise<OllamaModelsResponse> {
+    return this.request<OllamaModelsResponse>('/api/admin/models/ollama');
+  }
+
   // ============================================
   // Embedding Profiles (Phase 6)
   // ============================================
@@ -826,6 +864,61 @@ class ApiClient {
       `/api/admin/api-keys/${encodeURIComponent(provider)}/test`,
       {
         method: 'POST',
+      }
+    );
+  }
+
+  // ============================================
+  // Provider Settings (Phase 16G)
+  // ============================================
+
+  /**
+   * Get all provider settings.
+   */
+  async getProviderSettings(): Promise<{
+    settings: Array<{ provider: string; settingKey: string; settingValue: string }>;
+  }> {
+    return this.request<{
+      settings: Array<{ provider: string; settingKey: string; settingValue: string }>;
+    }>('/api/admin/provider-settings');
+  }
+
+  /**
+   * Get settings for a specific provider.
+   */
+  async getProviderSettingsFor(
+    provider: string
+  ): Promise<{ provider: string; settings: Record<string, string> }> {
+    return this.request<{ provider: string; settings: Record<string, string> }>(
+      `/api/admin/provider-settings/${encodeURIComponent(provider)}`
+    );
+  }
+
+  /**
+   * Set a provider setting.
+   */
+  async setProviderSetting(
+    provider: string,
+    key: string,
+    value: string
+  ): Promise<{ message: string; provider: string; key: string; value: string }> {
+    return this.request<{ message: string; provider: string; key: string; value: string }>(
+      `/api/admin/provider-settings/${encodeURIComponent(provider)}/${encodeURIComponent(key)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ value }),
+      }
+    );
+  }
+
+  /**
+   * Delete a provider setting.
+   */
+  async deleteProviderSetting(provider: string, key: string): Promise<void> {
+    return this.request<void>(
+      `/api/admin/provider-settings/${encodeURIComponent(provider)}/${encodeURIComponent(key)}`,
+      {
+        method: 'DELETE',
       }
     );
   }

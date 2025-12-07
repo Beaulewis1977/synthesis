@@ -1,3 +1,9 @@
+/**
+ * Chat Session Routes
+ *
+ * Phase 16G: Added provider/model support for per-chat model selection.
+ */
+
 import {
   addChatMessage,
   createChatSession,
@@ -5,6 +11,7 @@ import {
   getChatMessages,
   getChatSession,
   listChatSessions,
+  updateChatSessionModel,
   updateChatSessionTitle,
 } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
@@ -13,10 +20,18 @@ import { z } from 'zod';
 const CreateSessionSchema = z.object({
   collectionId: z.string().uuid(),
   title: z.string().min(1).max(255),
+  provider: z.string().optional(), // Phase 16G: Per-chat provider
+  model: z.string().optional(), // Phase 16G: Per-chat model
 });
 
 const UpdateSessionSchema = z.object({
   title: z.string().min(1).max(255),
+});
+
+// Phase 16G: Schema for updating chat session model
+const UpdateModelSchema = z.object({
+  provider: z.string(),
+  model: z.string(),
 });
 
 const AddMessageSchema = z.object({
@@ -81,8 +96,9 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     try {
-      const { collectionId, title } = validation.data;
-      const session = await createChatSession(collectionId, title);
+      const { collectionId, title, provider, model } = validation.data;
+      // Phase 16G: Pass provider/model to createChatSession
+      const session = await createChatSession(collectionId, title, provider, model);
       return reply.code(201).send({ session });
     } catch (error) {
       fastify.log.error(error, 'Failed to create chat session');
@@ -167,6 +183,37 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
     } catch (error) {
       fastify.log.error(error, 'Failed to add chat message');
       return reply.code(500).send({ error: 'Failed to add chat message' });
+    }
+  });
+
+  // Phase 16G: Update chat session model
+  fastify.patch<{ Params: { id: string } }>('/api/chats/:id/model', async (request, reply) => {
+    const { id: chatId } = request.params;
+    if (!uuidSchema.safeParse(chatId).success) {
+      return reply.code(400).send({ error: 'Invalid chat id' });
+    }
+
+    const validation = UpdateModelSchema.safeParse(request.body);
+    if (!validation.success) {
+      return reply.code(400).send({
+        error: 'Invalid request',
+        details: validation.error.issues,
+      });
+    }
+
+    try {
+      const session = await updateChatSessionModel(
+        chatId,
+        validation.data.provider,
+        validation.data.model
+      );
+      if (!session) {
+        return reply.code(404).send({ error: 'Chat session not found' });
+      }
+      return reply.send({ session });
+    } catch (error) {
+      fastify.log.error(error, 'Failed to update chat session model');
+      return reply.code(500).send({ error: 'Failed to update chat session model' });
     }
   });
 };

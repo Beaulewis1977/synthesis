@@ -4,7 +4,7 @@
 
 This document tracks the implementation progress of Phase 16: Multi-Provider Chat & UI Improvements.
 
-**Status:** Phase 16 COMPLETE ✅ (16A-16F all merged/ready)
+**Status:** Phase 16 COMPLETE ✅ (16A-16G all merged/ready)
 
 ---
 
@@ -684,7 +684,7 @@ const PROFILES = {
    - [x] Commit core extension tools
    - [ ] Create PR and merge to develop
 
-**Phase 16 is now feature-complete with 23 tools across 5 toolpacks!**
+**Phase 16 is now feature-complete with 23 tools across 5 toolpacks and per-chat model persistence!**
 
 ---
 
@@ -764,3 +764,398 @@ Updated tests to match current PROVIDER_INFO model names:
 | `pnpm --filter @synthesis/server typecheck` | ✅ PASS |
 | model-config-service.test.ts (32 tests) | ✅ PASS |
 | dynamic-tools-integration.test.ts (58 tests) | ✅ PASS |
+
+---
+
+## Phase 16G: Per-Chat Model Persistence & Dynamic Model Discovery - COMPLETE
+
+**Status:** COMPLETE ✅
+**Branch:** `feature/phase-16g-model-persistence`
+**Date:** 2025-12-07
+
+### Overview
+
+Implemented per-chat model/provider selection with persistence and dynamic Ollama model discovery. Users can now switch models within specific chats and have that choice remembered.
+
+### Commits
+
+1. **13dfd9f** - `feat(phase-16g): per-chat model persistence and dynamic model discovery`
+   - Database schema update (migration 025)
+   - Ollama model discovery endpoint
+   - Chat API model resolution logic
+   - ChatModelSelector UI component
+   - ChatPage integration
+   - Settings page dynamic Ollama models
+   - GPT-5.x max_completion_tokens fix
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `packages/db/migrations/025_chat_session_models.sql` | Add provider/model columns to chat_sessions |
+| `apps/web/src/components/ChatModelSelector.tsx` | Compact model selector dropdown for chat header |
+| `apps/web/src/hooks/useOllamaModels.ts` | React Query hook for Ollama model discovery |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `packages/db/src/queries.ts` | Added ChatSession provider/model fields, updateChatSessionModel(), getChatSession() |
+| `apps/server/src/routes/admin/models.ts` | Added GET /api/admin/models/ollama endpoint |
+| `apps/server/src/routes/agent.ts` | Added provider/model params, resolveChatModel() logic |
+| `apps/server/src/routes/agent-stream.ts` | Same resolution logic for streaming |
+| `apps/server/src/routes/chat.ts` | Added PATCH /api/chats/:id/model endpoint |
+| `apps/server/src/services/chat-providers/index.ts` | Added getConfiguredChatProviderWithOverride() |
+| `apps/server/src/services/chat-providers/openai.ts` | Fixed GPT-5.x max_completion_tokens parameter |
+| `apps/server/src/services/chat-providers/openai-compatible.ts` | Same fix for compatible providers |
+| `apps/web/src/lib/api.ts` | Added updateChatSessionModel(), getOllamaModels() |
+| `apps/web/src/hooks/useStreamingChat.ts` | Added provider/model params |
+| `apps/web/src/pages/ChatPage.tsx` | Integrated ChatModelSelector, model state management |
+| `apps/web/src/pages/settings/ModelsPage.tsx` | Dynamic Ollama models via useOllamaModels |
+| `apps/web/src/types/index.ts` | Added ChatSession, OllamaModel, ChatModelSelection types |
+| `packages/shared/src/index.ts` | Updated OpenAI models, removed gpt-5.1-codex-mini (Responses API only) |
+
+### Implementation Details
+
+#### Model Resolution Priority
+```text
+Request Params (provider/model) → DB Session Values → Global Default (ModelConfigService)
+```
+
+#### Database Schema
+```sql
+ALTER TABLE chat_sessions ADD COLUMN provider TEXT DEFAULT NULL;
+ALTER TABLE chat_sessions ADD COLUMN model TEXT DEFAULT NULL;
+CREATE INDEX idx_chat_sessions_provider ON chat_sessions(provider) WHERE provider IS NOT NULL;
+```
+
+#### GPT-5.x Fix
+Added helper function to detect models requiring `max_completion_tokens`:
+```typescript
+function requiresMaxCompletionTokens(model: string): boolean {
+  return model.startsWith('gpt-5') || model.startsWith('o1-') || model.startsWith('o3-');
+}
+```
+
+#### ChatModelSelector Features
+- Compact dropdown for chat header
+- Groups models by provider (Anthropic, OpenAI, Ollama, Google, Zhipu, Moonshot)
+- Fetches Ollama models dynamically
+- Shows "Using default" when no override
+- Disabled during streaming
+- Persists selection to session via API
+
+### Verification
+
+| Check | Status |
+|-------|--------|
+| `pnpm typecheck` | ✅ PASS |
+| Server typecheck | ✅ PASS |
+| Web typecheck | ✅ PASS |
+
+### Notes
+
+- Removed `gpt-5.1-codex-mini` from OpenAI models - requires Responses API (`/v1/responses`) which is not supported
+- Working OpenAI models: `gpt-4.1-nano`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4o`, `gpt-4o-mini`
+
+---
+
+## Phase 16G Bug Fixes & Dev Workflow Improvements
+
+**Status:** COMPLETE ✅
+**Branch:** `feature/phase-16g-model-persistence`
+**Date:** 2025-12-07
+
+### Overview
+
+Several bug fixes for chat functionality and development workflow improvements including startup scripts and README documentation.
+
+### Bug Fixes
+
+#### 1. Moonshot Kimi 401 Authentication Error
+
+**Issue:** Moonshot Kimi models returning `401 Invalid Authentication` despite valid API key.
+
+**Root Cause:** Using China endpoint (`api.moonshot.cn`) with international API key from `platform.moonshot.ai`.
+
+**Fix:** Changed base URL to international endpoint.
+
+| File | Change |
+|------|--------|
+| `apps/server/src/services/chat-providers/moonshot.ts` | `api.moonshot.cn/v1` → `api.moonshot.ai/v1` |
+
+```typescript
+// Before
+baseURL: 'https://api.moonshot.cn/v1',
+
+// After - Uses international endpoint (for China use api.moonshot.cn)
+baseURL: 'https://api.moonshot.ai/v1',
+```
+
+#### 2. Chat Session Deletion Not Working
+
+**Issue:** Clicking delete button → confirming → nothing happens.
+
+**Root Cause:** API client calling `response.json()` on 204 No Content responses, which throws an error (silently caught).
+
+**Fix:** Added check for 204 status before parsing JSON.
+
+| File | Change |
+|------|--------|
+| `apps/web/src/lib/api.ts` | Added 204 No Content handling |
+
+```typescript
+// Handle 204 No Content (e.g., DELETE operations)
+if (response.status === 204) {
+  return undefined as T;
+}
+return response.json();
+```
+
+#### 3. Chats Not Persisting After Refresh
+
+**Issue:** New chats disappear after page refresh.
+
+**Root Cause:** Migration `025_chat_session_models.sql` not applied, causing INSERT to fail (missing `provider` and `model` columns).
+
+**Fix:** User ran `pnpm --filter @synthesis/db migrate`.
+
+#### 4. Collection `updated_at` Not Updating
+
+**Issue:** Collection "Updated X days ago" timestamp never changes on activity.
+
+**Root Cause:** No mechanism to touch collection timestamp when documents/chats are added.
+
+**Fix:** Added `touchCollection()` function and called from relevant operations.
+
+| File | Change |
+|------|--------|
+| `packages/db/src/queries.ts` | Added `touchCollection()` function |
+| `packages/db/src/queries.ts` | Updated `createDocument()` to call `touchCollection()` |
+| `packages/db/src/queries.ts` | Updated `addChatMessage()` to call `touchCollection()` |
+
+```typescript
+/**
+ * Updates a collection's updated_at timestamp to NOW().
+ * Call this when any activity occurs in a collection.
+ */
+export async function touchCollection(collectionId: string): Promise<void> {
+  await query('UPDATE collections SET updated_at = NOW() WHERE id = $1', [collectionId]);
+}
+```
+
+**Note:** After modifying `packages/db/src/queries.ts`, rebuild with:
+```bash
+pnpm --filter @synthesis/db build
+```
+
+### Development Workflow Improvements
+
+#### 1. Created `scripts/dev.sh`
+
+One-command development startup script that:
+- Checks Docker prerequisites
+- Starts infrastructure (PostgreSQL, Ollama, Redis) in Docker
+- Waits for services to be healthy
+- Runs database migrations
+- Builds packages (@synthesis/shared, @synthesis/db)
+- Starts server + web frontend locally with hot reload
+
+**Usage:**
+```bash
+./scripts/dev.sh              # Full startup
+./scripts/dev.sh --skip-infra # Skip Docker (already running)
+./scripts/dev.sh --skip-build # Skip package builds
+./scripts/dev.sh --server-only # Only backend server
+./scripts/dev.sh --web-only   # Only web frontend
+```
+
+#### 2. Created `scripts/docker-all.sh`
+
+Full Docker production-like environment script:
+```bash
+./scripts/docker-all.sh        # Start all in Docker
+./scripts/docker-all.sh --build # Rebuild containers
+./scripts/docker-all.sh --clean # Clean rebuild (removes volumes)
+./scripts/docker-all.sh --logs  # Follow logs after start
+./scripts/docker-all.sh --stop  # Stop all containers
+```
+
+#### 3. Updated `package.json` Scripts
+
+| Script | Command |
+|--------|---------|
+| `pnpm dev:all` | `bash scripts/dev.sh` |
+| `pnpm dev:infra` | Start Docker infrastructure only |
+| `pnpm dev:migrate` | Run database migrations |
+| `pnpm dev:build` | Build shared + db packages |
+| `pnpm dev:server` | Start backend (port 3333) |
+| `pnpm dev:web` | Start frontend (port 5173) |
+| `pnpm dev:mcp` | Start MCP server (port 3334) |
+| `pnpm dev:desktop` | Start desktop app (Tauri) |
+| `pnpm docker:all` | `bash scripts/docker-all.sh` |
+| `pnpm docker:stop` | Stop all Docker containers |
+
+#### 4. Updated README.md
+
+Added comprehensive documentation:
+- **Quick Start** with one-command startup (`pnpm dev:all`)
+- **Docker Mode** for production-like environment
+- **Manual Startup** step-by-step instructions
+- **Shell Scripts** reference table
+- **Ollama signin** instruction for first-time setup
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `scripts/dev.sh` | Development startup script (infra in Docker, apps local) |
+| `scripts/docker-all.sh` | Full Docker deployment script |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `apps/server/src/services/chat-providers/moonshot.ts` | International endpoint fix |
+| `apps/web/src/lib/api.ts` | 204 No Content handling |
+| `packages/db/src/queries.ts` | Added `touchCollection()` function |
+| `package.json` | Added dev scripts |
+| `README.md` | Quick start documentation |
+
+### Verification
+
+| Check | Status |
+|-------|--------|
+| Moonshot Kimi models | ✅ Working |
+| Chat deletion | ✅ Working |
+| Chat persistence | ✅ Working |
+| Collection timestamps | ✅ Updating |
+| `./scripts/dev.sh` | ✅ Executable |
+| `pnpm dev:all` | ✅ Starts everything |
+
+---
+
+## Phase 16 Complete Summary
+
+**Total Lines of Code:** ~5,000+ new lines
+**Total Tests:** 220+ tests passing
+**Total Tools:** 23 tools across 5 toolpacks
+**Total Providers:** 6 chat providers
+
+### Features Delivered
+
+1. **Phase 16A:** Claude Agent SDK migration with MCP tools
+2. **Phase 16B+D:** Multi-provider chat (Anthropic, OpenAI, Ollama) with tool support
+3. **Phase 16C:** SSE streaming with real-time UI updates
+4. **Phase 16E:** Additional providers (Google Gemini, Z.AI GLM-4, Moonshot Kimi)
+5. **Phase 16F:** Dynamic tool registry with 23 tools and session management
+6. **Phase 16G:** Per-chat model persistence and dynamic Ollama discovery
+7. **Bug Fixes:** Moonshot auth, chat deletion, persistence, collection timestamps
+8. **Dev Workflow:** Startup scripts and README documentation
+9. **Z.AI Coding Plan:** Subscription endpoint support with UI toggle
+
+### Provider Matrix
+
+| Provider | Tool Support | Streaming | Vision | Thinking Mode |
+|----------|--------------|-----------|--------|---------------|
+| Anthropic | ✅ MCP via SDK | ✅ | ✅ | ❌ |
+| OpenAI | ✅ Manual loop | ✅ | ✅ | ❌ |
+| Google | ✅ Manual loop | ✅ | ✅ | ❌ |
+| Z.AI (Zhipu) | ✅ Manual loop | ✅ | ❌ | ❌ |
+| Moonshot | ✅ Manual loop | ✅ | ❌ | ✅ |
+| Ollama | ❌ | ✅ | ❌ | ❌ |
+
+---
+
+## Z.AI Coding Plan Support
+
+**Status:** COMPLETE ✅
+**Branch:** `feature/phase-16g-model-persistence`
+**Date:** 2025-12-07
+
+### Overview
+
+Added support for Z.AI's Coding Plan subscription endpoint, allowing users to use their subscription quota ($3-$60/mo) instead of pay-per-use API credits.
+
+### Background
+
+Z.AI has two separate billing systems:
+
+| Type | Endpoint | Billing |
+|------|----------|---------|
+| Standard API | `/api/paas/v4` | Pay-per-use credits |
+| Coding Plan | `/api/coding/paas/v4` | Subscription quota (prompts/5hr) |
+
+### Implementation
+
+#### Database Migration (`026_provider_settings.sql`)
+```sql
+CREATE TABLE IF NOT EXISTS provider_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider TEXT NOT NULL,
+    setting_key TEXT NOT NULL,
+    setting_value TEXT NOT NULL,
+    UNIQUE(provider, setting_key)
+);
+```
+
+#### Backend Service (`api-key-service.ts`)
+- Added `ProviderSettingsService` class
+- `getSetting()`, `setSetting()`, `deleteSetting()` methods
+- `isZhipuCodingPlanEnabled()` helper
+
+#### Backend Routes (`/api/admin/provider-settings`)
+- `GET /` - Get all provider settings
+- `GET /:provider` - Get settings for a provider
+- `PUT /:provider/:key` - Set a provider setting
+- `DELETE /:provider/:key` - Delete a provider setting
+
+#### Zhipu Provider Update
+```typescript
+const useCodingPlan = await settingsService.isZhipuCodingPlanEnabled();
+
+const baseURL = useCodingPlan
+  ? 'https://api.z.ai/api/coding/paas/v4'  // Subscription
+  : 'https://api.z.ai/api/paas/v4';         // Pay-per-use
+```
+
+#### UI Toggle
+- Toggle switch in Settings > API Keys under Z.AI
+- Visual indicator showing active endpoint:
+  - Green: `/api/coding/` (Subscription)
+  - Gray: `/api/paas/` (Pay-per-use)
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `packages/db/migrations/026_provider_settings.sql` | Provider settings table |
+| `apps/server/src/routes/admin/provider-settings.ts` | Provider settings API routes |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `apps/server/src/services/api-key-service.ts` | Added `ProviderSettingsService` |
+| `apps/server/src/services/chat-providers/zhipu.ts` | Check coding plan setting, switch endpoints |
+| `apps/server/src/index.ts` | Register provider settings routes |
+| `apps/web/src/lib/api.ts` | Added provider settings API functions |
+| `apps/web/src/hooks/useModelConfig.ts` | Added provider settings hooks |
+| `apps/web/src/components/settings/ApiKeyManager.tsx` | Added toggle and endpoint indicator |
+
+### Usage
+
+1. Go to Settings > Models & Providers
+2. Add your Z.AI API key
+3. Toggle "Use Coding Plan Endpoint" ON
+4. Verify the indicator shows `/api/coding/` (Subscription)
+5. Chat uses your subscription quota instead of API credits
+
+### Verification
+
+| Check | Status |
+|-------|--------|
+| `pnpm typecheck` | ✅ PASS |
+| Toggle persists setting | ✅ Working |
+| Endpoint switches correctly | ✅ Working |
+| RAG queries work with coding plan | ✅ Tested |

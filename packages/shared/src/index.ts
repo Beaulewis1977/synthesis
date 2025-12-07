@@ -656,7 +656,9 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
       'gpt-4.1-nano',
       'gpt-5-mini',
       'gpt-5-nano',
-      'gpt-5.1-codex-mini',
+      'gpt-4o',
+      'gpt-4o-mini',
+      // Note: gpt-5.1-codex-mini removed - requires Responses API (v1/responses)
       // Embedding models
       'text-embedding-3-large',
       'text-embedding-ada-002',

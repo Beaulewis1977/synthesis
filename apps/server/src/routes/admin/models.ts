@@ -2,9 +2,11 @@
  * Admin Model Configuration Routes
  *
  * Phase 4: API endpoints for managing model configurations
+ * Phase 16G: Added Ollama discovery endpoint
  *
  * Endpoints:
  * - GET  /api/admin/models          - Get all model configurations
+ * - GET  /api/admin/models/ollama   - Discover available Ollama models
  * - GET  /api/admin/models/:feature - Get specific feature configuration
  * - PUT  /api/admin/models/:feature - Update feature configuration
  * - DELETE /api/admin/models/:feature - Reset feature to default
@@ -68,6 +70,44 @@ export async function adminModelRoutes(fastify: FastifyInstance): Promise<void> 
       return reply.status(500).send({
         error: 'Failed to retrieve model configurations',
         message,
+      });
+    }
+  });
+
+  /**
+   * GET /api/admin/models/ollama
+   * Discover available Ollama models dynamically.
+   * Phase 16G: Dynamic model discovery for Ollama.
+   */
+  fastify.get('/ollama', async (_request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const { Ollama } = await import('ollama');
+      const host =
+        process.env.OLLAMA_HOST ?? process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
+      const client = new Ollama({ host });
+
+      const response = await client.list();
+
+      const models = response.models.map((m) => ({
+        name: m.name,
+        size: m.size,
+        modified_at: m.modified_at,
+        family: m.name.split(':')[0],
+      }));
+
+      return reply.send({
+        available: true,
+        host,
+        models,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      fastify.log.warn(`Ollama not available: ${message}`);
+      return reply.send({
+        available: false,
+        host: process.env.OLLAMA_HOST ?? process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434',
+        models: [],
+        error: message,
       });
     }
   });

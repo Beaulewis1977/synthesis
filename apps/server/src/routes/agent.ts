@@ -1,5 +1,12 @@
-import { addChatMessage, getPool } from '@synthesis/db';
+/**
+ * Agent Routes
+ *
+ * Phase 16G: Added per-chat model selection with persistence.
+ */
+
+import { addChatMessage, getChatSession, getPool, updateChatSessionModel } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
+import type { Pool } from 'pg';
 import { z } from 'zod';
 import { runAgentChat } from '../agent/agent.js';
 import {
@@ -7,6 +14,7 @@ import {
   deleteDocumentById,
   fetchWebContent,
 } from '../services/documentOperations.js';
+import { getModelConfigService } from '../services/model-config-service.js';
 
 const ConversationMessageSchema = z
   .object({
@@ -21,10 +29,48 @@ const AgentChatBodySchema = z
     collection_id: z.string().uuid(),
     session_id: z.string().uuid().optional(),
     history: z.array(ConversationMessageSchema).max(20).optional(),
+    provider: z.string().optional(), // Phase 16G: Per-chat provider override
+    model: z.string().optional(), // Phase 16G: Per-chat model override
   })
   .strict();
 
 type AgentChatBody = z.infer<typeof AgentChatBodySchema>;
+
+// =============================================================================
+// Model Resolution Helper
+// =============================================================================
+
+/**
+ * Resolve chat model from request params, session, or global default.
+ * Resolution priority: Request Params -> Session DB -> Global Default
+ * Phase 16G: Per-chat model persistence
+ */
+async function resolveChatModel(
+  db: Pool,
+  body: { provider?: string; model?: string; session_id?: string }
+): Promise<{ provider: string; model: string; source: 'request' | 'session' | 'default' }> {
+  // 1. Check request params first
+  if (body.provider && body.model) {
+    // Persist to session if session_id provided
+    if (body.session_id) {
+      await updateChatSessionModel(body.session_id, body.provider, body.model);
+    }
+    return { provider: body.provider, model: body.model, source: 'request' };
+  }
+
+  // 2. Check session DB
+  if (body.session_id) {
+    const session = await getChatSession(body.session_id);
+    if (session?.provider && session?.model) {
+      return { provider: session.provider, model: session.model, source: 'session' };
+    }
+  }
+
+  // 3. Fall back to global default
+  const configService = getModelConfigService(db);
+  const config = await configService.getChatModelConfig();
+  return { provider: config.provider, model: config.model, source: 'default' };
+}
 
 const FetchWebContentSchema = z
   .object({
@@ -67,19 +113,27 @@ export const agentRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const body = validation.data as AgentChatBody;
+    const db = getPool();
 
     try {
+      // Resolve model config (Phase 16G)
+      const modelConfig = await resolveChatModel(db, body);
+      fastify.log.info({ modelConfig }, 'Resolved chat model config');
+
       // If session_id provided, try to fetch history from DB to use as context
       // Note: We don't use this history for the *agent* memory right now because
       // runAgentChat expects specific AgentConversationMessage[] format and handles its own context window.
       // For now, we rely on the client to pass relevant history or the agent to retrieve it.
       // Future improvement: Load last N messages from DB if history is empty in body.
 
-      const result = await runAgentChat(getPool(), {
+      // TODO: Phase 16G - Pass provider/model override to runAgentChat once agent.ts is updated
+      const result = await runAgentChat(db, {
         message: body.message,
         collectionId: body.collection_id,
         history: body.history ?? [],
         sessionId: body.session_id, // Phase 16F: Pass session ID for dynamic tool filtering
+        provider: modelConfig.provider, // Phase 16G: Pass resolved provider
+        model: modelConfig.model, // Phase 16G: Pass resolved model
       });
 
       // If session_id is provided, persist the conversation

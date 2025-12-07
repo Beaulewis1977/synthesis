@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ChatHistorySidebar } from '../components/ChatHistorySidebar';
 import { ChatMessage } from '../components/ChatMessage';
+import { ChatModelSelector } from '../components/ChatModelSelector';
 import { StreamingMessage } from '../components/StreamingMessage';
 import { SynthesisView } from '../components/SynthesisView';
 import { useStreamingChat } from '../hooks/useStreamingChat';
@@ -23,6 +24,8 @@ export function ChatPage() {
   const [lastUserQuery, setLastUserQuery] = useState<string>('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -110,8 +113,12 @@ export function ChatPage() {
     enabled: !!sessionId,
   });
 
-  // Sync messages when session data is loaded
+  // Sync messages and model selection when session data is loaded
   useEffect(() => {
+    if (sessionData?.session) {
+      setSelectedProvider(sessionData.session.provider ?? null);
+      setSelectedModel(sessionData.session.model ?? null);
+    }
     if (sessionData?.messages) {
       setMessages(sessionData.messages);
       // If it's an existing session, set the last user query for synthesis view context
@@ -245,6 +252,8 @@ export function ChatPage() {
       collection_id: collectionId,
       session_id: currentSessionId ?? undefined,
       history,
+      provider: selectedProvider ?? undefined,
+      model: selectedModel ?? undefined,
     });
   };
 
@@ -254,6 +263,8 @@ export function ChatPage() {
     setMessages([]);
     setInputValue('');
     setLastUserQuery(''); // Reset synthesis context
+    setSelectedProvider(null);
+    setSelectedModel(null);
     chatMutation.reset();
     inputRef.current?.focus();
   };
@@ -275,6 +286,11 @@ export function ChatPage() {
     } catch (error) {
       console.error('Failed to delete session:', error);
     }
+  };
+
+  const handleModelChange = (provider: string, model: string) => {
+    setSelectedProvider(provider || null);
+    setSelectedModel(model || null);
   };
 
   const isLoading = chatMutation.isPending || isStreaming;
@@ -323,48 +339,58 @@ export function ChatPage() {
                 Ask questions about your documents
               </p>
             </div>
-            {/* View mode toggle */}
-            <fieldset className="flex flex-wrap gap-sm" aria-label="View mode">
-              <label
-                className={`px-md py-sm min-h-[44px] rounded text-sm font-medium transition-all duration-200 cursor-pointer ${
-                  viewMode === 'chat'
-                    ? 'bg-accent text-white shadow-sm'
-                    : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="viewMode"
-                  value="chat"
-                  checked={viewMode === 'chat'}
-                  onChange={() => setViewMode('chat')}
-                  className="sr-only"
-                />
-                Chat View
-              </label>
-              <label
-                className={`px-md py-sm min-h-[44px] rounded text-sm font-medium transition-all duration-200 cursor-pointer ${
-                  viewMode === 'synthesis'
-                    ? 'bg-accent text-white shadow-sm'
-                    : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
-                } ${!lastUserQuery ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <input
-                  type="radio"
-                  name="viewMode"
-                  value="synthesis"
-                  checked={viewMode === 'synthesis'}
-                  onChange={() => setViewMode('synthesis')}
-                  className="sr-only"
-                  disabled={!lastUserQuery}
-                  aria-disabled={!lastUserQuery}
-                  title={
-                    !lastUserQuery ? 'Send a message first to enable synthesis' : 'View synthesis'
-                  }
-                />
-                Synthesis View
-              </label>
-            </fieldset>
+            {/* Model selector and view mode toggle */}
+            <div className="flex items-center gap-md">
+              <ChatModelSelector
+                sessionId={sessionId}
+                currentProvider={selectedProvider}
+                currentModel={selectedModel}
+                disabled={isStreaming}
+                onModelChange={handleModelChange}
+              />
+              {/* View mode toggle */}
+              <fieldset className="flex flex-wrap gap-sm" aria-label="View mode">
+                <label
+                  className={`px-md py-sm min-h-[44px] rounded text-sm font-medium transition-all duration-200 cursor-pointer ${
+                    viewMode === 'chat'
+                      ? 'bg-accent text-white shadow-sm'
+                      : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="viewMode"
+                    value="chat"
+                    checked={viewMode === 'chat'}
+                    onChange={() => setViewMode('chat')}
+                    className="sr-only"
+                  />
+                  Chat View
+                </label>
+                <label
+                  className={`px-md py-sm min-h-[44px] rounded text-sm font-medium transition-all duration-200 cursor-pointer ${
+                    viewMode === 'synthesis'
+                      ? 'bg-accent text-white shadow-sm'
+                      : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
+                  } ${!lastUserQuery ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="viewMode"
+                    value="synthesis"
+                    checked={viewMode === 'synthesis'}
+                    onChange={() => setViewMode('synthesis')}
+                    className="sr-only"
+                    disabled={!lastUserQuery}
+                    aria-disabled={!lastUserQuery}
+                    title={
+                      !lastUserQuery ? 'Send a message first to enable synthesis' : 'View synthesis'
+                    }
+                  />
+                  Synthesis View
+                </label>
+              </fieldset>
+            </div>
           </div>
         </div>
 

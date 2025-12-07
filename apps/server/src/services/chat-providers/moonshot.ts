@@ -4,7 +4,7 @@
  * Phase 16D: Moonshot provider implementation with manual tool execution loop.
  * Implements the ChatProvider interface for Kimi models.
  *
- * Uses OpenAI-compatible API at api.moonshot.cn
+ * Uses OpenAI-compatible API at api.moonshot.ai (international)
  * Models: kimi-k2-0905-preview, kimi-k2-thinking, kimi-k2-thinking-turbo
  *
  * Special Features:
@@ -39,7 +39,7 @@ import type {
  *
  * Key features:
  * - Manual tool execution loop (max 25 turns)
- * - OpenAI-compatible API at api.moonshot.cn
+ * - OpenAI-compatible API at api.moonshot.ai (international)
  * - Thinking mode for reasoning models (adds extra_body parameter)
  * - Uses standard OpenAI function calling format
  */
@@ -121,9 +121,10 @@ export class MoonshotChatProvider implements ChatProvider {
     }
 
     // Create Moonshot client (OpenAI-compatible)
+    // Uses international endpoint (api.moonshot.ai) - for China mainland use api.moonshot.cn
     const client = new OpenAI({
       apiKey,
-      baseURL: 'https://api.moonshot.cn/v1',
+      baseURL: 'https://api.moonshot.ai/v1',
     });
 
     // Initialize registry and build tools filtered by session

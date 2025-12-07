@@ -62,6 +62,8 @@ export interface ChatSession {
   id: string;
   collection_id: string;
   title: string;
+  provider: string | null;
+  model: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -191,6 +193,15 @@ export async function deleteCollection(id: string, client?: PoolClient): Promise
   await queryFn('DELETE FROM collections WHERE id = $1', [id]);
 }
 
+/**
+ * Updates a collection's updated_at timestamp to NOW().
+ * Call this when any activity occurs in a collection (document upload, chat, etc.)
+ * @param collectionId The UUID of the collection to touch.
+ */
+export async function touchCollection(collectionId: string): Promise<void> {
+  await query('UPDATE collections SET updated_at = NOW() WHERE id = $1', [collectionId]);
+}
+
 // Document queries
 /**
  * Retrieves all documents within a specific collection, ordered by creation date.
@@ -253,6 +264,10 @@ export async function createDocument(doc: {
       doc.source_url || null,
     ]
   );
+
+  // Update collection's updated_at timestamp
+  await touchCollection(doc.collection_id);
+
   return result.rows[0] as Document;
 }
 
@@ -376,12 +391,19 @@ export async function deleteDocumentChunks(docId: string, client?: PoolClient): 
  * Creates a new chat session.
  * @param collectionId The collection this chat belongs to.
  * @param title The title of the chat session.
+ * @param provider Optional provider override (e.g., 'anthropic', 'ollama').
+ * @param model Optional model override (e.g., 'claude-sonnet-4-20250514').
  * @returns The created chat session.
  */
-export async function createChatSession(collectionId: string, title: string): Promise<ChatSession> {
+export async function createChatSession(
+  collectionId: string,
+  title: string,
+  provider?: string,
+  model?: string
+): Promise<ChatSession> {
   const result = await query(
-    'INSERT INTO chat_sessions (collection_id, title) VALUES ($1, $2) RETURNING *',
-    [collectionId, title]
+    'INSERT INTO chat_sessions (collection_id, title, provider, model) VALUES ($1, $2, $3, $4) RETURNING *',
+    [collectionId, title, provider ?? null, model ?? null]
   );
   return result.rows[0] as ChatSession;
 }
@@ -426,8 +448,16 @@ export async function addChatMessage(
     [sessionId, role, content, JSON.stringify(metadata || {})]
   );
 
-  // Update session updated_at
-  await query('UPDATE chat_sessions SET updated_at = NOW() WHERE id = $1', [sessionId]);
+  // Update session updated_at and get collection_id
+  const sessionResult = await query(
+    'UPDATE chat_sessions SET updated_at = NOW() WHERE id = $1 RETURNING collection_id',
+    [sessionId]
+  );
+
+  // Update collection's updated_at timestamp
+  if (sessionResult.rows[0]?.collection_id) {
+    await touchCollection(sessionResult.rows[0].collection_id);
+  }
 
   return result.rows[0] as ChatMessage;
 }
@@ -464,6 +494,24 @@ export async function updateChatSessionTitle(
   const result = await query(
     'UPDATE chat_sessions SET title = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
     [title, sessionId]
+  );
+  return (result.rows[0] as ChatSession) || null;
+}
+
+/**
+ * Updates the model configuration of a chat session.
+ * @param sessionId The chat session ID.
+ * @param provider The provider name (e.g., 'anthropic', 'ollama').
+ * @param model The model name (e.g., 'claude-sonnet-4-20250514').
+ */
+export async function updateChatSessionModel(
+  sessionId: string,
+  provider: string | null,
+  model: string | null
+): Promise<ChatSession | null> {
+  const result = await query(
+    'UPDATE chat_sessions SET provider = $1, model = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+    [provider, model, sessionId]
   );
   return (result.rows[0] as ChatSession) || null;
 }

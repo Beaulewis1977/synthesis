@@ -29,6 +29,8 @@ Autonomous RAG system powered by Claude Agent SDK for multi-project documentatio
 
 ## 🚀 Quick Start
 
+### One-Command Startup (Recommended)
+
 ```bash
 # 1. Clone and install
 pnpm install
@@ -37,23 +39,69 @@ pnpm install
 cp .env.example .env
 # Edit .env with your ANTHROPIC_API_KEY
 
-# 3. Start infrastructure (PostgreSQL + Ollama)
-pnpm docker:dev
-
-# 4. Run migrations
-pnpm --filter @synthesis/db migrate
-
-# 5. Pull Ollama models
+# 3. Setup Ollama (first time only)
+ollama signin              # Login to Ollama (optional, for model access)
 ollama pull nomic-embed-text
 
-# 6. Start backend (port 3333)
-pnpm --filter @synthesis/server dev
-
-# 7. Start frontend (port 5173)
-pnpm --filter @synthesis/web dev
+# 4. Start everything!
+pnpm dev:all
 ```
 
-Visit http://localhost:5173 to access the UI.
+This starts all infrastructure (PostgreSQL, Ollama, Redis) in Docker and runs the server + web frontend locally with hot reload.
+
+**Services:**
+- 🌐 **Web UI:** <http://localhost:5173>
+- 🔧 **Backend API:** <http://localhost:3333>
+- 🤖 **Ollama:** <http://localhost:11434>
+
+### Alternative: Docker Mode (Production-like)
+
+Run everything in Docker containers:
+
+```bash
+pnpm docker:all
+```
+
+Options:
+- `pnpm docker:all --build` - Rebuild containers
+- `pnpm docker:all --logs` - Follow logs after starting
+- `pnpm docker:stop` - Stop all containers
+
+### Manual Startup (Step-by-Step)
+
+```bash
+# Start infrastructure
+pnpm dev:infra
+
+# Run migrations
+pnpm dev:migrate
+
+# Build packages (after code changes)
+pnpm dev:build
+
+# Start services (in separate terminals)
+pnpm dev:server   # Backend (port 3333)
+pnpm dev:web      # Frontend (port 5173)
+pnpm dev:mcp      # MCP server (port 3334)
+pnpm dev:desktop  # Desktop app (Tauri)
+```
+
+### Shell Scripts
+
+The scripts are located in `scripts/` and can be run directly:
+
+| Script | Description |
+|--------|-------------|
+| `./scripts/dev.sh` | Start dev environment (infra in Docker, apps local) |
+| `./scripts/dev.sh --skip-infra` | Skip Docker startup (already running) |
+| `./scripts/dev.sh --skip-build` | Skip package builds |
+| `./scripts/dev.sh --server-only` | Only start backend server |
+| `./scripts/docker-all.sh` | Start everything in Docker |
+| `./scripts/docker-all.sh --build` | Rebuild and start containers |
+| `./scripts/docker-all.sh --clean` | Clean rebuild (removes volumes) |
+| `./scripts/docker-all.sh --stop` | Stop all containers |
+
+**Note:** Run scripts from the project root directory.
 
 ## 🎯 Status
 
@@ -64,12 +112,18 @@ Visit http://localhost:5173 to access the UI.
 - **Backend:** Node.js 22, Fastify, TypeScript
 - **Frontend:** React, Vite, Tailwind CSS
 - **Database:** PostgreSQL 16 + pgvector 0.7.4
-- **AI Models:**
-  - Claude Opus 4 Sonnet (Agent SDK)
-  - Ollama (nomic-embed-text, llama3.2)
+- **Chat Providers:**
+  - Anthropic Claude (Agent SDK with MCP tools)
+  - OpenAI GPT-4o/GPT-5 (tool support)
+  - Google Gemini (1M context)
+  - Z.AI GLM-4.6 (Coding Plan supported)
+  - Moonshot Kimi K2 (thinking mode)
+  - Ollama (local models)
+- **Embeddings:**
+  - Ollama (nomic-embed-text)
   - Voyage AI (voyage-code-2)
   - OpenAI (text-embedding-3-large)
-  - Cohere (rerank-english-v3.0)
+- **Re-ranking:** Cohere (rerank-english-v3.0)
 - **Search:** Hybrid (pgvector + BM25 with RRF fusion)
 - **Deployment:** Docker Compose
 - **Monorepo:** pnpm workspaces + Turborepo
