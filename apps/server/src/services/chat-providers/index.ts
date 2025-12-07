@@ -3,6 +3,7 @@
  *
  * Phase 16A: Registry pattern for multi-provider chat support.
  * Phase 16B: Updated with context-aware provider creation.
+ * Phase 16G: Added provider override support for per-chat model selection.
  * Follows singleton pattern from model-config-service.ts.
  */
 
@@ -97,6 +98,45 @@ export async function getConfiguredChatProvider(
   if (!isConfigured) {
     throw new Error(
       `Chat provider '${config.provider}' is not configured. ` +
+        'Please set the API key in Settings > API Keys.'
+    );
+  }
+
+  return provider;
+}
+
+/**
+ * Get chat provider with optional provider override.
+ * Phase 16G: Supports per-chat model selection.
+ *
+ * @param db Database pool
+ * @param context Tool context with collection ID
+ * @param providerOverride Optional provider name to override the global config
+ * @returns The configured ChatProvider instance
+ * @throws Error if provider is not configured (missing API key)
+ */
+export async function getConfiguredChatProviderWithOverride(
+  db: Pool,
+  context: ToolContext,
+  providerOverride?: string
+): Promise<ChatProvider> {
+  let providerName: ChatProviderType;
+
+  if (providerOverride) {
+    providerName = providerOverride as ChatProviderType;
+  } else {
+    const configService = getModelConfigService(db);
+    const config = await configService.getChatModelConfig();
+    providerName = config.provider as ChatProviderType;
+  }
+
+  const provider = getChatProvider(providerName, db, context);
+
+  // Validate provider is configured
+  const isConfigured = await provider.isConfigured();
+  if (!isConfigured) {
+    throw new Error(
+      `Chat provider '${providerName}' is not configured. ` +
         'Please set the API key in Settings > API Keys.'
     );
   }

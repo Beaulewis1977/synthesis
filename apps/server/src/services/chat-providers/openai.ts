@@ -27,6 +27,14 @@ import type {
 } from './types.js';
 
 /**
+ * Detect if model requires max_completion_tokens instead of max_tokens.
+ * OpenAI GPT-5.x and o1/o3 models use the newer parameter.
+ */
+function requiresMaxCompletionTokens(model: string): boolean {
+  return model.startsWith('gpt-5') || model.startsWith('o1-') || model.startsWith('o3-');
+}
+
+/**
  * OpenAI Chat Provider Implementation
  *
  * Key features:
@@ -141,7 +149,10 @@ export class OpenAIChatProvider implements ChatProvider {
         model: params.model,
         messages,
         tools: openaiTools,
-        max_tokens: params.maxTokens,
+        ...(params.maxTokens &&
+          (requiresMaxCompletionTokens(params.model)
+            ? { max_completion_tokens: params.maxTokens }
+            : { max_tokens: params.maxTokens })),
         temperature: params.temperature,
         stop: params.stopSequences,
         stream: true,

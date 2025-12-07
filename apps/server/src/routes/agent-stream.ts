@@ -2,11 +2,13 @@
  * Agent Streaming Route
  *
  * Phase 16C: SSE endpoint for real-time chat streaming.
+ * Phase 16G: Added per-chat model selection with persistence.
  * Streams token-by-token responses with tool execution progress.
  */
 
-import { addChatMessage, getPool } from '@synthesis/db';
+import { addChatMessage, getChatSession, getPool, updateChatSessionModel } from '@synthesis/db';
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
+import type { Pool } from 'pg';
 import { z } from 'zod';
 import { BASE_SYSTEM_PROMPT } from '../agent/agent.js';
 import { buildAgentTools } from '../agent/tools.js';
@@ -15,7 +17,7 @@ import {
   type ChatStreamChunk,
   type ChatTool,
   type ToolContext,
-  getConfiguredChatProvider,
+  getConfiguredChatProviderWithOverride,
 } from '../services/chat-providers/index.js';
 import { getModelConfigService } from '../services/model-config-service.js';
 
@@ -36,8 +38,46 @@ const AgentStreamBodySchema = z
     collection_id: z.string().uuid(),
     session_id: z.string().uuid().optional(),
     history: z.array(ConversationMessageSchema).max(20).optional(),
+    provider: z.string().optional(), // Phase 16G: Per-chat provider override
+    model: z.string().optional(), // Phase 16G: Per-chat model override
   })
   .strict();
+
+// =============================================================================
+// Model Resolution Helper
+// =============================================================================
+
+/**
+ * Resolve chat model from request params, session, or global default.
+ * Resolution priority: Request Params -> Session DB -> Global Default
+ * Phase 16G: Per-chat model persistence
+ */
+async function resolveChatModel(
+  db: Pool,
+  body: { provider?: string; model?: string; session_id?: string }
+): Promise<{ provider: string; model: string; source: 'request' | 'session' | 'default' }> {
+  // 1. Check request params first
+  if (body.provider && body.model) {
+    // Persist to session if session_id provided
+    if (body.session_id) {
+      await updateChatSessionModel(body.session_id, body.provider, body.model);
+    }
+    return { provider: body.provider, model: body.model, source: 'request' };
+  }
+
+  // 2. Check session DB
+  if (body.session_id) {
+    const session = await getChatSession(body.session_id);
+    if (session?.provider && session?.model) {
+      return { provider: session.provider, model: session.model, source: 'session' };
+    }
+  }
+
+  // 3. Fall back to global default
+  const configService = getModelConfigService(db);
+  const config = await configService.getChatModelConfig();
+  return { provider: config.provider, model: config.model, source: 'default' };
+}
 
 // =============================================================================
 // SSE Helper
@@ -100,8 +140,16 @@ export const agentStreamRoutes: FastifyPluginAsync = async (fastify) => {
     }> = [];
 
     try {
-      // Get configured chat provider
-      const provider = await getConfiguredChatProvider(db, context);
+      // Resolve model config (Phase 16G)
+      const modelConfig = await resolveChatModel(db, body);
+      fastify.log.info({ modelConfig }, 'Resolved chat model config');
+
+      // Get configured chat provider with override
+      const provider = await getConfiguredChatProviderWithOverride(
+        db,
+        context,
+        modelConfig.provider
+      );
 
       // Check if provider supports streaming
       if (!provider.streamChat) {
@@ -135,14 +183,10 @@ export const agentStreamRoutes: FastifyPluginAsync = async (fastify) => {
         }));
       }
 
-      // Get model from config (provider was already configured with it)
-      const configService = getModelConfigService(db);
-      const chatConfig = await configService.getChatModelConfig();
-
-      // Stream response
+      // Stream response using resolved model config (Phase 16G)
       for await (const chunk of provider.streamChat({
         messages,
-        model: chatConfig.model,
+        model: modelConfig.model,
         systemPrompt,
         tools: chatTools,
         maxTokens: 16384,

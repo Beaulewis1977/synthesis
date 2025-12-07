@@ -62,6 +62,8 @@ export interface ChatSession {
   id: string;
   collection_id: string;
   title: string;
+  provider: string | null;
+  model: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -376,12 +378,19 @@ export async function deleteDocumentChunks(docId: string, client?: PoolClient): 
  * Creates a new chat session.
  * @param collectionId The collection this chat belongs to.
  * @param title The title of the chat session.
+ * @param provider Optional provider override (e.g., 'anthropic', 'ollama').
+ * @param model Optional model override (e.g., 'claude-sonnet-4-20250514').
  * @returns The created chat session.
  */
-export async function createChatSession(collectionId: string, title: string): Promise<ChatSession> {
+export async function createChatSession(
+  collectionId: string,
+  title: string,
+  provider?: string,
+  model?: string
+): Promise<ChatSession> {
   const result = await query(
-    'INSERT INTO chat_sessions (collection_id, title) VALUES ($1, $2) RETURNING *',
-    [collectionId, title]
+    'INSERT INTO chat_sessions (collection_id, title, provider, model) VALUES ($1, $2, $3, $4) RETURNING *',
+    [collectionId, title, provider ?? null, model ?? null]
   );
   return result.rows[0] as ChatSession;
 }
@@ -464,6 +473,24 @@ export async function updateChatSessionTitle(
   const result = await query(
     'UPDATE chat_sessions SET title = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
     [title, sessionId]
+  );
+  return (result.rows[0] as ChatSession) || null;
+}
+
+/**
+ * Updates the model configuration of a chat session.
+ * @param sessionId The chat session ID.
+ * @param provider The provider name (e.g., 'anthropic', 'ollama').
+ * @param model The model name (e.g., 'claude-sonnet-4-20250514').
+ */
+export async function updateChatSessionModel(
+  sessionId: string,
+  provider: string | null,
+  model: string | null
+): Promise<ChatSession | null> {
+  const result = await query(
+    'UPDATE chat_sessions SET provider = $1, model = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+    [provider, model, sessionId]
   );
   return (result.rows[0] as ChatSession) || null;
 }

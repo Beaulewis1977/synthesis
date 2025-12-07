@@ -2,6 +2,7 @@
  * Agent Chat Orchestrator
  *
  * Phase 16B: Refactored to use ChatProvider abstraction for multi-provider support.
+ * Phase 16G: Added per-chat model selection with provider/model override support.
  * Supports Anthropic (Claude Agent SDK), OpenAI (manual tool loop), and Ollama (basic chat).
  */
 
@@ -10,7 +11,7 @@ import {
   type ChatMessage,
   type ChatTool,
   type ToolContext,
-  getConfiguredChatProvider,
+  getConfiguredChatProviderWithOverride,
 } from '../services/chat-providers/index.js';
 import { getModelConfigService } from '../services/model-config-service.js';
 import { buildAgentTools } from './tools.js';
@@ -30,6 +31,8 @@ export interface AgentChatParams {
   history?: AgentConversationMessage[];
   /** Optional session ID for dynamic tool filtering (Phase 16F) */
   sessionId?: string;
+  provider?: string; // Phase 16G: Per-chat provider override
+  model?: string; // Phase 16G: Per-chat model override
 }
 
 export interface AgentToolCall {
@@ -139,6 +142,7 @@ function buildChatTools(db: Pool, context: ToolContext): ChatTool[] {
  * Run an agent chat using the configured ChatProvider.
  *
  * Phase 16B: Uses ChatProvider abstraction for multi-provider support.
+ * Phase 16G: Added per-chat model selection with provider/model override support.
  * - Anthropic: Uses Claude Agent SDK with MCP tools
  * - OpenAI: Uses manual tool execution loop
  * - Ollama: Basic chat without tools
@@ -150,12 +154,18 @@ export async function runAgentChat(db: Pool, params: AgentChatParams): Promise<A
   };
   const history = params.history ?? [];
 
-  // Get the configured chat provider
-  const provider = await getConfiguredChatProvider(db, context);
+  // Get the chat provider (with optional override from Phase 16G)
+  const provider = await getConfiguredChatProviderWithOverride(db, context, params.provider);
 
-  // Get model configuration
-  const modelConfigService = getModelConfigService(db);
-  const chatConfig = await modelConfigService.getChatModelConfig();
+  // Determine model to use: override from params, or global default
+  let modelToUse: string;
+  if (params.model) {
+    modelToUse = params.model;
+  } else {
+    const modelConfigService = getModelConfigService(db);
+    const chatConfig = await modelConfigService.getChatModelConfig();
+    modelToUse = chatConfig.model;
+  }
 
   // Build messages from history and current message
   const messages = buildChatMessages(params);
@@ -177,10 +187,10 @@ export async function runAgentChat(db: Pool, params: AgentChatParams): Promise<A
   }
 
   try {
-    // Call the provider
+    // Call the provider with resolved model (Phase 16G)
     const response = await provider.chat({
       messages,
-      model: chatConfig.model,
+      model: modelToUse,
       systemPrompt,
       tools: chatTools,
       maxTokens: 16384,

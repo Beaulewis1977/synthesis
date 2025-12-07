@@ -251,6 +251,8 @@ export interface AgentChatRequest {
   collection_id: string;
   history?: Array<{ role: string; content: string }>;
   session_id?: string;
+  provider?: string; // Phase 16G
+  model?: string; // Phase 16G
 }
 
 export interface AgentChatResponse {
@@ -265,8 +267,31 @@ export interface ChatSession {
   id: string;
   collection_id: string;
   title: string;
+  provider?: string | null; // Phase 16G - Chat provider override
+  model?: string | null; // Phase 16G - Model override
   created_at: string;
   updated_at: string;
+}
+
+// Ollama model discovery (Phase 16G)
+export interface OllamaModel {
+  name: string;
+  size: number;
+  modified_at: string;
+  family: string;
+}
+
+export interface OllamaModelsResponse {
+  available: boolean;
+  host: string;
+  models: OllamaModel[];
+  error?: string;
+}
+
+// Model selection for chat (Phase 16G)
+export interface ChatModelSelection {
+  provider: string;
+  model: string;
 }
 
 // Upload-related types

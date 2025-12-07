@@ -4,7 +4,7 @@
 
 This document tracks the implementation progress of Phase 16: Multi-Provider Chat & UI Improvements.
 
-**Status:** Phase 16 COMPLETE ✅ (16A-16F all merged/ready)
+**Status:** Phase 16 COMPLETE ✅ (16A-16G all merged/ready)
 
 ---
 
@@ -684,7 +684,7 @@ const PROFILES = {
    - [x] Commit core extension tools
    - [ ] Create PR and merge to develop
 
-**Phase 16 is now feature-complete with 23 tools across 5 toolpacks!**
+**Phase 16 is now feature-complete with 23 tools across 5 toolpacks and per-chat model persistence!**
 
 ---
 
@@ -764,3 +764,96 @@ Updated tests to match current PROVIDER_INFO model names:
 | `pnpm --filter @synthesis/server typecheck` | ✅ PASS |
 | model-config-service.test.ts (32 tests) | ✅ PASS |
 | dynamic-tools-integration.test.ts (58 tests) | ✅ PASS |
+
+---
+
+## Phase 16G: Per-Chat Model Persistence & Dynamic Model Discovery - COMPLETE
+
+**Status:** COMPLETE ✅
+**Branch:** `feature/phase-16g-model-persistence`
+**Date:** 2025-12-07
+
+### Overview
+
+Implemented per-chat model/provider selection with persistence and dynamic Ollama model discovery. Users can now switch models within specific chats and have that choice remembered.
+
+### Commits
+
+1. **13dfd9f** - `feat(phase-16g): per-chat model persistence and dynamic model discovery`
+   - Database schema update (migration 025)
+   - Ollama model discovery endpoint
+   - Chat API model resolution logic
+   - ChatModelSelector UI component
+   - ChatPage integration
+   - Settings page dynamic Ollama models
+   - GPT-5.x max_completion_tokens fix
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `packages/db/migrations/025_chat_session_models.sql` | Add provider/model columns to chat_sessions |
+| `apps/web/src/components/ChatModelSelector.tsx` | Compact model selector dropdown for chat header |
+| `apps/web/src/hooks/useOllamaModels.ts` | React Query hook for Ollama model discovery |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `packages/db/src/queries.ts` | Added ChatSession provider/model fields, updateChatSessionModel(), getChatSession() |
+| `apps/server/src/routes/admin/models.ts` | Added GET /api/admin/models/ollama endpoint |
+| `apps/server/src/routes/agent.ts` | Added provider/model params, resolveChatModel() logic |
+| `apps/server/src/routes/agent-stream.ts` | Same resolution logic for streaming |
+| `apps/server/src/routes/chat.ts` | Added PATCH /api/chats/:id/model endpoint |
+| `apps/server/src/services/chat-providers/index.ts` | Added getConfiguredChatProviderWithOverride() |
+| `apps/server/src/services/chat-providers/openai.ts` | Fixed GPT-5.x max_completion_tokens parameter |
+| `apps/server/src/services/chat-providers/openai-compatible.ts` | Same fix for compatible providers |
+| `apps/web/src/lib/api.ts` | Added updateChatSessionModel(), getOllamaModels() |
+| `apps/web/src/hooks/useStreamingChat.ts` | Added provider/model params |
+| `apps/web/src/pages/ChatPage.tsx` | Integrated ChatModelSelector, model state management |
+| `apps/web/src/pages/settings/ModelsPage.tsx` | Dynamic Ollama models via useOllamaModels |
+| `apps/web/src/types/index.ts` | Added ChatSession, OllamaModel, ChatModelSelection types |
+| `packages/shared/src/index.ts` | Updated OpenAI models, removed gpt-5.1-codex-mini (Responses API only) |
+
+### Implementation Details
+
+#### Model Resolution Priority
+```text
+Request Params (provider/model) → DB Session Values → Global Default (ModelConfigService)
+```
+
+#### Database Schema
+```sql
+ALTER TABLE chat_sessions ADD COLUMN provider TEXT DEFAULT NULL;
+ALTER TABLE chat_sessions ADD COLUMN model TEXT DEFAULT NULL;
+CREATE INDEX idx_chat_sessions_provider ON chat_sessions(provider) WHERE provider IS NOT NULL;
+```
+
+#### GPT-5.x Fix
+Added helper function to detect models requiring `max_completion_tokens`:
+```typescript
+function requiresMaxCompletionTokens(model: string): boolean {
+  return model.startsWith('gpt-5') || model.startsWith('o1-') || model.startsWith('o3-');
+}
+```
+
+#### ChatModelSelector Features
+- Compact dropdown for chat header
+- Groups models by provider (Anthropic, OpenAI, Ollama, Google, Zhipu, Moonshot)
+- Fetches Ollama models dynamically
+- Shows "Using default" when no override
+- Disabled during streaming
+- Persists selection to session via API
+
+### Verification
+
+| Check | Status |
+|-------|--------|
+| `pnpm typecheck` | ✅ PASS |
+| Server typecheck | ✅ PASS |
+| Web typecheck | ✅ PASS |
+
+### Notes
+
+- Removed `gpt-5.1-codex-mini` from OpenAI models - requires Responses API (`/v1/responses`) which is not supported
+- Working OpenAI models: `gpt-4.1-nano`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4o`, `gpt-4o-mini`

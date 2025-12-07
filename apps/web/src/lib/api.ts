@@ -33,6 +33,7 @@ import type {
   ModelConfigResponse,
   ModelConfigUpdate,
   ModelFeature,
+  OllamaModelsResponse,
   RelatedFilesResponse,
   RepositorySource,
   RepositorySourcesResponse,
@@ -245,11 +246,17 @@ class ApiClient {
 
   /**
    * Create a new chat session.
+   * Phase 16G: Added provider/model parameters for per-chat model persistence.
    */
-  async createChatSession(collectionId: string, title: string): Promise<{ session: ChatSession }> {
+  async createChatSession(
+    collectionId: string,
+    title: string,
+    provider?: string,
+    model?: string
+  ): Promise<{ session: ChatSession }> {
     return this.request<{ session: ChatSession }>('/api/chats', {
       method: 'POST',
-      body: JSON.stringify({ collectionId, title }),
+      body: JSON.stringify({ collectionId, title, provider, model }),
     });
   }
 
@@ -295,6 +302,24 @@ class ApiClient {
       method: 'PATCH',
       body: JSON.stringify({ title }),
     });
+  }
+
+  /**
+   * Update chat session model configuration.
+   * Phase 16G: Per-chat model persistence.
+   */
+  async updateChatSessionModel(
+    sessionId: string,
+    provider: string,
+    model: string
+  ): Promise<{ session: ChatSession }> {
+    return this.request<{ session: ChatSession }>(
+      `/api/chats/${encodeURIComponent(sessionId)}/model`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ provider, model }),
+      }
+    );
   }
 
   /**
@@ -732,6 +757,14 @@ class ApiClient {
         body: JSON.stringify({ feature, ...update }),
       }
     );
+  }
+
+  /**
+   * Get available Ollama models.
+   * Phase 16G: Dynamic model discovery.
+   */
+  async getOllamaModels(): Promise<OllamaModelsResponse> {
+    return this.request<OllamaModelsResponse>('/api/admin/models/ollama');
   }
 
   // ============================================

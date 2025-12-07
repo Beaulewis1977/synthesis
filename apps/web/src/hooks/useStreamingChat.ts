@@ -59,6 +59,8 @@ export interface StreamChatParams {
   collection_id: string;
   session_id?: string;
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  provider?: string; // Phase 16G
+  model?: string; // Phase 16G
 }
 
 // =============================================================================

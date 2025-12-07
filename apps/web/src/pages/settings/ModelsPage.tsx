@@ -18,7 +18,7 @@ import {
   Settings,
   Sparkles,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiKeyManager } from '../../components/settings/ApiKeyManager';
 import { EmbeddingProfileSelect } from '../../components/settings/EmbeddingProfileSelect';
@@ -30,6 +30,7 @@ import {
   useResetAllModelConfigs,
   useUpdateModelConfig,
 } from '../../hooks/useModelConfig';
+import { useOllamaModels } from '../../hooks/useOllamaModels';
 import type { ModelFeature } from '../../types';
 
 /**
@@ -105,8 +106,24 @@ export function ModelsPage() {
 
   // Fetch data
   const { data: configsData, isLoading: configsLoading, error: configsError } = useModelConfigs();
-
+  const { data: ollamaData } = useOllamaModels();
   const { data: profilesData, isLoading: profilesLoading } = useEmbeddingProfiles();
+
+  // Merge dynamic Ollama models with static provider info
+  const mergedProviders = useMemo(() => {
+    if (!configsData?.availableProviders) return {};
+
+    const providers = { ...configsData.availableProviders };
+
+    if (ollamaData?.available && ollamaData.models.length > 0 && providers.ollama) {
+      providers.ollama = {
+        ...providers.ollama,
+        models: ollamaData.models.map((m) => m.name),
+      };
+    }
+
+    return providers;
+  }, [configsData?.availableProviders, ollamaData]);
 
   // Mutations
   const updateMutation = useUpdateModelConfig();
@@ -169,7 +186,6 @@ export function ModelsPage() {
   }
 
   const configs = configsData?.configs || [];
-  const availableProviders = configsData?.availableProviders || {};
   const missingApiKeys = configsData?.missingApiKeys || [];
   const profiles = profilesData?.profiles || [];
   const defaultProfileId = profilesData?.defaultProfileId || null;
@@ -245,7 +261,7 @@ export function ModelsPage() {
             <ModelConfigCard
               key={config.feature}
               config={config}
-              availableProviders={availableProviders}
+              availableProviders={mergedProviders}
               missingApiKeys={missingApiKeys}
               onUpdate={(update) => handleUpdate(config.feature, update)}
               isUpdating={
@@ -297,7 +313,7 @@ export function ModelsPage() {
           {currentEmbeddingConfig && (
             <ModelConfigCard
               config={currentEmbeddingConfig}
-              availableProviders={availableProviders}
+              availableProviders={mergedProviders}
               missingApiKeys={missingApiKeys}
               onUpdate={(update) => handleUpdate(currentEmbeddingConfig.feature, update)}
               isUpdating={
@@ -322,7 +338,7 @@ export function ModelsPage() {
             <ModelConfigCard
               key={config.feature}
               config={config}
-              availableProviders={availableProviders}
+              availableProviders={mergedProviders}
               missingApiKeys={missingApiKeys}
               onUpdate={(update) => handleUpdate(config.feature, update)}
               isUpdating={
