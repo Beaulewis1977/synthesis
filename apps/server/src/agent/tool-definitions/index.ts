@@ -14,6 +14,9 @@ import {
 } from './adapters.js';
 import { CORE_TOOLS } from './core/index.js';
 import { GATEWAY_TOOLS } from './gateway/index.js';
+import { GRAPHING_TOOLS } from './graphing/index.js';
+import { INTROSPECTION_TOOLS } from './introspection/index.js';
+import { MOBILE_CORE_TOOLS } from './mobile-core/index.js';
 import type {
   BuiltAgentTools,
   BuiltChatTools,
@@ -30,20 +33,24 @@ export * from './adapters.js';
 export * from './toolpacks.js';
 export { CORE_TOOLS } from './core/index.js';
 export { GATEWAY_TOOLS } from './gateway/index.js';
+export { GRAPHING_TOOLS } from './graphing/index.js';
+export { INTROSPECTION_TOOLS } from './introspection/index.js';
+export { MOBILE_CORE_TOOLS } from './mobile-core/index.js';
 
 // =============================================================================
 // All Tool Definitions
 // =============================================================================
 
 /**
- * All available tool definitions (core + gateway for now)
- * Mobile, introspection, and graphing tools will be added in future phases
+ * All available tool definitions across all toolpacks
  */
 export function getAllToolDefinitions(): UnifiedToolDefinition[] {
   return [
     ...CORE_TOOLS,
     ...GATEWAY_TOOLS,
-    // TODO: Add mobile-core, introspection, graphing tools
+    ...MOBILE_CORE_TOOLS,
+    ...INTROSPECTION_TOOLS,
+    ...GRAPHING_TOOLS,
   ];
 }
 

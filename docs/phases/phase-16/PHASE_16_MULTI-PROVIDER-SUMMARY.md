@@ -473,8 +473,13 @@ Implementing a unified tool definition system and dynamic tool registry to resto
 | `apps/server/src/agent/tool-definitions/index.ts` | Main exports and factory functions |
 | `apps/server/src/agent/tool-definitions/core/*.ts` | 9 core tools in unified format |
 | `apps/server/src/agent/tool-definitions/gateway/*.ts` | Gateway tools (discover_tools, enable_tools) |
+| `apps/server/src/agent/tool-definitions/mobile-core/*.ts` | 3 mobile tools (search_mobile_docs, find_code_examples, get_feature_recipe) |
+| `apps/server/src/agent/tool-definitions/introspection/*.ts` | 3 introspection tools (find_symbol_usages, get_project_tech_stack, get_db_schema) |
+| `apps/server/src/agent/tool-definitions/graphing/*.ts` | 1 graphing tool (graph_expand_context) |
 | `apps/server/src/services/tool-registry.ts` | DynamicToolRegistry with session management |
-| `apps/server/src/services/__tests__/tool-registry.test.ts` | 22 tests |
+| `apps/server/src/services/chat-providers/registry-bridge.ts` | Session-aware tool filtering for ChatProviders |
+| `apps/server/src/services/__tests__/tool-registry.test.ts` | 22 unit tests |
+| `apps/server/src/services/__tests__/dynamic-tools-integration.test.ts` | 58 integration tests |
 
 ### Files Modified
 
@@ -516,18 +521,20 @@ class DynamicToolRegistry {
 
 #### Toolpacks & Profiles
 ```typescript
-// Toolpacks group related tools
+// Toolpacks group related tools (18 total)
 const TOOLPACKS = {
-  core: { tools: ['search_rag', 'add_document', ...], sensitiveTools: [] },
-  gateway: { tools: ['discover_tools', 'enable_tools'], sensitiveTools: [] },
-  // mobile_core, introspection, graphing (to be ported)
+  core: { tools: ['search_rag', 'add_document', ...], sensitiveTools: ['delete_document'] },      // 9 tools
+  gateway: { tools: ['discover_tools', 'enable_tools'], sensitiveTools: [] },                     // 2 tools
+  mobile_core: { tools: ['search_mobile_docs', 'find_code_examples', 'get_feature_recipe'] },     // 3 tools
+  introspection: { tools: ['find_symbol_usages', 'get_project_tech_stack', 'get_db_schema'] },    // 3 tools
+  graphing: { tools: ['graph_expand_context'] },                                                   // 1 tool
 };
 
 // Profiles define default tool sets
 const PROFILES = {
-  minimal: { toolpacks: ['gateway'] },           // Only gateway tools
-  core: { toolpacks: ['gateway', 'core'] },      // Default
-  full: { toolpacks: ['gateway', 'core', ...] }, // All toolpacks
+  minimal: { toolpacks: ['gateway'] },                                              // 2 tools
+  core: { toolpacks: ['gateway', 'core'] },                                         // 11 tools (default)
+  full: { toolpacks: ['gateway', 'core', 'mobile_core', 'introspection', 'graphing'] }, // 18 tools
 };
 ```
 
@@ -536,8 +543,9 @@ const PROFILES = {
 - `enable_tools`: Dynamically enable/disable tools, toolpacks, or apply profiles
 - Gateway tools are **always enabled** and cannot be disabled
 
-### Core Tools Ported (9 total)
+### All Tools Ported (18 total)
 
+#### Core Toolpack (9 tools)
 | Tool | Description |
 |------|-------------|
 | `search_rag` | Search the RAG knowledge base |
@@ -546,16 +554,43 @@ const PROFILES = {
 | `list_collections` | List available collections |
 | `list_documents` | List documents in collection |
 | `get_document_status` | Check document processing status |
-| `delete_document` | Delete a document |
+| `delete_document` | Delete a document (SENSITIVE) |
 | `restart_ingest` | Restart failed document ingestion |
 | `summarize_document` | Summarize document using Claude |
+
+#### Gateway Toolpack (2 tools - always enabled)
+| Tool | Description |
+|------|-------------|
+| `discover_tools` | List available toolpacks with descriptions |
+| `enable_tools` | Dynamically enable/disable tools, toolpacks, or profiles |
+
+#### Mobile Core Toolpack (3 tools)
+| Tool | Description |
+|------|-------------|
+| `search_mobile_docs` | Search mobile-specific documentation with feature tags |
+| `find_code_examples` | Find working code examples for mobile features |
+| `get_feature_recipe` | Get curated implementation recipes for features |
+
+#### Introspection Toolpack (3 tools)
+| Tool | Description |
+|------|-------------|
+| `find_symbol_usages` | Find where symbols are defined and used |
+| `get_project_tech_stack` | Get tech stack profile (frameworks, languages, databases) |
+| `get_db_schema` | Extract database schema (SENSITIVE) |
+
+#### Graphing Toolpack (1 tool)
+| Tool | Description |
+|------|-------------|
+| `graph_expand_context` | Traverse knowledge graph to expand context from seeds |
 
 ### Verification
 
 | Check | Status |
 |-------|--------|
 | `pnpm --filter @synthesis/server typecheck` | ✅ PASS |
-| tool-registry.test.ts (22 tests) | ✅ PASS |
+| tool-registry.test.ts (22 unit tests) | ✅ PASS |
+| dynamic-tools-integration.test.ts (58 integration tests) | ✅ PASS |
+| **Total: 80 tests** | ✅ ALL PASS |
 
 ### Commits
 
@@ -570,16 +605,31 @@ const PROFILES = {
    - All 6 providers updated (Anthropic, OpenAI, Google, Zhipu, Moonshot, Ollama)
    - Routes pass sessionId through context
 
-3. Session management included in commit 1 (30-min auto-cleanup)
+3. **6322193** - `docs(phase-16f): update summary with Phase 16F progress` ✅
 
-4. `test(phase-16f): add dynamic tool flow tests` - PENDING
+4. **PENDING** - `feat(phase-16f): port advanced toolpacks and integration tests`
+   - Mobile core toolpack (3 tools): search_mobile_docs, find_code_examples, get_feature_recipe
+   - Introspection toolpack (3 tools): find_symbol_usages, get_project_tech_stack, get_db_schema
+   - Graphing toolpack (1 tool): graph_expand_context
+   - 58 integration tests covering all dynamic tool flows
+   - Updated index.ts exports for all 18 tools
 
-### Remaining Work
+### Completed Work
 
-- [x] Integrate registry with ChatProvider (complete)
-- [ ] Port mobile-core, introspection, graphing toolpacks (future phase)
-- [ ] Add integration tests for dynamic tool flows
-- [ ] Optional: Redis persistence for session state
+- [x] Unified tool definition system (single source of truth)
+- [x] DynamicToolRegistry with session management
+- [x] Gateway tools (discover_tools, enable_tools)
+- [x] Integrate registry with ChatProvider (all 6 providers)
+- [x] Port mobile-core toolpack (3 tools)
+- [x] Port introspection toolpack (3 tools)
+- [x] Port graphing toolpack (1 tool)
+- [x] Add integration tests (58 tests)
+- [x] Session management with 30-min auto-cleanup
+
+### Optional Future Work
+
+- [ ] Redis persistence for distributed session state
+- [ ] Additional gateway tools (synthesis_router, synthesis_mcp_bridge)
 
 ---
 
@@ -608,9 +658,11 @@ const PROFILES = {
 5. ~~Merge PR #150 to develop~~ ✅ MERGED
 6. ~~Phase 16C: Streaming & UI~~ ✅ MERGED (PR #151)
 7. ~~Phase 16E: Additional Providers (Google, GLM, Kimi)~~ ✅ MERGED (PR #152)
-8. Phase 16F: Dynamic Tool Registry & Advanced Toolpacks - IN PROGRESS
-   - [ ] Commit unified tool definitions and registry
-   - [ ] Integrate with ChatProvider
-   - [ ] Add session management
-   - [ ] Add integration tests
+8. Phase 16F: Dynamic Tool Registry & Advanced Toolpacks - **NEARLY COMPLETE**
+   - [x] Commit unified tool definitions and registry (aeafabb)
+   - [x] Integrate with ChatProvider (bdd9827)
+   - [x] Add session management (included in commit 1)
+   - [x] Port mobile-core, introspection, graphing toolpacks (7 tools)
+   - [x] Add integration tests (58 tests)
+   - [ ] Commit advanced toolpacks and tests (PENDING REVIEW)
    - [ ] Create PR and merge to develop
