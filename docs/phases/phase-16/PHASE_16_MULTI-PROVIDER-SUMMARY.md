@@ -681,7 +681,86 @@ const PROFILES = {
    - [x] Port mobile-core, introspection, graphing toolpacks (7 tools)
    - [x] Add integration tests (58 tests)
    - [x] Add core extension tools (5 tools): create_collection, delete_collection, add_repo_to_collection, sync_repo, list_repos
-   - [ ] Commit core extension tools (ready for commit)
+   - [x] Commit core extension tools
    - [ ] Create PR and merge to develop
 
 **Phase 16 is now feature-complete with 23 tools across 5 toolpacks!**
+
+---
+
+## Bug Fixes: Chat Agent Interruption & Test Updates
+
+**Status:** COMPLETE ✅
+**Date:** 2025-12-06
+
+### Issue: Agent Getting Interrupted Mid-Response
+
+Users reported the chat agent stopping mid-response and requiring "continue" prompts when testing multiple tools.
+
+### Root Cause
+
+Hardcoded limits were too restrictive for comprehensive tool testing:
+
+| Setting | File | Before | After |
+|---------|------|--------|-------|
+| `maxTurns` | `anthropic.ts` | 10 | **25** |
+| `MAX_TURNS` | `openai.ts` | 10 | **25** |
+| `MAX_TURNS` | `google.ts` | 10 | **25** |
+| `MAX_TURNS` | `moonshot.ts` | 10 | **25** |
+| `MAX_TURNS` | `zhipu.ts` | 10 | **25** |
+| `MAX_TURNS` | `openai-compatible.ts` | 10 | **25** |
+| `maxTokens` | `agent.ts` | 4096 | **16384** |
+| `maxTokens` | `agent-stream.ts` | 4096 | **16384** |
+
+### Why 10 Turns Was Insufficient
+
+When testing 23 tools, each tool call counts as 1 turn:
+- Listing tools (discover_tools)
+- Testing each core tool individually
+- Multi-step operations (create → test → delete)
+
+10 turns gets exhausted quickly during comprehensive testing.
+
+### Files Modified
+
+- `apps/server/src/services/chat-providers/anthropic.ts` - maxTurns: 10 → 25
+- `apps/server/src/services/chat-providers/openai.ts` - MAX_TURNS: 10 → 25
+- `apps/server/src/services/chat-providers/google.ts` - MAX_TURNS: 10 → 25
+- `apps/server/src/services/chat-providers/moonshot.ts` - MAX_TURNS: 10 → 25
+- `apps/server/src/services/chat-providers/zhipu.ts` - MAX_TURNS: 10 → 25
+- `apps/server/src/services/chat-providers/openai-compatible.ts` - MAX_TURNS: 10 → 25
+- `apps/server/src/agent/agent.ts` - maxTokens: 4096 → 16384
+- `apps/server/src/routes/agent-stream.ts` - maxTokens: 4096 → 16384
+
+### Additional Fixes
+
+#### Claude CLI Runtime Fix
+
+Fixed ES module hoisting issue where `CLAUDE_CLI_PATH` was read before dotenv loaded:
+
+```typescript
+// Before (broken): Module-level constant evaluated at load time
+const CLAUDE_CLI_PATH = process.env.CLAUDE_CLI_PATH || 'claude';
+
+// After (fixed): Runtime function ensures dotenv has loaded
+function getClaudeCliPath(): string {
+  return process.env.CLAUDE_CLI_PATH || 'claude';
+}
+```
+
+#### Test Updates
+
+Updated tests to match current PROVIDER_INFO model names:
+
+| File | Fix |
+|------|-----|
+| `model-config-service.test.ts` | Updated `claude-3-5-haiku-20241022` → `claude-3-5-haiku-latest`, `gpt-4o` → `gpt-4.1-nano` |
+| `dynamic-tools-integration.test.ts` | Added `delete_collection` to sensitive tools assertion |
+
+### Verification
+
+| Check | Status |
+|-------|--------|
+| `pnpm --filter @synthesis/server typecheck` | ✅ PASS |
+| model-config-service.test.ts (32 tests) | ✅ PASS |
+| dynamic-tools-integration.test.ts (58 tests) | ✅ PASS |

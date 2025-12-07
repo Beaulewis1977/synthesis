@@ -129,8 +129,8 @@ export class OpenAIChatProvider implements ChatProvider {
     // Convert messages to OpenAI format (handles system prompt)
     const messages = this.prepareMessages(params);
 
-    // Manual tool execution loop (max 10 turns)
-    const MAX_TURNS = 10;
+    // Manual tool execution loop (max 25 turns)
+    const MAX_TURNS = 25;
     let turnCount = 0;
 
     while (turnCount < MAX_TURNS) {

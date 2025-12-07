@@ -513,6 +513,7 @@ describe('Sensitive Tool Gating', () => {
 
     expect(sensitiveTools).toContain('get_db_schema');
     expect(sensitiveTools).toContain('delete_document');
+    expect(sensitiveTools).toContain('delete_collection');
     expect(sensitiveTools).toHaveLength(3);
   });
 

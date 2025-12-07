@@ -216,47 +216,100 @@ const result = await query({
 
 ---
 
-### Phase 16G: Per-Chat Model Persistence & Selection
+### Phase 16G: Per-Chat Model Persistence & Dynamic Model Discovery
 
-**Goal:** Enable per-chat model/provider selection with persistence, allowing users to override global defaults for specific conversations.
+**Goal:** Enable per-chat model/provider selection with persistence, and implement dynamic model discovery for providers with dynamic model lists (especially Ollama).
 
 **Context:**
 Currently, the chat uses the global default model configured in Settings. Users want to switch models (e.g., use Claude 3.5 Sonnet for coding, GPT-4o for reasoning) within specific chats and have that choice remembered.
 
-**Plan:**
+**Issue Found:** The Settings page uses a hardcoded model list for Ollama, but Ollama models have dynamic names (e.g., `gpt-oss:20b-cloud`, `qwen3-coder:480b-cloud`). Users cannot select models that aren't in the hardcoded list.
+
+**Resolution Priority:**
+```
+Request Params (provider/model) → DB Session Values → Global Default (ModelConfigService)
+```
+
+**Implementation Steps:**
 
 1.  **Database Schema Update**
     *   Add `provider` and `model` columns to `chat_sessions` table.
     *   Migration: `packages/db/migrations/025_chat_session_models.sql`.
 
-2.  **API Updates**
-    *   Update `POST /api/agent/chat`: Accept `provider` and `model` in body.
-    *   Logic:
-        *   If params provided: Update session record in DB.
-        *   Resolution Priority: Request Params > DB Session Value > Global Default.
-    *   Update `GET /api/agent/sessions/:id` (or history endpoint): Return stored `provider` and `model`.
+2.  **Dynamic Ollama Model Discovery**
+    *   Add `GET /api/admin/models/ollama` endpoint to fetch models from Ollama API (`/api/tags`).
+    *   Update Settings UI to fetch and display actual Ollama models instead of hardcoded list.
+    *   Handle cloud models (`:cloud` suffix) and local models.
+    *   Show model size/family metadata from Ollama response.
+    *   Graceful fallback when Ollama offline.
 
-3.  **UI Implementation**
-    *   **Header**: Add `ModelSelector` dropdown to `ChatPage` header (reuse existing component).
-    *   **State**: Sync selector with active chat session.
-    *   **Flow**:
-        *   New Chat: Use Global Default.
-        *   Change Selector: Updates local state, sends new model on next message.
-        *   Load Chat: Restore selector from session data.
+3.  **Backend API Updates**
+    *   Update `POST /api/agent/chat` and `/api/agent/chat/stream`: Accept `provider` and `model` in body.
+    *   Resolution logic: Request Params → DB Session Value → Global Default.
+    *   Persist model selection to session when provided.
+    *   Modify `getConfiguredChatProvider()` to accept optional provider override.
+
+4.  **Database Query Updates**
+    *   Add `updateChatSessionModel()` function.
+    *   Add `getChatSessionWithModel()` function.
+    *   Update `ChatSession` interface with optional `provider` and `model` fields.
+
+5.  **Frontend - ChatModelSelector Component**
+    *   Create compact dropdown for chat header.
+    *   Groups models by provider (Anthropic, OpenAI, Ollama, etc.).
+    *   Fetches Ollama models dynamically via API.
+    *   Disabled during streaming.
+    *   Shows "Using default" badge when no override.
+
+6.  **ChatPage Integration**
+    *   Add model selector to header.
+    *   Wire state to streaming chat requests.
+    *   Restore model selection on session load.
+
+7.  **Settings Page Updates**
+    *   Fetch and display actual Ollama models instead of hardcoded list.
+    *   Loading spinner and error state handling.
+    *   Allow custom model input for unlisted models.
+
+**Files to Create:**
+*   `packages/db/migrations/025_chat_session_models.sql` - Schema update
+*   `apps/web/src/components/ChatModelSelector.tsx` - Model selector UI
+*   `apps/web/src/hooks/useOllamaModels.ts` - Ollama discovery hook
 
 **Files to Modify:**
-*   `packages/db/migrations/` (New SQL)
-*   `apps/server/src/routes/agent.ts` (Handle params, persist to DB)
-*   `apps/server/src/services/chat-history.ts` (DB accessors)
-*   `apps/web/src/pages/ChatPage.tsx` (Add selector)
-*   `apps/web/src/hooks/useChatSession.ts` (Load/save model state)
+*   `packages/db/src/queries.ts` - Add ChatSession type fields, update/get functions
+*   `apps/web/src/types/index.ts` - Mirror ChatSession type
+*   `apps/server/src/routes/admin/models.ts` - Add Ollama discovery endpoint
+*   `apps/server/src/routes/agent.ts` - Add provider/model params, resolution logic
+*   `apps/server/src/routes/agent-stream.ts` - Same as above
+*   `apps/server/src/services/chat-providers/index.ts` - Modify getConfiguredChatProvider
+*   `apps/web/src/pages/ChatPage.tsx` - Add model selector, wire state
+*   `apps/web/src/pages/settings/ModelsPage.tsx` - Dynamic Ollama models
+*   `apps/web/src/lib/api.ts` - Add model params to requests
+*   `apps/web/src/hooks/useStreamingChat.ts` - Add model params
+
+**Skills:** `synthesis-architecture`, `frontend-design`, `backend-development`, `saas-backend-stack`
+
+**Subagents:**
+- Wave 1 (Explore, 3 parallel): ChatPage patterns, DB queries, Ollama API
+- Wave 2 (Plan, 2 parallel): Backend architecture, Frontend architecture
+- Wave 3 (Implement, 6 parallel): DB migration, API routes, ChatModelSelector, ChatPage, Settings, Tests
+- Wave 4 (Review): `code-reviewer`, `doc-writer`
 
 **Estimated Commits:**
 1.  `feat(phase-16g): add provider/model columns to chat_sessions table`
-2.  `feat(phase-16g): update chat API to persist and use session-specific models`
-3.  `feat(phase-16g): add model selector to chat UI with persistence`
+2.  `feat(phase-16g): add Ollama model discovery endpoint`
+3.  `feat(phase-16g): update chat API to accept and persist session models`
+4.  `feat(phase-16g): create ChatModelSelector component`
+5.  `feat(phase-16g): integrate model selector into ChatPage`
+6.  `feat(phase-16g): update settings to show dynamic Ollama models`
+7.  `test(phase-16g): add model persistence integration tests`
 
-**Subagents:** `backend-dev` (Schema/API), `frontend-dev` (UI State)
+**Verification:**
+- [ ] `pnpm typecheck` after each step
+- [ ] `pnpm test` passes
+- [ ] Manual test: new chat → change model → reload → model persists
+- [ ] Test Ollama offline → graceful degradation
 
 ---
 

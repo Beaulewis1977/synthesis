@@ -154,8 +154,8 @@ export class GoogleChatProvider implements ChatProvider {
     // Convert messages to Google Content format
     const contents = this.prepareMessages(params);
 
-    // Manual tool execution loop (max 10 turns)
-    const MAX_TURNS = 10;
+    // Manual tool execution loop (max 25 turns)
+    const MAX_TURNS = 25;
     let turnCount = 0;
     const conversationHistory = [...contents];
 

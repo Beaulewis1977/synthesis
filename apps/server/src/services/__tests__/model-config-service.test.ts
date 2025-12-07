@@ -103,8 +103,8 @@ describe('ModelConfigService', () => {
 
   describe('isValidModelForProvider', () => {
     it('should validate models for anthropic', () => {
-      expect(isValidModelForProvider('anthropic', 'claude-3-5-haiku-20241022')).toBe(true);
-      expect(isValidModelForProvider('anthropic', 'claude-3-5-sonnet-20241022')).toBe(true);
+      expect(isValidModelForProvider('anthropic', 'claude-3-5-haiku-latest')).toBe(true);
+      expect(isValidModelForProvider('anthropic', 'claude-sonnet-4-5-20250929')).toBe(true);
       expect(isValidModelForProvider('anthropic', 'invalid-model')).toBe(false);
     });
 
@@ -128,7 +128,7 @@ describe('ModelConfigService', () => {
 
       expect(config.feature).toBe('chat');
       expect(config.provider).toBe('anthropic');
-      expect(config.model).toBe('claude-3-5-haiku-20241022');
+      expect(config.model).toBe('claude-3-5-haiku-latest');
       expect(config.source).toBe('default');
     });
 
@@ -139,7 +139,7 @@ describe('ModelConfigService', () => {
             id: '123',
             feature: 'chat',
             provider: 'openai',
-            model: 'gpt-4o',
+            model: 'gpt-4.1-nano',
             local_only: false,
             enabled: true,
             created_at: new Date(),
@@ -152,7 +152,7 @@ describe('ModelConfigService', () => {
       const config = await service.getConfig('chat');
 
       expect(config.provider).toBe('openai');
-      expect(config.model).toBe('gpt-4o');
+      expect(config.model).toBe('gpt-4.1-nano');
       expect(config.source).toBe('db');
     });
 
@@ -166,7 +166,7 @@ describe('ModelConfigService', () => {
             id: '123',
             feature: 'chat',
             provider: 'openai',
-            model: 'gpt-4o',
+            model: 'gpt-4.1-nano',
             local_only: false,
             enabled: true,
             created_at: new Date(),
@@ -274,12 +274,12 @@ describe('ModelConfigService', () => {
 
       await service.setConfig('chat', {
         provider: 'openai',
-        model: 'gpt-4o',
+        model: 'gpt-4.1-nano',
       });
 
       expect(mockPool.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO model_configs'),
-        expect.arrayContaining(['chat', 'openai', 'gpt-4o'])
+        expect.arrayContaining(['chat', 'openai', 'gpt-4.1-nano'])
       );
     });
 

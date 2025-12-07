@@ -143,8 +143,8 @@ export class MoonshotChatProvider implements ChatProvider {
     // Prepare extra_body for thinking mode
     const extraBody = this.prepareExtraBody(params.model);
 
-    // Manual tool execution loop (max 10 turns)
-    const MAX_TURNS = 10;
+    // Manual tool execution loop (max 25 turns)
+    const MAX_TURNS = 25;
     let turnCount = 0;
 
     while (turnCount < MAX_TURNS) {

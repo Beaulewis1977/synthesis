@@ -145,7 +145,7 @@ export const agentStreamRoutes: FastifyPluginAsync = async (fastify) => {
         model: chatConfig.model,
         systemPrompt,
         tools: chatTools,
-        maxTokens: 4096,
+        maxTokens: 16384,
       })) {
         handleStreamChunk(reply, chunk, toolCalls);
 
