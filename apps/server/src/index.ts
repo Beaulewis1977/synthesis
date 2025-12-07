@@ -21,6 +21,7 @@ import Fastify from 'fastify';
 import { apiKeyRoutes } from './routes/admin/api-keys.js';
 import { adminModelRoutes } from './routes/admin/models.js';
 import { registerProfileRoutes } from './routes/admin/profiles.js';
+import { providerSettingsRoutes } from './routes/admin/provider-settings.js';
 import { agentIngestionRoutes } from './routes/agent-ingestion.js';
 import { agentStreamRoutes } from './routes/agent-stream.js';
 import { agentRoutes } from './routes/agent.js';
@@ -106,6 +107,7 @@ await fastify.register(graphRoutes);
 await fastify.register(adminModelRoutes, { prefix: '/api/admin/models' });
 await fastify.register(registerProfileRoutes, { prefix: '/api/admin' });
 await fastify.register(apiKeyRoutes, { prefix: '/api/admin/api-keys' });
+await fastify.register(providerSettingsRoutes, { prefix: '/api/admin/provider-settings' });
 await registerMetricsRoute(fastify);
 
 /**

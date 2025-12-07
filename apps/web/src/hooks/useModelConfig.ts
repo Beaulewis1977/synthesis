@@ -226,6 +226,70 @@ export function useTestApiKey() {
 }
 
 // ============================================
+// Provider Settings Hooks (Phase 16G)
+// ============================================
+
+export const providerSettingsKeys = {
+  all: ['providerSettings'] as const,
+  provider: (provider: string) => ['providerSettings', provider] as const,
+};
+
+/**
+ * Hook to fetch all provider settings
+ */
+export function useProviderSettings() {
+  return useQuery({
+    queryKey: providerSettingsKeys.all,
+    queryFn: () => apiClient.getProviderSettings(),
+    staleTime: 30 * 1000,
+  });
+}
+
+/**
+ * Hook to fetch settings for a specific provider
+ */
+export function useProviderSettingsFor(provider: string) {
+  return useQuery({
+    queryKey: providerSettingsKeys.provider(provider),
+    queryFn: () => apiClient.getProviderSettingsFor(provider),
+    enabled: !!provider,
+    staleTime: 30 * 1000,
+  });
+}
+
+/**
+ * Hook to set a provider setting
+ */
+export function useSetProviderSetting() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ provider, key, value }: { provider: string; key: string; value: string }) =>
+      apiClient.setProviderSetting(provider, key, value),
+    onSuccess: (_data, { provider }) => {
+      queryClient.invalidateQueries({ queryKey: providerSettingsKeys.all });
+      queryClient.invalidateQueries({ queryKey: providerSettingsKeys.provider(provider) });
+    },
+  });
+}
+
+/**
+ * Hook to delete a provider setting
+ */
+export function useDeleteProviderSetting() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ provider, key }: { provider: string; key: string }) =>
+      apiClient.deleteProviderSetting(provider, key),
+    onSuccess: (_data, { provider }) => {
+      queryClient.invalidateQueries({ queryKey: providerSettingsKeys.all });
+      queryClient.invalidateQueries({ queryKey: providerSettingsKeys.provider(provider) });
+    },
+  });
+}
+
+// ============================================
 // Helper Types and Constants
 // ============================================
 

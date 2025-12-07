@@ -111,6 +111,11 @@ class ApiClient {
         throw error;
       }
 
+      // Handle 204 No Content (e.g., DELETE operations)
+      if (response.status === 204) {
+        return undefined as T;
+      }
+
       return response.json();
     } catch (error) {
       if (error instanceof Error) {
@@ -859,6 +864,61 @@ class ApiClient {
       `/api/admin/api-keys/${encodeURIComponent(provider)}/test`,
       {
         method: 'POST',
+      }
+    );
+  }
+
+  // ============================================
+  // Provider Settings (Phase 16G)
+  // ============================================
+
+  /**
+   * Get all provider settings.
+   */
+  async getProviderSettings(): Promise<{
+    settings: Array<{ provider: string; settingKey: string; settingValue: string }>;
+  }> {
+    return this.request<{
+      settings: Array<{ provider: string; settingKey: string; settingValue: string }>;
+    }>('/api/admin/provider-settings');
+  }
+
+  /**
+   * Get settings for a specific provider.
+   */
+  async getProviderSettingsFor(
+    provider: string
+  ): Promise<{ provider: string; settings: Record<string, string> }> {
+    return this.request<{ provider: string; settings: Record<string, string> }>(
+      `/api/admin/provider-settings/${encodeURIComponent(provider)}`
+    );
+  }
+
+  /**
+   * Set a provider setting.
+   */
+  async setProviderSetting(
+    provider: string,
+    key: string,
+    value: string
+  ): Promise<{ message: string; provider: string; key: string; value: string }> {
+    return this.request<{ message: string; provider: string; key: string; value: string }>(
+      `/api/admin/provider-settings/${encodeURIComponent(provider)}/${encodeURIComponent(key)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ value }),
+      }
+    );
+  }
+
+  /**
+   * Delete a provider setting.
+   */
+  async deleteProviderSetting(provider: string, key: string): Promise<void> {
+    return this.request<void>(
+      `/api/admin/provider-settings/${encodeURIComponent(provider)}/${encodeURIComponent(key)}`,
+      {
+        method: 'DELETE',
       }
     );
   }

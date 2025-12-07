@@ -459,3 +459,142 @@ export function getApiKeyService(db: Pool): ApiKeyService {
   }
   return apiKeyService;
 }
+
+// ============================================================================
+// Provider Settings Service
+// ============================================================================
+
+/**
+ * Provider setting value
+ */
+export interface ProviderSetting {
+  provider: string;
+  settingKey: string;
+  settingValue: string;
+}
+
+/**
+ * Provider Settings Service
+ *
+ * Manages provider-specific configuration settings (e.g., Z.AI coding plan endpoint).
+ * Settings are stored in the provider_settings table.
+ */
+export class ProviderSettingsService {
+  constructor(private db: Pool) {}
+
+  /**
+   * Get a specific setting for a provider
+   */
+  async getSetting(provider: string, settingKey: string): Promise<string | null> {
+    try {
+      const result = await this.db.query<{ setting_value: string }>(
+        'SELECT setting_value FROM provider_settings WHERE provider = $1 AND setting_key = $2',
+        [provider, settingKey]
+      );
+      return result.rows[0]?.setting_value ?? null;
+    } catch (error) {
+      // Table might not exist yet, return null
+      console.error(`Failed to get provider setting ${provider}.${settingKey}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get all settings for a provider
+   */
+  async getProviderSettings(provider: string): Promise<Record<string, string>> {
+    try {
+      const result = await this.db.query<{ setting_key: string; setting_value: string }>(
+        'SELECT setting_key, setting_value FROM provider_settings WHERE provider = $1',
+        [provider]
+      );
+      const settings: Record<string, string> = {};
+      for (const row of result.rows) {
+        settings[row.setting_key] = row.setting_value;
+      }
+      return settings;
+    } catch (error) {
+      console.error(`Failed to get settings for provider ${provider}:`, error);
+      return {};
+    }
+  }
+
+  /**
+   * Get all provider settings
+   */
+  async getAllSettings(): Promise<ProviderSetting[]> {
+    try {
+      const result = await this.db.query<{
+        provider: string;
+        setting_key: string;
+        setting_value: string;
+      }>(
+        'SELECT provider, setting_key, setting_value FROM provider_settings ORDER BY provider, setting_key'
+      );
+      return result.rows.map((row) => ({
+        provider: row.provider,
+        settingKey: row.setting_key,
+        settingValue: row.setting_value,
+      }));
+    } catch (error) {
+      console.error('Failed to get all provider settings:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Set a setting for a provider
+   */
+  async setSetting(provider: string, settingKey: string, settingValue: string): Promise<void> {
+    try {
+      await this.db.query(
+        `INSERT INTO provider_settings (provider, setting_key, setting_value, updated_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (provider, setting_key) DO UPDATE SET
+           setting_value = EXCLUDED.setting_value,
+           updated_at = NOW()`,
+        [provider, settingKey, settingValue]
+      );
+    } catch (error) {
+      console.error(`Failed to set provider setting ${provider}.${settingKey}:`, error);
+      throw new Error(
+        `Failed to store setting for provider ${provider}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
+   * Delete a setting for a provider
+   */
+  async deleteSetting(provider: string, settingKey: string): Promise<void> {
+    try {
+      await this.db.query(
+        'DELETE FROM provider_settings WHERE provider = $1 AND setting_key = $2',
+        [provider, settingKey]
+      );
+    } catch (error) {
+      console.error(`Failed to delete provider setting ${provider}.${settingKey}:`, error);
+      throw new Error(
+        `Failed to delete setting for provider ${provider}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
+   * Check if Z.AI coding plan endpoint is enabled
+   */
+  async isZhipuCodingPlanEnabled(): Promise<boolean> {
+    const value = await this.getSetting('zhipu', 'use_coding_plan');
+    return value === 'true';
+  }
+}
+
+// Singleton instance
+let providerSettingsService: ProviderSettingsService | null = null;
+
+export function getProviderSettingsService(db: Pool): ProviderSettingsService {
+  if (!providerSettingsService) {
+    providerSettingsService = new ProviderSettingsService(db);
+  }
+  return providerSettingsService;
+}

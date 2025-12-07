@@ -13,6 +13,7 @@ import type {
 } from 'openai/resources/chat/completions.js';
 import type { Pool } from 'pg';
 import { buildAgentTools } from '../../agent/tools.js';
+import { getProviderSettingsService } from '../api-key-service.js';
 import { mapOpenAIStopReason, toOpenAIMessages, toOpenAITool } from './adapters.js';
 import { getProviderApiKey } from './index.js';
 import { ensureRegistryInitialized, getSessionAgentTools } from './registry-bridge.js';
@@ -116,10 +117,20 @@ export class ZhipuChatProvider implements ChatProvider {
       );
     }
 
-    // Create OpenAI client with Zhipu endpoint
+    // Check if coding plan endpoint is enabled
+    const settingsService = getProviderSettingsService(this.db);
+    const useCodingPlan = await settingsService.isZhipuCodingPlanEnabled();
+
+    // Create OpenAI client with appropriate Zhipu endpoint
+    // Standard API: https://api.z.ai/api/paas/v4
+    // Coding Plan: https://api.z.ai/api/coding/paas/v4 (subscription-based)
+    const baseURL = useCodingPlan
+      ? 'https://api.z.ai/api/coding/paas/v4'
+      : 'https://api.z.ai/api/paas/v4';
+
     const client = new OpenAI({
       apiKey,
-      baseURL: 'https://api.z.ai/api/paas/v4',
+      baseURL,
     });
 
     // Initialize registry and build tools filtered by session

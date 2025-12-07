@@ -753,6 +753,30 @@ EMBEDDING_CACHE_MAX_ITEMS=2000
 - **Usage:** High-quality result re-ranking
 - **Environment Variable:** `COHERE_API_KEY`
 
+### Google AI (Gemini)
+- **Required:** No (optional chat provider)
+- **Signup:** [aistudio.google.com](https://aistudio.google.com)
+- **Pricing:** Gemini 2.5 Flash: $0.075 per 1M input tokens
+- **Usage:** Alternative chat provider with 1M context window
+- **Environment Variable:** `GOOGLE_API_KEY`
+
+### Z.AI (Zhipu GLM)
+- **Required:** No (optional chat provider)
+- **Signup:** [z.ai/model-api](https://z.ai/model-api)
+- **Pricing:**
+  - Pay-per-use API: Credit-based
+  - Coding Plan subscription: $3-$60/month (prompts per 5hr cycle)
+- **Usage:** GLM-4.6 chat with 128K context, tool support
+- **Environment Variable:** `ZHIPU_API_KEY`
+- **Settings:** Toggle "Use Coding Plan Endpoint" in Settings > API Keys to use subscription
+
+### Moonshot (Kimi)
+- **Required:** No (optional chat provider)
+- **Signup:** [platform.moonshot.ai](https://platform.moonshot.ai) (international) or [platform.moonshot.cn](https://platform.moonshot.cn) (China)
+- **Pricing:** Credit-based
+- **Usage:** Kimi K2 chat with 256K context, thinking mode support
+- **Environment Variable:** `MOONSHOT_API_KEY`
+
 ### Ollama (Local)
 - **Required:** No (local embeddings and chat)
 - **Installation:** [ollama.com](https://ollama.com)

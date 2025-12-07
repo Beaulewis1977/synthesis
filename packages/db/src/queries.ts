@@ -193,6 +193,15 @@ export async function deleteCollection(id: string, client?: PoolClient): Promise
   await queryFn('DELETE FROM collections WHERE id = $1', [id]);
 }
 
+/**
+ * Updates a collection's updated_at timestamp to NOW().
+ * Call this when any activity occurs in a collection (document upload, chat, etc.)
+ * @param collectionId The UUID of the collection to touch.
+ */
+export async function touchCollection(collectionId: string): Promise<void> {
+  await query('UPDATE collections SET updated_at = NOW() WHERE id = $1', [collectionId]);
+}
+
 // Document queries
 /**
  * Retrieves all documents within a specific collection, ordered by creation date.
@@ -255,6 +264,10 @@ export async function createDocument(doc: {
       doc.source_url || null,
     ]
   );
+
+  // Update collection's updated_at timestamp
+  await touchCollection(doc.collection_id);
+
   return result.rows[0] as Document;
 }
 
@@ -435,8 +448,16 @@ export async function addChatMessage(
     [sessionId, role, content, JSON.stringify(metadata || {})]
   );
 
-  // Update session updated_at
-  await query('UPDATE chat_sessions SET updated_at = NOW() WHERE id = $1', [sessionId]);
+  // Update session updated_at and get collection_id
+  const sessionResult = await query(
+    'UPDATE chat_sessions SET updated_at = NOW() WHERE id = $1 RETURNING collection_id',
+    [sessionId]
+  );
+
+  // Update collection's updated_at timestamp
+  if (sessionResult.rows[0]?.collection_id) {
+    await touchCollection(sessionResult.rows[0].collection_id);
+  }
 
   return result.rows[0] as ChatMessage;
 }

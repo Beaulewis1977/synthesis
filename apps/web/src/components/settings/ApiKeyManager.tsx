@@ -3,6 +3,7 @@
  *
  * Phase 6: Manage API keys for various providers.
  * Allows setting, testing, and deleting API keys.
+ * Phase 16G: Added provider settings (e.g., Z.AI coding plan toggle).
  */
 
 import {
@@ -13,6 +14,7 @@ import {
   EyeOff,
   Key,
   Loader2,
+  Settings2,
   Trash2,
   XCircle,
 } from 'lucide-react';
@@ -21,7 +23,9 @@ import {
   PROVIDER_DISPLAY_NAMES,
   useApiKeyStatus,
   useDeleteApiKey,
+  useProviderSettings,
   useSetApiKey,
+  useSetProviderSetting,
   useTestApiKey,
 } from '../../hooks/useModelConfig';
 
@@ -194,15 +198,77 @@ function ApiKeyInput({
   );
 }
 
+/**
+ * Toggle component for provider settings
+ */
+function ProviderSettingToggle({
+  label,
+  description,
+  currentValue,
+  onToggle,
+  isUpdating,
+}: {
+  label: string;
+  description: string;
+  currentValue: boolean;
+  onToggle: (value: boolean) => void;
+  isUpdating: boolean;
+}) {
+  return (
+    <div className="p-md border border-border rounded-lg bg-bg-secondary/50">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-sm">
+          <Settings2 size={16} className="text-accent" />
+          <div>
+            <span className="font-medium text-text-primary text-sm">{label}</span>
+            <p className="text-xs text-text-secondary mt-xs">{description}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => onToggle(!currentValue)}
+          disabled={isUpdating}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            currentValue ? 'bg-accent' : 'bg-gray-300'
+          } ${isUpdating ? 'opacity-50' : ''}`}
+          aria-label={`Toggle ${label}`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              currentValue ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ApiKeyManager() {
   const { data, isLoading, error } = useApiKeyStatus();
+  const { data: settingsData } = useProviderSettings();
   const setApiKeyMutation = useSetApiKey();
   const deleteApiKeyMutation = useDeleteApiKey();
   const testApiKeyMutation = useTestApiKey();
+  const setProviderSettingMutation = useSetProviderSetting();
 
   const [testResults, setTestResults] = useState<
     Record<string, { valid: boolean; message: string }>
   >({});
+
+  // Get Zhipu coding plan setting
+  const zhipuCodingPlan =
+    settingsData?.settings?.find(
+      (s) => s.provider === 'zhipu' && s.settingKey === 'use_coding_plan'
+    )?.settingValue === 'true';
+
+  const handleZhipuCodingPlanToggle = async (value: boolean) => {
+    await setProviderSettingMutation.mutateAsync({
+      provider: 'zhipu',
+      key: 'use_coding_plan',
+      value: value.toString(),
+    });
+  };
 
   if (isLoading) {
     return (
@@ -269,26 +335,59 @@ export function ApiKeyManager() {
 
       <div className="space-y-sm">
         {sortedKeys.map((key) => (
-          <ApiKeyInput
-            key={key.provider}
-            provider={key.provider}
-            envVar={key.envVar}
-            configured={key.configured}
-            maskedValue={key.maskedValue}
-            onSave={(apiKey) => handleSave(key.provider, apiKey)}
-            onDelete={() => handleDelete(key.provider)}
-            onTest={() => handleTest(key.provider)}
-            isSaving={
-              setApiKeyMutation.isPending && setApiKeyMutation.variables?.provider === key.provider
-            }
-            isDeleting={
-              deleteApiKeyMutation.isPending && deleteApiKeyMutation.variables === key.provider
-            }
-            isTesting={
-              testApiKeyMutation.isPending && testApiKeyMutation.variables === key.provider
-            }
-            testResult={testResults[key.provider]}
-          />
+          <div key={key.provider}>
+            <ApiKeyInput
+              provider={key.provider}
+              envVar={key.envVar}
+              configured={key.configured}
+              maskedValue={key.maskedValue}
+              onSave={(apiKey) => handleSave(key.provider, apiKey)}
+              onDelete={() => handleDelete(key.provider)}
+              onTest={() => handleTest(key.provider)}
+              isSaving={
+                setApiKeyMutation.isPending &&
+                setApiKeyMutation.variables?.provider === key.provider
+              }
+              isDeleting={
+                deleteApiKeyMutation.isPending && deleteApiKeyMutation.variables === key.provider
+              }
+              isTesting={
+                testApiKeyMutation.isPending && testApiKeyMutation.variables === key.provider
+              }
+              testResult={testResults[key.provider]}
+            />
+            {/* Z.AI (Zhipu) specific settings */}
+            {key.provider === 'zhipu' && key.configured && (
+              <div className="mt-sm ml-md space-y-sm">
+                <ProviderSettingToggle
+                  label="Use Coding Plan Endpoint"
+                  description="Enable to use your Z.AI Coding Plan subscription ($3-$60/mo) instead of pay-per-use API credits."
+                  currentValue={zhipuCodingPlan}
+                  onToggle={handleZhipuCodingPlanToggle}
+                  isUpdating={setProviderSettingMutation.isPending}
+                />
+                {/* Endpoint indicator */}
+                <div
+                  className={`text-xs px-sm py-xs rounded inline-flex items-center gap-xs ${
+                    zhipuCodingPlan ? 'bg-accent/10 text-accent' : 'bg-gray-100 text-text-secondary'
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${zhipuCodingPlan ? 'bg-accent' : 'bg-gray-400'}`}
+                  />
+                  {zhipuCodingPlan ? (
+                    <span>
+                      Using: <code className="font-mono">/api/coding/</code> (Subscription)
+                    </span>
+                  ) : (
+                    <span>
+                      Using: <code className="font-mono">/api/paas/</code> (Pay-per-use)
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         ))}
       </div>
 
