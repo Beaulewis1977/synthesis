@@ -28,6 +28,8 @@ export interface AgentChatParams {
   message: string;
   collectionId: string;
   history?: AgentConversationMessage[];
+  /** Optional session ID for dynamic tool filtering (Phase 16F) */
+  sessionId?: string;
 }
 
 export interface AgentToolCall {
@@ -142,7 +144,10 @@ function buildChatTools(db: Pool, context: ToolContext): ChatTool[] {
  * - Ollama: Basic chat without tools
  */
 export async function runAgentChat(db: Pool, params: AgentChatParams): Promise<AgentChatResult> {
-  const context: ToolContext = { collectionId: params.collectionId };
+  const context: ToolContext = {
+    collectionId: params.collectionId,
+    sessionId: params.sessionId, // Phase 16F: Pass session ID for dynamic tool filtering
+  };
   const history = params.history ?? [];
 
   // Get the configured chat provider
@@ -178,7 +183,7 @@ export async function runAgentChat(db: Pool, params: AgentChatParams): Promise<A
       model: chatConfig.model,
       systemPrompt,
       tools: chatTools,
-      maxTokens: 4096,
+      maxTokens: 16384,
     });
 
     // Build updated conversation history

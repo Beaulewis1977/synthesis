@@ -22,6 +22,7 @@ import type { Pool } from 'pg';
 import { buildAgentTools } from '../../agent/tools.js';
 import { mapOpenAIStopReason, toOpenAIMessages, toOpenAITool } from './adapters.js';
 import { getProviderApiKey } from './index.js';
+import { ensureRegistryInitialized, getSessionAgentTools } from './registry-bridge.js';
 import type {
   ChatParams,
   ChatProvider,
@@ -37,7 +38,7 @@ import type {
  * Moonshot Chat Provider Implementation
  *
  * Key features:
- * - Manual tool execution loop (max 10 turns)
+ * - Manual tool execution loop (max 25 turns)
  * - OpenAI-compatible API at api.moonshot.cn
  * - Thinking mode for reasoning models (adds extra_body parameter)
  * - Uses standard OpenAI function calling format
@@ -125,8 +126,11 @@ export class MoonshotChatProvider implements ChatProvider {
       baseURL: 'https://api.moonshot.cn/v1',
     });
 
-    // Build tools and executors
-    const { toolExecutors } = buildAgentTools(this.db, this.context);
+    // Initialize registry and build tools filtered by session
+    ensureRegistryInitialized();
+    const { toolExecutors } = this.context.sessionId
+      ? getSessionAgentTools(this.db, this.context)
+      : buildAgentTools(this.db, this.context);
 
     // Convert tools to OpenAI format
     const openaiTools: ChatCompletionTool[] | undefined = params.tools
@@ -139,8 +143,8 @@ export class MoonshotChatProvider implements ChatProvider {
     // Prepare extra_body for thinking mode
     const extraBody = this.prepareExtraBody(params.model);
 
-    // Manual tool execution loop (max 10 turns)
-    const MAX_TURNS = 10;
+    // Manual tool execution loop (max 25 turns)
+    const MAX_TURNS = 25;
     let turnCount = 0;
 
     while (turnCount < MAX_TURNS) {

@@ -209,134 +209,107 @@ const result = await query({
 **Subagents:** `context7-docs-fetcher` (latest SDK docs), `test-writer`, `code-reviewer`
 
 ### Phase 16F: Dynamic Tool Registry & Advanced Toolpacks
-**Goal:** Restore full tool parity (22+ tools) and optimize context usage by porting the dynamic registry pattern to the new `ChatProvider` architecture.
 
-**Context:** The old MCP server (Phase 6) had 20+ tools organized in packs (Mobile, Introspection, Graphing) but only exposed a small set of "Gateway" tools initially to save context tokens. The new `claude-agent-sdk` implementation in Phase 16A exposes only the 9 Core tools and lacks this dynamic capability.
+**Goal:** Restore full tool parity (22+ tools) and optimize context usage by porting the dynamic registry pattern to the ChatProvider architecture.
 
-**Plan:**
-1.  **Port Advanced Toolpacks**: Move logic from `apps/mcp` to `apps/server/src/agent/tools/`:
-    -   `mobile-core/`: `search_mobile_docs`, `find_code_examples`, `get_feature_recipe`
-    -   `introspection/`: `get_project_tech_stack`, `get_db_schema`, `find_symbol_usages`
-    -   `graphing/`: `graph_expand_context`
-2.  **Implement Server-Side Dynamic Registry**: Create `apps/server/src/services/tool-registry.ts` to manage tool visibility based on session state.
-3.  **Implement Gateway Tools**:
-    -   `discover_tools`: Lists available toolpacks (low token cost).
-    -   `enable_tools`: Dynamically updates the session's enabled tool list.
-4.  **Update Chat Logic**: Refactor `agent.ts` to re-generate the `tools` array passed to the provider whenever `enable_tools` is called, allowing the agent to "expand" its capabilities mid-conversation.
-
-**Skills:** `synthesis-architecture`, `backend-development`, `agentic-design`
-**Subagents:** `Plan` (registry design), `test-writer` (dynamic flow tests)
-
-### Cross-Phase Resources
-**Throughout all phases:**
-- `git-github-workflow-manager` - PR creation and management
-- `doc-writer` - Update docs after each phase
-- `brainstorming` - Design decisions when multiple approaches exist
-- `planning` - Break down complex tasks
+**Status:** COMPLETE ✅
 
 ---
 
-## Technical Details
+### Phase 16G: Per-Chat Model Persistence & Dynamic Model Discovery
 
-### Provider Interface (Draft)
+**Goal:** Enable per-chat model/provider selection with persistence, and implement dynamic model discovery for providers with dynamic model lists (especially Ollama).
 
-```typescript
-interface ChatProvider {
-  name: string;
-  supportsTools: boolean;
-  supportsStreaming: boolean;
+**Context:**
+Currently, the chat uses the global default model configured in Settings. Users want to switch models (e.g., use Claude 3.5 Sonnet for coding, GPT-4o for reasoning) within specific chats and have that choice remembered.
 
-  chat(params: ChatParams): Promise<ChatResponse>;
-  streamChat(params: ChatParams): AsyncGenerator<ChatChunk>;
-}
+**Issue Found:** The Settings page uses a hardcoded model list for Ollama, but Ollama models have dynamic names (e.g., `gpt-oss:20b-cloud`, `qwen3-coder:480b-cloud`). Users cannot select models that aren't in the hardcoded list.
 
-interface ChatParams {
-  messages: Message[];
-  model: string;
-  tools?: Tool[];
-  maxTokens?: number;
-  temperature?: number;
-}
-
-interface ChatResponse {
-  content: string;
-  toolCalls?: ToolCall[];
-  usage: TokenUsage;
-  model: string;
-  provider: string;
-}
-```
-
-### SSE Streaming Format
-
+**Resolution Priority:**
 ```text
-event: token
-data: {"content": "Hello"}
-
-event: tool_start
-data: {"tool": "search_rag", "input": {...}}
-
-event: tool_end
-data: {"tool": "search_rag", "output": {...}}
-
-event: done
-data: {"usage": {...}}
+Request Params (provider/model) → DB Session Values → Global Default (ModelConfigService)
 ```
 
-### Config Integration
+**Implementation Steps:**
 
-The `ModelConfigService` already supports:
-- Provider selection per feature (chat, embedding, etc.)
-- API key storage
-- Model selection per provider
+1.  **Database Schema Update**
+    *   Add `provider` and `model` columns to `chat_sessions` table.
+    *   Migration: `packages/db/migrations/025_chat_session_models.sql`.
 
-We'll use `getConfig('chat')` to get the active chat provider.
+2.  **Dynamic Ollama Model Discovery**
+    *   Add `GET /api/admin/models/ollama` endpoint to fetch models from Ollama API (`/api/tags`).
+    *   Update Settings UI to fetch and display actual Ollama models instead of hardcoded list.
+    *   Handle cloud models (`:cloud` suffix) and local models.
+    *   Show model size/family metadata from Ollama response.
+    *   Graceful fallback when Ollama offline.
 
----
+3.  **Backend API Updates**
+    *   Update `POST /api/agent/chat` and `/api/agent/chat/stream`: Accept `provider` and `model` in body.
+    *   Resolution logic: Request Params → DB Session Value → Global Default.
+    *   Persist model selection to session when provided.
+    *   Modify `getConfiguredChatProvider()` to accept optional provider override.
 
-## Files to Create
+4.  **Database Query Updates**
+    *   Add `updateChatSessionModel()` function.
+    *   Add `getChatSessionWithModel()` function.
+    *   Update `ChatSession` interface with optional `provider` and `model` fields.
 
-```text
-apps/server/src/
-├── services/
-│   └── chat-providers/
-│       ├── index.ts           # Provider registry
-│       ├── types.ts           # Interfaces
-│       ├── anthropic.ts       # Anthropic provider
-│       ├── openai.ts          # OpenAI provider
-│       ├── ollama.ts          # Ollama provider
-│       ├── google.ts          # Google AI provider
-│       └── openai-compatible.ts # Base for GLM, Kimi
-├── routes/
-│   └── agent-stream.ts        # SSE streaming endpoint
+5.  **Frontend - ChatModelSelector Component**
+    *   Create compact dropdown for chat header.
+    *   Groups models by provider (Anthropic, OpenAI, Ollama, etc.).
+    *   Fetches Ollama models dynamically via API.
+    *   Disabled during streaming.
+    *   Shows "Using default" badge when no override.
 
-apps/web/src/
-├── hooks/
-│   └── useStreamingChat.ts    # SSE client hook
-├── components/
-│   └── StreamingMessage.tsx   # Token-by-token display
-```
+6.  **ChatPage Integration**
+    *   Add model selector to header.
+    *   Wire state to streaming chat requests.
+    *   Restore model selection on session load.
 
----
+7.  **Settings Page Updates**
+    *   Fetch and display actual Ollama models instead of hardcoded list.
+    *   Loading spinner and error state handling.
+    *   Allow custom model input for unlisted models.
 
-## Risk Assessment
+**Files to Create:**
+*   `packages/db/migrations/025_chat_session_models.sql` - Schema update
+*   `apps/web/src/components/ChatModelSelector.tsx` - Model selector UI
+*   `apps/web/src/hooks/useOllamaModels.ts` - Ollama discovery hook
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Claude SDK WSL2 still fails | Medium | Medium | Docker fallback ready |
-| Tool format incompatibility | Low | Medium | Graceful degradation to simple chat |
-| Streaming complexity | Low | Low | Can ship non-streaming first |
-| GLM/Kimi API differences | Medium | Low | They're P2, can skip if problematic |
+**Files to Modify:**
+*   `packages/db/src/queries.ts` - Add ChatSession type fields, update/get functions
+*   `apps/web/src/types/index.ts` - Mirror ChatSession type
+*   `apps/server/src/routes/admin/models.ts` - Add Ollama discovery endpoint
+*   `apps/server/src/routes/agent.ts` - Add provider/model params, resolution logic
+*   `apps/server/src/routes/agent-stream.ts` - Same as above
+*   `apps/server/src/services/chat-providers/index.ts` - Modify getConfiguredChatProvider
+*   `apps/web/src/pages/ChatPage.tsx` - Add model selector, wire state
+*   `apps/web/src/pages/settings/ModelsPage.tsx` - Dynamic Ollama models
+*   `apps/web/src/lib/api.ts` - Add model params to requests
+*   `apps/web/src/hooks/useStreamingChat.ts` - Add model params
 
----
+**Skills:** `synthesis-architecture`, `frontend-design`, `backend-development`, `saas-backend-stack`
 
-## Success Criteria
+**Subagents:**
+- Wave 1 (Explore, 3 parallel): ChatPage patterns, DB queries, Ollama API
+- Wave 2 (Plan, 2 parallel): Backend architecture, Frontend architecture
+- Wave 3 (Implement, 6 parallel): DB migration, API routes, ChatModelSelector, ChatPage, Settings, Tests
+- Wave 4 (Review): `code-reviewer`, `doc-writer`
 
-1. Can switch between Ollama/Anthropic/OpenAI in UI and chat works
-2. Messages appear immediately with loading indicator
-3. Streaming tokens display in real-time
-4. RAG tools work with Anthropic and OpenAI
-5. Existing functionality unchanged
+**Estimated Commits:**
+1.  `feat(phase-16g): add provider/model columns to chat_sessions table`
+2.  `feat(phase-16g): add Ollama model discovery endpoint`
+3.  `feat(phase-16g): update chat API to accept and persist session models`
+4.  `feat(phase-16g): create ChatModelSelector component`
+5.  `feat(phase-16g): integrate model selector into ChatPage`
+6.  `feat(phase-16g): update settings to show dynamic Ollama models`
+7.  `test(phase-16g): add model persistence integration tests`
+
+**Verification:**
+- [ ] `pnpm typecheck` after each step
+- [ ] `pnpm test` passes
+- [ ] Manual test: new chat → change model → reload → model persists
+- [ ] Test Ollama offline → graceful degradation
 
 ---
 
@@ -358,45 +331,31 @@ Each sub-phase (16A, 16B, etc.) gets its own commits. Group related changes:
 | 16D: Tool Adapters | 1-2 commits (adapters + tests) | Single PR |
 | 16E: Additional Providers | 1 commit per provider | Single PR |
 | 16F: Dynamic Tools | 3-4 commits (registry + gateway tools) | Single PR |
+| 16G: Model Persistence | 2-3 commits (schema + api + ui) | Single PR |
 
 ### Workflow Steps
 
 1. **Start work on a sub-phase:**
    ```bash
    git checkout develop && git pull
-   git checkout -b feature/phase-16-multi-provider-chat
+   git checkout -b feature/phase-16g-model-persistence
    ```
 
 2. **Commit logical units of work:**
    ```bash
-   # After completing provider interface
-   git add -A && git commit -m "feat(phase-16a): add ChatProvider interface and types"
+   # After completing schema
+   git add -A && git commit -m "feat(phase-16g): add provider/model columns to chat_sessions table"
 
-   # After completing Anthropic provider
-   git add -A && git commit -m "feat(phase-16b): implement AnthropicChatProvider"
+   # After completing API
+   git add -A && git commit -m "feat(phase-16g): update chat API to persist and use session-specific models"
    ```
 
 3. **Push and create PR when sub-phase complete:**
    ```bash
-   git push -u origin feature/phase-16-multi-provider-chat
-   gh pr create --base develop --title "feat(phase-16a): foundation and provider interface"
+   git push -u origin feature/phase-16g-model-persistence
+   gh pr create --base develop --title "feat(phase-16g): per-chat model persistence and selection"
    ```
 
-4. **After PR merge, continue on same branch or create new:**
-   ```bash
-   git checkout develop && git pull
-   # Continue on same branch for related work, or create new branch
-   ```
-
-### Commit Message Format
-```text
-feat(phase-16X): short description
-
-- Detail 1
-- Detail 2
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
 
 ---
 

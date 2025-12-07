@@ -31,6 +31,8 @@ const SUMMARIZE_DOCUMENT_TOOL_NAME = 'summarize_document';
 
 export interface ToolContext {
   collectionId: string;
+  /** Optional session ID for dynamic tool filtering (Phase 16F) */
+  sessionId?: string;
 }
 
 type ToolExecutor = (input: unknown) => Promise<string>;

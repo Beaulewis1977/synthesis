@@ -79,6 +79,7 @@ export const agentRoutes: FastifyPluginAsync = async (fastify) => {
         message: body.message,
         collectionId: body.collection_id,
         history: body.history ?? [],
+        sessionId: body.session_id, // Phase 16F: Pass session ID for dynamic tool filtering
       });
 
       // If session_id is provided, persist the conversation

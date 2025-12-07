@@ -520,7 +520,7 @@ describe('GoogleChatProvider', () => {
   // ===========================================================================
 
   describe('max turns limit', () => {
-    it('should reach max turns (10) and complete', async () => {
+    it('should reach max turns (25) and complete', async () => {
       const toolExecutors = createMockToolExecutors();
       mockBuildAgentTools.mockReturnValue({
         tools: [],
@@ -560,8 +560,8 @@ describe('GoogleChatProvider', () => {
         ],
       });
 
-      // Should have called 10 times (max turns limit)
-      expect(mockGenerateContentStream).toHaveBeenCalledTimes(10);
+      // Should have called 25 times (max turns limit)
+      expect(mockGenerateContentStream).toHaveBeenCalledTimes(25);
       // Should complete gracefully with end_turn after max turns
       expect(result.stopReason).toBe('end_turn');
       // Usage should be 0 when max turns reached (as per implementation)

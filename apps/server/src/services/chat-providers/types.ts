@@ -118,7 +118,12 @@ export interface TokenUsage {
 /**
  * Stop reason for model response
  */
-export type ChatStopReason = 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence';
+export type ChatStopReason =
+  | 'end_turn'
+  | 'tool_use'
+  | 'max_tokens'
+  | 'stop_sequence'
+  | 'tool_error';
 
 /**
  * Normalized chat response (non-streaming)
@@ -207,6 +212,8 @@ export interface ChatProvider {
 export interface ToolContext {
   /** Active collection ID for scoped operations */
   collectionId: string;
+  /** Optional session ID for dynamic tool filtering (Phase 16F) */
+  sessionId?: string;
 }
 
 /**

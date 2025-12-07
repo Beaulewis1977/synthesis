@@ -6,7 +6,7 @@
  *
  * Features:
  * - Configurable baseURL and API key provider name
- * - Manual tool execution loop (max 10 turns)
+ * - Manual tool execution loop (max 25 turns)
  * - Streaming support via OpenAI SDK
  * - Reuses existing OpenAI adapters (toOpenAITool, toOpenAIMessages, etc.)
  */
@@ -55,7 +55,7 @@ export interface OpenAICompatibleConfig {
  * that implements the OpenAI chat completions API format.
  *
  * Key features:
- * - Manual tool execution loop (max 10 turns)
+ * - Manual tool execution loop (max 25 turns)
  * - Converts normalized ChatTool[] to OpenAI function calling format
  * - Handles system prompts via system role messages
  * - Executes tools using buildAgentTools().toolExecutors
@@ -160,8 +160,8 @@ export class OpenAICompatibleProvider implements ChatProvider {
     // Convert messages to OpenAI format (handles system prompt)
     const messages = this.prepareMessages(params);
 
-    // Manual tool execution loop (max 10 turns)
-    const MAX_TURNS = 10;
+    // Manual tool execution loop (max 25 turns)
+    const MAX_TURNS = 25;
     let turnCount = 0;
 
     while (turnCount < MAX_TURNS) {
