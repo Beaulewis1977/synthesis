@@ -595,7 +595,7 @@ describe('OpenAIChatProvider', () => {
   // ===========================================================================
 
   describe('max turns limit', () => {
-    it('should complete with end_turn when max turns (10) is reached', async () => {
+    it('should complete with end_turn when max turns (25) is reached', async () => {
       const toolExecutors = createMockToolExecutors();
       mockBuildAgentTools.mockReturnValue({
         tools: [],
@@ -638,8 +638,8 @@ describe('OpenAIChatProvider', () => {
 
       // Should complete gracefully with end_turn (not throw)
       expect(result.stopReason).toBe('end_turn');
-      // Should have called 10 times (max turns)
-      expect(mockChatCompletionsCreate).toHaveBeenCalledTimes(10);
+      // Should have called 25 times (max turns)
+      expect(mockChatCompletionsCreate).toHaveBeenCalledTimes(25);
     });
   });
 

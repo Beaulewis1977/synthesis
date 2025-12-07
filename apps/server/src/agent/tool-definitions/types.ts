@@ -160,6 +160,15 @@ export interface ToolpackDefinition {
 }
 
 // =============================================================================
+// Profile Types (defined early for use in SessionToolState)
+// =============================================================================
+
+/**
+ * Profile names for startup tool configuration
+ */
+export type ProfileName = 'minimal' | 'core' | 'full';
+
+// =============================================================================
 // Registry Types
 // =============================================================================
 
@@ -188,7 +197,7 @@ export interface SessionToolState {
   /** Set of enabled tool names */
   enabledTools: Set<string>;
   /** Active profile name */
-  activeProfile: 'minimal' | 'core' | 'full';
+  activeProfile: ProfileName;
   /** Session creation time */
   createdAt: Date;
   /** Last activity time */
@@ -246,13 +255,8 @@ export interface EnableDisableResult {
 }
 
 // =============================================================================
-// Profile Types
+// Profile Definition Types
 // =============================================================================
-
-/**
- * Profile names for startup tool configuration
- */
-export type ProfileName = 'minimal' | 'core' | 'full';
 
 /**
  * Profile definition for startup tool sets

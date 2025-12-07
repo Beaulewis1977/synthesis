@@ -47,11 +47,21 @@ function getClaudeCliPath(): string {
 
 /**
  * Extract the tool name without the MCP prefix
+ * @param fullName Full tool name with MCP prefix
+ * @param serverName MCP server name (defaults to MCP_SERVER_NAME)
  */
-function extractToolName(fullName: string): string {
+function extractToolName(fullName: string, serverName: string = MCP_SERVER_NAME): string {
   // Format: mcp__synthesis-rag-tools__search_rag → search_rag
-  const prefix = `mcp__${MCP_SERVER_NAME}__`;
-  return fullName.startsWith(prefix) ? fullName.slice(prefix.length) : fullName;
+  const prefix = `mcp__${serverName}__`;
+  if (fullName.startsWith(prefix)) {
+    return fullName.slice(prefix.length);
+  }
+  // Try with registry server name as fallback
+  const registryPrefix = `mcp__${REGISTRY_MCP_SERVER_NAME}__`;
+  if (fullName.startsWith(registryPrefix)) {
+    return fullName.slice(registryPrefix.length);
+  }
+  return fullName;
 }
 
 /**
@@ -254,7 +264,11 @@ export class AnthropicChatProvider implements ChatProvider {
         messageCount,
         model: params.model,
       });
-      throw sdkError;
+      // Wrap error with provider context before re-throwing
+      throw new Error(
+        `[AnthropicProvider] Claude Agent SDK error: ${sdkError instanceof Error ? sdkError.message : 'Unknown error'}`,
+        { cause: sdkError }
+      );
     }
   }
 

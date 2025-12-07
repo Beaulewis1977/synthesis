@@ -226,7 +226,7 @@ Currently, the chat uses the global default model configured in Settings. Users 
 **Issue Found:** The Settings page uses a hardcoded model list for Ollama, but Ollama models have dynamic names (e.g., `gpt-oss:20b-cloud`, `qwen3-coder:480b-cloud`). Users cannot select models that aren't in the hardcoded list.
 
 **Resolution Priority:**
-```
+```text
 Request Params (provider/model) → DB Session Values → Global Default (ModelConfigService)
 ```
 

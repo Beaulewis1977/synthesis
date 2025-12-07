@@ -30,7 +30,7 @@ import type {
  * OpenAI Chat Provider Implementation
  *
  * Key features:
- * - Manual tool execution loop (max 10 turns)
+ * - Manual tool execution loop (max 25 turns)
  * - Converts normalized ChatTool[] to OpenAI function calling format
  * - Handles system prompts via system role messages
  * - Executes tools using buildAgentTools().toolExecutors

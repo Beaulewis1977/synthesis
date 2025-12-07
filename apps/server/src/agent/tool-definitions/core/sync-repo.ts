@@ -76,8 +76,24 @@ export const syncRepoTool: UnifiedToolDefinition = {
     }
 
     // Start sync in background (non-blocking)
-    syncRepository(pool, parsed.repo_source_id).catch((error) => {
+    syncRepository(pool, parsed.repo_source_id).catch(async (error) => {
       console.error(`Background repo sync failed for ${parsed.repo_source_id}:`, error);
+      // Rollback status to allow retry
+      try {
+        await pool.query(
+          `UPDATE repository_sources
+           SET sync_status = 'error',
+               sync_error = $2,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [parsed.repo_source_id, error instanceof Error ? error.message : 'Unknown error']
+        );
+      } catch (updateErr) {
+        console.error(
+          `Failed to update sync status after error for ${parsed.repo_source_id}:`,
+          updateErr
+        );
+      }
     });
 
     const payload = {

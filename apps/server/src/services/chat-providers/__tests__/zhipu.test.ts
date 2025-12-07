@@ -612,7 +612,7 @@ describe('ZhipuChatProvider', () => {
   // ===========================================================================
 
   describe('max turns limit', () => {
-    it('should complete with end_turn when max turns (10) is reached', async () => {
+    it('should complete with end_turn when max turns (25) is reached', async () => {
       const toolExecutors = createMockToolExecutors();
       mockBuildAgentTools.mockReturnValue({
         tools: [],
@@ -655,8 +655,8 @@ describe('ZhipuChatProvider', () => {
         ],
       });
 
-      // Should have called 10 times
-      expect(mockChatCompletionsCreate).toHaveBeenCalledTimes(10);
+      // Should have called 25 times
+      expect(mockChatCompletionsCreate).toHaveBeenCalledTimes(25);
       // Should complete with end_turn (not throw)
       expect(result.stopReason).toBe('end_turn');
       expect(result.content).toBe('');

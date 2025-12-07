@@ -51,7 +51,7 @@ export const getDbSchemaTool: UnifiedToolDefinition = {
     const result = await extractSchema(db, {
       collectionId: parsed.collectionId ?? context.collectionId,
       tables: parsed.tables,
-      includeRelationships: parsed.includeRelationships ?? true,
+      includeRelationships: parsed.includeRelationships, // Schema has .default(true), no fallback needed
     });
 
     const tableCount = result.tables?.length ?? 0;

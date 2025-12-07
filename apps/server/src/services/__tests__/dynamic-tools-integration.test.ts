@@ -22,11 +22,8 @@ import {
   getAllSensitiveTools,
   getToolpackCounts,
 } from '../../agent/tool-definitions/toolpacks.js';
-import type { UnifiedToolDefinition } from '../../agent/tool-definitions/types.js';
-import {
-  ensureRegistryInitialized,
-  getSessionEnabledDefinitions,
-} from '../chat-providers/registry-bridge.js';
+// Type imports used by other parts of the test file for type guards
+import { getSessionEnabledDefinitions } from '../chat-providers/registry-bridge.js';
 import { DynamicToolRegistry, getToolRegistry, resetToolRegistry } from '../tool-registry.js';
 
 // =============================================================================
@@ -45,14 +42,6 @@ function createMockPool(): Pool {
     }),
   } as unknown as Pool;
 }
-
-/**
- * Test context for tool execution
- */
-const mockContext = {
-  collectionId: '00000000-0000-0000-0000-000000000001',
-  sessionId: 'test-session-001',
-};
 
 // =============================================================================
 // Tool Discovery Flow Tests
@@ -430,8 +419,8 @@ describe('Session Management', () => {
     const session1 = registry.getOrCreateSession(sessionId);
     const initialTime = session1.lastActivityAt.getTime();
 
-    // Wait a bit and access again
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Wait a bit and access again (use 50ms to avoid flaky tests on slow CI)
+    await new Promise((resolve) => setTimeout(resolve, 50));
     const session2 = registry.getOrCreateSession(sessionId);
 
     expect(session2.lastActivityAt.getTime()).toBeGreaterThan(initialTime);
@@ -557,11 +546,9 @@ describe('Sensitive Tool Gating', () => {
 // =============================================================================
 
 describe('Registry Bridge Integration', () => {
-  let mockDb: Pool;
-
   beforeEach(() => {
     resetToolRegistry();
-    mockDb = createMockPool();
+    createMockPool(); // Keep pool creation for side effects
 
     // Initialize the global registry
     const registry = getToolRegistry();

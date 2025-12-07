@@ -66,9 +66,9 @@ export const findSymbolUsagesTool: UnifiedToolDefinition = {
       collectionId: parsed.collectionId ?? context.collectionId,
       symbolName: parsed.symbolName,
       symbolKind: parsed.symbolKind,
-      includeDefinitions: parsed.includeDefinitions ?? true,
-      includeUsages: parsed.includeUsages ?? true,
-      maxResults: parsed.maxResults ?? 20,
+      includeDefinitions: parsed.includeDefinitions, // Schema has .default(true)
+      includeUsages: parsed.includeUsages, // Schema has .default(true)
+      maxResults: parsed.maxResults, // Schema has .default(20)
     });
 
     const message = `Found ${result.definitions?.length ?? 0} definition(s) and ${result.usages?.length ?? 0} usage(s) for symbol "${parsed.symbolName}"`;

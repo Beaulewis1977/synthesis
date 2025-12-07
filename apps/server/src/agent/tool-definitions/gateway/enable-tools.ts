@@ -57,8 +57,9 @@ export const enableToolsTool: UnifiedToolDefinition = {
     const parsed = enableToolsInputSchema.parse(input) as EnableToolsInput;
     const registry = getToolRegistry();
 
-    // Use provided session ID or generate one
-    const sessionId = parsed.session_id ?? `session_${Date.now()}`;
+    // Use provided session ID or generate one with random component to prevent collisions
+    const sessionId =
+      parsed.session_id ?? `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     switch (parsed.action) {
       case 'status': {

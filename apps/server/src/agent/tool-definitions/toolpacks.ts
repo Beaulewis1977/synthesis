@@ -219,23 +219,27 @@ export function isToolSensitive(toolName: string): boolean {
 
 /**
  * Validate that a string is a valid toolpack name
+ * Derived from TOOLPACKS registry keys to avoid maintenance burden
  */
 export function isValidToolpack(value: string): value is ToolpackName {
-  return ['core', 'mobile_core', 'introspection', 'graphing', 'gateway'].includes(value);
+  return value in TOOLPACKS;
 }
 
 /**
  * Validate that a string is a valid category name
+ * Derived from toolpack default categories to avoid maintenance burden
  */
 export function isValidCategory(value: string): value is CategoryName {
-  return ['core', 'mobile', 'graph', 'introspection', 'gateway'].includes(value);
+  const validCategories = new Set(Object.values(TOOLPACKS).map((p) => p.defaultCategory));
+  return validCategories.has(value as CategoryName);
 }
 
 /**
  * Validate that a string is a valid profile name
+ * Derived from PROFILES registry keys to avoid maintenance burden
  */
 export function isValidProfile(value: string): value is ProfileName {
-  return ['minimal', 'core', 'full'].includes(value);
+  return value in PROFILES;
 }
 
 /**

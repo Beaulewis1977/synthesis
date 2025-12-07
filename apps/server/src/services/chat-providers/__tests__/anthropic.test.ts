@@ -212,7 +212,7 @@ describe('AnthropicChatProvider', () => {
       expect(queryCall.prompt).toContain('Tell me about pgvector');
 
       // Verify query options
-      expect(queryCall.options.maxTurns).toBe(10);
+      expect(queryCall.options.maxTurns).toBe(25);
       expect(queryCall.options.permissionMode).toBe('bypassPermissions');
       expect(queryCall.options.model).toBe('claude-sonnet-4-20250514');
       expect(queryCall.options.mcpServers).toHaveProperty(MCP_SERVER_NAME_MOCK);

@@ -46,6 +46,15 @@ export const listReposTool: UnifiedToolDefinition = {
     // Use provided collection_id or fall back to context
     const collectionId = parsed.collection_id ?? context.collectionId;
 
+    // Guard against undefined collectionId
+    if (!collectionId) {
+      return createToolResponse('No collection ID provided and no active collection in context.', {
+        error: 'Missing collection_id',
+        repos: [],
+        total: 0,
+      });
+    }
+
     const repos = await listRepoSources(collectionId);
 
     const payload = {

@@ -130,8 +130,24 @@ export const repoRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       // Start sync in background
-      syncRepository(pool, id).catch((error) => {
+      syncRepository(pool, id).catch(async (error) => {
         fastify.log.error({ repoId: id, error }, 'Background repo sync failed');
+        // Rollback status to allow retry
+        try {
+          await pool.query(
+            `UPDATE repository_sources
+             SET sync_status = 'error',
+                 sync_error = $2,
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [id, error instanceof Error ? error.message : 'Unknown error']
+          );
+        } catch (updateErr) {
+          fastify.log.error(
+            { repoId: id, error: updateErr },
+            'Failed to update sync status after error'
+          );
+        }
       });
 
       return reply.code(202).send({

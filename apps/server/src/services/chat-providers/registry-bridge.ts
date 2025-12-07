@@ -125,6 +125,15 @@ export function ensureRegistryInitialized(): void {
 }
 
 /**
+ * Reset registry initialization state (for testing only)
+ * In test environments, modules may be cached between tests, causing
+ * ensureRegistryInitialized() to be a no-op after the first test.
+ */
+export function resetRegistryInitialization(): void {
+  registryInitialized = false;
+}
+
+/**
  * Re-export for convenience
  */
 export { MCP_SERVER_NAME };

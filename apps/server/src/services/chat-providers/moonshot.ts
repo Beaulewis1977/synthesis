@@ -38,7 +38,7 @@ import type {
  * Moonshot Chat Provider Implementation
  *
  * Key features:
- * - Manual tool execution loop (max 10 turns)
+ * - Manual tool execution loop (max 25 turns)
  * - OpenAI-compatible API at api.moonshot.cn
  * - Thinking mode for reasoning models (adds extra_body parameter)
  * - Uses standard OpenAI function calling format

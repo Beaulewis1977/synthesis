@@ -36,7 +36,7 @@ import type {
  * Google Gemini Chat Provider Implementation
  *
  * Key features:
- * - Manual tool execution loop (max 10 turns)
+ * - Manual tool execution loop (max 25 turns)
  * - Converts normalized ChatTool[] to Google functionDeclaration format
  * - Handles system prompts via systemInstruction parameter
  * - Executes tools using buildAgentTools().toolExecutors

@@ -59,7 +59,7 @@ export const getFeatureRecipeTool: UnifiedToolDefinition = {
     const searchResult = await smartSearch(db, {
       query,
       collectionId: parsed.collectionId ?? context.collectionId,
-      topK: parsed.top_k ?? 5,
+      topK: parsed.top_k, // Schema has .default(5), no fallback needed
       featureTags: parsed.featureTags,
       usageTier: 'recipe',
       techStack: parsed.framework ? [parsed.framework] : undefined,
