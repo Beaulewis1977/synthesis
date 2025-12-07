@@ -252,6 +252,18 @@ export class AnthropicChatProvider implements ChatProvider {
                 },
                 stopReason: 'max_tokens',
               };
+            } else if (message.subtype === 'error_during_execution') {
+              // Handle tool execution errors - ensure stream properly terminates
+              yield {
+                type: 'done',
+                usage: {
+                  inputTokens: message.usage?.input_tokens ?? 0,
+                  outputTokens: message.usage?.output_tokens ?? 0,
+                  totalTokens:
+                    (message.usage?.input_tokens ?? 0) + (message.usage?.output_tokens ?? 0),
+                },
+                stopReason: 'tool_error',
+              };
             }
             break;
         }
