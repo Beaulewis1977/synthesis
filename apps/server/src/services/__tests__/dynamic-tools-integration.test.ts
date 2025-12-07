@@ -86,7 +86,7 @@ describe('Tool Discovery Flow', () => {
   it('should return correct tool counts per toolpack', () => {
     const counts = getToolpackCounts();
 
-    expect(counts.core).toBe(9);
+    expect(counts.core).toBe(14);
     expect(counts.gateway).toBe(2);
     expect(counts.mobile_core).toBe(3);
     expect(counts.introspection).toBe(3);
@@ -98,7 +98,7 @@ describe('Tool Discovery Flow', () => {
     const expectedTotal = allDefs.length;
 
     expect(registry.size).toBe(expectedTotal);
-    expect(registry.size).toBe(18); // 9 + 2 + 3 + 3 + 1
+    expect(registry.size).toBe(23); // 14 + 2 + 3 + 3 + 1
   });
 
   it('should return toolpack summary with descriptions', () => {
@@ -291,8 +291,8 @@ describe('Profile Switching', () => {
 
     const enabledTools = registry.getEnabledTools(sessionId);
 
-    // Gateway + core = 2 + 9 = 11 tools
-    expect(enabledTools).toHaveLength(11);
+    // Gateway + core = 2 + 14 = 16 tools
+    expect(enabledTools).toHaveLength(16);
 
     // Verify gateway tools
     expect(enabledTools).toContain('discover_tools');
@@ -321,8 +321,8 @@ describe('Profile Switching', () => {
 
     const enabledTools = registry.getEnabledTools(sessionId);
 
-    // All tools should be enabled: 2 + 9 + 3 + 3 + 1 = 18
-    expect(enabledTools).toHaveLength(18);
+    // All tools should be enabled: 2 + 14 + 3 + 3 + 1 = 23
+    expect(enabledTools).toHaveLength(23);
 
     // Verify tools from all packs are enabled
     expect(enabledTools).toContain('discover_tools'); // gateway
@@ -344,7 +344,7 @@ describe('Profile Switching', () => {
 
     // Start with full profile
     registry.applyProfile(sessionId, 'full');
-    expect(registry.getEnabledToolCount(sessionId)).toBe(18);
+    expect(registry.getEnabledToolCount(sessionId)).toBe(23);
 
     // Switch to minimal
     registry.applyProfile(sessionId, 'minimal');
@@ -352,7 +352,7 @@ describe('Profile Switching', () => {
 
     // Switch to core
     registry.applyProfile(sessionId, 'core');
-    expect(registry.getEnabledToolCount(sessionId)).toBe(11);
+    expect(registry.getEnabledToolCount(sessionId)).toBe(16);
   });
 
   it('should update activeProfile after applying a profile', () => {
@@ -399,7 +399,7 @@ describe('Session Management', () => {
 
     // Verify session A has introspection enabled
     expect(registry.isToolEnabled(sessionA, 'get_db_schema')).toBe(true);
-    expect(registry.getEnabledToolCount(sessionA)).toBe(14); // 11 core + 3 introspection
+    expect(registry.getEnabledToolCount(sessionA)).toBe(19); // 16 core + 3 introspection
 
     // Verify session B still has minimal profile
     expect(registry.isToolEnabled(sessionB, 'get_db_schema')).toBe(false);
@@ -470,8 +470,8 @@ describe('Session Management', () => {
     registry.applyProfile('session-3', 'full');
 
     expect(registry.getEnabledToolCount('session-1')).toBe(2);
-    expect(registry.getEnabledToolCount('session-2')).toBe(11);
-    expect(registry.getEnabledToolCount('session-3')).toBe(18);
+    expect(registry.getEnabledToolCount('session-2')).toBe(16);
+    expect(registry.getEnabledToolCount('session-3')).toBe(23);
   });
 });
 
@@ -513,7 +513,7 @@ describe('Sensitive Tool Gating', () => {
 
     expect(sensitiveTools).toContain('get_db_schema');
     expect(sensitiveTools).toContain('delete_document');
-    expect(sensitiveTools).toHaveLength(2);
+    expect(sensitiveTools).toHaveLength(3);
   });
 
   it('should include sensitive tools in full profile', () => {
@@ -591,8 +591,8 @@ describe('Registry Bridge Integration', () => {
   it('should return all tools when no sessionId provided', () => {
     const definitions = getSessionEnabledDefinitions(undefined);
 
-    // All 18 tools should be returned
-    expect(definitions).toHaveLength(18);
+    // All 23 tools should be returned
+    expect(definitions).toHaveLength(23);
   });
 
   it('should return core profile tools for core session', () => {
@@ -604,7 +604,7 @@ describe('Registry Bridge Integration', () => {
     const definitions = getSessionEnabledDefinitions(sessionId);
     const toolNames = definitions.map((d) => d.name);
 
-    expect(toolNames).toHaveLength(11);
+    expect(toolNames).toHaveLength(16);
     expect(toolNames).toContain('search_rag');
     expect(toolNames).toContain('discover_tools');
   });
@@ -617,7 +617,7 @@ describe('Registry Bridge Integration', () => {
 
     const definitions = getSessionEnabledDefinitions(sessionId);
 
-    expect(definitions).toHaveLength(18);
+    expect(definitions).toHaveLength(23);
   });
 
   it('should reflect dynamic tool enablement', () => {
@@ -643,12 +643,12 @@ describe('Registry Bridge Integration', () => {
     // Start with core
     registry.applyProfile(sessionId, 'core');
     let definitions = getSessionEnabledDefinitions(sessionId);
-    expect(definitions).toHaveLength(11);
+    expect(definitions).toHaveLength(16);
 
     // Disable a core tool
     registry.disableTool(sessionId, 'add_document');
     definitions = getSessionEnabledDefinitions(sessionId);
-    expect(definitions).toHaveLength(10);
+    expect(definitions).toHaveLength(15);
     expect(definitions.map((d) => d.name)).not.toContain('add_document');
   });
 });
@@ -676,7 +676,7 @@ describe('Singleton Registry', () => {
   it('should reset instance and create new on reset', () => {
     const registry1 = getToolRegistry();
     registry1.registerTools(getAllToolDefinitions());
-    expect(registry1.size).toBe(18);
+    expect(registry1.size).toBe(23);
 
     resetToolRegistry();
 
@@ -790,7 +790,7 @@ describe('Tool Counts Verification', () => {
   });
 
   it('should have correct number of CORE_TOOLS', () => {
-    expect(CORE_TOOLS).toHaveLength(9);
+    expect(CORE_TOOLS).toHaveLength(14);
   });
 
   it('should have correct number of GATEWAY_TOOLS', () => {
@@ -809,9 +809,9 @@ describe('Tool Counts Verification', () => {
     expect(GRAPHING_TOOLS).toHaveLength(1);
   });
 
-  it('should have 18 total tools from getAllToolDefinitions', () => {
+  it('should have 23 total tools from getAllToolDefinitions', () => {
     const allTools = getAllToolDefinitions();
-    expect(allTools).toHaveLength(18);
+    expect(allTools).toHaveLength(23);
   });
 
   it('should match GATEWAY_TOOL_NAMES constant', () => {
@@ -846,9 +846,9 @@ describe('Tool Building', () => {
     const context = { collectionId: 'test-collection' };
     const built = registry.buildAgentToolsForSession(sessionId, mockDb, context);
 
-    expect(built.tools).toHaveLength(11);
-    expect(Object.keys(built.toolExecutors)).toHaveLength(11);
-    expect(Object.keys(built.toolMetadata)).toHaveLength(11);
+    expect(built.tools).toHaveLength(16);
+    expect(Object.keys(built.toolExecutors)).toHaveLength(16);
+    expect(Object.keys(built.toolMetadata)).toHaveLength(16);
     expect(built.toolExecutors.search_rag).toBeDefined();
     expect(typeof built.toolExecutors.search_rag).toBe('function');
   });
@@ -906,10 +906,10 @@ describe('Snapshot', () => {
 
     const snapshot = registry.getSnapshot(sessionId);
 
-    expect(snapshot.totalCount).toBe(18);
-    expect(snapshot.enabledCount).toBe(11);
+    expect(snapshot.totalCount).toBe(23);
+    expect(snapshot.enabledCount).toBe(16);
     expect(snapshot.activeProfile).toBe('core');
-    expect(snapshot.tools).toHaveLength(18);
+    expect(snapshot.tools).toHaveLength(23);
   });
 
   it('should reflect enabled state in snapshot tools', () => {

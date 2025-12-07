@@ -109,16 +109,27 @@ export const repoRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(404).send({ error: 'Repository source not found' });
       }
 
-      // Check if already syncing
-      if (repo.sync_status === 'syncing') {
+      const pool = getPool();
+
+      // Atomically attempt to mark repo as syncing to avoid race conditions
+      const updateResult = await pool.query(
+        `UPDATE repository_sources
+         SET sync_status = 'syncing',
+             sync_error = NULL,
+             updated_at = NOW()
+         WHERE id = $1 AND sync_status != 'syncing'
+         RETURNING *`,
+        [id]
+      );
+
+      if (updateResult.rowCount === 0) {
         return reply.code(409).send({
           error: 'Repository is already syncing',
-          status: repo.sync_status,
+          status: 'syncing',
         });
       }
 
       // Start sync in background
-      const pool = getPool();
       syncRepository(pool, id).catch((error) => {
         fastify.log.error({ repoId: id, error }, 'Background repo sync failed');
       });

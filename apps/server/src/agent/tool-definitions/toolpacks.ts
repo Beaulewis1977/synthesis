@@ -18,25 +18,34 @@ import type {
 // =============================================================================
 
 /**
- * Core Pack - Basic RAG operations
- * Primary use: General knowledge management
+ * Core Pack - Basic RAG operations (14 tools)
+ * Primary use: General knowledge management, collection and repo operations
  */
 export const CORE_TOOLPACK: ToolpackDefinition = {
   name: 'core',
-  description: 'Basic RAG operations: search, collections, documents',
+  description: 'Core RAG operations: search, collections, documents, repositories',
   defaultCategory: 'core',
   tools: [
+    // Search & Discovery
     'search_rag',
-    'add_document',
-    'fetch_web_content',
     'list_collections',
     'list_documents',
     'get_document_status',
+    // Collection Management
+    'create_collection',
+    'delete_collection',
+    // Document Operations
+    'add_document',
+    'fetch_web_content',
     'delete_document',
     'restart_ingest',
     'summarize_document',
+    // Repository Ingestion
+    'add_repo_to_collection',
+    'sync_repo',
+    'list_repos',
   ],
-  sensitiveTools: ['delete_document'],
+  sensitiveTools: ['delete_document', 'delete_collection'],
 };
 
 /**

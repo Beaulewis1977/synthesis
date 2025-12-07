@@ -209,182 +209,54 @@ const result = await query({
 **Subagents:** `context7-docs-fetcher` (latest SDK docs), `test-writer`, `code-reviewer`
 
 ### Phase 16F: Dynamic Tool Registry & Advanced Toolpacks
+
 **Goal:** Restore full tool parity (22+ tools) and optimize context usage by porting the dynamic registry pattern to the ChatProvider architecture.
 
-**Context:** The MCP server (Phase 5-6) has 22 tools in 5 toolpacks with dynamic enable/disable via gateway tools. The main server has only 9 core tools with no dynamic capability. Phase 16A-E established a ChatProvider abstraction with provider-specific tool execution patterns.
+**Status:** COMPLETE ✅
 
-**Key Files:**
-- `apps/mcp/src/tool-registry.ts` - Reference DynamicToolRegistry implementation
-- `apps/mcp/src/toolpacks.ts` - Toolpack definitions to port
-- `apps/server/src/agent/tools.ts` - Current 9-tool implementation
-- `apps/server/src/services/chat-providers/` - Provider-specific tool handling
+---
+
+### Phase 16G: Per-Chat Model Persistence & Selection
+
+**Goal:** Enable per-chat model/provider selection with persistence, allowing users to override global defaults for specific conversations.
+
+**Context:**
+Currently, the chat uses the global default model configured in Settings. Users want to switch models (e.g., use Claude 3.5 Sonnet for coding, GPT-4o for reasoning) within specific chats and have that choice remembered.
 
 **Plan:**
 
-1. **Unify Tool Definitions (Single Source of Truth)**
-   - Create `apps/server/src/agent/tool-definitions/` with unified tool schema
-   - Each tool exports: `{ name, description, inputSchema, executor, metadata }`
-   - Metadata includes: `{ toolpack, category, sensitive, version }`
-   - Adapters generate MCP format and ChatTool format from same source
+1.  **Database Schema Update**
+    *   Add `provider` and `model` columns to `chat_sessions` table.
+    *   Migration: `packages/db/migrations/025_chat_session_models.sql`.
 
-2. **Port Advanced Toolpacks**
-   - `mobile-core/`: search_mobile_docs, find_code_examples, get_feature_recipe
-   - `introspection/`: get_project_tech_stack, get_db_schema, find_symbol_usages
-   - `graphing/`: graph_expand_context
-   - Preserve sensitive flags for security gating
+2.  **API Updates**
+    *   Update `POST /api/agent/chat`: Accept `provider` and `model` in body.
+    *   Logic:
+        *   If params provided: Update session record in DB.
+        *   Resolution Priority: Request Params > DB Session Value > Global Default.
+    *   Update `GET /api/agent/sessions/:id` (or history endpoint): Return stored `provider` and `model`.
 
-3. **Implement Server-Side Tool Registry**
-   - Create `apps/server/src/services/tool-registry.ts`
-   - Port `DynamicToolRegistry` pattern from MCP server
-   - Support enable/disable by name, toolpack, or category
-   - Session-scoped state (in-memory with optional Redis persistence)
+3.  **UI Implementation**
+    *   **Header**: Add `ModelSelector` dropdown to `ChatPage` header (reuse existing component).
+    *   **State**: Sync selector with active chat session.
+    *   **Flow**:
+        *   New Chat: Use Global Default.
+        *   Change Selector: Updates local state, sends new model on next message.
+        *   Load Chat: Restore selector from session data.
 
-4. **Implement Gateway Tools**
-   - `discover_tools`: List available toolpacks (low token cost)
-   - `enable_tools`: Dynamically update session's enabled tool list
-   - Gateway tools always enabled (cannot be disabled)
-
-5. **Update ChatProvider Integration**
-   - **Anthropic**: Rebuild MCP server on tool state change via callback
-   - **OpenAI/Google/Zhipu/Moonshot**: Pass dynamic executor map to loop
-   - Add `onToolStateChange(callback)` hook in registry
-
-6. **Add Session Management**
-   - Track enabled tools per session (sessionId from chat request)
-   - Default profile: 'core' toolpack enabled
-   - Cleanup: Auto-expire sessions after 30 minutes
-
-**Provider-Specific Considerations:**
-
-| Provider | Dynamic Tool Strategy |
-|----------|----------------------|
-| Anthropic | Rebuild MCP server on `enable_tools`, pass to `query()` |
-| OpenAI | Update `tools[]` and `toolExecutors` map per request |
-| Google | Same as OpenAI (function declarations) |
-| Zhipu/Moonshot | Same as OpenAI (OpenAI-compatible) |
-| Ollama | No change (no tool support) |
-
-**Skills:** `synthesis-architecture`, `llm-provider-integration`, `sse-streaming`, `backend-development`
-**Subagents:** `Explore`, `Plan`, `mcp-server-architect`, `test-writer`, `code-reviewer`, `doc-writer`
+**Files to Modify:**
+*   `packages/db/migrations/` (New SQL)
+*   `apps/server/src/routes/agent.ts` (Handle params, persist to DB)
+*   `apps/server/src/services/chat-history.ts` (DB accessors)
+*   `apps/web/src/pages/ChatPage.tsx` (Add selector)
+*   `apps/web/src/hooks/useChatSession.ts` (Load/save model state)
 
 **Estimated Commits:**
-1. `feat(phase-16f): unify tool definitions with single source of truth`
-2. `feat(phase-16f): implement server-side tool registry with enable/disable`
-3. `feat(phase-16f): add gateway tools (discover_tools, enable_tools)`
-4. `feat(phase-16f): integrate dynamic tools with ChatProvider`
-5. `feat(phase-16f): add session management and cleanup`
-6. `test(phase-16f): add dynamic tool flow tests`
+1.  `feat(phase-16g): add provider/model columns to chat_sessions table`
+2.  `feat(phase-16g): update chat API to persist and use session-specific models`
+3.  `feat(phase-16g): add model selector to chat UI with persistence`
 
-### Cross-Phase Resources
-**Throughout all phases:**
-- `git-github-workflow-manager` - PR creation and management
-- `doc-writer` - Update docs after each phase
-- `brainstorming` - Design decisions when multiple approaches exist
-- `planning` - Break down complex tasks
-
----
-
-## Technical Details
-
-### Provider Interface (Draft)
-
-```typescript
-interface ChatProvider {
-  name: string;
-  supportsTools: boolean;
-  supportsStreaming: boolean;
-
-  chat(params: ChatParams): Promise<ChatResponse>;
-  streamChat(params: ChatParams): AsyncGenerator<ChatChunk>;
-}
-
-interface ChatParams {
-  messages: Message[];
-  model: string;
-  tools?: Tool[];
-  maxTokens?: number;
-  temperature?: number;
-}
-
-interface ChatResponse {
-  content: string;
-  toolCalls?: ToolCall[];
-  usage: TokenUsage;
-  model: string;
-  provider: string;
-}
-```
-
-### SSE Streaming Format
-
-```text
-event: token
-data: {"content": "Hello"}
-
-event: tool_start
-data: {"tool": "search_rag", "input": {...}}
-
-event: tool_end
-data: {"tool": "search_rag", "output": {...}}
-
-event: done
-data: {"usage": {...}}
-```
-
-### Config Integration
-
-The `ModelConfigService` already supports:
-- Provider selection per feature (chat, embedding, etc.)
-- API key storage
-- Model selection per provider
-
-We'll use `getConfig('chat')` to get the active chat provider.
-
----
-
-## Files to Create
-
-```text
-apps/server/src/
-├── services/
-│   └── chat-providers/
-│       ├── index.ts           # Provider registry
-│       ├── types.ts           # Interfaces
-│       ├── anthropic.ts       # Anthropic provider
-│       ├── openai.ts          # OpenAI provider
-│       ├── ollama.ts          # Ollama provider
-│       ├── google.ts          # Google AI provider
-│       └── openai-compatible.ts # Base for GLM, Kimi
-├── routes/
-│   └── agent-stream.ts        # SSE streaming endpoint
-
-apps/web/src/
-├── hooks/
-│   └── useStreamingChat.ts    # SSE client hook
-├── components/
-│   └── StreamingMessage.tsx   # Token-by-token display
-```
-
----
-
-## Risk Assessment
-
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Claude SDK WSL2 still fails | Medium | Medium | Docker fallback ready |
-| Tool format incompatibility | Low | Medium | Graceful degradation to simple chat |
-| Streaming complexity | Low | Low | Can ship non-streaming first |
-| GLM/Kimi API differences | Medium | Low | They're P2, can skip if problematic |
-
----
-
-## Success Criteria
-
-1. Can switch between Ollama/Anthropic/OpenAI in UI and chat works
-2. Messages appear immediately with loading indicator
-3. Streaming tokens display in real-time
-4. RAG tools work with Anthropic and OpenAI
-5. Existing functionality unchanged
+**Subagents:** `backend-dev` (Schema/API), `frontend-dev` (UI State)
 
 ---
 
@@ -406,45 +278,31 @@ Each sub-phase (16A, 16B, etc.) gets its own commits. Group related changes:
 | 16D: Tool Adapters | 1-2 commits (adapters + tests) | Single PR |
 | 16E: Additional Providers | 1 commit per provider | Single PR |
 | 16F: Dynamic Tools | 3-4 commits (registry + gateway tools) | Single PR |
+| 16G: Model Persistence | 2-3 commits (schema + api + ui) | Single PR |
 
 ### Workflow Steps
 
 1. **Start work on a sub-phase:**
    ```bash
    git checkout develop && git pull
-   git checkout -b feature/phase-16-multi-provider-chat
+   git checkout -b feature/phase-16g-model-persistence
    ```
 
 2. **Commit logical units of work:**
    ```bash
-   # After completing provider interface
-   git add -A && git commit -m "feat(phase-16a): add ChatProvider interface and types"
+   # After completing schema
+   git add -A && git commit -m "feat(phase-16g): add provider/model columns to chat_sessions table"
 
-   # After completing Anthropic provider
-   git add -A && git commit -m "feat(phase-16b): implement AnthropicChatProvider"
+   # After completing API
+   git add -A && git commit -m "feat(phase-16g): update chat API to persist and use session-specific models"
    ```
 
 3. **Push and create PR when sub-phase complete:**
    ```bash
-   git push -u origin feature/phase-16-multi-provider-chat
-   gh pr create --base develop --title "feat(phase-16a): foundation and provider interface"
+   git push -u origin feature/phase-16g-model-persistence
+   gh pr create --base develop --title "feat(phase-16g): per-chat model persistence and selection"
    ```
 
-4. **After PR merge, continue on same branch or create new:**
-   ```bash
-   git checkout develop && git pull
-   # Continue on same branch for related work, or create new branch
-   ```
-
-### Commit Message Format
-```text
-feat(phase-16X): short description
-
-- Detail 1
-- Detail 2
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-```
 
 ---
 
