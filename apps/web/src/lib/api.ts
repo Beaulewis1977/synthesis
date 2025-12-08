@@ -909,6 +909,67 @@ class ApiClient {
   }
 
   // ============================================
+  // OAuth Token Management (Phase 17A - Anthropic)
+  // ============================================
+
+  /**
+   * Get OAuth token status for Anthropic.
+   */
+  async getOAuthTokenStatus(): Promise<{
+    configured: boolean;
+    source: 'env' | 'db' | 'none';
+    maskedValue?: string;
+  }> {
+    return this.request<{
+      configured: boolean;
+      source: 'env' | 'db' | 'none';
+      maskedValue?: string;
+    }>('/api/admin/api-keys/oauth/status');
+  }
+
+  /**
+   * Set OAuth token for Anthropic (Claude subscription).
+   */
+  async setOAuthToken(token: string): Promise<{
+    message: string;
+    provider: string;
+    configured: boolean;
+  }> {
+    return this.request<{
+      message: string;
+      provider: string;
+      configured: boolean;
+    }>('/api/admin/api-keys/oauth', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  /**
+   * Delete OAuth token for Anthropic.
+   */
+  async deleteOAuthToken(): Promise<{ message: string; provider: string }> {
+    return this.request<{ message: string; provider: string }>(
+      '/api/admin/api-keys/oauth',
+      {
+        method: 'DELETE',
+      }
+    );
+  }
+
+  /**
+   * Test OAuth token for Anthropic.
+   */
+  async testOAuthToken(): Promise<{ valid: boolean; message: string }> {
+    return this.request<{ valid: boolean; message: string }>(
+      '/api/admin/api-keys/oauth/test',
+      {
+        method: 'POST',
+      }
+    );
+  }
+
+  // ============================================
   // Provider Settings (Phase 16G)
   // ============================================
 

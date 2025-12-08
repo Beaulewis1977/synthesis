@@ -448,6 +448,187 @@ export class ApiKeyService {
 
     return { valid: false, message: `API error: ${response.status}` };
   }
+
+  // ==========================================================================
+  // Anthropic OAuth Token Management (Phase 17A)
+  // ==========================================================================
+
+  /**
+   * Set an OAuth token for Anthropic (Claude subscription)
+   * Stored separately from API key to allow switching between modes
+   */
+  async setOAuthToken(provider: string, oauthToken: string): Promise<void> {
+    if (provider !== 'anthropic') {
+      throw new Error('OAuth tokens are only supported for Anthropic provider');
+    }
+
+    if (!oauthToken || oauthToken.trim().length === 0) {
+      throw new Error('OAuth token cannot be empty');
+    }
+
+    const encrypted = encryptKey(oauthToken.trim());
+
+    try {
+      // Store with a special key format to differentiate from API key
+      await this.db.query(
+        `INSERT INTO provider_api_keys (provider, encrypted_key, updated_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (provider) DO UPDATE SET
+           encrypted_key = EXCLUDED.encrypted_key,
+           updated_at = NOW()`,
+        [`${provider}_oauth`, encrypted]
+      );
+    } catch (error) {
+      console.error(`Failed to set OAuth token for provider ${provider}:`, error);
+      throw new Error(
+        `Failed to store OAuth token for provider ${provider}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
+   * Get the OAuth token for Anthropic
+   */
+  async getOAuthToken(provider: string): Promise<string | null> {
+    if (provider !== 'anthropic') {
+      return null;
+    }
+
+    // Check environment variable first
+    const envValue = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    if (envValue) {
+      return envValue;
+    }
+
+    // Check database
+    try {
+      const result = await this.db.query<{ encrypted_key: string }>(
+        'SELECT encrypted_key FROM provider_api_keys WHERE provider = $1',
+        [`${provider}_oauth`]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      try {
+        return decryptKey(result.rows[0].encrypted_key);
+      } catch {
+        return null;
+      }
+    } catch (error) {
+      console.error(`Failed to retrieve OAuth token for provider ${provider}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Delete OAuth token for Anthropic
+   */
+  async deleteOAuthToken(provider: string): Promise<void> {
+    if (provider !== 'anthropic') {
+      throw new Error('OAuth tokens are only supported for Anthropic provider');
+    }
+
+    try {
+      const result = await this.db.query('DELETE FROM provider_api_keys WHERE provider = $1', [
+        `${provider}_oauth`,
+      ]);
+
+      if (result.rowCount === 0) {
+        throw new Error(`No stored OAuth token found for provider: ${provider}`);
+      }
+    } catch (error) {
+      console.error(`Failed to delete OAuth token for provider ${provider}:`, error);
+      throw new Error(
+        `Failed to delete OAuth token for provider ${provider}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
+   * Get OAuth token status for Anthropic
+   */
+  async getOAuthTokenStatus(): Promise<{
+    configured: boolean;
+    source: 'env' | 'db' | 'none';
+    maskedValue?: string;
+  }> {
+    // Check environment variable first
+    const envValue = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    if (envValue) {
+      return {
+        configured: true,
+        source: 'env',
+        maskedValue: maskKey(envValue),
+      };
+    }
+
+    // Check database
+    try {
+      const result = await this.db.query<{ encrypted_key: string }>(
+        'SELECT encrypted_key FROM provider_api_keys WHERE provider = $1',
+        ['anthropic_oauth']
+      );
+
+      if (result.rows.length > 0) {
+        try {
+          const decrypted = decryptKey(result.rows[0].encrypted_key);
+          return {
+            configured: true,
+            source: 'db',
+            maskedValue: maskKey(decrypted),
+          };
+        } catch {
+          return { configured: false, source: 'none' };
+        }
+      }
+    } catch (error) {
+      console.error('Failed to get OAuth token status:', error);
+    }
+
+    return { configured: false, source: 'none' };
+  }
+
+  /**
+   * Test Anthropic OAuth token by checking if Claude CLI is accessible
+   * and the token is valid
+   */
+  async testAnthropicOAuth(): Promise<{ valid: boolean; message: string }> {
+    const token = await this.getOAuthToken('anthropic');
+
+    if (!token) {
+      return { valid: false, message: 'No OAuth token configured' };
+    }
+
+    const cliPath = process.env.CLAUDE_CLI_PATH || 'claude';
+
+    try {
+      const { execSync } = await import('node:child_process');
+
+      // Test CLI accessibility first
+      try {
+        execSync(`${cliPath} --version`, { timeout: 5000, stdio: 'pipe' });
+      } catch {
+        return {
+          valid: false,
+          message: `Claude CLI not found at '${cliPath}'. Install with: npm install -g @anthropic-ai/claude-code`,
+        };
+      }
+
+      // Token is set and CLI is accessible - this is the best we can verify
+      // without actually making an API call
+      return {
+        valid: true,
+        message: 'OAuth token configured and Claude CLI accessible',
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        message: `OAuth validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
 }
 
 // Singleton instance
@@ -586,6 +767,15 @@ export class ProviderSettingsService {
   async isZhipuCodingPlanEnabled(): Promise<boolean> {
     const value = await this.getSetting('zhipu', 'use_coding_plan');
     return value === 'true';
+  }
+
+  /**
+   * Get Anthropic authentication mode
+   * @returns 'oauth' if using Claude subscription (CLAUDE_CODE_OAUTH_TOKEN), 'api_key' otherwise
+   */
+  async getAnthropicAuthMode(): Promise<'oauth' | 'api_key'> {
+    const value = await this.getSetting('anthropic', 'auth_mode');
+    return value === 'oauth' ? 'oauth' : 'api_key';
   }
 }
 

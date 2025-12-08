@@ -329,6 +329,90 @@ export function useDeleteProviderSetting() {
 }
 
 // ============================================
+// OAuth Token Hooks (Phase 17A - Anthropic)
+// ============================================
+
+export const oauthTokenKeys = {
+  status: ['oauthTokenStatus'] as const,
+};
+
+/**
+ * OAuth token status type
+ */
+export interface OAuthTokenStatus {
+  configured: boolean;
+  source: 'env' | 'db' | 'none';
+  maskedValue?: string;
+}
+
+/**
+ * Hook to fetch OAuth token status for Anthropic
+ */
+export function useOAuthTokenStatus() {
+  return useQuery<OAuthTokenStatus>({
+    queryKey: oauthTokenKeys.status,
+    queryFn: () => apiClient.getOAuthTokenStatus(),
+    staleTime: 30 * 1000,
+  });
+}
+
+/**
+ * Hook to set OAuth token for Anthropic
+ */
+export function useSetOAuthToken() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (token: string) => apiClient.setOAuthToken(token),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: oauthTokenKeys.status });
+      queryClient.invalidateQueries({ queryKey: providerSettingsKeys.all });
+    },
+  });
+}
+
+/**
+ * Hook to delete OAuth token for Anthropic
+ */
+export function useDeleteOAuthToken() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => apiClient.deleteOAuthToken(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: oauthTokenKeys.status });
+      queryClient.invalidateQueries({ queryKey: providerSettingsKeys.all });
+    },
+  });
+}
+
+/**
+ * Hook to test OAuth token for Anthropic
+ */
+export function useTestOAuthToken() {
+  return useMutation({
+    mutationFn: () => apiClient.testOAuthToken(),
+  });
+}
+
+/**
+ * Hook to get Anthropic auth mode setting
+ * Returns 'oauth' or 'api_key' based on provider setting
+ */
+export function useAnthropicAuthMode() {
+  const { data: settingsData } = useProviderSettings();
+
+  const authMode =
+    settingsData?.settings?.find(
+      (s) => s.provider === 'anthropic' && s.settingKey === 'auth_mode'
+    )?.settingValue === 'oauth'
+      ? 'oauth'
+      : 'api_key';
+
+  return authMode as 'oauth' | 'api_key';
+}
+
+// ============================================
 // Helper Types and Constants
 // ============================================
 

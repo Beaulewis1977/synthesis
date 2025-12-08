@@ -2,6 +2,7 @@
  * Anthropic Chat Provider
  *
  * Phase 16B: Anthropic implementation using Claude Agent SDK with MCP tools.
+ * Phase 17A: Added OAuth/API key authentication mode toggle.
  * Adapts the agent.ts pattern to the ChatProvider interface.
  */
 
@@ -9,6 +10,10 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { Pool } from 'pg';
 import { BASE_SYSTEM_PROMPT } from '../../agent/agent.js';
 import { MCP_SERVER_NAME, MCP_TOOL_NAMES, buildAgentMcpServer } from '../../agent/tools.js';
+import {
+  getApiKeyService,
+  getProviderSettingsService,
+} from '../../services/api-key-service.js';
 import { getProviderApiKey } from './index.js';
 import {
   MCP_SERVER_NAME as REGISTRY_MCP_SERVER_NAME,
@@ -156,9 +161,12 @@ export class AnthropicChatProvider implements ChatProvider {
     // Build user prompt with history context
     const prompt = buildPrompt(params, this.context.collectionId);
 
+    // Phase 17A: Configure authentication based on auth mode setting
+    const authMode = await this.configureAuthentication();
+
     // Use Claude Agent SDK query()
     const claudeCliPath = getClaudeCliPath();
-    console.log(`[AnthropicProvider] Using Claude CLI at: ${claudeCliPath}`);
+    console.log(`[AnthropicProvider] Using Claude CLI at: ${claudeCliPath}, auth mode: ${authMode}`);
 
     const response = query({
       prompt,
@@ -335,11 +343,62 @@ export class AnthropicChatProvider implements ChatProvider {
   }
 
   /**
-   * Check if Anthropic is configured (has API key)
+   * Check if Anthropic is configured (has API key or OAuth token based on mode)
    */
   async isConfigured(): Promise<boolean> {
+    const settingsService = getProviderSettingsService(this.db);
+    const authMode = await settingsService.getAnthropicAuthMode();
+
+    if (authMode === 'oauth') {
+      const apiKeyService = getApiKeyService(this.db);
+      const oauthToken = await apiKeyService.getOAuthToken('anthropic');
+      return oauthToken !== null;
+    }
+
     const apiKey = await getProviderApiKey(this.db, 'anthropic');
     return apiKey !== null;
+  }
+
+  /**
+   * Configure authentication for the Claude Agent SDK based on auth mode.
+   * Sets the appropriate environment variable before making API calls.
+   *
+   * Phase 17A: Supports OAuth (Claude subscription) and API key (pay-per-use) modes.
+   *
+   * @returns The auth mode that was configured ('oauth' | 'api_key')
+   */
+  private async configureAuthentication(): Promise<'oauth' | 'api_key'> {
+    const settingsService = getProviderSettingsService(this.db);
+    const authMode = await settingsService.getAnthropicAuthMode();
+
+    if (authMode === 'oauth') {
+      // OAuth mode: Use CLAUDE_CODE_OAUTH_TOKEN
+      const apiKeyService = getApiKeyService(this.db);
+      const oauthToken = await apiKeyService.getOAuthToken('anthropic');
+
+      if (oauthToken) {
+        // Set the OAuth token environment variable for the SDK
+        process.env.CLAUDE_CODE_OAUTH_TOKEN = oauthToken;
+        // Clear API key to ensure OAuth is used
+        delete process.env.ANTHROPIC_API_KEY;
+        console.log('[AnthropicProvider] Using OAuth authentication (Claude subscription)');
+        return 'oauth';
+      }
+      // Fall back to API key if OAuth token not available
+      console.warn('[AnthropicProvider] OAuth mode selected but no token available, falling back to API key');
+    }
+
+    // API key mode: Use ANTHROPIC_API_KEY
+    const apiKey = await getProviderApiKey(this.db, 'anthropic');
+    if (apiKey) {
+      // Set the API key environment variable for the SDK
+      process.env.ANTHROPIC_API_KEY = apiKey;
+      // Clear OAuth token to ensure API key is used
+      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+      console.log('[AnthropicProvider] Using API key authentication (pay-per-use)');
+    }
+
+    return 'api_key';
   }
 }
 
