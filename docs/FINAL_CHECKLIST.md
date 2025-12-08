@@ -26,7 +26,7 @@ This checklist ensures all planning is complete and you're ready to start buildi
 - [x] `11_GIT_WORKFLOW.md` - Branch strategy and commits
 - [x] `12_CICD_PLAN.md` - CI/CD workflows
 - [x] `13_REPO_SETUP.md` - GitHub repository setup
-- [x] `agents.md` - Agent collaboration workflow
+- [x] `AGENTS.md` - Contributor & agent collaboration guidelines
 - [x] `PHASE_SUMMARY_TEMPLATE.md` - Summary template
 - [x] `.coderabbit.yml` - CodeRabbit configuration
 - [x] `README.md` - Main documentation index
@@ -226,7 +226,7 @@ This checklist ensures all planning is complete and you're ready to start buildi
 │   └── shared/              # Shared types
 ├── docs/                    # Planning docs
 ├── .coderabbit.yml
-├── agents.md
+├── AGENTS.md
 ├── docker-compose.yml
 └── README.md
 ```
@@ -240,7 +240,7 @@ This checklist ensures all planning is complete and you're ready to start buildi
 #### 1. Review All Documentation (1-2 hours)
 - [ ] Read `00_START_HERE.md`
 - [ ] Skim all numbered docs (01-13)
-- [ ] Read `agents.md` carefully
+- [ ] Read `AGENTS.md` carefully
 - [ ] Understand `09_BUILD_PLAN.md`
 
 #### 2. Setup New Repository (30 mins)
@@ -319,7 +319,7 @@ This checklist ensures all planning is complete and you're ready to start buildi
 4. Test each component independently
 
 ### If Workflow Unclear
-1. Re-read `agents.md`
+1. Re-read `AGENTS.md` and `docs/Agent-Collaboration-Workflow.md`
 2. Review example phase workflow
 3. Check `11_GIT_WORKFLOW.md`
 4. Ask specific questions

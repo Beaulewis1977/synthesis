@@ -28,6 +28,7 @@ import {
   useEmbeddingProfiles,
   useModelConfigs,
   useResetAllModelConfigs,
+  useSetDefaultEmbeddingProfile,
   useUpdateModelConfig,
 } from '../../hooks/useModelConfig';
 import { useOllamaModels } from '../../hooks/useOllamaModels';
@@ -128,6 +129,7 @@ export function ModelsPage() {
   // Mutations
   const updateMutation = useUpdateModelConfig();
   const resetAllMutation = useResetAllModelConfigs();
+  const setDefaultProfileMutation = useSetDefaultEmbeddingProfile();
 
   // Handle config update
   const handleUpdate = async (
@@ -293,11 +295,10 @@ export function ModelsPage() {
             profiles={profiles}
             selectedId={defaultProfileId}
             defaultProfileId={defaultProfileId}
-            onSelect={() => {
-              // TODO: Implement global default profile selection
-              // For now, profiles are set per-collection in the collection settings
+            onSelect={(profileId) => {
+              setDefaultProfileMutation.mutate(profileId);
             }}
-            disabled
+            disabled={setDefaultProfileMutation.isPending}
           />
         </div>
 

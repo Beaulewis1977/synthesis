@@ -13,7 +13,19 @@ interface FileWithStatus {
   error?: string;
 }
 
-const ACCEPTED_TYPES = ['.pdf', '.docx', '.md', '.txt'];
+// File extensions for validation
+const ACCEPTED_EXTENSIONS = ['.pdf', '.docx', '.md', '.txt'];
+// MIME types + extensions for browser file picker compatibility
+const ACCEPTED_TYPES = [
+  '.pdf',
+  'application/pdf',
+  '.docx',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.md',
+  'text/markdown',
+  '.txt',
+  'text/plain',
+];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 const createUploadId = () =>
@@ -54,7 +66,7 @@ export function UploadZone({ collectionId, onUploadComplete }: UploadZoneProps) 
 
   const validateFile = (file: File): string | null => {
     const ext = `.${file.name.split('.').pop()?.toLowerCase()}`;
-    if (!ACCEPTED_TYPES.includes(ext)) {
+    if (!ACCEPTED_EXTENSIONS.includes(ext)) {
       return 'Invalid file type. Accepted: PDF, DOCX, MD, TXT';
     }
     if (file.size > MAX_FILE_SIZE) {

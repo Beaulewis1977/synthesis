@@ -16,6 +16,10 @@ import {
   validateProfileInput,
 } from '@synthesis/shared';
 import type { Pool } from 'pg';
+import {
+  getDefaultEmbeddingProfileId,
+  setDefaultEmbeddingProfileId,
+} from './system-settings-service.js';
 
 /**
  * Embedding Profile Service
@@ -125,8 +129,22 @@ export class EmbeddingProfileService {
 
   /**
    * Get the default profile
+   *
+   * Checks system settings first, then falls back to 'balanced' profile.
    */
   async getDefaultProfile(): Promise<EmbeddingProfile> {
+    // Check system settings for user-configured default
+    const configuredProfileId = await getDefaultEmbeddingProfileId(this.db);
+
+    if (configuredProfileId) {
+      const configuredProfile = await this.getProfileById(configuredProfileId);
+      if (configuredProfile) {
+        return configuredProfile;
+      }
+      // Profile was deleted, fall through to default
+    }
+
+    // Use 'balanced' as the default
     const profile = await this.getProfileByName(DEFAULT_PROFILE_NAME);
 
     if (!profile) {
@@ -141,6 +159,26 @@ export class EmbeddingProfileService {
     }
 
     return profile;
+  }
+
+  /**
+   * Set the default profile
+   *
+   * @param profileId - Profile ID to set as default, or null to use 'balanced'
+   */
+  async setDefaultProfile(profileId: string | null): Promise<EmbeddingProfile> {
+    if (profileId) {
+      // Verify profile exists
+      const profile = await this.getProfileById(profileId);
+      if (!profile) {
+        throw new Error(`Profile not found: ${profileId}`);
+      }
+    }
+
+    await setDefaultEmbeddingProfileId(this.db, profileId);
+
+    // Return the new default profile
+    return this.getDefaultProfile();
   }
 
   /**

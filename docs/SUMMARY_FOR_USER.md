@@ -45,10 +45,11 @@ A **complete, production-ready planning package** for building your autonomous R
 13. **12_CICD_PLAN.md** - GitHub Actions (lint, test, build, Docker)
 14. **13_REPO_SETUP.md** - How to create GitHub repo + configure
 
-### Agent Workflow (3 docs)
-15. **agents.md** - Agent collaboration, reviews, workflow
-16. **PHASE_SUMMARY_TEMPLATE.md** - Template for phase summaries
-17. **.coderabbit.yml** - CodeRabbit configuration
+### Agent Workflow (4 docs)
+15. **AGENTS.md** - Contributor guide + agent overview
+16. **docs/Agent-Collaboration-Workflow.md** - Detailed agent collaboration, reviews, workflow
+17. **PHASE_SUMMARY_TEMPLATE.md** - Template for phase summaries
+18. **.coderabbit.yml** - CodeRabbit configuration
 
 ### Index & Reference (2 docs)
 18. **README.md** - Main documentation index
@@ -86,11 +87,11 @@ synthesis/
 ├── packages/
 │   ├── db/                 # Database client + migrations
 │   └── shared/             # Shared TypeScript types
-├── docs/                   # All planning docs (00-13 + agents.md, etc.)
+├── docs/                   # All planning docs (00-13 + agent workflow, etc.)
 ├── storage/                # Uploaded documents (created on first run)
 ├── .coderabbit.yml         # CodeRabbit config
 ├── .gitignore              # Comprehensive ignore file
-├── agents.md               # Agent workflow (root for visibility)
+├── AGENTS.md               # Contributor + high-level agent workflow (root for visibility)
 ├── biome.json              # Linting config
 ├── docker-compose.yml      # Dev containers
 ├── docker-compose.prod.yml # Production containers
@@ -271,7 +272,7 @@ Next phase
 ### 1. Review Planning (1-2 hours)
 - [ ] Read `00_START_HERE.md`
 - [ ] Skim all docs to understand scope
-- [ ] Read `agents.md` carefully (agent workflow)
+- [ ] Read `AGENTS.md` carefully (contributor + agent workflow)
 - [ ] Review `09_BUILD_PLAN.md` (daily tasks)
 - [ ] Ask questions if anything unclear
 
@@ -346,7 +347,7 @@ Next phase
 ✅ Technical plan with features  
 ✅ Blueprint/architecture  
 ✅ Scaffold structure  
-✅ Agent workflow (agents.md)  
+✅ Agent workflow (AGENTS.md + docs/Agent-Collaboration-Workflow.md)  
 ✅ CI/CD with linting  
 ✅ Git workflow (main/develop)  
 ✅ Phase summaries with reviews  

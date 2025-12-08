@@ -153,7 +153,7 @@ gh api repos/beaulewis1977/synthesis/milestones | jq '.[] | {title, open_issues}
 
 **Priority 1 - Must Read:**
 1. `docs/00_START_HERE.md` - Overview and navigation
-2. `docs/agents.md` - YOUR workflow and responsibilities
+2. `AGENTS.md` - Contributor and agent workflow overview
 3. `docs/09_BUILD_PLAN.md` - Day-by-day plan (7-9 days)
 4. `docs/15_AGENT_PROMPTS.md` - Prompts for each phase
 
@@ -313,7 +313,7 @@ pnpm test chunk.test.ts
 
 1. ✅ **Run the 3 setup scripts** (see Phase 1 above)
 2. ✅ **Verify 32 issues created** on GitHub
-3. ✅ **Read priority docs** (agents.md, BUILD_PLAN.md)
+3. ✅ **Read priority docs** (AGENTS.md, BUILD_PLAN.md)
 
 ### Start Building (After Setup)
 
@@ -334,7 +334,7 @@ pnpm test chunk.test.ts
 | Document | Purpose | When to Read |
 |----------|---------|--------------|
 | `00_START_HERE.md` | Navigation guide | First |
-| `agents.md` | Your workflow | First |
+| `AGENTS.md` | Contributor + agent workflow overview | First |
 | `09_BUILD_PLAN.md` | Day-by-day plan | First |
 | `15_AGENT_PROMPTS.md` | Phase prompts | Before each phase |
 | `02_ARCHITECTURE.md` | System design | Reference |
@@ -424,7 +424,7 @@ chmod +x *.sh
 ```
 
 **Then:**
-1. Read `docs/agents.md` and `docs/09_BUILD_PLAN.md`
+1. Read `AGENTS.md`, `docs/Agent-Collaboration-Workflow.md`, and `docs/09_BUILD_PLAN.md`
 2. Copy Phase 1 prompt from `docs/15_AGENT_PROMPTS.md`
 3. Start building with TDD!
 

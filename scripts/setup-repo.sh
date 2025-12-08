@@ -65,7 +65,7 @@ See [docs/00_START_HERE.md](docs/00_START_HERE.md) to begin.
 
 1. **Setup Environment:** Follow [docs/10_ENV_SETUP.md](docs/10_ENV_SETUP.md)
 2. **Start Building:** See [docs/09_BUILD_PLAN.md](docs/09_BUILD_PLAN.md)
-3. **Agent Workflow:** Read [docs/agents.md](docs/agents.md)
+3. **Agent Workflow:** Read [docs/Agent-Collaboration-Workflow.md](docs/Agent-Collaboration-Workflow.md)
 
 ## 🎯 Status
 

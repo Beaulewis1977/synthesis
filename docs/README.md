@@ -77,8 +77,8 @@ Complete specifications for building an **autonomous RAG system** powered by Cla
    - Per-phase prompts
    - Between-phase prompts
 
-14. **`agents.md`**
-   - Agent collaboration workflow
+14. **`AGENTS.md` and `docs/Agent-Collaboration-Workflow.md`**
+   - Contributor guidelines and agent collaboration workflow
    - Review process
    - MCP server usage
 

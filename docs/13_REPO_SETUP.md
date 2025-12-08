@@ -50,7 +50,7 @@ See `docs/10_ENV_SETUP.md` for setup instructions.
 
 - [Start Here](docs/00_START_HERE.md)
 - [Build Plan](docs/09_BUILD_PLAN.md)
-- [Agent Workflow](docs/agents.md)
+- [Agent Workflow](docs/Agent-Collaboration-Workflow.md)
 
 ## Status
 
@@ -407,7 +407,7 @@ Add to top of README.md:
 
 Autonomous RAG system powered by Claude Agent SDK for multi-project documentation management.
 
-[Documentation](docs/) | [Build Plan](docs/09_BUILD_PLAN.md) | [Agent Workflow](docs/agents.md)
+[Documentation](docs/) | [Build Plan](docs/09_BUILD_PLAN.md) | [Agent Workflow](docs/Agent-Collaboration-Workflow.md)
 
 ## Status
 
@@ -523,7 +523,7 @@ git push origin --delete feature/test-ci
 ### Next steps:
 1. Start Day 0: Environment setup (see `docs/10_ENV_SETUP.md`)
 2. Begin Phase 1: Database setup (see `docs/09_BUILD_PLAN.md`)
-3. Follow agent workflow (see `docs/agents.md`)
+3. Follow agent workflow (see `docs/Agent-Collaboration-Workflow.md`)
 
 ---
 

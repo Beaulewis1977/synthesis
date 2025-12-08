@@ -817,6 +817,35 @@ class ApiClient {
     );
   }
 
+  /**
+   * Get the current default embedding profile.
+   */
+  async getDefaultEmbeddingProfile(): Promise<{
+    profile: EmbeddingProfile;
+    isConfigured: boolean;
+  }> {
+    return this.request<{ profile: EmbeddingProfile; isConfigured: boolean }>(
+      '/api/admin/profiles/default'
+    );
+  }
+
+  /**
+   * Set the default embedding profile.
+   * Pass null to reset to the 'balanced' profile.
+   */
+  async setDefaultEmbeddingProfile(profileId: string | null): Promise<{
+    profile: EmbeddingProfile;
+    message: string;
+  }> {
+    return this.request<{ profile: EmbeddingProfile; message: string }>(
+      '/api/admin/profiles/default',
+      {
+        method: 'PUT',
+        body: JSON.stringify({ profileId }),
+      }
+    );
+  }
+
   // ============================================
   // API Key Management (Phase 6)
   // ============================================

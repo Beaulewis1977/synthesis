@@ -33,7 +33,7 @@
 - Makes agents more autonomous
 - Reduces guessing and errors
 
-**Updated:** `agents.md`
+**Updated:** Agent workflow docs (`AGENTS.md` + `docs/Agent-Collaboration-Workflow.md`)
 - Added "MCP Servers for Agents" section
 - Required MCP servers listed
 - Usage guidelines
@@ -124,7 +124,7 @@
 14. `13_REPO_SETUP.md` - GitHub setup
 15. `14_GITHUB_ISSUES.md` - Issue templates ⭐ NEW
 16. `15_AGENT_PROMPTS.md` - Copy-paste prompts ⭐ NEW ⭐ CRITICAL
-17. `agents.md` - Workflow (updated with MCP usage) ⭐ UPDATED
+17. `AGENTS.md` + `docs/Agent-Collaboration-Workflow.md` - Workflow (updated with MCP usage) ⭐ UPDATED
 18. `PHASE_SUMMARY_TEMPLATE.md` - Summary template
 19. `.coderabbit.yml` - CodeRabbit config
 20. `FINAL_CHECKLIST.md` - Pre-build checklist
@@ -151,7 +151,7 @@
    - Copy-paste ready
    - **This ensures you don't mess up instructions!**
 
-3. **Updated `agents.md`**
+3. **Updated agent workflow docs**
    - Added MCP server requirements
    - Context7 for doc search
    - Perplexity for web search

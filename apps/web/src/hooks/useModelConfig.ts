@@ -169,6 +169,45 @@ export function useSetCollectionProfile() {
   });
 }
 
+/**
+ * Hook to set the global default embedding profile
+ */
+export function useSetDefaultEmbeddingProfile() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (profileId: string | null) => apiClient.setDefaultEmbeddingProfile(profileId),
+    // Optimistic update
+    onMutate: async (profileId) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: modelConfigKeys.profiles });
+
+      // Snapshot previous value
+      const previousProfiles = queryClient.getQueryData(modelConfigKeys.profiles);
+
+      // Optimistically update the default profile ID
+      if (previousProfiles) {
+        queryClient.setQueryData(modelConfigKeys.profiles, {
+          ...previousProfiles,
+          defaultProfileId: profileId,
+        });
+      }
+
+      return { previousProfiles };
+    },
+    // Rollback on error
+    onError: (_err, _profileId, context) => {
+      if (context?.previousProfiles) {
+        queryClient.setQueryData(modelConfigKeys.profiles, context.previousProfiles);
+      }
+    },
+    // Refetch after success or error
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: modelConfigKeys.profiles });
+    },
+  });
+}
+
 // ============================================
 // API Key Management Hooks
 // ============================================
