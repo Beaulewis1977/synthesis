@@ -53,10 +53,29 @@ export function getSessionEnabledDefinitions(
 /**
  * Build agent tools filtered by session-enabled tools
  * Uses the adapter functions for proper type handling
+ *
+ * IMPORTANT: Falls back to all tools when session not found in registry.
+ * This ensures non-Anthropic providers (OpenAI, Google, Z.AI, Moonshot, Ollama)
+ * always have tool executors available, even for new sessions.
  */
 export function getSessionAgentTools(db: Pool, context: ToolContext): BuiltAgentTools {
   if (!context.sessionId) {
     // No session = all tools (backward compatible)
+    return buildAllAgentTools(db, context);
+  }
+
+  // Check if session exists in registry, if not, return all tools
+  const registry = getToolRegistry();
+  const hasSession = registry.getEnabledToolCount(context.sessionId) > 0;
+
+  if (!hasSession) {
+    // Session not in registry - use all tools
+    // Handles: (1) new sessions that haven't customized tools yet
+    //          (2) sessions expired and cleaned up
+    //          (3) sessions after registry reset
+    console.debug(
+      `[RegistryBridge] Session ${context.sessionId} not found in registry, using all tools`
+    );
     return buildAllAgentTools(db, context);
   }
 
@@ -67,10 +86,24 @@ export function getSessionAgentTools(db: Pool, context: ToolContext): BuiltAgent
 /**
  * Build chat tools filtered by session-enabled tools
  * Uses the adapter functions for proper type handling
+ *
+ * IMPORTANT: Falls back to all tools when session not found in registry.
  */
 export function getSessionChatTools(db: Pool, context: ToolContext): BuiltChatTools {
   if (!context.sessionId) {
     // No session = all tools (backward compatible)
+    return buildAllChatTools(db, context);
+  }
+
+  // Check if session exists in registry, if not, return all tools
+  const registry = getToolRegistry();
+  const hasSession = registry.getEnabledToolCount(context.sessionId) > 0;
+
+  if (!hasSession) {
+    // Session not in registry - use all tools (see getSessionAgentTools for details)
+    console.debug(
+      `[RegistryBridge] Session ${context.sessionId} not found in registry, using all chat tools`
+    );
     return buildAllChatTools(db, context);
   }
 

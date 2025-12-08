@@ -23,6 +23,14 @@ interface SetCollectionProfileBody {
   profileId: string | null;
 }
 
+interface SetDefaultProfileBody {
+  profileId: string | null;
+}
+
+const SetDefaultProfileBodySchema = z.object({
+  profileId: z.string().uuid().nullable(),
+});
+
 const BaseEmbeddingProfileSchema = z.object({
   name: z
     .string()
@@ -81,6 +89,60 @@ export async function registerProfileRoutes(fastify: FastifyInstance): Promise<v
       return reply.status(500).send({ error: message });
     }
   });
+
+  // GET /api/admin/profiles/default - Get the current default profile
+  // NOTE: Must be registered before /profiles/:id to avoid route conflict
+  fastify.get('/profiles/default', async (_request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const defaultProfile = await profileService.getDefaultProfile();
+      return reply.send({
+        profile: defaultProfile,
+        isConfigured: defaultProfile.name !== 'balanced', // Whether user has set a custom default
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      fastify.log.error({ error }, 'Failed to get default profile');
+      return reply.status(500).send({ error: message });
+    }
+  });
+
+  // PUT /api/admin/profiles/default - Set the default profile
+  // NOTE: Must be registered before /profiles/:id to avoid route conflict
+  fastify.put<{ Body: SetDefaultProfileBody }>(
+    '/profiles/default',
+    async (request: FastifyRequest<{ Body: SetDefaultProfileBody }>, reply: FastifyReply) => {
+      try {
+        const parseResult = SetDefaultProfileBodySchema.safeParse(request.body);
+        if (!parseResult.success) {
+          return reply.status(400).send({
+            error: 'Invalid request body',
+            details: parseResult.error.issues,
+          });
+        }
+
+        const { profileId } = parseResult.data;
+
+        // profileId can be null to reset to default 'balanced'
+        const updatedProfile = await profileService.setDefaultProfile(profileId ?? null);
+
+        return reply.send({
+          profile: updatedProfile,
+          message: profileId
+            ? 'Default profile updated successfully'
+            : 'Default profile reset to balanced',
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+
+        if (message.includes('not found')) {
+          return reply.status(404).send({ error: message });
+        }
+
+        fastify.log.error({ error }, 'Failed to set default profile');
+        return reply.status(500).send({ error: message });
+      }
+    }
+  );
 
   // GET /api/admin/profiles/:id - Get profile by ID
   fastify.get<{ Params: GetProfileParams }>(

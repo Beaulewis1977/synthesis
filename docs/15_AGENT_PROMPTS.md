@@ -63,8 +63,9 @@ All planning docs are in: `docs/` directory
 
 **Start by reading:**
 1. `docs/00_START_HERE.md` - Overview
-2. `docs/agents.md` - Your workflow guide (IMPORTANT!)
-3. `docs/09_BUILD_PLAN.md` - Day-by-day tasks
+2. `AGENTS.md` - Contributor + workflow overview (IMPORTANT!)
+3. `docs/Agent-Collaboration-Workflow.md` - Detailed agent workflow
+4. `docs/09_BUILD_PLAN.md` - Day-by-day tasks
 
 **Key references:**
 - Architecture: `docs/02_ARCHITECTURE.md`
@@ -120,7 +121,7 @@ docs(scope): description
 
 1. **Read documentation** (1 hour)
    - Read `docs/00_START_HERE.md`
-   - Read `docs/agents.md` thoroughly
+   - Read `AGENTS.md` thoroughly
    - Skim `docs/01_TECH_STACK.md` through `docs/13_REPO_SETUP.md`
 
 2. **Confirm understanding**
