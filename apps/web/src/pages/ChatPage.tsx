@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { AlertCircle, Menu } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { AlertCircle, GripVertical, Menu, Square } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ChatHistorySidebar } from '../components/ChatHistorySidebar';
 import { ChatMessage } from '../components/ChatMessage';
@@ -27,8 +27,56 @@ export function ChatPage() {
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
 
+  // Resizable sidebar
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem('chat-sidebar-width');
+    return saved ? Number(saved) : 256; // Default 256px (w-64)
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sidebar resize handlers
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback(
+    (e: MouseEvent) => {
+      if (isResizing && sidebarRef.current) {
+        const newWidth = e.clientX - sidebarRef.current.getBoundingClientRect().left;
+        // Clamp between 200px and 500px
+        const clampedWidth = Math.max(200, Math.min(500, newWidth));
+        setSidebarWidth(clampedWidth);
+        localStorage.setItem('chat-sidebar-width', String(clampedWidth));
+      }
+    },
+    [isResizing]
+  );
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('mouseup', stopResizing);
+      // Prevent text selection while dragging
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, [isResizing, resize, stopResizing]);
 
   // Streaming chat hook
   const {
@@ -36,6 +84,7 @@ export function ChatPage() {
     content: streamingContent,
     toolCalls: streamingToolCalls,
     streamChat,
+    cancelStream,
   } = useStreamingChat({
     onComplete: (content, _usage, toolCalls) => {
       // Add completed streaming message to messages array
@@ -293,15 +342,37 @@ export function ChatPage() {
     setSelectedModel(model || null);
   };
 
-  const isLoading = chatMutation.isPending || isStreaming;
+  const handleRenameSession = async (id: string, newTitle: string) => {
+    try {
+      await apiClient.updateChatSessionTitle(id, newTitle);
+      refetchSessions();
+    } catch (error) {
+      console.error('Failed to rename session:', error);
+    }
+  };
+
+  const handleBatchDeleteSessions = async (sessionIds: string[]) => {
+    try {
+      await apiClient.batchDeleteChatSessions(sessionIds);
+      // If we deleted the current session, clear it
+      if (sessionId && sessionIds.includes(sessionId)) {
+        handleNewChat();
+      }
+      refetchSessions();
+    } catch (error) {
+      console.error('Failed to batch delete sessions:', error);
+    }
+  };
 
   return (
     <div className="h-[calc(100vh-120px)] flex">
       {/* Sidebar */}
       <div
+        ref={sidebarRef}
+        style={{ width: isSidebarOpen ? sidebarWidth : 0 }}
         className={`
-          ${isSidebarOpen ? 'w-64' : 'w-0'} 
-          transition-all duration-300 ease-in-out overflow-hidden border-r border-border bg-bg-secondary flex-shrink-0
+          ${isResizing ? '' : 'transition-all duration-300 ease-in-out'}
+          overflow-hidden border-r border-border bg-bg-secondary flex-shrink-0 relative
         `}
       >
         <ChatHistorySidebar
@@ -310,8 +381,26 @@ export function ChatPage() {
           onSelectSession={handleSelectSession}
           onNewChat={handleNewChat}
           onDeleteSession={handleDeleteSession}
-          className="h-full w-64"
+          onRenameSession={handleRenameSession}
+          onBatchDeleteSessions={handleBatchDeleteSessions}
+          className="h-full"
+          style={{ width: sidebarWidth }}
         />
+
+        {/* Resize handle */}
+        {isSidebarOpen && (
+          <div
+            onMouseDown={startResizing}
+            className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/50 transition-colors group flex items-center justify-center ${
+              isResizing ? 'bg-accent' : ''
+            }`}
+            title="Drag to resize"
+          >
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <GripVertical size={12} className="text-text-secondary" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main Content */}
@@ -479,13 +568,21 @@ export function ChatPage() {
                   // Don't disable input while loading to allow queueing/optimistic updates
                   // disabled={isLoading}
                 />
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={!inputValue.trim()} // Allow sending even if loading (queueing handled by mutation chain ideally or just optimistic)
-                >
-                  {isLoading ? 'Sending...' : 'Send →'}
-                </button>
+                {isStreaming ? (
+                  <button
+                    type="button"
+                    onClick={cancelStream}
+                    className="btn bg-red-600 text-white hover:bg-red-700 flex items-center gap-xs"
+                    title="Stop generation"
+                  >
+                    <Square size={16} />
+                    Stop
+                  </button>
+                ) : (
+                  <button type="submit" className="btn btn-primary" disabled={!inputValue.trim()}>
+                    Send →
+                  </button>
+                )}
               </form>
             </div>
           </div>

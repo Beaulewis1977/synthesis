@@ -8,6 +8,7 @@ import {
   addChatMessage,
   createChatSession,
   deleteChatSession,
+  deleteChatSessions,
   getChatMessages,
   getChatSession,
   listChatSessions,
@@ -41,6 +42,11 @@ const AddMessageSchema = z.object({
 });
 
 const uuidSchema = z.string().uuid();
+
+// Schema for batch delete
+const BatchDeleteSchema = z.object({
+  session_ids: z.array(z.string().uuid()).min(1).max(100),
+});
 
 export const chatRoutes: FastifyPluginAsync = async (fastify) => {
   // List chat sessions for a collection
@@ -125,6 +131,25 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
     } catch (error) {
       fastify.log.error(error, 'Failed to delete chat session');
       return reply.code(500).send({ error: 'Failed to delete chat session' });
+    }
+  });
+
+  // Batch delete chat sessions
+  fastify.post('/api/chats/batch/delete', async (request, reply) => {
+    const validation = BatchDeleteSchema.safeParse(request.body);
+    if (!validation.success) {
+      return reply.code(400).send({
+        error: 'Invalid request',
+        details: validation.error.issues,
+      });
+    }
+
+    try {
+      const deletedCount = await deleteChatSessions(validation.data.session_ids);
+      return reply.send({ deleted: deletedCount });
+    } catch (error) {
+      fastify.log.error(error, 'Failed to batch delete chat sessions');
+      return reply.code(500).send({ error: 'Failed to batch delete chat sessions' });
     }
   });
 
