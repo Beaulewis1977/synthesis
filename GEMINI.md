@@ -24,13 +24,13 @@
 The project is structured as a monorepo:
 
 *   **`apps/`**
-    *   `server`: Fastify backend API (Port 3333). Handles chat, search, ingestion, and agent orchestration.
-    *   `web`: React frontend (Port 5173). UI for managing collections and chat.
-    *   `mcp`: MCP (Model Context Protocol) server (Port 3334). Exposes RAG tools to external agents (e.g., Cursor, Claude Desktop).
-    *   `desktop`: Desktop application (Tauri).
+  *   `server`: Fastify backend API (Port 3333). Handles chat, search, ingestion, and agent orchestration.
+  *   `web`: React frontend (Port 5173). UI for managing collections and chat.
+  *   `mcp`: MCP (Model Context Protocol) server (Port 3334). Exposes RAG tools to external agents (e.g., Cursor, Claude Desktop).
+  *   `desktop`: Desktop application (Tauri).
 *   **`packages/`**
-    *   `db`: Database client, schema, and migrations.
-    *   `shared`: Shared types, utilities, and constants.
+  *   `db`: Database client, schema, and migrations.
+  *   `shared`: Shared types, utilities, and constants.
 
 ## Key Features
 

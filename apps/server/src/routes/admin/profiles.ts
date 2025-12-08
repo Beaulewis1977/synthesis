@@ -5,7 +5,7 @@
  */
 
 import { getPool } from '@synthesis/db';
-import type { EmbeddingProfilesResponse } from '@synthesis/shared';
+import { DEFAULT_PROFILE_NAME, type EmbeddingProfilesResponse } from '@synthesis/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { getEmbeddingProfileService } from '../../services/embedding-profile-service.js';
@@ -97,7 +97,7 @@ export async function registerProfileRoutes(fastify: FastifyInstance): Promise<v
       const defaultProfile = await profileService.getDefaultProfile();
       return reply.send({
         profile: defaultProfile,
-        isConfigured: defaultProfile.name !== 'balanced', // Whether user has set a custom default
+        isConfigured: defaultProfile.name !== DEFAULT_PROFILE_NAME, // Whether user has set a custom default
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';

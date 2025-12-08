@@ -1,6 +1,6 @@
 # Agent Collaboration Workflow
 **Version:** 1.0  
-**Last Updated:** October 6, 2025
+**Last Updated:** December 8, 2025
 
 ---
 
@@ -60,7 +60,7 @@ Builder agents MUST have access to these MCP servers:
 **Purpose:** Search planning documentation when stuck
 
 **Usage:**
-```
+```bash
 @context7 search "database schema setup"
 @context7 search "agent tool implementation"
 ```
@@ -75,7 +75,7 @@ Builder agents MUST have access to these MCP servers:
 **Purpose:** Search web for technical problems
 
 **Usage:**
-```
+```bash
 @perplexity "how to configure pgvector HNSW index"
 @perplexity "typescript async error handling best practices"
 ```
@@ -90,7 +90,7 @@ Builder agents MUST have access to these MCP servers:
 **Purpose:** Break down complex problems
 
 **Usage:**
-```
+```text
 Use sequential thinking to plan implementation of multi-step feature
 ```
 
@@ -115,7 +115,7 @@ Use sequential thinking to plan implementation of multi-step feature
 
 ### Example Workflow with MCPs
 
-```
+```text
 1. Read phase requirements from planning docs
 2. If unclear → @context7 search relevant doc
 3. Start implementation
@@ -130,7 +130,7 @@ Use sequential thinking to plan implementation of multi-step feature
 
 ## 🔄 Development Workflow
 
-```
+```text
 Phase Start
   ↓
 Builder Agent: Implement Feature
@@ -320,7 +320,7 @@ Any additional context for reviewers
 
 ### Branch Strategy
 
-```
+```text
 main
   ├── develop
   │     ├── feature/phase-1-database
@@ -344,7 +344,7 @@ main
 
 **Format:** Conventional Commits
 
-```
+```text
 <type>(<scope>): <description>
 
 [optional body]
@@ -362,7 +362,7 @@ main
 - `chore`: Maintenance (deps, config, etc.)
 
 **Examples:**
-```
+```bash
 feat(pipeline): implement PDF extraction
 feat(agent): add search_rag tool
 fix(database): correct HNSW index parameters
@@ -376,7 +376,7 @@ test(pipeline): add chunking unit tests
 2. **Write descriptive messages**
 3. **Reference issues** when relevant: `fixes #123`
 4. **Include co-author** if pair programming:
-   ```
+   ```text
    Co-authored-by: Agent Name <agent@example.com>
    ```
 
@@ -387,7 +387,7 @@ test(pipeline): add chunking unit tests
 ### PR Creation
 
 **Title Format:**
-```
+```text
 Phase X: Brief Description
 ```
 
