@@ -6,8 +6,8 @@ Add `testZhipuKey()` and `testMoonshotKey()` methods to `ApiKeyService` so the "
 
 | Provider | Test Endpoint | Auth Header |
 |----------|---------------|-------------|
-| Z.AI (Zhipu) | `https://api.z.ai/api/paas/v4/models` | `Authorization: Bearer {key}` |
-| Moonshot | `https://api.moonshot.ai/v1/models` | `Authorization: Bearer {key}` |
+| Z.AI (Zhipu) | `https://api.z.ai/api/paas/v4/chat/completions` (POST) | `Authorization: Bearer {key}` |
+| Moonshot | `https://api.moonshot.ai/v1/models` (GET) | `Authorization: Bearer {key}` |
 
 ---
 
@@ -39,14 +39,28 @@ case 'moonshot':
 ```typescript
 private async testZhipuKey(key: string): Promise<{ valid: boolean; message: string }> {
   try {
-    const response = await fetch('https://api.z.ai/api/paas/v4/models', {
-      headers: { Authorization: `Bearer ${key}` },
+    const response = await fetch('https://api.z.ai/api/paas/v4/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model: 'glm-4-air',
+        messages: [{ role: 'user', content: 'test' }],
+        max_tokens: 1,
+      }),
     });
     if (response.ok) return { valid: true, message: 'API key is valid' };
     if (response.status === 401) return { valid: false, message: 'Invalid API key' };
-    return { valid: false, message: `API error: ${response.status}` };
+
+    const data = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
+    return { valid: false, message: data.error?.message || `API error: ${response.status}` };
   } catch (error) {
-    return { valid: false, message: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}` };
+    return {
+      valid: false,
+      message: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    };
   }
 }
 

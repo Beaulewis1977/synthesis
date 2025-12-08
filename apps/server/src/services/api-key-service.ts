@@ -325,6 +325,10 @@ export class ApiKeyService {
           return await this.testVoyageKey(key);
         case 'cohere':
           return await this.testCohereKey(key);
+        case 'zhipu':
+          return await this.testZhipuKey(key);
+        case 'moonshot':
+          return await this.testMoonshotKey(key);
         default:
           return { valid: false, message: `Testing not supported for provider: ${provider}` };
       }
@@ -447,6 +451,49 @@ export class ApiKeyService {
     }
 
     return { valid: false, message: `API error: ${response.status}` };
+  }
+
+  private async testZhipuKey(key: string): Promise<{ valid: boolean; message: string }> {
+    try {
+      const response = await fetch('https://api.z.ai/api/paas/v4/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model: 'glm-4-air',
+          messages: [{ role: 'user', content: 'test' }],
+          max_tokens: 1,
+        }),
+      });
+      if (response.ok) return { valid: true, message: 'API key is valid' };
+      if (response.status === 401) return { valid: false, message: 'Invalid API key' };
+
+      const data = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
+      return { valid: false, message: data.error?.message || `API error: ${response.status}` };
+    } catch (error) {
+      return {
+        valid: false,
+        message: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
+
+  private async testMoonshotKey(key: string): Promise<{ valid: boolean; message: string }> {
+    try {
+      const response = await fetch('https://api.moonshot.ai/v1/models', {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (response.ok) return { valid: true, message: 'API key is valid' };
+      if (response.status === 401) return { valid: false, message: 'Invalid API key' };
+      return { valid: false, message: `API error: ${response.status}` };
+    } catch (error) {
+      return {
+        valid: false,
+        message: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
   }
 
   // ==========================================================================

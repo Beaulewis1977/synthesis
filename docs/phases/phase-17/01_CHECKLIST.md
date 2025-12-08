@@ -16,11 +16,11 @@ Master checklist for all Phase 17 verification items. Update status as work prog
 - [x] `pnpm typecheck` passes (pre-existing unrelated error in scripts/)
 
 ## Phase 17B: Fix Z.AI & Moonshot API Testing
-- [ ] `testZhipuKey()` method added
-- [ ] `testMoonshotKey()` method added
-- [ ] Z.AI "Test" button returns valid/invalid result
-- [ ] Moonshot "Test" button returns valid/invalid result
-- [ ] `pnpm typecheck` passes
+- [x] `testZhipuKey()` method added
+- [x] `testMoonshotKey()` method added
+- [x] Z.AI "Test" button returns valid/invalid result
+- [x] Moonshot "Test" button returns valid/invalid result
+- [x] `pnpm typecheck` passes
 
 ## Phase 17C: Database Schema
 - [ ] Migration file created: `028_custom_providers.sql`

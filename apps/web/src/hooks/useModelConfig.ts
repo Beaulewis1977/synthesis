@@ -403,9 +403,8 @@ export function useAnthropicAuthMode() {
   const { data: settingsData } = useProviderSettings();
 
   const authMode =
-    settingsData?.settings?.find(
-      (s) => s.provider === 'anthropic' && s.settingKey === 'auth_mode'
-    )?.settingValue === 'oauth'
+    settingsData?.settings?.find((s) => s.provider === 'anthropic' && s.settingKey === 'auth_mode')
+      ?.settingValue === 'oauth'
       ? 'oauth'
       : 'api_key';
 

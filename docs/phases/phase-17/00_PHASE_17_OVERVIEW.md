@@ -983,16 +983,17 @@ if (customProviders) {
 
 | Phase | Commit Message |
 |-------|---------------|
-| 17A | `fix(api-keys): add API key testing for Zhipu and Moonshot providers` |
-| 17B | `feat(db): add custom_providers table migration` |
-| 17C | `feat(server): add CustomProviderService with CRUD and model discovery` |
-| 17D | `feat(server): add custom-providers admin routes` |
-| 17E.1 | `feat(shared): add CustomProvider types` |
-| 17E.2 | `feat(server): integrate custom providers into chat provider factory` |
-| 17F | `feat(web): add custom provider API client and hooks` |
-| 17G | `feat(web): add CustomProviderForm component` |
-| 17H | `feat(web): add Custom Providers section to ModelsPage` |
-| 17I | `feat(web): integrate custom providers into ChatModelSelector` |
+| 17A | `feat(anthropic): add OAuth/API key authentication toggle` |
+| 17B | `fix(api-keys): add API key testing for Zhipu and Moonshot providers` |
+| 17C | `feat(db): add custom_providers table migration` |
+| 17D | `feat(server): add CustomProviderService with CRUD and model discovery` |
+| 17E | `feat(server): add custom-providers admin routes` |
+| 17F.1 | `feat(shared): add CustomProvider types` |
+| 17F.2 | `feat(server): integrate custom providers into chat provider factory` |
+| 17G | `feat(web): add custom provider API client and hooks` |
+| 17H | `feat(web): add CustomProviderForm component` |
+| 17I | `feat(web): add Custom Providers section to ModelsPage` |
+| 17J | `feat(web): integrate custom providers into ChatModelSelector` |
 
 ### PR Strategy
 - **Single PR** for all Phase 17 changes
@@ -1004,11 +1005,16 @@ if (customProviders) {
 
 ## Testing Checklist
 
-### API Key Testing (17A)
-- [ ] Z.AI "Test" button returns valid/invalid result
-- [ ] Moonshot "Test" button returns valid/invalid result
+### Anthropic OAuth Toggle (17A)
+- [ ] OAuth toggle appears in Settings > API Keys
+- [ ] OAuth mode works (chat uses Claude subscription)
+- [ ] API Key mode works (chat uses API billing)
 
-### Custom Providers (17B-17I)
+### API Key Testing (17B)
+- [x] Z.AI "Test" button returns valid/invalid result
+- [x] Moonshot "Test" button returns valid/invalid result
+
+### Custom Providers (17C-17J)
 - [ ] Can create custom provider with URL + API key
 - [ ] Can create custom provider without API key (local)
 - [ ] Connection test works (shows discovered models)

@@ -949,24 +949,18 @@ class ApiClient {
    * Delete OAuth token for Anthropic.
    */
   async deleteOAuthToken(): Promise<{ message: string; provider: string }> {
-    return this.request<{ message: string; provider: string }>(
-      '/api/admin/api-keys/oauth',
-      {
-        method: 'DELETE',
-      }
-    );
+    return this.request<{ message: string; provider: string }>('/api/admin/api-keys/oauth', {
+      method: 'DELETE',
+    });
   }
 
   /**
    * Test OAuth token for Anthropic.
    */
   async testOAuthToken(): Promise<{ valid: boolean; message: string }> {
-    return this.request<{ valid: boolean; message: string }>(
-      '/api/admin/api-keys/oauth/test',
-      {
-        method: 'POST',
-      }
-    );
+    return this.request<{ valid: boolean; message: string }>('/api/admin/api-keys/oauth/test', {
+      method: 'POST',
+    });
   }
 
   // ============================================

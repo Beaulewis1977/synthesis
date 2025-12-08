@@ -10,10 +10,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { Pool } from 'pg';
 import { BASE_SYSTEM_PROMPT } from '../../agent/agent.js';
 import { MCP_SERVER_NAME, MCP_TOOL_NAMES, buildAgentMcpServer } from '../../agent/tools.js';
-import {
-  getApiKeyService,
-  getProviderSettingsService,
-} from '../../services/api-key-service.js';
+import { getApiKeyService, getProviderSettingsService } from '../../services/api-key-service.js';
 import { getProviderApiKey } from './index.js';
 import {
   MCP_SERVER_NAME as REGISTRY_MCP_SERVER_NAME,
@@ -162,11 +159,10 @@ export class AnthropicChatProvider implements ChatProvider {
     const prompt = buildPrompt(params, this.context.collectionId);
 
     // Phase 17A: Configure authentication based on auth mode setting
-    const authMode = await this.configureAuthentication();
+    await this.configureAuthentication();
 
     // Use Claude Agent SDK query()
     const claudeCliPath = getClaudeCliPath();
-    console.log(`[AnthropicProvider] Using Claude CLI at: ${claudeCliPath}, auth mode: ${authMode}`);
 
     const response = query({
       prompt,
@@ -380,12 +376,13 @@ export class AnthropicChatProvider implements ChatProvider {
         // Set the OAuth token environment variable for the SDK
         process.env.CLAUDE_CODE_OAUTH_TOKEN = oauthToken;
         // Clear API key to ensure OAuth is used
-        delete process.env.ANTHROPIC_API_KEY;
-        console.log('[AnthropicProvider] Using OAuth authentication (Claude subscription)');
+        process.env.ANTHROPIC_API_KEY = undefined;
         return 'oauth';
       }
       // Fall back to API key if OAuth token not available
-      console.warn('[AnthropicProvider] OAuth mode selected but no token available, falling back to API key');
+      console.warn(
+        '[AnthropicProvider] OAuth mode selected but no token available, falling back to API key'
+      );
     }
 
     // API key mode: Use ANTHROPIC_API_KEY
@@ -394,8 +391,7 @@ export class AnthropicChatProvider implements ChatProvider {
       // Set the API key environment variable for the SDK
       process.env.ANTHROPIC_API_KEY = apiKey;
       // Clear OAuth token to ensure API key is used
-      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
-      console.log('[AnthropicProvider] Using API key authentication (pay-per-use)');
+      process.env.CLAUDE_CODE_OAUTH_TOKEN = undefined;
     }
 
     return 'api_key';

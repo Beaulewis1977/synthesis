@@ -637,7 +637,8 @@ export function ApiKeyManager() {
                   />
                   {anthropicAuthMode === 'oauth' ? (
                     <span>
-                      Using: <code className="font-mono">CLAUDE_CODE_OAUTH_TOKEN</code> (Subscription)
+                      Using: <code className="font-mono">CLAUDE_CODE_OAUTH_TOKEN</code>{' '}
+                      (Subscription)
                     </span>
                   ) : (
                     <span>
