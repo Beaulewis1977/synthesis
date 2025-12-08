@@ -296,6 +296,17 @@ class ApiClient {
   }
 
   /**
+   * Batch delete multiple chat sessions.
+   * Uses CASCADE - all messages are automatically deleted.
+   */
+  async batchDeleteChatSessions(sessionIds: string[]): Promise<{ deleted: number }> {
+    return this.request<{ deleted: number }>('/api/chats/batch/delete', {
+      method: 'POST',
+      body: JSON.stringify({ session_ids: sessionIds }),
+    });
+  }
+
+  /**
    * Update a chat session title.
    * Phase 16 feature - persistent chat history.
    */

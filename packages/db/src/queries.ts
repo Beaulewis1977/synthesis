@@ -483,6 +483,19 @@ export async function deleteChatSession(sessionId: string): Promise<void> {
 }
 
 /**
+ * Deletes multiple chat sessions and all their messages (cascade).
+ * @param sessionIds Array of chat session IDs to delete.
+ * @returns Number of sessions deleted.
+ */
+export async function deleteChatSessions(sessionIds: string[]): Promise<number> {
+  if (sessionIds.length === 0) return 0;
+
+  const placeholders = sessionIds.map((_, i) => `$${i + 1}`).join(', ');
+  const result = await query(`DELETE FROM chat_sessions WHERE id IN (${placeholders})`, sessionIds);
+  return result.rowCount ?? 0;
+}
+
+/**
  * Updates the title of a chat session.
  * @param sessionId The chat session ID.
  * @param title The new title.
