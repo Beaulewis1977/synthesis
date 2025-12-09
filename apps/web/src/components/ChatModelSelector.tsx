@@ -8,6 +8,7 @@
 import { PROVIDER_INFO } from '@synthesis/shared';
 import { ChevronDown, Cpu, Loader2 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCustomProviders } from '../hooks/useCustomProviders';
 import { useOllamaModels } from '../hooks/useOllamaModels';
 import { apiClient } from '../lib/api';
 
@@ -54,6 +55,9 @@ export function ChatModelSelector({
   // Fetch Ollama models dynamically
   const { data: ollamaData, isLoading: ollamaLoading } = useOllamaModels();
 
+  // Fetch custom providers
+  const { data: customProviders } = useCustomProviders();
+
   // Build model options grouped by provider
   const modelGroups = useMemo(() => {
     const groups: Array<{
@@ -89,8 +93,28 @@ export function ChatModelSelector({
       }
     }
 
+    // Add custom providers after built-in providers
+    if (customProviders) {
+      for (const provider of customProviders) {
+        // Prefer discoveredModels, fallback to customModels
+        const models =
+          provider.discoveredModels?.length > 0
+            ? provider.discoveredModels
+            : provider.customModels || [];
+
+        // Only add if provider has at least one model
+        if (models.length > 0) {
+          groups.push({
+            provider: `custom:${provider.id}`,
+            displayName: provider.name,
+            models,
+          });
+        }
+      }
+    }
+
     return groups;
-  }, [ollamaData]);
+  }, [ollamaData, customProviders]);
 
   // Get display label for current selection
   const displayLabel = useMemo(() => {

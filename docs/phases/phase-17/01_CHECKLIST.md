@@ -91,13 +91,13 @@ Master checklist for all Phase 17 verification items. Update status as work prog
 - [x] `pnpm typecheck` passes
 
 ## Phase 17J: Chat Model Selector
-- [ ] Custom providers fetched with `useCustomProviders()`
-- [ ] Custom provider groups added after built-in providers
-- [ ] Custom providers appear in dropdown
-- [ ] Selection works (passes `custom:uuid` to backend)
-- [ ] Chat functions with custom provider
-- [ ] Tool calling works
-- [ ] `pnpm typecheck` passes
+- [x] Custom providers fetched with `useCustomProviders()`
+- [x] Custom provider groups added after built-in providers
+- [x] Custom providers appear in dropdown
+- [x] Selection works (passes `custom:uuid` to backend)
+- [ ] Chat functions with custom provider - needs manual testing
+- [ ] Tool calling works - needs manual testing
+- [x] `pnpm typecheck` passes
 
 ---
 

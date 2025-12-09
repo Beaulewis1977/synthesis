@@ -446,10 +446,33 @@ Agent-updated log of completed work. Update after each sub-phase completion.
 ---
 
 ## Phase 17J: Chat Model Selector
-**Status:** NOT STARTED
-**Date:** -
-**Commits:** -
-**Notes:** -
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- Integrated custom providers into the ChatModelSelector dropdown component
+- **File Modified:** `apps/web/src/components/ChatModelSelector.tsx`
+- **Changes Made:**
+  1. Added import: `import { useCustomProviders } from '../hooks/useCustomProviders';`
+  2. Added hook call: `const { data: customProviders } = useCustomProviders();`
+  3. Added custom providers loop in `modelGroups` useMemo (after built-in providers)
+  4. Updated useMemo dependency array to include `customProviders`
+- **Implementation Details:**
+  - Custom providers appear AFTER all built-in providers (Anthropic, OpenAI, Google, Ollama, Zhipu, Moonshot)
+  - Provider ID format: `custom:${provider.id}` (UUID-based)
+  - Prefers `discoveredModels` over `customModels` when available
+  - Only shows providers with at least one model
+  - Selection passes `custom:uuid` format to backend
+- **Backend Integration:**
+  - Backend `getConfiguredChatProviderWithOverride()` already handles `custom:` prefix
+  - Extracts UUID and calls `getCustomChatProvider()` to fetch from database
+- **Code Review:** APPROVED
+  - No critical or moderate issues
+  - Follows existing patterns (consistent with Ollama model handling)
+  - Proper type safety and edge case handling
+  - Correct useMemo dependencies
+- **TypeScript Status:** `pnpm --filter @synthesis/web typecheck` passes
+- **Next Steps:** Manual testing of chat and tool calling with custom providers
 
 ---
 
