@@ -1,0 +1,184 @@
+# Phase 18.3: Sandboxed Execution Pack
+
+## Overview
+This phase implements **Safe Code Execution**. Instead of allowing the agent to run commands on the host machine (high risk), we create a disposable, isolated Docker environment. This allows the agent to run `npm test`, `git`, or Python scripts safely.
+
+**Risk Profile:** High (Code Execution) - Mitigated by Docker Isolation.
+
+---
+
+## 1. The Sandbox Service
+
+### Architecture
+We will run a persistent Docker container named `synthesis-sandbox`.
+- **Image:** `node:22-alpine` (minimal attack surface; custom image with python + node + git).
+- **Network:** Isolated bridge network or `--network=none` for maximum isolation.
+
+### Workspace Mount Strategy
+
+**Recommended approach: Read-only source + ephemeral workspace**
+
+| Mount | Path | Type | Purpose |
+|-------|------|------|----------|
+| Source code | `/repo` | Bind mount (read-only) | Host project files, immutable |
+| Workspace | `/workspace` | tmpfs (ephemeral) | Writable area for mutations |
+| Temp | `/tmp` | tmpfs (ephemeral) | Script execution, temp files |
+
+**Workflow:**
+1. Host project is bind-mounted read-only at `/repo`
+2. On session start, sandbox copies needed files: `cp -r /repo/* /workspace/`
+3. Agent operates in `/workspace` (can modify, delete, create files)
+4. Changes are **ephemeral**—lost on container restart (this is intentional for safety)
+5. If results need to persist, the service explicitly copies them out before session ends
+
+**Why this strategy:**
+- Host files are protected: read-only mount prevents any modification
+- `rm -rf /workspace` is harmless—only deletes ephemeral tmpfs data
+- No persistent state accumulates in sandbox (clean slate each session)
+- Size-limited tmpfs prevents disk exhaustion attacks
+
+### Container Security Configuration
+
+Defense-in-depth is required—command whitelisting alone is insufficient:
+
+```yaml
+# docker-compose.yml example
+synthesis-sandbox:
+  image: synthesis-sandbox:latest
+  user: "1000:1000"           # Non-root user
+  read_only: true              # Read-only root filesystem
+  volumes:
+    - ${PROJECT_PATH}:/repo:ro  # Source code mounted read-only
+  tmpfs:
+    - /tmp:size=100M,mode=1777           # Writable tmp with size limit
+    - /workspace:size=500M,uid=1000,gid=1000  # Ephemeral workspace (owned by sandbox user)
+  working_dir: /workspace       # Default to workspace directory
+  cap_drop:
+    - ALL                      # Drop all Linux capabilities
+  security_opt:
+    - no-new-privileges:true   # Prevent privilege escalation
+    - seccomp:seccomp-profile.json  # Custom seccomp profile
+  deploy:
+    resources:
+      limits:
+        cpus: '1'
+        memory: 512M
+  network_mode: none           # Required for Phase 18.3
+```
+
+**Session initialization script** (run at container start or before each command):
+```bash
+#!/bin/sh
+# Copy source to workspace if empty
+if [ -z "$(ls -A /workspace 2>/dev/null)" ]; then
+  cp -r /repo/* /workspace/ 2>/dev/null || true
+fi
+cd /workspace
+exec "$@"
+```
+
+**Key security measures:**
+- **Non-root user:** UID 1000 prevents root-level access
+- **Read-only root FS:** Limits filesystem mutation surface
+- **Capabilities:** `--cap-drop=ALL` removes dangerous syscalls
+- **Seccomp profile:** Custom profile blocking dangerous system calls
+- **Resource limits:** Prevents resource exhaustion attacks
+- **Network isolation:** `--network=none` or domain allowlist
+
+### Network Security
+
+> **⚠️ Risk Acknowledgment:** AI-driven arbitrary code execution with internet access enables severe attack vectors including data exfiltration, command-and-control (C2) communication, and lateral movement within networks. Network isolation is critical.
+
+**Default Policy:**
+- `--network=none` is **required** for Phase 18.3 rollout
+- No sandbox container may have direct internet access without explicit security review and approval
+
+**If Internet Access Is Ever Required:**
+
+When package installation or external resources are genuinely needed, the following approach is mandatory:
+
+1. **Host-side caching/egress proxy:**
+   - Use a caching proxy like **Verdaccio** (npm) or **devpi** (Python) on the host
+   - Sandbox connects only to the local proxy, never directly to the internet
+   - Proxy pre-populates approved packages; new packages require manual approval
+
+2. **Strict domain allowlisting:**
+   - Egress proxy enforces domain allowlist (e.g., `registry.npmjs.org`, `pypi.org`)
+   - Requests to non-allowlisted domains are rejected with error: `"Network request blocked: domain not in allowlist"`
+   - Allowlist changes require security review and audit trail
+
+3. **Proxy-only egress:**
+   - Container network limited to host proxy IP only via Docker network policy
+   - No direct DNS resolution from container; proxy handles all external resolution
+
+**Audit and Monitoring:**
+- All outbound requests (including blocked attempts) must be logged with: timestamp, source container, destination domain, path, result (allowed/blocked)
+- Anomaly alerts trigger on: unusual request volume, requests to new domains, large response sizes
+- Logs retained for minimum 90 days for incident investigation
+
+**Enforcement:**
+- Non-allowlisted domain requests are rejected immediately with clear error message
+- Repeated violations trigger sandbox termination and incident alert
+
+### Implementation
+Create `apps/server/src/services/sandbox.ts`:
+- `startSandbox()`: Ensures the container is running.
+- `executeCommand(cmd: string)`: Uses `docker exec` API to run command and capture stdout/stderr.
+- `writeFile(path, content)`: Writes to the sandbox filesystem.
+- `readFile(path)`: Reads from the sandbox filesystem.
+
+---
+
+## 2. Sandboxed Terminal Tool
+
+### Usage
+- **Tool Name:** `execute_sandboxed_command`
+- **Description:** Execute a shell command in the isolated sandbox environment.
+- **Input:** `command` (string), `timeout_ms` (number, default: 10000).
+
+### Safety Guardrails
+- **Whitelist:** Only execute commands matching an explicit allowlist of approved binaries and patterns:
+  - **Approved commands:** `node`, `npm test`, `npm run`, `python`, `python3`, `git status`, `git diff`, `git log`
+  - **Pattern matching:** Commands must match approved patterns (e.g., `npm test -- *.test.ts`)
+  - **Adding/removing entries:** Whitelist is configurable via environment or config file; changes require review
+  - **Enforcement:** Commands not matching the whitelist are rejected with error: "Command not in approved list"
+- **Timeouts:** Kill execution if it runs longer than timeout.
+- **Output:** Truncate output to 2000 characters to prevent context overflow (provide a "view more" link if needed). This limit balances readability with token budget; adjust via config if needed.
+
+### Example
+**User:** "Run the tests for the login module."
+**Agent:** `execute_sandboxed_command("npm test -- login.test.ts")`
+
+---
+
+## 3. REPL / Script Runner
+
+### Usage
+- **Tool Name:** `run_analysis_script`
+- **Description:** Run a JavaScript or Python script to analyze data.
+- **Input:** `code` (string), `language` (enum: ['javascript', 'python']).
+
+### Workflow
+1.  Agent provides code (e.g., specific logic to parse a large JSON file).
+2.  The provided code is written to `/tmp/script.js` inside the sandbox.
+3.  Execution runs the script via `node /tmp/script.js`.
+4.  Output (stdout) is returned to the agent.
+
+### Use Case
+The agent can write a script to calculate complex statistics from a DB dump without hallucinating the math.
+
+---
+
+## Toolpack Configuration
+
+Update `apps/server/src/agent/tool-definitions/toolpacks.ts`:
+
+```typescript
+export const EXECUTION_TOOLPACK: ToolpackDefinition = {
+  name: 'execution',
+  description: 'Safe execution of code and shell commands in an isolated sandbox.',
+  defaultCategory: 'core',
+  tools: ['execute_sandboxed_command', 'run_analysis_script'],
+  sensitiveTools: ['execute_sandboxed_command', 'run_analysis_script'], // Always mark as sensitive
+};
+```
