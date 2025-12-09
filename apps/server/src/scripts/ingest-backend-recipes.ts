@@ -17,12 +17,7 @@ import {
   query,
   updateDocumentStatus,
 } from '@synthesis/db';
-import type {
-  BackendFeatureTag,
-  ContentPlatform,
-  DocumentMetadata,
-  UsageTier,
-} from '@synthesis/shared';
+import type { ContentPlatform, DocumentMetadata, UsageTier } from '@synthesis/shared';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
 // Note: importing from relative path in src/scripts
@@ -35,6 +30,9 @@ const repoRoot = path.resolve(__dirname, '../../../..');
 const RECIPES_DIR = path.join(repoRoot, 'docs/recipes/backend');
 const COLLECTION_NAME = 'backend-recipes';
 const COLLECTION_DESCRIPTION = 'Curated Backend, Infrastructure, and Serverless recipes';
+
+// Local definition since it was removed from shared
+type BackendFeatureTag = string;
 
 // Recipe frontmatter schema
 interface RecipeFrontmatter {
@@ -177,7 +175,8 @@ function buildRecipeMetadata(recipe: RecipeFile): DocumentMetadata {
     source_type: 'file',
     source_quality: 'official',
     platform: fm.platform,
-    feature_tags: fm.feature_tags,
+    // biome-ignore lint/suspicious/noExplicitAny: DocumentMetadata expects MobileFeatureTag[], but we have strings
+    feature_tags: fm.feature_tags as any,
     usage_tier: fm.usage_tier,
     recommended: fm.recommended ?? false,
     framework,
