@@ -397,7 +397,9 @@ export function CustomProviderForm({
                 type="number"
                 value={maxContextTokens}
                 onChange={(e) =>
-                  setMaxContextTokens(Math.max(1, Number.parseInt(e.target.value, 10) || 8192))
+                  setMaxContextTokens(
+                    Math.min(1000000, Math.max(1, Number.parseInt(e.target.value, 10) || 8192))
+                  )
                 }
                 className="input w-full"
                 min={1}

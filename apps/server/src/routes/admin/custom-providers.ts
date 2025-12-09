@@ -26,7 +26,7 @@ const CreateCustomProviderSchema = z.object({
   name: z.string().min(1).max(100),
   baseUrl: z.string().url(),
   apiKey: z.string().optional(),
-  maxContextTokens: z.number().int().min(1024).max(128000).optional(),
+  maxContextTokens: z.number().int().min(1024).max(200000).optional(),
   supportsVision: z.boolean().optional(),
   supportsTools: z.boolean().optional(),
   customModels: z.array(z.string()).optional(),

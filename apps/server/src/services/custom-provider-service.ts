@@ -89,16 +89,16 @@ function normalizeBaseUrl(input: string): string {
   // Remove trailing slashes
   const url = input.replace(/\/+$/, '');
 
-  // If URL contains paths after the host (like /v1/models, /v1/chat, etc.)
-  // extract just the base with /v1
-  const urlMatch = url.match(/^(https?:\/\/[^\/]+)(\/v1)?(\/.*)?$/);
-  if (urlMatch) {
-    const base = urlMatch[1]; // e.g., "https://api.openai.com"
-    return `${base}/v1`;
+  // Check if URL already ends with /v1 (possibly followed by more path segments)
+  // This preserves paths like /api/v1 for providers like Ollama
+  const v1Index = url.indexOf('/v1');
+  if (v1Index !== -1) {
+    // Truncate at /v1 (keep everything up to and including /v1)
+    return url.substring(0, v1Index + 3);
   }
 
-  // Fallback: append /v1 if not present
-  return url.endsWith('/v1') ? url : `${url}/v1`;
+  // No /v1 found - append it
+  return `${url}/v1`;
 }
 
 /**
@@ -555,20 +555,29 @@ class CustomProviderService {
         };
       }
 
-      // 400, 404 (model not found), 422, 500 = endpoint exists, API key works
+      // 400, 404 (model not found), 422 = endpoint exists, API key works
       // The request failed because our dummy model doesn't exist, but connection is valid
-      // Note: Some providers (MiniMax) return 500 for invalid model names
-      if (
-        response.status === 400 ||
-        response.status === 404 ||
-        response.status === 422 ||
-        response.status === 500
-      ) {
+      if (response.status === 400 || response.status === 404 || response.status === 422) {
         return {
           valid: true,
           models: [], // No models discovered - user must add manually
           message:
             'Connection successful! This provider does not expose a models list. Please add model names manually in Custom Models field.',
+        };
+      }
+
+      // 500 might indicate valid connection for some providers (MiniMax uses 500 for invalid model)
+      // but could also be a real server error - report with warning
+      if (response.status === 500) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          'Custom provider returned 500 during connection test - may be model not found or server error'
+        );
+        return {
+          valid: true,
+          models: [],
+          message:
+            'Connection likely successful (server returned 500). This may indicate the test model was not found. Please add model names manually.',
         };
       }
 

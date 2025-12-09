@@ -361,6 +361,16 @@ export class AnthropicChatProvider implements ChatProvider {
    *
    * Phase 17A: Supports OAuth (Claude subscription) and API key (pay-per-use) modes.
    *
+   * IMPORTANT: This implementation mutates process.env to set credentials.
+   * The current architecture relies on a single global auth mode shared by all
+   * concurrent requests. Changing auth mode per-request is NOT supported.
+   *
+   * TODO: If per-request or per-user authentication is later required,
+   * the configureAuthentication() + query() sequence must be synchronized
+   * (e.g., with a mutex or other locking) to prevent race conditions.
+   * Consider avoiding process.env mutation by passing credentials directly
+   * to the SDK if it supports it in a future version.
+   *
    * @returns The auth mode that was configured ('oauth' | 'api_key')
    */
   private async configureAuthentication(): Promise<'oauth' | 'api_key'> {

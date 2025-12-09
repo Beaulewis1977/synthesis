@@ -581,10 +581,11 @@ export class ApiKeyService {
       }
 
       // Token is set and CLI is accessible - this is the best we can verify
-      // without actually making an API call
+      // without actually making an API call (token validity checked on first use)
       return {
         valid: true,
-        message: 'OAuth token configured and Claude CLI accessible',
+        message:
+          'OAuth token configured. Claude CLI accessible. Token will be validated on first use.',
       };
     } catch (error) {
       return {

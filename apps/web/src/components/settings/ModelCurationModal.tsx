@@ -39,11 +39,12 @@ export function ModelCurationModal({ provider, isOpen, onClose }: ModelCurationM
   const [searchQuery, setSearchQuery] = useState('');
 
   // Reset state when provider changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: provider.id needed to reset state when provider object is replaced
   useEffect(() => {
     setStarredModels(new Set(provider.starredModels || []));
     setModelsWithoutTools(new Set(provider.modelsWithoutTools || []));
     setSearchQuery('');
-  }, [provider.starredModels, provider.modelsWithoutTools]);
+  }, [provider.id, provider.starredModels, provider.modelsWithoutTools]);
 
   // Mutations
   const updateStarredMutation = useUpdateStarredModels();
