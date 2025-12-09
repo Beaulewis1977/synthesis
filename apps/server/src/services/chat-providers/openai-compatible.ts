@@ -50,10 +50,18 @@ export interface OpenAICompatibleConfig {
   baseURL: string;
   /** API key provider name (used to look up the key in ApiKeyService or env) */
   apiKeyProvider: string;
+  /** Direct API key to bypass provider lookup (for custom providers) */
+  apiKey?: string;
   /** Maximum context window in tokens */
   maxContextTokens: number;
   /** Whether the provider supports vision/image input */
   supportsVision: boolean;
+  /** Whether to disable tools for this request (used when model doesn't support them) */
+  disableTools?: boolean;
+  /** Custom provider ID (for auto-marking models that don't support tools) */
+  customProviderId?: string;
+  /** Callback to mark a model as not supporting tools */
+  onModelNoToolSupport?: (providerId: string, model: string) => Promise<void>;
 }
 
 /**
@@ -142,8 +150,9 @@ export class OpenAICompatibleProvider implements ChatProvider {
    * Implements manual tool execution loop with OpenAI-compatible streaming API
    */
   async *streamChat(params: ChatParams): AsyncGenerator<ChatStreamChunk, void, unknown> {
-    // Get API key
-    const apiKey = await getProviderApiKey(this.db, this.config.apiKeyProvider);
+    // Use direct API key if provided (custom providers), otherwise lookup
+    const apiKey =
+      this.config.apiKey ?? (await getProviderApiKey(this.db, this.config.apiKeyProvider));
     if (!apiKey) {
       throw new Error(
         `${this.config.providerName} API key not configured. ` +
@@ -160,10 +169,10 @@ export class OpenAICompatibleProvider implements ChatProvider {
     // Build tools and executors
     const { toolExecutors } = buildAgentTools(this.db, this.context);
 
-    // Convert tools to OpenAI format
-    const openaiTools: ChatCompletionTool[] | undefined = params.tools
-      ? params.tools.map(toOpenAITool)
-      : undefined;
+    // Convert tools to OpenAI format (unless disabled)
+    let openaiTools: ChatCompletionTool[] | undefined =
+      params.tools && !this.config.disableTools ? params.tools.map(toOpenAITool) : undefined;
+    let toolsDisabledDueToError = false;
 
     // Convert messages to OpenAI format (handles system prompt)
     const messages = this.prepareMessages(params);
@@ -175,19 +184,68 @@ export class OpenAICompatibleProvider implements ChatProvider {
     while (turnCount < MAX_TURNS) {
       turnCount++;
 
-      // Create streaming request
-      const stream = await client.chat.completions.create({
-        model: params.model,
-        messages,
-        tools: openaiTools,
-        ...(params.maxTokens &&
-          (requiresMaxCompletionTokens(params.model)
-            ? { max_completion_tokens: params.maxTokens }
-            : { max_tokens: params.maxTokens })),
-        temperature: params.temperature,
-        stop: params.stopSequences,
-        stream: true,
-      });
+      // Create streaming request with retry on tool support error
+      let stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
+      try {
+        stream = await client.chat.completions.create({
+          model: params.model,
+          messages,
+          tools: openaiTools,
+          ...(params.maxTokens &&
+            (requiresMaxCompletionTokens(params.model)
+              ? { max_completion_tokens: params.maxTokens }
+              : { max_tokens: params.maxTokens })),
+          temperature: params.temperature,
+          stop: params.stopSequences,
+          stream: true,
+        });
+      } catch (error) {
+        // Check for "No endpoints found that support tool use" error (OpenRouter 404)
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const isToolSupportError =
+          errorMessage.includes('No endpoints found that support tool use') ||
+          errorMessage.includes('does not support tools') ||
+          (error instanceof OpenAI.APIError &&
+            error.status === 404 &&
+            errorMessage.includes('tool'));
+
+        if (isToolSupportError && openaiTools && !toolsDisabledDueToError) {
+          console.warn(`Model ${params.model} does not support tools. Retrying without tools...`);
+
+          // Mark model as not supporting tools (async, don't await)
+          if (this.config.customProviderId && this.config.onModelNoToolSupport) {
+            this.config
+              .onModelNoToolSupport(this.config.customProviderId, params.model)
+              .catch((e) => console.error(`Failed to mark model ${params.model} as no-tools:`, e));
+          }
+
+          // Disable tools and retry
+          openaiTools = undefined;
+          toolsDisabledDueToError = true;
+
+          // Emit a warning message to the user
+          yield {
+            type: 'text',
+            text: '⚠️ *This model does not support function calling. Running without tools.*\n\n',
+          };
+
+          // Retry without tools
+          stream = await client.chat.completions.create({
+            model: params.model,
+            messages,
+            ...(params.maxTokens &&
+              (requiresMaxCompletionTokens(params.model)
+                ? { max_completion_tokens: params.maxTokens }
+                : { max_tokens: params.maxTokens })),
+            temperature: params.temperature,
+            stop: params.stopSequences,
+            stream: true,
+          });
+        } else {
+          // Re-throw other errors
+          throw error;
+        }
+      }
 
       // Track accumulated tool calls by index
       const toolCallsAccum = new Map<number, { id: string; name: string; arguments: string }>();
@@ -326,6 +384,10 @@ export class OpenAICompatibleProvider implements ChatProvider {
    * Check if provider is configured (has API key)
    */
   async isConfigured(): Promise<boolean> {
+    // If direct API key provided (custom providers), always configured
+    if (this.config.apiKey) {
+      return true;
+    }
     const apiKey = await getProviderApiKey(this.db, this.config.apiKeyProvider);
     return apiKey !== null;
   }

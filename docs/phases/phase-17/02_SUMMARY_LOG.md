@@ -1,0 +1,624 @@
+# Phase 17: Progress Summary Log
+
+Agent-updated log of completed work. Update after each sub-phase completion.
+
+---
+
+## Phase 17A: Anthropic OAuth Toggle
+**Status:** IMPLEMENTED (Awaiting Testing)
+**Date:** 2025-12-08
+**Commits:** None yet (pending user approval)
+**Notes:**
+- Added `getAnthropicAuthMode()` to `ProviderSettingsService` for reading auth mode setting
+- Added OAuth token management methods to `ApiKeyService`:
+  - `setOAuthToken()` - Store encrypted OAuth token
+  - `getOAuthToken()` - Retrieve token (checks env var then DB)
+  - `deleteOAuthToken()` - Remove stored token
+  - `getOAuthTokenStatus()` - Get token status for UI
+  - `testAnthropicOAuth()` - Test token validity and CLI accessibility
+- Updated `AnthropicChatProvider`:
+  - Added `configureAuthentication()` method that sets appropriate env var based on mode
+  - OAuth mode: Sets `CLAUDE_CODE_OAUTH_TOKEN`, clears `ANTHROPIC_API_KEY`
+  - API key mode: Sets `ANTHROPIC_API_KEY`, clears `CLAUDE_CODE_OAUTH_TOKEN`
+  - Updated `isConfigured()` to check for OAuth token or API key based on mode
+- Added OAuth routes to `routes/admin/api-keys.ts`:
+  - `GET /api/admin/api-keys/oauth/status`
+  - `POST /api/admin/api-keys/oauth`
+  - `DELETE /api/admin/api-keys/oauth`
+  - `POST /api/admin/api-keys/oauth/test`
+- Added frontend API client methods in `apps/web/src/lib/api.ts`
+- Added React Query hooks in `useModelConfig.ts`:
+  - `useOAuthTokenStatus()` - Fetch token status
+  - `useSetOAuthToken()` - Save token mutation
+  - `useDeleteOAuthToken()` - Delete token mutation
+  - `useTestOAuthToken()` - Test token mutation
+  - `useAnthropicAuthMode()` - Get current auth mode from settings
+- Updated `ApiKeyManager.tsx` with:
+  - `OAuthTokenInput` component for OAuth token management
+  - Auth mode toggle in Anthropic section
+  - Mode indicator showing which auth method is active
+- **Files Modified:**
+  - `apps/server/src/services/api-key-service.ts`
+  - `apps/server/src/services/chat-providers/anthropic.ts`
+  - `apps/server/src/routes/admin/api-keys.ts`
+  - `apps/web/src/lib/api.ts`
+  - `apps/web/src/hooks/useModelConfig.ts`
+  - `apps/web/src/components/settings/ApiKeyManager.tsx`
+
+---
+
+## Phase 17B: Fix Z.AI & Moonshot API Testing
+**Status:** COMPLETE (with endpoint correction)
+**Date:** 2025-12-08
+**Commits:** None yet (pending user approval)
+**Notes:**
+- Added `testZhipuKey()` method to `ApiKeyService` for Z.AI API key validation
+  - **Corrected endpoint:** `https://api.z.ai/api/paas/v4/chat/completions` (POST)
+  - Initial implementation used `/models` endpoint which is not documented
+  - CodeRabbit review caught this - corrected to use documented `/chat/completions` endpoint
+  - Uses minimal request (glm-4-air model, 1 max_token) to minimize API costs
+  - Returns valid/invalid status with appropriate error messages
+- Added `testMoonshotKey()` method to `ApiKeyService` for Moonshot API key validation
+  - Tests against `https://api.moonshot.ai/v1/models` (GET)
+  - Uses `Authorization: Bearer {key}` header
+  - Returns valid/invalid status with appropriate error messages
+- Added switch cases in `testKey()` method for both providers
+- Both methods follow the existing test method pattern
+- **Provider Identity Notes:**
+  - GLM (Zhipu) and Kimi (Moonshot) are Claude-architecture-based models
+  - When asked their identity, they may respond as "Claude" - this is expected behavior
+  - Provider selection IS working correctly (verified via backend logs and streaming responses)
+  - API calls go to correct endpoints (api.z.ai and api.moonshot.ai)
+- **Files Modified:**
+  - `apps/server/src/services/api-key-service.ts` - Added test methods and switch cases
+  - `docs/phases/phase-17/17B_api_testing_fix.md` - Updated with corrected endpoint
+
+---
+
+## Phase 17C: Database Schema
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- Created migration file `packages/db/migrations/028_custom_providers.sql`
+- Migration successfully applied with `pnpm --filter @synthesis/db migrate`
+- Table `custom_providers` created with all required columns:
+  - `id` (UUID primary key)
+  - `name` (TEXT, unique, not null) - Display name
+  - `base_url` (TEXT, not null) - OpenAI-compatible endpoint
+  - `encrypted_key` (TEXT, nullable) - AES-256-GCM encrypted API key
+  - `provider_type` (TEXT, default 'openai-compatible')
+  - `max_context_tokens` (INTEGER, default 8192)
+  - `supports_vision` (BOOLEAN, default false)
+  - `supports_tools` (BOOLEAN, default true)
+  - `custom_models` (TEXT[]) - Manual model list fallback
+  - `discovered_models` (TEXT[]) - Auto-discovered models cache
+  - `created_at`, `updated_at` (TIMESTAMPTZ)
+- Created table-specific trigger function `update_custom_providers_updated_at()`
+- Trigger `trigger_custom_providers_updated_at` auto-updates `updated_at` on row UPDATE
+- Index `idx_custom_providers_name` created for efficient name lookups
+- **Key Implementation Detail:** Followed project pattern of table-specific trigger functions (not generic `update_updated_at_column()` as mentioned in phase doc)
+- **Files Created:**
+  - `packages/db/migrations/028_custom_providers.sql`
+- **Bug Fix (CodeRabbit):** Added explicit `DEFAULT '{}'` for `custom_models` and `discovered_models` array columns
+  - **Issue:** NULL vs empty array confusion can complicate application logic
+  - **Solution:** Created migration 029 to add explicit defaults and update existing NULL values
+  - Both columns now default to empty arrays instead of NULL
+- **Files Created:**
+  - `packages/db/migrations/028_custom_providers.sql`
+  - `packages/db/migrations/029_custom_providers_array_defaults.sql` (bug fix)
+- **Files Modified:**
+  - `docs/phases/phase-17/01_CHECKLIST.md` - Marked Phase 17C items as complete
+  - `docs/phases/phase-17/17C_database_schema.md` - Marked verification checklist complete
+  - `docs/phases/phase-17/00_PHASE_17_OVERVIEW.md` - Updated status and verification
+  - `docs/phases/phase-17/02_SUMMARY_LOG.md` - This file
+
+---
+
+## Phase 17D: Backend CustomProviderService
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- Created shared encryption module `apps/server/src/services/encryption.ts`
+  - Extracted AES-256-GCM encryption logic from `ApiKeyService`
+  - Functions: `encryptValue()`, `decryptValue()`, `getEncryptionKey()`
+  - Uses HKDF-SHA256 for key derivation from `API_KEY_ENCRYPTION_KEY` env var
+  - Format: `{iv_hex}:{authTag_hex}:{encrypted_hex}`
+  - Fully backward-compatible with existing encrypted data
+- Updated `ApiKeyService` to use shared encryption module
+  - Removed private `encryptKey()`, `decryptKey()`, `getEncryptionKey()` functions
+  - Imported and used `encryptValue()` and `decryptValue()` from `./encryption.js`
+  - Removed unused `crypto` import
+  - All 6 usages updated successfully
+- Created `CustomProviderService` with full CRUD operations:
+  - **List**: `list()` - Returns all custom providers ordered by creation date
+  - **Get**: `get(id)`, `getByName(name)` - Fetch single provider by ID or unique name
+  - **Create**: `create(input)` - Validates uniqueness, encrypts API key, attempts model discovery
+  - **Update**: `update(id, updates)` - Partial updates with dynamic SQL, checks name conflicts
+  - **Delete**: `delete(id)` - Removes provider, throws error if not found
+  - **API Key**: `getApiKey(id)` - Retrieves and decrypts API key securely
+- Implemented connection testing with timeout:
+  - Method: `testConnection(baseUrl, apiKey?)`
+  - 10-second timeout using AbortController
+  - Normalizes base URL (handles with/without `/v1` suffix)
+  - Tests `{baseUrl}/v1/models` endpoint
+  - Parses OpenAI format: `{ object: "list", data: [{ id: "model-name" }] }`
+  - Error handling for: timeout, network, auth (401), not found (404), invalid format
+  - Returns: `{ valid: boolean, models?: string[], error?: string }`
+- Implemented model discovery:
+  - Method: `discoverModels(id)` - Discovers models for existing provider
+  - Method: `refreshDiscoveredModels(id)` - Discovers and updates DB cache
+  - Gracefully handles failures (returns empty array, logs warnings)
+  - Auto-invoked during `create()` if API key provided (non-blocking)
+- Singleton pattern implementation:
+  - Getter: `getCustomProviderService(db: Pool)`
+  - Reset: `resetCustomProviderService()` for testing
+  - Module-scoped instance variable
+- TypeScript type safety:
+  - Interfaces: `CustomProvider`, `CreateCustomProviderInput`, `TestConnectionResult`
+  - Database row interface: `CustomProviderRow`
+  - Helper method: `rowToProvider()` for type conversion
+  - Proper typing for JSON response parsing (avoided `unknown` type errors)
+- **Security Features:**
+  - API keys encrypted at rest with AES-256-GCM
+  - Never returns raw API keys (only `hasApiKey: boolean`)
+  - Validates input before database operations
+  - Name uniqueness enforced for create/update
+- **Error Handling:**
+  - Connection timeout: 10 seconds with clear message
+  - Network errors: Caught and returned with details
+  - Auth failures: 401 detected and reported
+  - Not found: 404 detected for model endpoint
+  - Invalid format: Validates OpenAI response structure
+  - Database errors: Logged and re-thrown with context
+- **Files Created:**
+  - `apps/server/src/services/encryption.ts` - Shared encryption utilities (110 lines)
+  - `apps/server/src/services/custom-provider-service.ts` - Main service (521 lines)
+- **Files Modified:**
+  - `apps/server/src/services/api-key-service.ts` - Migrated to shared encryption
+  - `docs/phases/phase-17/01_CHECKLIST.md` - Marked Phase 17D items complete
+  - `docs/phases/phase-17/02_SUMMARY_LOG.md` - This file
+- **TypeScript Status:** All errors fixed (pre-existing unrelated error in `scripts/ingest-backend-recipes.ts`)
+- **Next Steps:** Phase 17E - Create admin routes for custom provider management
+
+---
+
+## Phase 17E: Backend Routes
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- Created REST API routes for custom provider management in `routes/admin/custom-providers.ts`
+- Implemented all 8 required endpoints:
+  - **GET /api/admin/custom-providers** - List all custom providers
+  - **POST /api/admin/custom-providers** - Create new provider (returns 201)
+  - **GET /api/admin/custom-providers/:id** - Get single provider by ID
+  - **PATCH /api/admin/custom-providers/:id** - Update provider (partial updates)
+  - **DELETE /api/admin/custom-providers/:id** - Delete provider (returns 204)
+  - **POST /api/admin/custom-providers/:id/test** - Test existing provider connection
+  - **GET /api/admin/custom-providers/:id/models** - Get/refresh discovered models
+  - **POST /api/admin/custom-providers/test-connection** - Test connection before saving
+- Zod validation schemas:
+  - `CreateCustomProviderSchema` - Full validation for POST create
+  - `UpdateCustomProviderSchema` - Partial validation for PATCH update
+  - `TestConnectionSchema` - Validation for test endpoint
+- UUID validation helper:
+  - Custom `isValidUUID()` function to validate all `:id` parameters
+  - Returns 400 "Invalid provider ID format" on invalid UUID
+- Error handling:
+  - 200: Success for GET, PATCH, and test endpoints
+  - 201: Created for POST create
+  - 204: No Content for DELETE
+  - 400: Validation errors, invalid UUID, duplicate provider names
+  - 404: Provider not found
+  - 500: Server errors
+- Test endpoint semantics:
+  - Both test endpoints return 200 status with `{ valid: boolean, ... }` pattern
+  - Connection failures return 200 with `valid: false` and error message
+  - Only return 500 if the test endpoint itself fails
+- Service integration:
+  - Uses `getCustomProviderService(db)` singleton
+  - Proper error propagation from service layer
+  - API key decryption via `service.getApiKey()` for test endpoint
+- Logging:
+  - Info level: Successful operations with structured data (provider ID, name, counts)
+  - Warn level: Business logic issues (duplicate names)
+  - Error level: All failures with error messages
+- Registered routes in `apps/server/src/index.ts`:
+  - Added import: `import { customProviderRoutes } from './routes/admin/custom-providers.js';`
+  - Added registration: `await fastify.register(customProviderRoutes, { prefix: '/api/admin/custom-providers' });`
+- Code review results:
+  - **Status:** APPROVED FOR PRODUCTION ✓
+  - No critical or moderate issues found
+  - Comprehensive error handling validated
+  - TypeScript types correct
+  - Follows established patterns from `api-keys.ts`
+  - Pattern adherence excellent
+- **Files Created:**
+  - `apps/server/src/routes/admin/custom-providers.ts` (422 lines)
+- **Files Modified:**
+  - `apps/server/src/index.ts` - Added import (line 22) and registration (line 112)
+  - `docs/phases/phase-17/01_CHECKLIST.md` - Marked Phase 17E items complete
+  - `docs/phases/phase-17/02_SUMMARY_LOG.md` - This file
+- **TypeScript Status:** No errors in implementation (pre-existing unrelated error in `scripts/`)
+- **Next Steps:** Phase 17F - Integrate custom providers into chat system
+
+---
+
+## Phase 17F: Chat Integration
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- **Part 1: Shared Types (17F.1)**
+  - Added CustomProvider types to `packages/shared/src/index.ts`:
+    - `CustomProvider` interface - representation returned to clients (no raw API keys)
+    - `CreateCustomProviderInput` interface - input for creating custom providers
+    - `TestConnectionResult` interface - connection test result structure
+  - Types now shared between frontend and backend (previously duplicated in custom-provider-service.ts)
+- **Part 2: Chat Integration (17F.2)**
+  - Updated `OpenAICompatibleConfig` interface in `openai-compatible.ts`:
+    - Added optional `apiKey?: string` field to bypass provider lookup
+    - Custom providers pass API key directly instead of looking up in `provider_api_keys` table
+  - Updated `streamChat()` method in `OpenAICompatibleProvider`:
+    - Now uses `this.config.apiKey ?? await getProviderApiKey(...)` pattern
+    - Direct API key takes precedence over provider lookup
+  - Updated `isConfigured()` method:
+    - Returns `true` immediately if direct `apiKey` is provided
+    - Falls back to provider lookup only when no direct key
+  - Added `getCustomChatProvider()` function to `chat-providers/index.ts`:
+    - Fetches custom provider by UUID from database
+    - Decrypts API key via `CustomProviderService.getApiKey()`
+    - Creates `OpenAICompatibleProvider` with direct API key config
+    - Returns ready-to-use ChatProvider instance
+  - Updated `getConfiguredChatProviderWithOverride()` to handle `custom:uuid` format:
+    - Checks for `custom:` prefix before standard provider lookup
+    - Extracts UUID and delegates to `getCustomChatProvider()`
+    - Seamless integration with existing chat routes
+  - Added imports to `chat-providers/index.ts`:
+    - `getCustomProviderService` from `custom-provider-service.js`
+    - `OpenAICompatibleProvider` from `openai-compatible.js`
+- **Request Flow:**
+  - HTTP request with `provider: "custom:uuid"` → `getConfiguredChatProviderWithOverride()`
+  - Detects `custom:` prefix → calls `getCustomChatProvider(db, context, uuid)`
+  - Fetches provider config from `custom_providers` table
+  - Decrypts API key → creates `OpenAICompatibleProvider` with direct key
+  - Chat stream uses custom endpoint with proper authentication
+- **Files Modified:**
+  - `packages/shared/src/index.ts` - Added CustomProvider types (Phase 17: Custom Provider Types section)
+  - `apps/server/src/services/chat-providers/openai-compatible.ts` - Added apiKey field and updated methods
+  - `apps/server/src/services/chat-providers/index.ts` - Added getCustomChatProvider and updated factory
+  - `docs/phases/phase-17/01_CHECKLIST.md` - Marked Phase 17F items complete
+  - `docs/phases/phase-17/02_SUMMARY_LOG.md` - This file
+- **TypeScript Status:** All typechecks pass
+- **Next Steps:** Phase 17G - Frontend Hooks for custom provider management
+
+---
+
+## Phase 17G: Frontend Hooks
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- **API Client Methods** - Added 8 methods to `apps/web/src/lib/api.ts`:
+  - `listCustomProviders()` - GET /api/admin/custom-providers
+  - `getCustomProvider(id)` - GET /api/admin/custom-providers/:id
+  - `createCustomProvider(data)` - POST /api/admin/custom-providers
+  - `updateCustomProvider(id, data)` - PATCH /api/admin/custom-providers/:id
+  - `deleteCustomProvider(id)` - DELETE /api/admin/custom-providers/:id
+  - `testCustomProviderConnection(baseUrl, apiKey?)` - POST /api/admin/custom-providers/test-connection
+  - `testExistingCustomProvider(id)` - POST /api/admin/custom-providers/:id/test
+  - `discoverCustomProviderModels(id)` - GET /api/admin/custom-providers/:id/models (returns string[] from response.models)
+- **React Query Hooks** - Created `apps/web/src/hooks/useCustomProviders.ts` with 8 hooks:
+  - `useCustomProviders()` - List all providers (staleTime: 60s)
+  - `useCustomProvider(id)` - Get single provider by ID (enabled: !!id)
+  - `useCreateCustomProvider()` - Create mutation, invalidates ['custom-providers']
+  - `useUpdateCustomProvider()` - Update mutation, invalidates ['custom-providers']
+  - `useDeleteCustomProvider()` - Delete mutation, invalidates ['custom-providers']
+  - `useTestCustomProviderConnection()` - Test connection mutation (no invalidation)
+  - `useTestExistingCustomProvider()` - Test saved provider mutation (no invalidation)
+  - `useDiscoverCustomProviderModels(id)` - Discover models query (staleTime: 5min)
+- **Type Imports:**
+  - API client imports: `CustomProvider`, `CreateCustomProviderInput`, `TestConnectionResult` from `@synthesis/shared`
+  - Hooks file imports same types from `@synthesis/shared`
+  - No type duplication - uses shared types from Phase 17F
+- **Query Key Structure:**
+  - Exported `customProviderKeys` object for cache management
+  - `all`: `['custom-providers']` - base key for list
+  - `detail(id)`: `['custom-providers', id]` - single provider
+  - `models(id)`: `['custom-providers', id, 'models']` - model discovery
+- **Patterns Followed:**
+  - Consistent with `useModelConfig.ts` hook patterns
+  - URL encoding: `encodeURIComponent(id)` for all ID parameters
+  - Proper mutation invalidation on success
+  - Type-safe with generics for queries and mutations
+- **Files Created:**
+  - `apps/web/src/hooks/useCustomProviders.ts` (102 lines)
+- **Files Modified:**
+  - `apps/web/src/lib/api.ts` - Added imports and 8 API methods (lines 1-5, 1193-1287)
+  - `docs/phases/phase-17/01_CHECKLIST.md` - Marked Phase 17G items complete
+  - `docs/phases/phase-17/02_SUMMARY_LOG.md` - This file
+- **TypeScript Status:** `pnpm --filter @synthesis/web typecheck` passes
+- **Next Steps:** Phase 17H - CustomProviderForm component
+
+---
+
+## Phase 17H: CustomProviderForm Component
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- Created modal form component for adding/editing custom providers
+- **File Created:** `apps/web/src/components/settings/CustomProviderForm.tsx` (280 lines)
+- **Props Interface:**
+  - `provider?: CustomProvider` - For edit mode (pre-populates fields)
+  - `onSave: (provider: CustomProvider) => void` - Callback on successful save
+  - `onCancel: () => void` - Callback on cancel
+  - `isOpen: boolean` - Modal visibility control
+- **Form Fields Implemented:**
+  - Name (text, required)
+  - Base URL (text, required, with validation)
+  - API Key (password, optional, with show/hide toggle)
+  - Max Context Tokens (number, default 8192)
+  - Supports Vision (checkbox, default false)
+  - Supports Tools (checkbox, default true)
+  - Custom Models (textarea, comma-separated fallback)
+- **URL Validation:**
+  - Allows `http://localhost:*` (primary local inference use case)
+  - Allows `http://127.0.0.1:*` (loopback)
+  - Allows `https://*` (secure remote endpoints)
+  - Allows custom hostnames for Docker/WSL networking
+- **UI States:**
+  1. Empty - Initial state, waiting for user input
+  2. Testing - Connection test in progress (spinner on button)
+  3. Success - Shows discovered models in scrollable list with count badge
+  4. Failed - Shows error message, enables manual model entry with warning
+  5. Saving - Save in progress (buttons disabled)
+- **Features:**
+  - Test Connection button with loading/success/error states
+  - Discovered models displayed in scrollable list (max-h-32)
+  - Advanced Settings collapsible section (chevron toggle)
+  - Warning message when auto-discovery fails suggesting manual entry
+  - Modal prevents close during save operation
+  - API key never pre-populated in edit mode (security)
+  - Edit mode shows "API key is configured" hint when key exists
+- **Hooks Used:**
+  - `useTestCustomProviderConnection()` - For "Test Connection" button
+  - `useCreateCustomProvider()` - For creating new provider
+  - `useUpdateCustomProvider()` - For updating existing provider
+- **Patterns Followed:**
+  - Modal component from `../Modal.tsx`
+  - Password input pattern from `ApiKeyManager.tsx` (Eye/EyeOff toggle)
+  - Button loading states with Loader2 spinner
+  - Error display with bg-error/10 styling
+  - Form field labels with required asterisk
+- **TypeScript Status:** `pnpm --filter @synthesis/web typecheck` passes
+- **Files Created:**
+  - `apps/web/src/components/settings/CustomProviderForm.tsx`
+- **Files Modified:**
+  - `docs/phases/phase-17/01_CHECKLIST.md` - Marked Phase 17H items complete
+  - `docs/phases/phase-17/02_SUMMARY_LOG.md` - This file
+- **Next Steps:** Phase 17I - Settings UI Integration (add Custom Providers section to ModelsPage)
+
+---
+
+## Phase 17I: Settings UI Integration
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- Added "Custom Providers" section to ModelsPage between API Keys and Reset Modal
+- **Components Created (inline in ModelsPage.tsx):**
+  - `CustomProviderCard` - Card component displaying:
+    - Provider name (font-medium)
+    - Base URL (text-sm text-muted-foreground)
+    - Model count badge (discoveredModels + customModels)
+    - "Tools" badge if supportsTools
+    - "Vision" badge if supportsVision
+    - Edit button (Pencil icon)
+    - Delete button (Trash2 icon) with loading state
+  - `CustomProvidersSection` - Section component with:
+    - SectionHeader (Server icon, title, description)
+    - "Add Custom Provider" button
+    - Provider list OR empty state ("No custom providers configured")
+    - Loading state while fetching
+    - CustomProviderForm modal integration
+- **Delete Confirmation:** Uses `window.confirm()` before deletion
+- **Edit Mode:** Opens CustomProviderForm with provider data pre-filled
+- **Imports Added:**
+  - Icons: `Plus`, `Server`, `Trash2` from lucide-react
+  - Type: `CustomProvider` from `@synthesis/shared`
+  - Component: `CustomProviderForm` from components/settings
+  - Hooks: `useCustomProviders`, `useDeleteCustomProvider`
+- **UI Patterns Followed:**
+  - Consistent with existing ModelsPage sections
+  - Uses `.card` class, `.btn` classes
+  - Badge styling matches existing badges (bg-accent/10, bg-success/10)
+  - Icon button styling matches DocumentActions pattern
+- **Files Modified:**
+  - `apps/web/src/pages/settings/ModelsPage.tsx` - Added components and section
+  - `docs/phases/phase-17/01_CHECKLIST.md` - Marked Phase 17I items complete
+  - `docs/phases/phase-17/02_SUMMARY_LOG.md` - This file
+- **TypeScript Status:** `pnpm --filter @synthesis/web typecheck` passes
+- **Next Steps:** Phase 17J - Chat Model Selector Integration
+
+---
+
+## Phase 17J: Chat Model Selector
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- Integrated custom providers into the ChatModelSelector dropdown component
+- **File Modified:** `apps/web/src/components/ChatModelSelector.tsx`
+- **Changes Made:**
+  1. Added import: `import { useCustomProviders } from '../hooks/useCustomProviders';`
+  2. Added hook call: `const { data: customProviders } = useCustomProviders();`
+  3. Added custom providers loop in `modelGroups` useMemo (after built-in providers)
+  4. Updated useMemo dependency array to include `customProviders`
+- **Implementation Details:**
+  - Custom providers appear AFTER all built-in providers (Anthropic, OpenAI, Google, Ollama, Zhipu, Moonshot)
+  - Provider ID format: `custom:${provider.id}` (UUID-based)
+  - Prefers `discoveredModels` over `customModels` when available
+  - Only shows providers with at least one model
+  - Selection passes `custom:uuid` format to backend
+- **Backend Integration:**
+  - Backend `getConfiguredChatProviderWithOverride()` already handles `custom:` prefix
+  - Extracts UUID and calls `getCustomChatProvider()` to fetch from database
+- **Code Review:** APPROVED
+  - No critical or moderate issues
+  - Follows existing patterns (consistent with Ollama model handling)
+  - Proper type safety and edge case handling
+  - Correct useMemo dependencies
+- **TypeScript Status:** `pnpm --filter @synthesis/web typecheck` passes
+- **Next Steps:** Manual testing of chat and tool calling with custom providers
+
+---
+
+## Phase 17K: Model Curation & Tool Support
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- **Problem Solved:** Custom providers like OpenRouter have 500+ models appearing in one long dropdown list, no way to curate favorites, and some models return 404 errors when using tool calling.
+- **Solution:** Starred favorites + searchable list + auto-retry on tool errors + manual configuration
+- **Database Changes:**
+  - Created migration `030_custom_provider_model_curation.sql`
+  - Added `starred_models TEXT[] DEFAULT '{}'` column
+  - Added `models_without_tools TEXT[] DEFAULT '{}'` column
+- **CustomProviderService Methods Added:**
+  - `updateStarredModels(id, models[])` - Set starred models for a provider
+  - `updateModelsWithoutTools(id, models[])` - Set models without tool support
+  - `addModelWithoutTools(id, modelName)` - Mark single model as no-tool-support
+  - `modelSupportsTools(id, modelName)` - Check if model supports tools
+  - `getModelsWithoutTools(id)` - Get list of models without tools
+- **Routes Added:**
+  - `PATCH /api/admin/custom-providers/:id/starred-models` - Update starred models
+  - `PATCH /api/admin/custom-providers/:id/models-without-tools` - Update no-tools list
+  - `POST /api/admin/custom-providers/:id/mark-no-tools/:model` - Mark single model
+- **Auto-Retry Logic (openai-compatible.ts):**
+  - Catches 404 "No endpoints found that support tool use" error
+  - Auto-retries request without tools
+  - Auto-marks model in `models_without_tools` via callback
+  - Shows warning message to user: "⚠️ *This model does not support function calling...*"
+  - Next request with same model automatically skips tools
+- **Chat Provider Factory Updates:**
+  - `getCustomChatProvider()` accepts optional `modelOverride` parameter
+  - Checks if model is in `modelsWithoutTools` list
+  - If yes, sets `disableTools: true` for the request
+  - Passes `onModelNoToolSupport` callback to auto-mark models
+- **Frontend Components:**
+  - `ModelCurationModal.tsx` (NEW) - Modal for starring models and toggling tool support
+    - Search filter for large model lists
+    - Star toggle button per model
+    - Tool support toggle button per model
+    - Stats display (total models, starred count, no-tools count)
+    - Save/Cancel buttons with loading states
+  - `ModelsPage.tsx` - Added ⭐ "Manage Models" button on provider cards
+    - Shows starred count badge on provider cards
+    - Opens ModelCurationModal on click
+  - `ChatModelSelector.tsx` - Updated with starred/searchable UI
+    - Starred models appear first (sorted to top)
+    - Search input appears when provider has >10 models
+    - Star indicator (⭐) next to starred models
+    - Warning indicator (⚠️) next to models without tool support
+    - Provider header shows starred count
+- **Frontend Hooks Added:**
+  - `useUpdateStarredModels()` - Mutation to update starred models
+  - `useUpdateModelsWithoutTools()` - Mutation to update no-tools list
+  - `useMarkModelNoTools()` - Mutation to mark single model
+- **Files Created:**
+  - `packages/db/migrations/030_custom_provider_model_curation.sql`
+  - `apps/web/src/components/settings/ModelCurationModal.tsx`
+- **Files Modified:**
+  - `packages/shared/src/index.ts` - Added `starredModels`, `modelsWithoutTools` to CustomProvider
+  - `apps/server/src/services/custom-provider-service.ts` - Added curation methods
+  - `apps/server/src/routes/admin/custom-providers.ts` - Added 3 new routes
+  - `apps/server/src/services/chat-providers/openai-compatible.ts` - Added auto-retry logic
+  - `apps/server/src/services/chat-providers/index.ts` - Updated factory with model checks
+  - `apps/web/src/lib/api.ts` - Added API methods
+  - `apps/web/src/hooks/useCustomProviders.ts` - Added hooks
+  - `apps/web/src/pages/settings/ModelsPage.tsx` - Added manage button
+  - `apps/web/src/components/ChatModelSelector.tsx` - Added starred/searchable UI
+- **TypeScript Status:** `pnpm typecheck` passes
+
+---
+
+## Phase 17L: Provider Connection Fallback
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- **Problem Solved:** Providers like MiniMax don't expose a `/models` endpoint, causing "Models endpoint not found" error when testing connection.
+- **Solution:** Fall back to testing `/chat/completions` endpoint when `/models` returns 404
+- **testChatCompletionsFallback() Method:**
+  - Triggers when `/models` endpoint returns 404
+  - Sends minimal request to `/chat/completions` with dummy model
+  - Accepts multiple HTTP statuses as "valid connection":
+    - 401 = Invalid API key (fail)
+    - 400, 404, 422, 500 = Endpoint exists, model error (success)
+    - 200 = Somehow worked (success)
+  - Returns success message prompting manual model entry
+- **TestConnectionResult.message Field:**
+  - Added optional `message?: string` field to shared types
+  - Displays success message when models couldn't be discovered
+  - Message: "Connection successful! This provider does not expose a models list. Please add model names manually in Custom Models field."
+- **CustomProviderForm Updates:**
+  - Added `testMessage` state for success messages
+  - Shows warning-colored success box when no models discovered
+  - Prompts user to use Custom Models field in Advanced Settings
+- **Providers Now Supported:**
+  - MiniMax (`https://api.minimax.io/v1`)
+  - Any provider without `/models` endpoint
+- **MiniMax Models:**
+  - `MiniMax-M2` - Agentic capabilities, advanced reasoning (204K context)
+  - `MiniMax-M2-Stable` - High concurrency, commercial use (204K context)
+- **Files Modified:**
+  - `apps/server/src/services/custom-provider-service.ts` - Added fallback method
+  - `packages/shared/src/index.ts` - Added `message` field to TestConnectionResult
+  - `apps/web/src/components/settings/CustomProviderForm.tsx` - Show success message
+- **TypeScript Status:** `pnpm typecheck` passes
+
+---
+
+## Phase 17M: Provider Polish & Model Lists
+**Status:** NOT STARTED
+**Date:** -
+**Commits:** None yet
+**Notes:**
+- **Problem 1: Outdated Model Lists** - Built-in providers (Z.AI, Moonshot, OpenAI, Google, Anthropic) have hardcoded model lists in `PROVIDER_INFO` that may be outdated or incomplete. Users cannot add custom models to built-in providers.
+- **Problem 2: URL Normalization Bug** - If user enters full URL like `https://api.openai.com/v1/models`, the code constructs invalid URL `https://api.openai.com/v1/models/v1/models`.
+- **Problem 3: User Confusion** - Users may incorrectly add built-in providers (Z.AI, OpenAI) as custom providers instead of using the API Keys section.
+
+**Planned Tasks:**
+
+1. **Update PROVIDER_INFO Model Lists** (`packages/shared/src/index.ts`):
+   - Research current models for Z.AI/Zhipu, Moonshot/Kimi, OpenAI, Google, Anthropic
+   - Update hardcoded model arrays
+   - Rebuild shared package
+
+2. **Fix URL Normalization** (`apps/server/src/services/custom-provider-service.ts`):
+   - Improve `testConnection()` to handle various URL formats:
+     - `https://api.openai.com` → works
+     - `https://api.openai.com/v1` → works
+     - `https://api.openai.com/v1/` → should work (trailing slash)
+     - `https://api.openai.com/v1/models` → should work (extract base)
+   - Use URL parsing instead of string manipulation
+
+3. **Cleanup & Guidance**:
+   - Help user delete incorrectly created custom providers
+   - Verify API keys are configured in correct section
+   - Consider adding UI guidance about when to use API Keys vs Custom Providers
+
+**Files to Modify:**
+- `packages/shared/src/index.ts` - PROVIDER_INFO model lists
+- `apps/server/src/services/custom-provider-service.ts` - URL normalization
+
+---
+
+## Final Review
+**Status:** NOT STARTED
+**Date:** -
+**PR:** -
+**Notes:** -

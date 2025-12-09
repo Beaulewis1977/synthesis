@@ -11,95 +11,12 @@
  * - Environment variables take precedence over stored keys
  */
 
-import crypto from 'node:crypto';
 import { PROVIDER_INFO } from '@synthesis/shared';
 import type { Pool } from 'pg';
-
-// Minimum key length for security (16 bytes = 128 bits)
-const MIN_KEY_LENGTH = 16;
-
-// HKDF parameters (salt/info are not secret but should be consistent across environments)
-const HKDF_SALT = process.env.API_KEY_ENCRYPTION_SALT ?? 'synthesis-api-key-encryption-salt';
-const HKDF_INFO = process.env.API_KEY_ENCRYPTION_INFO ?? 'synthesis-api-key-encryption-info';
+import { decryptValue, encryptValue } from './encryption.js';
 
 // Anthropic model used for API key validation. Configurable so updates are easy.
 const ANTHROPIC_TEST_MODEL = process.env.ANTHROPIC_TEST_MODEL || 'claude-3-5-haiku-20241022';
-
-/**
- * Get and validate encryption key from environment.
- * Throws an error if the key is missing or too short.
- *
- * The value of API_KEY_ENCRYPTION_KEY is used as input keying material (IKM)
- * for HKDF-SHA256, combined with a configurable salt/info, to derive the
- * 32-byte AES-256-GCM key used for encrypting API keys.
- */
-function getEncryptionKey(): Buffer {
-  const keyEnv = process.env.API_KEY_ENCRYPTION_KEY;
-
-  if (!keyEnv) {
-    throw new Error(
-      'API_KEY_ENCRYPTION_KEY environment variable is required for secure API key storage. ' +
-        'Generate one with: openssl rand -hex 32'
-    );
-  }
-
-  // Support both hex-encoded (64 chars = 32 bytes) and raw keys as input keying material
-  const ikm = keyEnv.length === 64 ? Buffer.from(keyEnv, 'hex') : Buffer.from(keyEnv);
-
-  if (ikm.length < MIN_KEY_LENGTH) {
-    throw new Error(
-      `API_KEY_ENCRYPTION_KEY must be at least ${MIN_KEY_LENGTH} bytes. ` +
-        `Current key is ${ikm.length} bytes. Generate a secure key with: openssl rand -hex 32`
-    );
-  }
-
-  const salt = Buffer.from(HKDF_SALT, 'utf8');
-  const info = Buffer.from(HKDF_INFO, 'utf8');
-
-  // Derive a stable 32-byte key using HKDF-SHA256.
-  const derived = crypto.hkdfSync('sha256', ikm, salt, info, 32);
-  // hkdfSync may be typed as returning ArrayBuffer in some environments; Buffer.from
-  // accepts ArrayBuffer and produces a Node.js Buffer suitable for AES-256-GCM.
-  return Buffer.from(derived as ArrayBuffer);
-}
-
-/**
- * Encrypt an API key
- */
-function encryptKey(plaintext: string): string {
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-gcm', getEncryptionKey(), iv);
-
-  let encrypted = cipher.update(plaintext, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-
-  const authTag = cipher.getAuthTag();
-
-  // Format: iv:authTag:encrypted
-  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
-}
-
-/**
- * Decrypt an API key
- */
-function decryptKey(ciphertext: string): string {
-  const parts = ciphertext.split(':');
-  if (parts.length !== 3) {
-    throw new Error('Invalid encrypted key format');
-  }
-
-  const [ivHex, authTagHex, encrypted] = parts;
-  const iv = Buffer.from(ivHex, 'hex');
-  const authTag = Buffer.from(authTagHex, 'hex');
-
-  const decipher = crypto.createDecipheriv('aes-256-gcm', getEncryptionKey(), iv);
-  decipher.setAuthTag(authTag);
-
-  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-
-  return decrypted;
-}
 
 /**
  * Mask an API key for display (show first 4 and last 4 chars)
@@ -183,7 +100,7 @@ export class ApiKeyService {
       } else if (storedValue) {
         // Use stored key
         try {
-          const decrypted = decryptKey(storedValue);
+          const decrypted = decryptValue(storedValue);
           status = {
             provider,
             configured: true,
@@ -223,7 +140,7 @@ export class ApiKeyService {
       throw new Error('API key cannot be empty');
     }
 
-    const encrypted = encryptKey(apiKey.trim());
+    const encrypted = encryptValue(apiKey.trim());
 
     try {
       await this.db.query(
@@ -289,9 +206,9 @@ export class ApiKeyService {
         return null;
       }
 
-      // Keep existing try/catch around decryptKey as-is
+      // Keep existing try/catch around decryptValue as-is
       try {
-        return decryptKey(result.rows[0].encrypted_key);
+        return decryptValue(result.rows[0].encrypted_key);
       } catch {
         return null;
       }
@@ -325,6 +242,10 @@ export class ApiKeyService {
           return await this.testVoyageKey(key);
         case 'cohere':
           return await this.testCohereKey(key);
+        case 'zhipu':
+          return await this.testZhipuKey(key);
+        case 'moonshot':
+          return await this.testMoonshotKey(key);
         default:
           return { valid: false, message: `Testing not supported for provider: ${provider}` };
       }
@@ -447,6 +368,231 @@ export class ApiKeyService {
     }
 
     return { valid: false, message: `API error: ${response.status}` };
+  }
+
+  private async testZhipuKey(key: string): Promise<{ valid: boolean; message: string }> {
+    try {
+      const response = await fetch('https://api.z.ai/api/paas/v4/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model: 'glm-4.5-air',
+          messages: [{ role: 'user', content: 'test' }],
+          max_tokens: 1,
+        }),
+      });
+      if (response.ok) return { valid: true, message: 'API key is valid' };
+      if (response.status === 401) return { valid: false, message: 'Invalid API key' };
+
+      const data = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
+      return { valid: false, message: data.error?.message || `API error: ${response.status}` };
+    } catch (error) {
+      return {
+        valid: false,
+        message: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
+
+  private async testMoonshotKey(key: string): Promise<{ valid: boolean; message: string }> {
+    try {
+      const response = await fetch('https://api.moonshot.ai/v1/models', {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (response.ok) return { valid: true, message: 'API key is valid' };
+      if (response.status === 401) return { valid: false, message: 'Invalid API key' };
+      return { valid: false, message: `API error: ${response.status}` };
+    } catch (error) {
+      return {
+        valid: false,
+        message: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
+
+  // ==========================================================================
+  // Anthropic OAuth Token Management (Phase 17A)
+  // ==========================================================================
+
+  /**
+   * Set an OAuth token for Anthropic (Claude subscription)
+   * Stored separately from API key to allow switching between modes
+   */
+  async setOAuthToken(provider: string, oauthToken: string): Promise<void> {
+    if (provider !== 'anthropic') {
+      throw new Error('OAuth tokens are only supported for Anthropic provider');
+    }
+
+    if (!oauthToken || oauthToken.trim().length === 0) {
+      throw new Error('OAuth token cannot be empty');
+    }
+
+    const encrypted = encryptValue(oauthToken.trim());
+
+    try {
+      // Store with a special key format to differentiate from API key
+      await this.db.query(
+        `INSERT INTO provider_api_keys (provider, encrypted_key, updated_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (provider) DO UPDATE SET
+           encrypted_key = EXCLUDED.encrypted_key,
+           updated_at = NOW()`,
+        [`${provider}_oauth`, encrypted]
+      );
+    } catch (error) {
+      console.error(`Failed to set OAuth token for provider ${provider}:`, error);
+      throw new Error(
+        `Failed to store OAuth token for provider ${provider}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
+   * Get the OAuth token for Anthropic
+   */
+  async getOAuthToken(provider: string): Promise<string | null> {
+    if (provider !== 'anthropic') {
+      return null;
+    }
+
+    // Check environment variable first
+    const envValue = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    if (envValue) {
+      return envValue;
+    }
+
+    // Check database
+    try {
+      const result = await this.db.query<{ encrypted_key: string }>(
+        'SELECT encrypted_key FROM provider_api_keys WHERE provider = $1',
+        [`${provider}_oauth`]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      try {
+        return decryptValue(result.rows[0].encrypted_key);
+      } catch {
+        return null;
+      }
+    } catch (error) {
+      console.error(`Failed to retrieve OAuth token for provider ${provider}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Delete OAuth token for Anthropic
+   */
+  async deleteOAuthToken(provider: string): Promise<void> {
+    if (provider !== 'anthropic') {
+      throw new Error('OAuth tokens are only supported for Anthropic provider');
+    }
+
+    try {
+      const result = await this.db.query('DELETE FROM provider_api_keys WHERE provider = $1', [
+        `${provider}_oauth`,
+      ]);
+
+      if (result.rowCount === 0) {
+        throw new Error(`No stored OAuth token found for provider: ${provider}`);
+      }
+    } catch (error) {
+      console.error(`Failed to delete OAuth token for provider ${provider}:`, error);
+      throw new Error(
+        `Failed to delete OAuth token for provider ${provider}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
+   * Get OAuth token status for Anthropic
+   */
+  async getOAuthTokenStatus(): Promise<{
+    configured: boolean;
+    source: 'env' | 'db' | 'none';
+    maskedValue?: string;
+  }> {
+    // Check environment variable first
+    const envValue = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    if (envValue) {
+      return {
+        configured: true,
+        source: 'env',
+        maskedValue: maskKey(envValue),
+      };
+    }
+
+    // Check database
+    try {
+      const result = await this.db.query<{ encrypted_key: string }>(
+        'SELECT encrypted_key FROM provider_api_keys WHERE provider = $1',
+        ['anthropic_oauth']
+      );
+
+      if (result.rows.length > 0) {
+        try {
+          const decrypted = decryptValue(result.rows[0].encrypted_key);
+          return {
+            configured: true,
+            source: 'db',
+            maskedValue: maskKey(decrypted),
+          };
+        } catch {
+          return { configured: false, source: 'none' };
+        }
+      }
+    } catch (error) {
+      console.error('Failed to get OAuth token status:', error);
+    }
+
+    return { configured: false, source: 'none' };
+  }
+
+  /**
+   * Test Anthropic OAuth token by checking if Claude CLI is accessible
+   * and the token is valid
+   */
+  async testAnthropicOAuth(): Promise<{ valid: boolean; message: string }> {
+    const token = await this.getOAuthToken('anthropic');
+
+    if (!token) {
+      return { valid: false, message: 'No OAuth token configured' };
+    }
+
+    const cliPath = process.env.CLAUDE_CLI_PATH || 'claude';
+
+    try {
+      const { execSync } = await import('node:child_process');
+
+      // Test CLI accessibility first
+      try {
+        execSync(`${cliPath} --version`, { timeout: 5000, stdio: 'pipe' });
+      } catch {
+        return {
+          valid: false,
+          message: `Claude CLI not found at '${cliPath}'. Install with: npm install -g @anthropic-ai/claude-code`,
+        };
+      }
+
+      // Token is set and CLI is accessible - this is the best we can verify
+      // without actually making an API call (token validity checked on first use)
+      return {
+        valid: true,
+        message:
+          'OAuth token configured. Claude CLI accessible. Token will be validated on first use.',
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        message: `OAuth validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
   }
 }
 
@@ -586,6 +732,15 @@ export class ProviderSettingsService {
   async isZhipuCodingPlanEnabled(): Promise<boolean> {
     const value = await this.getSetting('zhipu', 'use_coding_plan');
     return value === 'true';
+  }
+
+  /**
+   * Get Anthropic authentication mode
+   * @returns 'oauth' if using Claude subscription (CLAUDE_CODE_OAUTH_TOKEN), 'api_key' otherwise
+   */
+  async getAnthropicAuthMode(): Promise<'oauth' | 'api_key'> {
+    const value = await this.getSetting('anthropic', 'auth_mode');
+    return value === 'oauth' ? 'oauth' : 'api_key';
   }
 }
 

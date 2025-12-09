@@ -4,6 +4,7 @@
  * Phase 6: Manage API keys for various providers.
  * Allows setting, testing, and deleting API keys.
  * Phase 16G: Added provider settings (e.g., Z.AI coding plan toggle).
+ * Phase 17A: Added Anthropic OAuth/API key authentication toggle.
  */
 
 import {
@@ -16,17 +17,23 @@ import {
   Loader2,
   Settings2,
   Trash2,
+  User,
   XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
 import {
   PROVIDER_DISPLAY_NAMES,
+  useAnthropicAuthMode,
   useApiKeyStatus,
   useDeleteApiKey,
+  useDeleteOAuthToken,
+  useOAuthTokenStatus,
   useProviderSettings,
   useSetApiKey,
+  useSetOAuthToken,
   useSetProviderSetting,
   useTestApiKey,
+  useTestOAuthToken,
 } from '../../hooks/useModelConfig';
 
 interface ApiKeyInputProps {
@@ -244,6 +251,173 @@ function ProviderSettingToggle({
   );
 }
 
+/**
+ * OAuth Token Input component for Anthropic (Phase 17A)
+ */
+function OAuthTokenInput({
+  configured,
+  maskedValue,
+  onSave,
+  onDelete,
+  onTest,
+  isSaving,
+  isDeleting,
+  isTesting,
+  testResult,
+}: {
+  configured: boolean;
+  maskedValue?: string;
+  onSave: (token: string) => void;
+  onDelete: () => void;
+  onTest: () => void;
+  isSaving: boolean;
+  isDeleting: boolean;
+  isTesting: boolean;
+  testResult?: { valid: boolean; message: string } | null;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [showToken, setShowToken] = useState(false);
+  const [tokenValue, setTokenValue] = useState('');
+
+  const handleSave = () => {
+    if (tokenValue.trim()) {
+      onSave(tokenValue.trim());
+      setTokenValue('');
+      setIsEditing(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setTokenValue('');
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="p-md border border-border rounded-lg">
+      <div className="flex items-center justify-between mb-sm">
+        <div className="flex items-center gap-sm">
+          <User size={16} className={configured ? 'text-success' : 'text-text-secondary'} />
+          <span className="font-medium text-text-primary">OAuth Token</span>
+          {configured ? (
+            <span className="text-xs px-1.5 py-0.5 bg-success/10 text-success rounded">
+              Configured
+            </span>
+          ) : (
+            <span className="text-xs px-1.5 py-0.5 bg-warning/10 text-warning rounded">
+              Not set
+            </span>
+          )}
+        </div>
+        <code className="text-xs text-text-secondary bg-bg-secondary px-2 py-0.5 rounded">
+          CLAUDE_CODE_OAUTH_TOKEN
+        </code>
+      </div>
+
+      {isEditing ? (
+        <div className="space-y-sm">
+          <div className="relative">
+            <input
+              type={showToken ? 'text' : 'password'}
+              value={tokenValue}
+              onChange={(e) => setTokenValue(e.target.value)}
+              placeholder="Paste OAuth token from: claude setup-token"
+              className="input pr-10 text-sm font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setShowToken(!showToken)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-secondary hover:text-text-primary"
+              aria-label={showToken ? 'Hide token' : 'Show token'}
+            >
+              {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          <div className="flex items-center gap-sm">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!tokenValue.trim() || isSaving}
+              className="btn btn-primary text-sm flex items-center gap-xs"
+            >
+              {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              Save
+            </button>
+            <button type="button" onClick={handleCancel} className="btn btn-secondary text-sm">
+              Cancel
+            </button>
+          </div>
+          <p className="text-xs text-text-secondary">
+            Generate with: <code className="bg-bg-secondary px-1 rounded">claude setup-token</code>
+          </p>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-sm">
+            {configured && maskedValue && (
+              <span className="text-sm font-mono text-text-secondary">{maskedValue}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-sm">
+            {configured && (
+              <>
+                <button
+                  type="button"
+                  onClick={onTest}
+                  disabled={isTesting}
+                  className="btn btn-secondary text-sm flex items-center gap-xs"
+                >
+                  {isTesting ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : testResult?.valid === true ? (
+                    <CheckCircle size={14} className="text-success" />
+                  ) : testResult?.valid === false ? (
+                    <XCircle size={14} className="text-error" />
+                  ) : (
+                    <Check size={14} />
+                  )}
+                  Test
+                </button>
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  disabled={isDeleting}
+                  className="btn btn-secondary text-sm flex items-center gap-xs text-error hover:bg-error/10"
+                >
+                  {isDeleting ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={14} />
+                  )}
+                  Remove
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="btn btn-primary text-sm"
+            >
+              {configured ? 'Update' : 'Add Token'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Test Result */}
+      {testResult && (
+        <div
+          className={`mt-sm p-sm rounded text-xs flex items-center gap-sm ${
+            testResult.valid ? 'bg-success/10 text-success' : 'bg-error/10 text-error'
+          }`}
+        >
+          {testResult.valid ? <CheckCircle size={14} /> : <XCircle size={14} />}
+          {testResult.message}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ApiKeyManager() {
   const { data, isLoading, error } = useApiKeyStatus();
   const { data: settingsData } = useProviderSettings();
@@ -252,9 +426,20 @@ export function ApiKeyManager() {
   const testApiKeyMutation = useTestApiKey();
   const setProviderSettingMutation = useSetProviderSetting();
 
+  // Phase 17A: Anthropic OAuth hooks
+  const { data: oauthStatus } = useOAuthTokenStatus();
+  const setOAuthTokenMutation = useSetOAuthToken();
+  const deleteOAuthTokenMutation = useDeleteOAuthToken();
+  const testOAuthTokenMutation = useTestOAuthToken();
+  const anthropicAuthMode = useAnthropicAuthMode();
+
   const [testResults, setTestResults] = useState<
     Record<string, { valid: boolean; message: string }>
   >({});
+  const [oauthTestResult, setOauthTestResult] = useState<{
+    valid: boolean;
+    message: string;
+  } | null>(null);
 
   // Get Zhipu coding plan setting
   const zhipuCodingPlan =
@@ -268,6 +453,31 @@ export function ApiKeyManager() {
       key: 'use_coding_plan',
       value: value.toString(),
     });
+  };
+
+  // Phase 17A: Anthropic auth mode toggle handler
+  const handleAnthropicAuthModeToggle = async (useOAuth: boolean) => {
+    await setProviderSettingMutation.mutateAsync({
+      provider: 'anthropic',
+      key: 'auth_mode',
+      value: useOAuth ? 'oauth' : 'api_key',
+    });
+  };
+
+  // Phase 17A: OAuth token handlers
+  const handleOAuthSave = async (token: string) => {
+    await setOAuthTokenMutation.mutateAsync(token);
+    setOauthTestResult(null);
+  };
+
+  const handleOAuthDelete = async () => {
+    await deleteOAuthTokenMutation.mutateAsync();
+    setOauthTestResult(null);
+  };
+
+  const handleOAuthTest = async () => {
+    const result = await testOAuthTokenMutation.mutateAsync();
+    setOauthTestResult(result);
   };
 
   if (isLoading) {
@@ -382,6 +592,57 @@ export function ApiKeyManager() {
                   ) : (
                     <span>
                       Using: <code className="font-mono">/api/paas/</code> (Pay-per-use)
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* Anthropic OAuth/API Key settings (Phase 17A) */}
+            {key.provider === 'anthropic' && (
+              <div className="mt-sm ml-md space-y-sm">
+                {/* Auth mode toggle */}
+                <ProviderSettingToggle
+                  label="Use Claude Subscription (OAuth)"
+                  description="Enable to use your Claude Pro/Max subscription instead of pay-per-use API credits."
+                  currentValue={anthropicAuthMode === 'oauth'}
+                  onToggle={handleAnthropicAuthModeToggle}
+                  isUpdating={setProviderSettingMutation.isPending}
+                />
+                {/* OAuth Token input (shown when OAuth mode is selected) */}
+                {anthropicAuthMode === 'oauth' && (
+                  <OAuthTokenInput
+                    configured={oauthStatus?.configured ?? false}
+                    maskedValue={oauthStatus?.maskedValue}
+                    onSave={handleOAuthSave}
+                    onDelete={handleOAuthDelete}
+                    onTest={handleOAuthTest}
+                    isSaving={setOAuthTokenMutation.isPending}
+                    isDeleting={deleteOAuthTokenMutation.isPending}
+                    isTesting={testOAuthTokenMutation.isPending}
+                    testResult={oauthTestResult}
+                  />
+                )}
+                {/* Auth mode indicator */}
+                <div
+                  className={`text-xs px-sm py-xs rounded inline-flex items-center gap-xs ${
+                    anthropicAuthMode === 'oauth'
+                      ? 'bg-accent/10 text-accent'
+                      : 'bg-gray-100 text-text-secondary'
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      anthropicAuthMode === 'oauth' ? 'bg-accent' : 'bg-gray-400'
+                    }`}
+                  />
+                  {anthropicAuthMode === 'oauth' ? (
+                    <span>
+                      Using: <code className="font-mono">CLAUDE_CODE_OAUTH_TOKEN</code>{' '}
+                      (Subscription)
+                    </span>
+                  ) : (
+                    <span>
+                      Using: <code className="font-mono">ANTHROPIC_API_KEY</code> (Pay-per-use)
                     </span>
                   )}
                 </div>

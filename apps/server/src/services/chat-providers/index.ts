@@ -10,11 +10,13 @@
 import { PROVIDER_INFO } from '@synthesis/shared';
 import type { Pool } from 'pg';
 import { getApiKeyService } from '../api-key-service.js';
+import { getCustomProviderService } from '../custom-provider-service.js';
 import { getModelConfigService } from '../model-config-service.js';
 import { createAnthropicProvider } from './anthropic.js';
 import { createGoogleProvider } from './google.js';
 import { createMoonshotProvider } from './moonshot.js';
 import { createOllamaProvider } from './ollama.js';
+import { OpenAICompatibleProvider } from './openai-compatible.js';
 import { createOpenAIProvider } from './openai.js';
 import type { ChatProvider, ChatProviderFactory, ChatProviderType, ToolContext } from './types.js';
 import { createZhipuProvider } from './zhipu.js';
@@ -108,6 +110,7 @@ export async function getConfiguredChatProvider(
 /**
  * Get chat provider with optional provider override.
  * Phase 16G: Supports per-chat model selection.
+ * Phase 17F: Supports custom:uuid format for custom providers.
  *
  * @param db Database pool
  * @param context Tool context with collection ID
@@ -120,6 +123,19 @@ export async function getConfiguredChatProviderWithOverride(
   context: ToolContext,
   providerOverride?: string
 ): Promise<ChatProvider> {
+  // Handle custom:uuid format for custom providers (Phase 17F)
+  if (providerOverride?.startsWith('custom:')) {
+    const customId = providerOverride.slice('custom:'.length);
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(customId)) {
+      throw new Error(`Invalid custom provider ID format: ${customId}`);
+    }
+
+    return getCustomChatProvider(db, context, customId);
+  }
+
   let providerName: ChatProviderType;
 
   if (providerOverride) {
@@ -142,6 +158,57 @@ export async function getConfiguredChatProviderWithOverride(
   }
 
   return provider;
+}
+
+/**
+ * Get a custom chat provider by UUID
+ * Phase 17F: Creates OpenAICompatibleProvider with custom provider config
+ * Phase 17K: Added support for model-level tool disabling and auto-detection
+ *
+ * @param db Database pool
+ * @param context Tool context with collection ID
+ * @param customProviderId UUID of the custom provider
+ * @param modelOverride Optional model name for checking tool support
+ * @returns ChatProvider instance
+ * @throws Error if custom provider not found
+ */
+export async function getCustomChatProvider(
+  db: Pool,
+  context: ToolContext,
+  customProviderId: string,
+  modelOverride?: string
+): Promise<ChatProvider> {
+  const service = getCustomProviderService(db);
+  const provider = await service.get(customProviderId);
+
+  if (!provider) {
+    throw new Error(`Custom provider not found: ${customProviderId}`);
+  }
+
+  // Get decrypted API key from custom_providers table
+  const apiKey = await service.getApiKey(customProviderId);
+
+  // Check if model is known to not support tools (Phase 17K)
+  let disableTools = false;
+  if (modelOverride && provider.modelsWithoutTools?.includes(modelOverride)) {
+    disableTools = true;
+    console.info(`Model ${modelOverride} is marked as not supporting tools, disabling tools`);
+  }
+
+  return new OpenAICompatibleProvider(db, context, {
+    providerName: `custom:${provider.id}` as ChatProviderType,
+    baseURL: provider.baseUrl,
+    apiKeyProvider: customProviderId, // Used only for error message context
+    apiKey: apiKey ?? undefined, // Direct API key (bypasses provider lookup)
+    maxContextTokens: provider.maxContextTokens,
+    supportsVision: provider.supportsVision,
+    disableTools,
+    customProviderId,
+    // Callback to auto-mark models that don't support tools
+    onModelNoToolSupport: async (providerId: string, model: string) => {
+      await service.addModelWithoutTools(providerId, model);
+    },
+  });
 }
 
 /**

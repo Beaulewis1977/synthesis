@@ -1,4 +1,9 @@
 import type {
+  CreateCustomProviderInput,
+  CustomProvider,
+  TestConnectionResult,
+} from '@synthesis/shared';
+import type {
   AgentChatRequest,
   AgentChatResponse,
   ApiError,
@@ -909,6 +914,61 @@ class ApiClient {
   }
 
   // ============================================
+  // OAuth Token Management (Phase 17A - Anthropic)
+  // ============================================
+
+  /**
+   * Get OAuth token status for Anthropic.
+   */
+  async getOAuthTokenStatus(): Promise<{
+    configured: boolean;
+    source: 'env' | 'db' | 'none';
+    maskedValue?: string;
+  }> {
+    return this.request<{
+      configured: boolean;
+      source: 'env' | 'db' | 'none';
+      maskedValue?: string;
+    }>('/api/admin/api-keys/oauth/status');
+  }
+
+  /**
+   * Set OAuth token for Anthropic (Claude subscription).
+   */
+  async setOAuthToken(token: string): Promise<{
+    message: string;
+    provider: string;
+    configured: boolean;
+  }> {
+    return this.request<{
+      message: string;
+      provider: string;
+      configured: boolean;
+    }>('/api/admin/api-keys/oauth', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  /**
+   * Delete OAuth token for Anthropic.
+   */
+  async deleteOAuthToken(): Promise<{ message: string; provider: string }> {
+    return this.request<{ message: string; provider: string }>('/api/admin/api-keys/oauth', {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Test OAuth token for Anthropic.
+   */
+  async testOAuthToken(): Promise<{ valid: boolean; message: string }> {
+    return this.request<{ valid: boolean; message: string }>('/api/admin/api-keys/oauth/test', {
+      method: 'POST',
+    });
+  }
+
+  // ============================================
   // Provider Settings (Phase 16G)
   // ============================================
 
@@ -1127,6 +1187,142 @@ class ApiClient {
     return this.request<GraphBuildResponse>(
       `/api/graph/build/${encodeURIComponent(collectionId)}`,
       { method: 'POST' }
+    );
+  }
+
+  // ============================================
+  // Custom Providers (Phase 17G)
+  // ============================================
+
+  /**
+   * List all custom providers.
+   */
+  async listCustomProviders(): Promise<CustomProvider[]> {
+    const response = await this.request<{ providers: CustomProvider[] }>(
+      '/api/admin/custom-providers'
+    );
+    return response.providers;
+  }
+
+  /**
+   * Get a single custom provider by ID.
+   */
+  async getCustomProvider(id: string): Promise<CustomProvider> {
+    return this.request<CustomProvider>(`/api/admin/custom-providers/${encodeURIComponent(id)}`);
+  }
+
+  /**
+   * Create a new custom provider.
+   */
+  async createCustomProvider(data: CreateCustomProviderInput): Promise<CustomProvider> {
+    return this.request<CustomProvider>('/api/admin/custom-providers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Update an existing custom provider.
+   */
+  async updateCustomProvider(
+    id: string,
+    data: Partial<CreateCustomProviderInput>
+  ): Promise<CustomProvider> {
+    return this.request<CustomProvider>(`/api/admin/custom-providers/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Delete a custom provider.
+   */
+  async deleteCustomProvider(id: string): Promise<void> {
+    return this.request<void>(`/api/admin/custom-providers/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Test connection to a custom provider before saving.
+   */
+  async testCustomProviderConnection(
+    baseUrl: string,
+    apiKey?: string
+  ): Promise<TestConnectionResult> {
+    return this.request<TestConnectionResult>('/api/admin/custom-providers/test-connection', {
+      method: 'POST',
+      body: JSON.stringify({ baseUrl, apiKey }),
+    });
+  }
+
+  /**
+   * Test an existing saved custom provider's connection.
+   */
+  async testExistingCustomProvider(id: string): Promise<TestConnectionResult> {
+    return this.request<TestConnectionResult>(
+      `/api/admin/custom-providers/${encodeURIComponent(id)}/test`,
+      {
+        method: 'POST',
+      }
+    );
+  }
+
+  /**
+   * Discover/refresh models for an existing custom provider.
+   */
+  async discoverCustomProviderModels(id: string): Promise<string[]> {
+    const response = await this.request<{ models: string[] }>(
+      `/api/admin/custom-providers/${encodeURIComponent(id)}/models`
+    );
+    return response.models;
+  }
+
+  // ==========================================================================
+  // Phase 17K: Model Curation APIs
+  // ==========================================================================
+
+  /**
+   * Update starred models for a custom provider.
+   */
+  async updateStarredModels(
+    id: string,
+    models: string[]
+  ): Promise<{ message: string; count: number }> {
+    return this.request<{ message: string; count: number }>(
+      `/api/admin/custom-providers/${encodeURIComponent(id)}/starred-models`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ models }),
+      }
+    );
+  }
+
+  /**
+   * Update models without tools list for a custom provider.
+   */
+  async updateModelsWithoutTools(
+    id: string,
+    models: string[]
+  ): Promise<{ message: string; count: number }> {
+    return this.request<{ message: string; count: number }>(
+      `/api/admin/custom-providers/${encodeURIComponent(id)}/models-without-tools`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ models }),
+      }
+    );
+  }
+
+  /**
+   * Mark a single model as not supporting tools.
+   */
+  async markModelNoTools(id: string, model: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(
+      `/api/admin/custom-providers/${encodeURIComponent(id)}/mark-no-tools/${encodeURIComponent(model)}`,
+      {
+        method: 'POST',
+      }
     );
   }
 }

@@ -931,37 +931,37 @@ async function main() {
   // Use real definitions with --real flag, otherwise mock
   const definitions = useReal ? createRealDefinitions() : createMockDefinitions();
 
-  console.log('Token Measurement Utility (Sub-Phase 5.6.4)');
-  console.log('===========================================\n');
+  console.info('Token Measurement Utility (Sub-Phase 5.6.4)');
+  console.info('===========================================\n');
 
   if (useReal) {
-    console.log(`Using REAL Zod schemas with zod-to-json-schema (${definitions.length} tools)`);
-    console.log("\n⚠️  Note: For ground-truth measurements, use Claude Code's /context command\n");
+    console.info(`Using REAL Zod schemas with zod-to-json-schema (${definitions.length} tools)`);
+    console.info("\n⚠️  Note: For ground-truth measurements, use Claude Code's /context command\n");
   } else {
-    console.log(`Using MOCK tool definitions (${definitions.length} tools)`);
-    console.log('\n⚠️  WARNING: Mock measurements are ~8x lower than reality!');
-    console.log('   Run with --real flag for accurate estimates\n');
+    console.info(`Using MOCK tool definitions (${definitions.length} tools)`);
+    console.info('\n⚠️  WARNING: Mock measurements are ~8x lower than reality!');
+    console.info('   Run with --real flag for accurate estimates\n');
   }
-  console.log(`Estimation method: simple (${CHARS_PER_TOKEN} chars/token)\n`);
+  console.info(`Estimation method: simple (${CHARS_PER_TOKEN} chars/token)\n`);
 
   if (specificProfile) {
     // Measure single profile
     const measurement = measureProfile(specificProfile, definitions);
-    console.log(`Profile: ${specificProfile}`);
-    console.log(`Tools: ${measurement.toolCount}`);
-    console.log(`Estimated Tokens: ~${measurement.totalTokens.toLocaleString()}`);
-    console.log('\nBreakdown:');
-    console.log(`  Names: ~${measurement.breakdown.namesTokens} tokens`);
-    console.log(`  Descriptions: ~${measurement.breakdown.descriptionsTokens} tokens`);
-    console.log(`  Schemas: ~${measurement.breakdown.schemasTokens} tokens`);
+    console.info(`Profile: ${specificProfile}`);
+    console.info(`Tools: ${measurement.toolCount}`);
+    console.info(`Estimated Tokens: ~${measurement.totalTokens.toLocaleString()}`);
+    console.info('\nBreakdown:');
+    console.info(`  Names: ~${measurement.breakdown.namesTokens} tokens`);
+    console.info(`  Descriptions: ~${measurement.breakdown.descriptionsTokens} tokens`);
+    console.info(`  Schemas: ~${measurement.breakdown.schemasTokens} tokens`);
   } else {
     // Full report
     const report = generateReport(definitions);
 
     if (outputJson) {
-      console.log(formatJsonReport(report));
+      console.info(formatJsonReport(report));
     } else {
-      console.log(formatMarkdownReport(report));
+      console.info(formatMarkdownReport(report));
     }
   }
 }
