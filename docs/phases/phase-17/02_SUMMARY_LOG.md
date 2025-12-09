@@ -345,10 +345,61 @@ Agent-updated log of completed work. Update after each sub-phase completion.
 ---
 
 ## Phase 17H: CustomProviderForm Component
-**Status:** NOT STARTED
-**Date:** -
-**Commits:** -
-**Notes:** -
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- Created modal form component for adding/editing custom providers
+- **File Created:** `apps/web/src/components/settings/CustomProviderForm.tsx` (280 lines)
+- **Props Interface:**
+  - `provider?: CustomProvider` - For edit mode (pre-populates fields)
+  - `onSave: (provider: CustomProvider) => void` - Callback on successful save
+  - `onCancel: () => void` - Callback on cancel
+  - `isOpen: boolean` - Modal visibility control
+- **Form Fields Implemented:**
+  - Name (text, required)
+  - Base URL (text, required, with validation)
+  - API Key (password, optional, with show/hide toggle)
+  - Max Context Tokens (number, default 8192)
+  - Supports Vision (checkbox, default false)
+  - Supports Tools (checkbox, default true)
+  - Custom Models (textarea, comma-separated fallback)
+- **URL Validation:**
+  - Allows `http://localhost:*` (primary local inference use case)
+  - Allows `http://127.0.0.1:*` (loopback)
+  - Allows `https://*` (secure remote endpoints)
+  - Allows custom hostnames for Docker/WSL networking
+- **UI States:**
+  1. Empty - Initial state, waiting for user input
+  2. Testing - Connection test in progress (spinner on button)
+  3. Success - Shows discovered models in scrollable list with count badge
+  4. Failed - Shows error message, enables manual model entry with warning
+  5. Saving - Save in progress (buttons disabled)
+- **Features:**
+  - Test Connection button with loading/success/error states
+  - Discovered models displayed in scrollable list (max-h-32)
+  - Advanced Settings collapsible section (chevron toggle)
+  - Warning message when auto-discovery fails suggesting manual entry
+  - Modal prevents close during save operation
+  - API key never pre-populated in edit mode (security)
+  - Edit mode shows "API key is configured" hint when key exists
+- **Hooks Used:**
+  - `useTestCustomProviderConnection()` - For "Test Connection" button
+  - `useCreateCustomProvider()` - For creating new provider
+  - `useUpdateCustomProvider()` - For updating existing provider
+- **Patterns Followed:**
+  - Modal component from `../Modal.tsx`
+  - Password input pattern from `ApiKeyManager.tsx` (Eye/EyeOff toggle)
+  - Button loading states with Loader2 spinner
+  - Error display with bg-error/10 styling
+  - Form field labels with required asterisk
+- **TypeScript Status:** `pnpm --filter @synthesis/web typecheck` passes
+- **Files Created:**
+  - `apps/web/src/components/settings/CustomProviderForm.tsx`
+- **Files Modified:**
+  - `docs/phases/phase-17/01_CHECKLIST.md` - Marked Phase 17H items complete
+  - `docs/phases/phase-17/02_SUMMARY_LOG.md` - This file
+- **Next Steps:** Phase 17I - Settings UI Integration (add Custom Providers section to ModelsPage)
 
 ---
 

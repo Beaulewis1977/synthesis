@@ -76,12 +76,12 @@ Master checklist for all Phase 17 verification items. Update status as work prog
 - [x] `pnpm typecheck` passes
 
 ## Phase 17H: CustomProviderForm Component
-- [ ] Component file created: `CustomProviderForm.tsx`
-- [ ] Form renders correctly
-- [ ] Base URL validation allows localhost
-- [ ] Test connection shows results
-- [ ] Manual model fallback works when discovery fails
-- [ ] `pnpm typecheck` passes
+- [x] Component file created: `CustomProviderForm.tsx`
+- [x] Form renders correctly
+- [x] Base URL validation allows localhost
+- [x] Test connection shows results
+- [x] Manual model fallback works when discovery fails
+- [x] `pnpm typecheck` passes
 
 ## Phase 17I: Settings UI Integration
 - [ ] "Custom Providers" section added to ModelsPage
