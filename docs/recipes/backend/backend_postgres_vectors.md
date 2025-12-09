@@ -59,6 +59,17 @@ Querying for similar documents using cosine distance (`<=>` operator).
 import { Pool } from 'pg';
 
 export async function searchDocuments(db: Pool, queryEmbedding: number[], limit = 5) {
+  // Input validation - prevent injection and ensure correct dimensions
+  if (!Array.isArray(queryEmbedding) || queryEmbedding.length !== 768) {
+    throw new Error('Invalid embedding: must be array of 768 numbers');
+  }
+  if (!queryEmbedding.every(n => typeof n === 'number' && isFinite(n))) {
+    throw new Error('Invalid embedding: all elements must be finite numbers');
+  }
+  if (limit < 1 || limit > 100) {
+    throw new Error('Limit must be between 1 and 100');
+  }
+
   // Convert JS array to Postgres vector format string: "[0.1, 0.2, ...]"
   const vectorStr = JSON.stringify(queryEmbedding);
 

@@ -23,18 +23,27 @@ We need a special Docker image (`anthropic/claude-computer-use-demo` or custom b
 
 ### Service Setup
 Add to `docker-compose.yml`:
+> **⚠️ Security Note:** VNC ports expose the virtual desktop. Never expose these to public networks. Bind to localhost only and use authentication.
+
 ```yaml
   computer-use:
     image: synthesis-computer-use:latest # Custom build
     build:
       context: ./apps/server/src/services/computer-use
     ports:
-      - "5900:5900" # VNC
-      - "8080:8080" # noVNC (web view)
+      - "127.0.0.1:5900:5900" # VNC - localhost only
+      - "127.0.0.1:8080:8080" # noVNC (web view) - localhost only
     environment:
       - WIDTH=1024
       - HEIGHT=768
+      - VNC_PASSWORD=${VNC_PASSWORD}  # Required - set in .env
 ```
+
+**Security recommendations:**
+- Never expose ports 5900/8080 to public networks
+- Use SSH tunneling for remote VNC access: `ssh -L 5900:localhost:5900 server`
+- Consider disabling VNC in production if not needed for debugging
+- Use a reverse proxy with authentication for noVNC access
 
 ---
 

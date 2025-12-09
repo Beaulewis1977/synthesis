@@ -59,11 +59,19 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 GoRouter router(RouterRef ref) {
   // Watch auth state to trigger redirect logic
   final authState = ref.watch(authProvider);
+  
+  // IMPORTANT: refreshListenable requires a Listenable (ChangeNotifier/ValueNotifier)
+  // Riverpod providers are NOT Listenables. Use one of these approaches:
+  // Option A: Create a ValueNotifier bridge (shown below)
+  // Option B: Use ref.listen() to call router.refresh() imperatively
+  // Option C: Have your AuthNotifier extend ChangeNotifier
+  final refreshNotifier = ValueNotifier<int>(0);
+  ref.listen(authProvider, (_, __) => refreshNotifier.value++);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/',
-    refreshListenable: authState, // Requires AuthProvider to extend ChangeNotifier or use ValueNotifier shim
+    refreshListenable: refreshNotifier, // ValueNotifier bridge for Riverpod
     
     // Redirect logic
     redirect: (context, state) {

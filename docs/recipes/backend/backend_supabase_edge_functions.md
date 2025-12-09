@@ -45,6 +45,8 @@ This creates `supabase/functions/my-function/index.ts`.
 
 Supabase functions use standard Web API `Request` and `Response` objects.
 
+> **⚠️ SECURITY WARNING:** The example below uses `SUPABASE_SERVICE_ROLE_KEY` which bypasses Row Level Security. Only use this for internal/authenticated workloads. For user-facing endpoints, use the anon key with the user's JWT from the `Authorization` header.
+
 ```typescript
 // supabase/functions/my-function/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
@@ -60,15 +62,25 @@ serve(async (req) => {
     // 1. Parse Input
     const { name } = await req.json()
 
-    // 2. Initialize Client (Admin context)
-    // Uses Service Role Key injected via env vars
-    const supabaseClient = createClient(
+    // 2. Initialize Client
+    // OPTION A: Service Role (internal use only - bypasses RLS!)
+    // Only use for webhooks, cron jobs, or authenticated internal calls
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+    
+    // OPTION B: User context (recommended for user-facing endpoints)
+    // Uses the user's JWT to respect Row Level Security
+    // const authHeader = req.headers.get('Authorization')!
+    // const supabaseClient = createClient(
+    //   Deno.env.get('SUPABASE_URL') ?? '',
+    //   Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    //   { global: { headers: { Authorization: authHeader } } }
+    // )
 
-    // 3. Logic
-    const { data, error } = await supabaseClient
+    // 3. Logic (using admin client - ensure this endpoint is protected!)
+    const { data, error } = await supabaseAdmin
       .from('users')
       .insert({ name })
       .select()

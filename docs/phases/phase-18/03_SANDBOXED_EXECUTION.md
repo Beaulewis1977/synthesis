@@ -11,9 +11,43 @@ This phase implements **Safe Code Execution**. Instead of allowing the agent to 
 
 ### Architecture
 We will run a persistent Docker container named `synthesis-sandbox`.
-- **Image:** `node:22-slim` (or a custom image with python + node + git).
-- **Network:** Isolated bridge network (optional internet access for `npm install`, but strictly monitored).
+- **Image:** `node:22-alpine` (minimal attack surface; custom image with python + node + git).
+- **Network:** Isolated bridge network or `--network=none` for maximum isolation.
 - **Volume:** Mount the repo code as `read-only` initially, or copy it in for safe mutation. **Recommended:** Copy files into `/workspace` so `rm -rf` doesn't affect the host.
+
+### Container Security Configuration
+
+Defense-in-depth is required—command whitelisting alone is insufficient:
+
+```yaml
+# docker-compose.yml example
+synthesis-sandbox:
+  image: synthesis-sandbox:latest
+  user: "1000:1000"           # Non-root user
+  read_only: true              # Read-only root filesystem
+  tmpfs:
+    - /tmp:size=100M           # Writable tmp with size limit
+    - /workspace:size=500M     # Writable workspace
+  cap_drop:
+    - ALL                      # Drop all Linux capabilities
+  security_opt:
+    - no-new-privileges:true   # Prevent privilege escalation
+    - seccomp:seccomp-profile.json  # Custom seccomp profile
+  deploy:
+    resources:
+      limits:
+        cpus: '1'
+        memory: 512M
+  network_mode: none           # Or use allowlist for specific domains
+```
+
+**Key security measures:**
+- **Non-root user:** UID 1000 prevents root-level access
+- **Read-only root FS:** Limits filesystem mutation surface
+- **Capabilities:** `--cap-drop=ALL` removes dangerous syscalls
+- **Seccomp profile:** Custom profile blocking dangerous system calls
+- **Resource limits:** Prevents resource exhaustion attacks
+- **Network isolation:** `--network=none` or domain allowlist
 
 ### Implementation
 Create `apps/server/src/services/sandbox.ts`:
@@ -55,9 +89,9 @@ Create `apps/server/src/services/sandbox.ts`:
 
 ### Workflow
 1.  Agent provides code (e.g., specific logic to parse a large JSON file).
-2.  Service writes code to `/tmp/script.js` inside sandbox.
-3.  Service runs `node /tmp/script.js`.
-4.  Service returns stdout.
+2.  The provided code is written to `/tmp/script.js` inside the sandbox.
+3.  Execution runs the script via `node /tmp/script.js`.
+4.  Output (stdout) is returned to the agent.
 
 ### Use Case
 The agent can write a script to calculate complex statistics from a DB dump without hallucinating the math.

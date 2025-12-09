@@ -78,12 +78,14 @@ This worker handles the callback from Replicate. It downloads the video and uplo
 
 **Why R2?** Replicate URLs expire. You need to own the asset. R2 has zero egress fees.
 
+> **⚠️ SECURITY WARNING:** The signature verification below is not fully implemented. You **MUST** implement proper HMAC verification using `env.WEBHOOK_SECRET` before deploying to production. See [Replicate's webhook security documentation](https://replicate.com/docs/webhooks) for implementation details.
+
 ```typescript
 // src/webhook.ts
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
-      // 1. Verify Webhook Signature (Security)
+      // 1. Verify Webhook Signature (Security) - REQUIRED FOR PRODUCTION
       const webhookId = request.headers.get('webhook-id');
       const webhookTimestamp = request.headers.get('webhook-timestamp');
       const webhookSignature = request.headers.get('webhook-signature');
@@ -99,7 +101,7 @@ export default {
       const bodyText = await request.text(); // Need raw text for verification
       const signedContent = `${webhookId}.${webhookTimestamp}.${bodyText}`;
       
-      // Verify using a helper (implementation details depend on runtime)
+      // TODO: IMPLEMENT THIS - Required for production!
       // const isValid = await verifyHMAC(env.WEBHOOK_SECRET, signedContent, signatures);
       // if (!isValid) throw new Error('Invalid signature');
 
@@ -108,8 +110,20 @@ export default {
       if (prediction.status === 'succeeded') {
         const videoUrl = prediction.output;
         
-        // Validate URL
-        try { new URL(videoUrl); } catch { throw new Error('Invalid URL'); }
+        // Validate URL and prevent SSRF
+        try {
+          const parsedUrl = new URL(videoUrl);
+          // Allowlist Replicate domains to prevent SSRF attacks
+          const allowedHosts = ['replicate.delivery', 'pbxt.replicate.delivery'];
+          if (!allowedHosts.some(host => parsedUrl.host.endsWith(host))) {
+            throw new Error(`URL host not in allowlist: ${parsedUrl.host}`);
+          }
+          if (parsedUrl.protocol !== 'https:') {
+            throw new Error('Only HTTPS URLs allowed');
+          }
+        } catch (e) {
+          throw new Error(`Invalid or disallowed URL: ${e}`);
+        }
         
         // 2. Download Video (Safely)
         const videoResp = await fetch(videoUrl, { signal: AbortSignal.timeout(300_000) });

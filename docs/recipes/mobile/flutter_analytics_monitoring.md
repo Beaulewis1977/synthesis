@@ -23,6 +23,7 @@ recommended: true
 
 - [ ] Firebase Project Setup
 - [ ] Segment/Rudderstack Source Write Key
+- [ ] Secrets stored securely (never commit API keys to git)
 
 ## Tech Stack
 
@@ -40,17 +41,24 @@ Initialize Segment (or Rudderstack) before your app run.
 ```dart
 // lib/main.dart
 import 'package:segment_analytics/segment_analytics.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   /* ... Initialize Firebase ... */
   
-  // Setup Segment
+  // Load environment variables (add flutter_dotenv to pubspec.yaml)
+  await dotenv.load(fileName: '.env');
+  
+  // Setup Segment - NEVER hardcode API keys!
   await Segment.setup(
     Configuration(
-      writeKey: 'YOUR_SEGMENT_WRITE_KEY',
+      writeKey: dotenv.env['SEGMENT_WRITE_KEY'] ?? '',
       trackApplicationLifecycleEvents: true,
     ),
   );
+  
+  // Alternative: Use compile-time env vars (--dart-define)
+  // writeKey: const String.fromEnvironment('SEGMENT_WRITE_KEY'),
 
   // Pass all uncaught "fatal" errors from the framework to Crashlytics
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;

@@ -29,6 +29,12 @@ The **DevOps Automation Pack** allows the agent to act as a "Level 1 Site Reliab
 - **Description:** Enable or disable a feature flag.
 - **Input:** `flag_key` (string), `state` (boolean), `reason` (string, required).
 
+### Input Validation
+- `flag_key`: Must match pattern `^[a-z][a-z0-9_]{2,50}$` (lowercase, underscores only)
+- `reason`: Required, 10-500 characters, alphanumeric + spaces + basic punctuation only
+- Log entries must be sanitized to prevent log injection (remove newlines, control characters)
+- Rate limit: Max 5 flag changes per agent session per hour
+
 ### Implementation Details
 - **Storage:** If using a DB table `feature_flags`, execute update. If using LaunchDarkly/PostHog, use their API.
 - **Audit:** **CRITICAL**. Every toggle action must be logged to a specialized audit channel (e.g., Slack webhook or DB audit log) with the `reason` provided by the agent.
