@@ -404,10 +404,44 @@ Agent-updated log of completed work. Update after each sub-phase completion.
 ---
 
 ## Phase 17I: Settings UI Integration
-**Status:** NOT STARTED
-**Date:** -
-**Commits:** -
-**Notes:** -
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- Added "Custom Providers" section to ModelsPage between API Keys and Reset Modal
+- **Components Created (inline in ModelsPage.tsx):**
+  - `CustomProviderCard` - Card component displaying:
+    - Provider name (font-medium)
+    - Base URL (text-sm text-muted-foreground)
+    - Model count badge (discoveredModels + customModels)
+    - "Tools" badge if supportsTools
+    - "Vision" badge if supportsVision
+    - Edit button (Pencil icon)
+    - Delete button (Trash2 icon) with loading state
+  - `CustomProvidersSection` - Section component with:
+    - SectionHeader (Server icon, title, description)
+    - "Add Custom Provider" button
+    - Provider list OR empty state ("No custom providers configured")
+    - Loading state while fetching
+    - CustomProviderForm modal integration
+- **Delete Confirmation:** Uses `window.confirm()` before deletion
+- **Edit Mode:** Opens CustomProviderForm with provider data pre-filled
+- **Imports Added:**
+  - Icons: `Plus`, `Server`, `Trash2` from lucide-react
+  - Type: `CustomProvider` from `@synthesis/shared`
+  - Component: `CustomProviderForm` from components/settings
+  - Hooks: `useCustomProviders`, `useDeleteCustomProvider`
+- **UI Patterns Followed:**
+  - Consistent with existing ModelsPage sections
+  - Uses `.card` class, `.btn` classes
+  - Badge styling matches existing badges (bg-accent/10, bg-success/10)
+  - Icon button styling matches DocumentActions pattern
+- **Files Modified:**
+  - `apps/web/src/pages/settings/ModelsPage.tsx` - Added components and section
+  - `docs/phases/phase-17/01_CHECKLIST.md` - Marked Phase 17I items complete
+  - `docs/phases/phase-17/02_SUMMARY_LOG.md` - This file
+- **TypeScript Status:** `pnpm --filter @synthesis/web typecheck` passes
+- **Next Steps:** Phase 17J - Chat Model Selector Integration
 
 ---
 

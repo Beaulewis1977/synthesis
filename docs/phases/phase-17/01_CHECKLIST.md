@@ -84,11 +84,11 @@ Master checklist for all Phase 17 verification items. Update status as work prog
 - [x] `pnpm typecheck` passes
 
 ## Phase 17I: Settings UI Integration
-- [ ] "Custom Providers" section added to ModelsPage
-- [ ] "Add Custom Provider" button works
-- [ ] Provider cards display correctly
-- [ ] Edit/Delete buttons work
-- [ ] `pnpm typecheck` passes
+- [x] "Custom Providers" section added to ModelsPage
+- [x] "Add Custom Provider" button works
+- [x] Provider cards display correctly
+- [x] Edit/Delete buttons work
+- [x] `pnpm typecheck` passes
 
 ## Phase 17J: Chat Model Selector
 - [ ] Custom providers fetched with `useCustomProviders()`

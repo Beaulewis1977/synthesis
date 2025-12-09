@@ -5,6 +5,7 @@
  * Allows runtime configuration of Chat, Embeddings, Reranker, and API keys.
  */
 
+import type { CustomProvider } from '@synthesis/shared';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -13,16 +14,21 @@ import {
   FileText,
   Loader2,
   Pencil,
+  Plus,
   RefreshCw,
   Search,
+  Server,
   Settings,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiKeyManager } from '../../components/settings/ApiKeyManager';
+import { CustomProviderForm } from '../../components/settings/CustomProviderForm';
 import { EmbeddingProfileSelect } from '../../components/settings/EmbeddingProfileSelect';
 import { ModelConfigCard } from '../../components/settings/ModelConfigCard';
+import { useCustomProviders, useDeleteCustomProvider } from '../../hooks/useCustomProviders';
 import {
   FEATURE_CATEGORIES,
   useEmbeddingProfiles,
@@ -97,6 +103,168 @@ function EmbeddingTabs({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Card component for displaying a single custom provider
+ */
+interface CustomProviderCardProps {
+  provider: CustomProvider;
+  onEdit: () => void;
+  onDelete: () => void;
+  isDeleting: boolean;
+}
+
+function CustomProviderCard({ provider, onEdit, onDelete, isDeleting }: CustomProviderCardProps) {
+  const modelCount =
+    (provider.discoveredModels?.length || 0) + (provider.customModels?.length || 0);
+
+  return (
+    <div className="flex items-center justify-between p-md border border-border rounded-lg">
+      <div>
+        <h4 className="font-medium text-text-primary">{provider.name}</h4>
+        <p className="text-sm text-text-secondary">{provider.baseUrl}</p>
+        <div className="flex gap-xs mt-sm">
+          <span className="text-xs px-1.5 py-0.5 bg-accent/10 text-accent rounded">
+            {modelCount} model{modelCount !== 1 ? 's' : ''}
+          </span>
+          {provider.supportsTools && (
+            <span className="text-xs px-1.5 py-0.5 bg-success/10 text-success rounded">Tools</span>
+          )}
+          {provider.supportsVision && (
+            <span className="text-xs px-1.5 py-0.5 bg-success/10 text-success rounded">Vision</span>
+          )}
+        </div>
+      </div>
+      <div className="flex gap-xs">
+        <button
+          type="button"
+          onClick={onEdit}
+          className="p-sm rounded hover:bg-bg-secondary text-text-secondary hover:text-text-primary transition-colors"
+          aria-label="Edit provider"
+        >
+          <Pencil size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={isDeleting}
+          className="p-sm rounded hover:bg-error/10 text-text-secondary hover:text-error transition-colors disabled:opacity-50"
+          aria-label="Delete provider"
+        >
+          {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Section component for managing custom providers
+ */
+function CustomProvidersSection() {
+  const { data: providers, isLoading, error } = useCustomProviders();
+  const deleteProvider = useDeleteCustomProvider();
+  const [editingProvider, setEditingProvider] = useState<CustomProvider | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+
+  const handleDelete = (provider: CustomProvider) => {
+    if (window.confirm(`Delete "${provider.name}"? This cannot be undone.`)) {
+      deleteProvider.mutate(provider.id);
+    }
+  };
+
+  const handleEdit = (provider: CustomProvider) => {
+    setEditingProvider(provider);
+    setIsFormOpen(true);
+  };
+
+  const handleAdd = () => {
+    setEditingProvider(null);
+    setIsFormOpen(true);
+  };
+
+  const handleFormClose = () => {
+    setIsFormOpen(false);
+    setEditingProvider(null);
+  };
+
+  // Error state
+  if (error) {
+    return (
+      <section className="mb-xl">
+        <SectionHeader
+          icon={Server}
+          title="Custom Providers"
+          description="Add OpenAI-compatible LLM endpoints (vLLM, LMStudio, OpenRouter, Groq, etc.)"
+        />
+        <div className="card">
+          <div className="p-md bg-error/10 border border-error/30 rounded-lg flex items-center gap-sm text-error">
+            <AlertTriangle size={18} />
+            <span>
+              Failed to load custom providers:{' '}
+              {error instanceof Error ? error.message : 'Unknown error'}
+            </span>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mb-xl">
+      <SectionHeader
+        icon={Server}
+        title="Custom Providers"
+        description="Add OpenAI-compatible LLM endpoints (vLLM, LMStudio, OpenRouter, Groq, etc.)"
+      />
+
+      <div className="card">
+        <div className="flex items-center justify-between mb-md">
+          <h3 className="font-medium text-text-primary">Configured Providers</h3>
+          <button
+            type="button"
+            onClick={handleAdd}
+            className="btn btn-primary text-sm flex items-center gap-xs"
+          >
+            <Plus size={14} />
+            Add Custom Provider
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-lg">
+            <Loader2 className="animate-spin text-accent" size={24} />
+            <span className="ml-sm text-text-secondary">Loading providers...</span>
+          </div>
+        ) : providers && providers.length > 0 ? (
+          <div className="space-y-sm">
+            {providers.map((provider) => (
+              <CustomProviderCard
+                key={provider.id}
+                provider={provider}
+                onEdit={() => handleEdit(provider)}
+                onDelete={() => handleDelete(provider)}
+                isDeleting={deleteProvider.isPending && deleteProvider.variables === provider.id}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-lg text-text-secondary">
+            No custom providers configured
+          </div>
+        )}
+      </div>
+
+      {/* Custom Provider Form Modal */}
+      <CustomProviderForm
+        isOpen={isFormOpen}
+        provider={editingProvider ?? undefined}
+        onSave={handleFormClose}
+        onCancel={handleFormClose}
+      />
+    </section>
   );
 }
 
@@ -357,6 +525,9 @@ export function ModelsPage() {
           <ApiKeyManager />
         </div>
       </section>
+
+      {/* Custom Providers Section */}
+      <CustomProvidersSection />
 
       {/* Reset Confirmation Modal */}
       {showResetConfirm && (
