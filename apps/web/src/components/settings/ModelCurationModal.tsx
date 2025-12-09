@@ -6,7 +6,7 @@
  */
 
 import type { CustomProvider } from '@synthesis/shared';
-import { Loader2, Search, Star, Wrench } from 'lucide-react';
+import { AlertTriangle, Loader2, Search, Star, Wrench } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   useUpdateModelsWithoutTools,
@@ -229,6 +229,18 @@ export function ModelCurationModal({ provider, isOpen, onClose }: ModelCurationM
             <span>No tools = Skips function calling</span>
           </div>
         </div>
+
+        {/* Save Error */}
+        {(updateStarredMutation.isError || updateNoToolsMutation.isError) && (
+          <div className="p-3 bg-error/10 border border-error/30 rounded-lg flex items-start gap-2">
+            <AlertTriangle size={16} className="text-error flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-error">
+              {updateStarredMutation.error?.message ||
+                updateNoToolsMutation.error?.message ||
+                'Failed to save model curation'}
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-2 border-t border-border">
