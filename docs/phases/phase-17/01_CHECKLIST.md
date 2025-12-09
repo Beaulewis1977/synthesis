@@ -57,15 +57,15 @@ Master checklist for all Phase 17 verification items. Update status as work prog
 - [x] `pnpm typecheck` passes (pre-existing unrelated error in scripts/)
 
 ## Phase 17F: Chat Integration
-- [ ] `OpenAICompatibleConfig.apiKey` optional field added
-- [ ] `OpenAICompatibleProvider.streamChat` uses direct apiKey if provided
-- [ ] `getCustomChatProvider()` function added to factory
-- [ ] `getConfiguredChatProviderWithOverride()` handles `custom:uuid` format
-- [ ] CustomProvider types added to `packages/shared`
-- [ ] Custom provider resolves correctly in factory
-- [ ] Chat works with custom provider
-- [ ] Tool calling works
-- [ ] `pnpm typecheck` passes
+- [x] `OpenAICompatibleConfig.apiKey` optional field added
+- [x] `OpenAICompatibleProvider.streamChat` uses direct apiKey if provided
+- [x] `getCustomChatProvider()` function added to factory
+- [x] `getConfiguredChatProviderWithOverride()` handles `custom:uuid` format
+- [x] CustomProvider types added to `packages/shared`
+- [x] Custom provider resolves correctly in factory
+- [ ] Chat works with custom provider - needs manual testing
+- [ ] Tool calling works - needs manual testing
+- [x] `pnpm typecheck` passes
 
 ## Phase 17G: Frontend Hooks
 - [ ] Hooks file created: `useCustomProviders.ts`

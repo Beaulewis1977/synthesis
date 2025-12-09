@@ -247,10 +247,52 @@ Agent-updated log of completed work. Update after each sub-phase completion.
 ---
 
 ## Phase 17F: Chat Integration
-**Status:** NOT STARTED
-**Date:** -
-**Commits:** -
-**Notes:** -
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- **Part 1: Shared Types (17F.1)**
+  - Added CustomProvider types to `packages/shared/src/index.ts`:
+    - `CustomProvider` interface - representation returned to clients (no raw API keys)
+    - `CreateCustomProviderInput` interface - input for creating custom providers
+    - `TestConnectionResult` interface - connection test result structure
+  - Types now shared between frontend and backend (previously duplicated in custom-provider-service.ts)
+- **Part 2: Chat Integration (17F.2)**
+  - Updated `OpenAICompatibleConfig` interface in `openai-compatible.ts`:
+    - Added optional `apiKey?: string` field to bypass provider lookup
+    - Custom providers pass API key directly instead of looking up in `provider_api_keys` table
+  - Updated `streamChat()` method in `OpenAICompatibleProvider`:
+    - Now uses `this.config.apiKey ?? await getProviderApiKey(...)` pattern
+    - Direct API key takes precedence over provider lookup
+  - Updated `isConfigured()` method:
+    - Returns `true` immediately if direct `apiKey` is provided
+    - Falls back to provider lookup only when no direct key
+  - Added `getCustomChatProvider()` function to `chat-providers/index.ts`:
+    - Fetches custom provider by UUID from database
+    - Decrypts API key via `CustomProviderService.getApiKey()`
+    - Creates `OpenAICompatibleProvider` with direct API key config
+    - Returns ready-to-use ChatProvider instance
+  - Updated `getConfiguredChatProviderWithOverride()` to handle `custom:uuid` format:
+    - Checks for `custom:` prefix before standard provider lookup
+    - Extracts UUID and delegates to `getCustomChatProvider()`
+    - Seamless integration with existing chat routes
+  - Added imports to `chat-providers/index.ts`:
+    - `getCustomProviderService` from `custom-provider-service.js`
+    - `OpenAICompatibleProvider` from `openai-compatible.js`
+- **Request Flow:**
+  - HTTP request with `provider: "custom:uuid"` → `getConfiguredChatProviderWithOverride()`
+  - Detects `custom:` prefix → calls `getCustomChatProvider(db, context, uuid)`
+  - Fetches provider config from `custom_providers` table
+  - Decrypts API key → creates `OpenAICompatibleProvider` with direct key
+  - Chat stream uses custom endpoint with proper authentication
+- **Files Modified:**
+  - `packages/shared/src/index.ts` - Added CustomProvider types (Phase 17: Custom Provider Types section)
+  - `apps/server/src/services/chat-providers/openai-compatible.ts` - Added apiKey field and updated methods
+  - `apps/server/src/services/chat-providers/index.ts` - Added getCustomChatProvider and updated factory
+  - `docs/phases/phase-17/01_CHECKLIST.md` - Marked Phase 17F items complete
+  - `docs/phases/phase-17/02_SUMMARY_LOG.md` - This file
+- **TypeScript Status:** All typechecks pass
+- **Next Steps:** Phase 17G - Frontend Hooks for custom provider management
 
 ---
 
