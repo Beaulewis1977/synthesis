@@ -50,6 +50,8 @@ export interface OpenAICompatibleConfig {
   baseURL: string;
   /** API key provider name (used to look up the key in ApiKeyService or env) */
   apiKeyProvider: string;
+  /** Direct API key to bypass provider lookup (for custom providers) */
+  apiKey?: string;
   /** Maximum context window in tokens */
   maxContextTokens: number;
   /** Whether the provider supports vision/image input */
@@ -142,8 +144,9 @@ export class OpenAICompatibleProvider implements ChatProvider {
    * Implements manual tool execution loop with OpenAI-compatible streaming API
    */
   async *streamChat(params: ChatParams): AsyncGenerator<ChatStreamChunk, void, unknown> {
-    // Get API key
-    const apiKey = await getProviderApiKey(this.db, this.config.apiKeyProvider);
+    // Use direct API key if provided (custom providers), otherwise lookup
+    const apiKey =
+      this.config.apiKey ?? (await getProviderApiKey(this.db, this.config.apiKeyProvider));
     if (!apiKey) {
       throw new Error(
         `${this.config.providerName} API key not configured. ` +
@@ -326,6 +329,10 @@ export class OpenAICompatibleProvider implements ChatProvider {
    * Check if provider is configured (has API key)
    */
   async isConfigured(): Promise<boolean> {
+    // If direct API key provided (custom providers), always configured
+    if (this.config.apiKey) {
+      return true;
+    }
     const apiKey = await getProviderApiKey(this.db, this.config.apiKeyProvider);
     return apiKey !== null;
   }
