@@ -13,7 +13,29 @@ This phase implements **Safe Code Execution**. Instead of allowing the agent to 
 We will run a persistent Docker container named `synthesis-sandbox`.
 - **Image:** `node:22-alpine` (minimal attack surface; custom image with python + node + git).
 - **Network:** Isolated bridge network or `--network=none` for maximum isolation.
-- **Volume:** Mount the repo code as `read-only` initially, or copy it in for safe mutation. **Recommended:** Copy files into `/workspace` so `rm -rf` doesn't affect the host.
+
+### Workspace Mount Strategy
+
+**Recommended approach: Read-only source + ephemeral workspace**
+
+| Mount | Path | Type | Purpose |
+|-------|------|------|----------|
+| Source code | `/repo` | Bind mount (read-only) | Host project files, immutable |
+| Workspace | `/workspace` | tmpfs (ephemeral) | Writable area for mutations |
+| Temp | `/tmp` | tmpfs (ephemeral) | Script execution, temp files |
+
+**Workflow:**
+1. Host project is bind-mounted read-only at `/repo`
+2. On session start, sandbox copies needed files: `cp -r /repo/* /workspace/`
+3. Agent operates in `/workspace` (can modify, delete, create files)
+4. Changes are **ephemeral**—lost on container restart (this is intentional for safety)
+5. If results need to persist, the service explicitly copies them out before session ends
+
+**Why this strategy:**
+- Host files are protected: read-only mount prevents any modification
+- `rm -rf /workspace` is harmless—only deletes ephemeral tmpfs data
+- No persistent state accumulates in sandbox (clean slate each session)
+- Size-limited tmpfs prevents disk exhaustion attacks
 
 ### Container Security Configuration
 
@@ -25,9 +47,12 @@ synthesis-sandbox:
   image: synthesis-sandbox:latest
   user: "1000:1000"           # Non-root user
   read_only: true              # Read-only root filesystem
+  volumes:
+    - ${PROJECT_PATH}:/repo:ro  # Source code mounted read-only
   tmpfs:
-    - /tmp:size=100M           # Writable tmp with size limit
-    - /workspace:size=500M     # Writable workspace
+    - /tmp:size=100M,mode=1777           # Writable tmp with size limit
+    - /workspace:size=500M,uid=1000,gid=1000  # Ephemeral workspace (owned by sandbox user)
+  working_dir: /workspace       # Default to workspace directory
   cap_drop:
     - ALL                      # Drop all Linux capabilities
   security_opt:
@@ -38,7 +63,18 @@ synthesis-sandbox:
       limits:
         cpus: '1'
         memory: 512M
-  network_mode: none           # Or use allowlist for specific domains
+  network_mode: none           # Required for Phase 18.3
+```
+
+**Session initialization script** (run at container start or before each command):
+```bash
+#!/bin/sh
+# Copy source to workspace if empty
+if [ -z "$(ls -A /workspace 2>/dev/null)" ]; then
+  cp -r /repo/* /workspace/ 2>/dev/null || true
+fi
+cd /workspace
+exec "$@"
 ```
 
 **Key security measures:**
