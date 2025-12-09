@@ -661,6 +661,7 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
       // Note: gpt-5.1-codex-mini removed - requires Responses API (v1/responses)
       // Embedding models
       'text-embedding-3-large',
+      'text-embedding-3-small',
       'text-embedding-ada-002',
     ],
     requiresApiKey: true,
@@ -702,7 +703,14 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
     isLocal: false,
   },
   zhipu: {
-    models: ['GLM-4.6', 'GLM-4.5-Air'],
+    models: [
+      // Chat models
+      'GLM-4.6',
+      'GLM-4.5-Air',
+      // Vision models
+      'GLM-4.6V',
+      'GLM-4.6V-FLASH',
+    ],
     requiresApiKey: true,
     apiKeyEnvVar: 'ZHIPU_API_KEY',
     isLocal: false,
@@ -886,6 +894,8 @@ export interface CustomProvider {
   supportsTools: boolean;
   customModels: string[];
   discoveredModels: string[];
+  starredModels: string[];
+  modelsWithoutTools: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -910,4 +920,6 @@ export interface TestConnectionResult {
   valid: boolean;
   models?: string[];
   error?: string;
+  /** Optional success message when connection works but models couldn't be discovered */
+  message?: string;
 }

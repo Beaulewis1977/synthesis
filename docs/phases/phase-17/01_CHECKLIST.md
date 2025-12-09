@@ -101,6 +101,67 @@ Master checklist for all Phase 17 verification items. Update status as work prog
 
 ---
 
+## Phase 17K: Model Curation & Tool Support
+- [x] Migration 030 created for `starred_models` and `models_without_tools` columns
+- [x] `CustomProvider` interface updated with new fields (`starredModels`, `modelsWithoutTools`)
+- [x] `CustomProviderService` methods added:
+  - [x] `updateStarredModels(id, models[])`
+  - [x] `updateModelsWithoutTools(id, models[])`
+  - [x] `addModelWithoutTools(id, modelName)`
+  - [x] `modelSupportsTools(id, modelName)`
+  - [x] `getModelsWithoutTools(id)`
+- [x] Routes added for model curation:
+  - [x] `PATCH /api/admin/custom-providers/:id/starred-models`
+  - [x] `PATCH /api/admin/custom-providers/:id/models-without-tools`
+  - [x] `POST /api/admin/custom-providers/:id/mark-no-tools/:model`
+- [x] Auto-retry logic in `openai-compatible.ts`:
+  - [x] Catches 404 "No endpoints found that support tool use" error
+  - [x] Auto-retries without tools
+  - [x] Auto-marks model as not supporting tools
+  - [x] Shows warning message to user
+- [x] Chat provider factory updated to check `modelsWithoutTools` list
+- [x] Frontend API client methods added
+- [x] Frontend hooks added (`useUpdateStarredModels`, `useUpdateModelsWithoutTools`, `useMarkModelNoTools`)
+- [x] `ModelCurationModal` component created
+- [x] `ModelsPage` updated with "Manage Models" button on provider cards
+- [x] `ChatModelSelector` updated:
+  - [x] Starred models appear first
+  - [x] Search input for providers with >10 models
+  - [x] Star indicator (⭐) for starred models
+  - [x] Warning indicator (⚠️) for models without tool support
+- [x] `pnpm typecheck` passes
+
+## Phase 17L: Provider Connection Fallback
+- [x] `testChatCompletionsFallback()` method added to `CustomProviderService`
+- [x] Fallback triggers when `/models` returns 404
+- [x] Tests `/chat/completions` with minimal request
+- [x] Accepts 400, 404, 422, 500 as "valid connection" (model error, not auth error)
+- [x] Returns success message for manual model entry
+- [x] `TestConnectionResult.message` field added to shared types
+- [x] `CustomProviderForm` updated to show success message
+- [x] MiniMax and similar providers can now be added
+- [x] `pnpm typecheck` passes
+
+## Phase 17M: Provider Polish & Model Lists
+- [ ] **Update PROVIDER_INFO model lists** - Add more models for built-in providers:
+  - [ ] Z.AI (Zhipu): Add latest GLM models
+  - [ ] Moonshot: Add latest Kimi models
+  - [ ] OpenAI: Verify model list is current
+  - [ ] Google: Verify Gemini model list
+  - [ ] Anthropic: Verify Claude model list
+- [ ] **Fix URL normalization bug** in `testConnection()`:
+  - [ ] Handle full URLs like `https://api.openai.com/v1/models`
+  - [ ] Handle trailing slashes properly
+  - [ ] Extract base URL correctly from various input formats
+- [ ] **Cleanup incorrectly created custom providers**:
+  - [ ] Remove Z.AI/GLM if added as custom provider
+  - [ ] Remove Moonshot if added as custom provider
+  - [ ] Remove OpenAI if added as custom provider
+  - [ ] Verify API keys are in correct section
+- [ ] `pnpm typecheck` passes
+
+---
+
 ## Final Testing Checklist
 
 ### Anthropic OAuth
@@ -113,15 +174,34 @@ Master checklist for all Phase 17 verification items. Update status as work prog
 - [ ] Moonshot API key test works
 
 ### Custom Providers
-- [ ] Can add custom provider with URL + API key
+- [x] Can add custom provider with URL + API key (tested with OpenRouter)
 - [ ] Can add custom provider without API key (local)
-- [ ] Model auto-discovery works (test with Ollama in OpenAI mode)
-- [ ] Manual model entry fallback works
-- [ ] Custom provider appears in chat model selector
+- [x] Model auto-discovery works (tested with OpenRouter - 500+ models)
+- [x] Manual model entry fallback works (tested with MiniMax)
+- [x] Custom provider appears in chat model selector
 - [ ] Can chat using custom provider with tools
+- [ ] Can chat using custom provider without tools
 - [ ] Delete custom provider works
 
+### Model Curation (Phase 17K)
+- [ ] Can star models in Settings > Models > Custom Providers > Manage Models
+- [ ] Starred models appear first in chat dropdown
+- [ ] Search works for providers with many models
+- [ ] Can mark models as "no tool support"
+- [ ] Warning indicator shows for no-tool models
+
+### Auto-Retry Tool Support (Phase 17K)
+- [ ] Models without tools trigger auto-retry
+- [ ] Warning message shown to user
+- [ ] Model auto-marked in database
+- [ ] Next request skips tools automatically
+
+### Provider Fallback (Phase 17L)
+- [x] MiniMax connection test succeeds
+- [x] Success message shows for manual model entry
+- [x] Can add MiniMax models manually
+
 ### Code Quality
-- [ ] `pnpm typecheck` passes
+- [x] `pnpm typecheck` passes
 - [ ] `pnpm lint` passes
 - [ ] `pnpm test` passes (no new failures)

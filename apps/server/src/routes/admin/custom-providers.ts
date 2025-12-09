@@ -391,6 +391,165 @@ export async function customProviderRoutes(fastify: FastifyInstance): Promise<vo
       }
     }
   );
+
+  // ==========================================================================
+  // Phase 17K: Model Curation Routes
+  // ==========================================================================
+
+  /**
+   * Validation schema for starred models update
+   */
+  const StarredModelsSchema = z.object({
+    models: z.array(z.string()),
+  });
+
+  /**
+   * Validation schema for models without tools update
+   */
+  const ModelsWithoutToolsSchema = z.object({
+    models: z.array(z.string()),
+  });
+
+  /**
+   * PATCH /api/admin/custom-providers/:id/starred-models
+   * Update starred models for a provider
+   */
+  fastify.patch<{ Params: ProviderIdParams; Body: z.infer<typeof StarredModelsSchema> }>(
+    '/:id/starred-models',
+    async (
+      request: FastifyRequest<{
+        Params: ProviderIdParams;
+        Body: z.infer<typeof StarredModelsSchema>;
+      }>,
+      reply: FastifyReply
+    ) => {
+      const { id } = request.params;
+
+      if (!isValidUUID(id)) {
+        return reply.status(400).send({ error: 'Invalid provider ID format' });
+      }
+
+      const validation = StarredModelsSchema.safeParse(request.body);
+      if (!validation.success) {
+        return reply.status(400).send({
+          error: 'Invalid request body',
+          details: validation.error.issues,
+        });
+      }
+
+      try {
+        await service.updateStarredModels(id, validation.data.models);
+
+        fastify.log.info(
+          { providerId: id, count: validation.data.models.length },
+          'Updated starred models'
+        );
+
+        return reply.send({
+          message: 'Starred models updated successfully',
+          count: validation.data.models.length,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        if (message.includes('not found')) {
+          return reply.status(404).send({ error: message });
+        }
+        fastify.log.error(`Failed to update starred models for ${id}: ${message}`);
+        return reply.status(500).send({ error: 'Failed to update starred models', message });
+      }
+    }
+  );
+
+  /**
+   * PATCH /api/admin/custom-providers/:id/models-without-tools
+   * Update models without tools list for a provider
+   */
+  fastify.patch<{ Params: ProviderIdParams; Body: z.infer<typeof ModelsWithoutToolsSchema> }>(
+    '/:id/models-without-tools',
+    async (
+      request: FastifyRequest<{
+        Params: ProviderIdParams;
+        Body: z.infer<typeof ModelsWithoutToolsSchema>;
+      }>,
+      reply: FastifyReply
+    ) => {
+      const { id } = request.params;
+
+      if (!isValidUUID(id)) {
+        return reply.status(400).send({ error: 'Invalid provider ID format' });
+      }
+
+      const validation = ModelsWithoutToolsSchema.safeParse(request.body);
+      if (!validation.success) {
+        return reply.status(400).send({
+          error: 'Invalid request body',
+          details: validation.error.issues,
+        });
+      }
+
+      try {
+        await service.updateModelsWithoutTools(id, validation.data.models);
+
+        fastify.log.info(
+          { providerId: id, count: validation.data.models.length },
+          'Updated models without tools'
+        );
+
+        return reply.send({
+          message: 'Models without tools updated successfully',
+          count: validation.data.models.length,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        if (message.includes('not found')) {
+          return reply.status(404).send({ error: message });
+        }
+        fastify.log.error(`Failed to update models without tools for ${id}: ${message}`);
+        return reply.status(500).send({ error: 'Failed to update models without tools', message });
+      }
+    }
+  );
+
+  /**
+   * POST /api/admin/custom-providers/:id/mark-no-tools/:model
+   * Mark a single model as not supporting tools (used by auto-detection)
+   */
+  fastify.post<{ Params: { id: string; model: string } }>(
+    '/:id/mark-no-tools/:model',
+    async (
+      request: FastifyRequest<{ Params: { id: string; model: string } }>,
+      reply: FastifyReply
+    ) => {
+      const { id, model } = request.params;
+
+      if (!isValidUUID(id)) {
+        return reply.status(400).send({ error: 'Invalid provider ID format' });
+      }
+
+      // Decode the model name (it may be URL-encoded)
+      const modelName = decodeURIComponent(model);
+
+      try {
+        await service.addModelWithoutTools(id, modelName);
+
+        fastify.log.info(
+          { providerId: id, model: modelName },
+          'Marked model as not supporting tools'
+        );
+
+        return reply.send({
+          message: `Model "${modelName}" marked as not supporting tools`,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        if (message.includes('not found')) {
+          return reply.status(404).send({ error: message });
+        }
+        fastify.log.error(`Failed to mark model ${modelName} as no tools for ${id}: ${message}`);
+        return reply.status(500).send({ error: 'Failed to mark model', message });
+      }
+    }
+  );
 }
 
 export default customProviderRoutes;

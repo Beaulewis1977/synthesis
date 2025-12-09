@@ -476,6 +476,147 @@ Agent-updated log of completed work. Update after each sub-phase completion.
 
 ---
 
+## Phase 17K: Model Curation & Tool Support
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- **Problem Solved:** Custom providers like OpenRouter have 500+ models appearing in one long dropdown list, no way to curate favorites, and some models return 404 errors when using tool calling.
+- **Solution:** Starred favorites + searchable list + auto-retry on tool errors + manual configuration
+- **Database Changes:**
+  - Created migration `030_custom_provider_model_curation.sql`
+  - Added `starred_models TEXT[] DEFAULT '{}'` column
+  - Added `models_without_tools TEXT[] DEFAULT '{}'` column
+- **CustomProviderService Methods Added:**
+  - `updateStarredModels(id, models[])` - Set starred models for a provider
+  - `updateModelsWithoutTools(id, models[])` - Set models without tool support
+  - `addModelWithoutTools(id, modelName)` - Mark single model as no-tool-support
+  - `modelSupportsTools(id, modelName)` - Check if model supports tools
+  - `getModelsWithoutTools(id)` - Get list of models without tools
+- **Routes Added:**
+  - `PATCH /api/admin/custom-providers/:id/starred-models` - Update starred models
+  - `PATCH /api/admin/custom-providers/:id/models-without-tools` - Update no-tools list
+  - `POST /api/admin/custom-providers/:id/mark-no-tools/:model` - Mark single model
+- **Auto-Retry Logic (openai-compatible.ts):**
+  - Catches 404 "No endpoints found that support tool use" error
+  - Auto-retries request without tools
+  - Auto-marks model in `models_without_tools` via callback
+  - Shows warning message to user: "⚠️ *This model does not support function calling...*"
+  - Next request with same model automatically skips tools
+- **Chat Provider Factory Updates:**
+  - `getCustomChatProvider()` accepts optional `modelOverride` parameter
+  - Checks if model is in `modelsWithoutTools` list
+  - If yes, sets `disableTools: true` for the request
+  - Passes `onModelNoToolSupport` callback to auto-mark models
+- **Frontend Components:**
+  - `ModelCurationModal.tsx` (NEW) - Modal for starring models and toggling tool support
+    - Search filter for large model lists
+    - Star toggle button per model
+    - Tool support toggle button per model
+    - Stats display (total models, starred count, no-tools count)
+    - Save/Cancel buttons with loading states
+  - `ModelsPage.tsx` - Added ⭐ "Manage Models" button on provider cards
+    - Shows starred count badge on provider cards
+    - Opens ModelCurationModal on click
+  - `ChatModelSelector.tsx` - Updated with starred/searchable UI
+    - Starred models appear first (sorted to top)
+    - Search input appears when provider has >10 models
+    - Star indicator (⭐) next to starred models
+    - Warning indicator (⚠️) next to models without tool support
+    - Provider header shows starred count
+- **Frontend Hooks Added:**
+  - `useUpdateStarredModels()` - Mutation to update starred models
+  - `useUpdateModelsWithoutTools()` - Mutation to update no-tools list
+  - `useMarkModelNoTools()` - Mutation to mark single model
+- **Files Created:**
+  - `packages/db/migrations/030_custom_provider_model_curation.sql`
+  - `apps/web/src/components/settings/ModelCurationModal.tsx`
+- **Files Modified:**
+  - `packages/shared/src/index.ts` - Added `starredModels`, `modelsWithoutTools` to CustomProvider
+  - `apps/server/src/services/custom-provider-service.ts` - Added curation methods
+  - `apps/server/src/routes/admin/custom-providers.ts` - Added 3 new routes
+  - `apps/server/src/services/chat-providers/openai-compatible.ts` - Added auto-retry logic
+  - `apps/server/src/services/chat-providers/index.ts` - Updated factory with model checks
+  - `apps/web/src/lib/api.ts` - Added API methods
+  - `apps/web/src/hooks/useCustomProviders.ts` - Added hooks
+  - `apps/web/src/pages/settings/ModelsPage.tsx` - Added manage button
+  - `apps/web/src/components/ChatModelSelector.tsx` - Added starred/searchable UI
+- **TypeScript Status:** `pnpm typecheck` passes
+
+---
+
+## Phase 17L: Provider Connection Fallback
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- **Problem Solved:** Providers like MiniMax don't expose a `/models` endpoint, causing "Models endpoint not found" error when testing connection.
+- **Solution:** Fall back to testing `/chat/completions` endpoint when `/models` returns 404
+- **testChatCompletionsFallback() Method:**
+  - Triggers when `/models` endpoint returns 404
+  - Sends minimal request to `/chat/completions` with dummy model
+  - Accepts multiple HTTP statuses as "valid connection":
+    - 401 = Invalid API key (fail)
+    - 400, 404, 422, 500 = Endpoint exists, model error (success)
+    - 200 = Somehow worked (success)
+  - Returns success message prompting manual model entry
+- **TestConnectionResult.message Field:**
+  - Added optional `message?: string` field to shared types
+  - Displays success message when models couldn't be discovered
+  - Message: "Connection successful! This provider does not expose a models list. Please add model names manually in Custom Models field."
+- **CustomProviderForm Updates:**
+  - Added `testMessage` state for success messages
+  - Shows warning-colored success box when no models discovered
+  - Prompts user to use Custom Models field in Advanced Settings
+- **Providers Now Supported:**
+  - MiniMax (`https://api.minimax.io/v1`)
+  - Any provider without `/models` endpoint
+- **MiniMax Models:**
+  - `MiniMax-M2` - Agentic capabilities, advanced reasoning (204K context)
+  - `MiniMax-M2-Stable` - High concurrency, commercial use (204K context)
+- **Files Modified:**
+  - `apps/server/src/services/custom-provider-service.ts` - Added fallback method
+  - `packages/shared/src/index.ts` - Added `message` field to TestConnectionResult
+  - `apps/web/src/components/settings/CustomProviderForm.tsx` - Show success message
+- **TypeScript Status:** `pnpm typecheck` passes
+
+---
+
+## Phase 17M: Provider Polish & Model Lists
+**Status:** NOT STARTED
+**Date:** -
+**Commits:** None yet
+**Notes:**
+- **Problem 1: Outdated Model Lists** - Built-in providers (Z.AI, Moonshot, OpenAI, Google, Anthropic) have hardcoded model lists in `PROVIDER_INFO` that may be outdated or incomplete. Users cannot add custom models to built-in providers.
+- **Problem 2: URL Normalization Bug** - If user enters full URL like `https://api.openai.com/v1/models`, the code constructs invalid URL `https://api.openai.com/v1/models/v1/models`.
+- **Problem 3: User Confusion** - Users may incorrectly add built-in providers (Z.AI, OpenAI) as custom providers instead of using the API Keys section.
+
+**Planned Tasks:**
+
+1. **Update PROVIDER_INFO Model Lists** (`packages/shared/src/index.ts`):
+   - Research current models for Z.AI/Zhipu, Moonshot/Kimi, OpenAI, Google, Anthropic
+   - Update hardcoded model arrays
+   - Rebuild shared package
+
+2. **Fix URL Normalization** (`apps/server/src/services/custom-provider-service.ts`):
+   - Improve `testConnection()` to handle various URL formats:
+     - `https://api.openai.com` → works
+     - `https://api.openai.com/v1` → works
+     - `https://api.openai.com/v1/` → should work (trailing slash)
+     - `https://api.openai.com/v1/models` → should work (extract base)
+   - Use URL parsing instead of string manipulation
+
+3. **Cleanup & Guidance**:
+   - Help user delete incorrectly created custom providers
+   - Verify API keys are configured in correct section
+   - Consider adding UI guidance about when to use API Keys vs Custom Providers
+
+**Files to Modify:**
+- `packages/shared/src/index.ts` - PROVIDER_INFO model lists
+- `apps/server/src/services/custom-provider-service.ts` - URL normalization
+
+---
+
 ## Final Review
 **Status:** NOT STARTED
 **Date:** -

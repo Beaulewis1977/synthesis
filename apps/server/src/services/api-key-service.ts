@@ -379,7 +379,7 @@ export class ApiKeyService {
           Authorization: `Bearer ${key}`,
         },
         body: JSON.stringify({
-          model: 'glm-4-air',
+          model: 'glm-4.5-air',
           messages: [{ role: 'user', content: 'test' }],
           max_tokens: 1,
         }),

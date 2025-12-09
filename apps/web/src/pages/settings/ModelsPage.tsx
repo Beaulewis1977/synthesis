@@ -20,6 +20,7 @@ import {
   Server,
   Settings,
   Sparkles,
+  Star,
   Trash2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -28,6 +29,7 @@ import { ApiKeyManager } from '../../components/settings/ApiKeyManager';
 import { CustomProviderForm } from '../../components/settings/CustomProviderForm';
 import { EmbeddingProfileSelect } from '../../components/settings/EmbeddingProfileSelect';
 import { ModelConfigCard } from '../../components/settings/ModelConfigCard';
+import { ModelCurationModal } from '../../components/settings/ModelCurationModal';
 import { useCustomProviders, useDeleteCustomProvider } from '../../hooks/useCustomProviders';
 import {
   FEATURE_CATEGORIES,
@@ -113,12 +115,20 @@ interface CustomProviderCardProps {
   provider: CustomProvider;
   onEdit: () => void;
   onDelete: () => void;
+  onManageModels: () => void;
   isDeleting: boolean;
 }
 
-function CustomProviderCard({ provider, onEdit, onDelete, isDeleting }: CustomProviderCardProps) {
+function CustomProviderCard({
+  provider,
+  onEdit,
+  onDelete,
+  onManageModels,
+  isDeleting,
+}: CustomProviderCardProps) {
   const modelCount =
     (provider.discoveredModels?.length || 0) + (provider.customModels?.length || 0);
+  const starredCount = provider.starredModels?.length || 0;
 
   return (
     <div className="flex items-center justify-between p-md border border-border rounded-lg">
@@ -129,6 +139,12 @@ function CustomProviderCard({ provider, onEdit, onDelete, isDeleting }: CustomPr
           <span className="text-xs px-1.5 py-0.5 bg-accent/10 text-accent rounded">
             {modelCount} model{modelCount !== 1 ? 's' : ''}
           </span>
+          {starredCount > 0 && (
+            <span className="text-xs px-1.5 py-0.5 bg-warning/10 text-warning rounded flex items-center gap-0.5">
+              <Star size={10} fill="currentColor" />
+              {starredCount} starred
+            </span>
+          )}
           {provider.supportsTools && (
             <span className="text-xs px-1.5 py-0.5 bg-success/10 text-success rounded">Tools</span>
           )}
@@ -138,6 +154,15 @@ function CustomProviderCard({ provider, onEdit, onDelete, isDeleting }: CustomPr
         </div>
       </div>
       <div className="flex gap-xs">
+        <button
+          type="button"
+          onClick={onManageModels}
+          className="p-sm rounded hover:bg-bg-secondary text-text-secondary hover:text-accent transition-colors"
+          aria-label="Manage models"
+          title="Manage models (star favorites, configure tool support)"
+        >
+          <Star size={16} />
+        </button>
         <button
           type="button"
           onClick={onEdit}
@@ -168,6 +193,7 @@ function CustomProvidersSection() {
   const deleteProvider = useDeleteCustomProvider();
   const [editingProvider, setEditingProvider] = useState<CustomProvider | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [curatingProvider, setCuratingProvider] = useState<CustomProvider | null>(null);
 
   const handleDelete = (provider: CustomProvider) => {
     if (window.confirm(`Delete "${provider.name}"? This cannot be undone.`)) {
@@ -178,6 +204,10 @@ function CustomProvidersSection() {
   const handleEdit = (provider: CustomProvider) => {
     setEditingProvider(provider);
     setIsFormOpen(true);
+  };
+
+  const handleManageModels = (provider: CustomProvider) => {
+    setCuratingProvider(provider);
   };
 
   const handleAdd = () => {
@@ -246,6 +276,7 @@ function CustomProvidersSection() {
                 provider={provider}
                 onEdit={() => handleEdit(provider)}
                 onDelete={() => handleDelete(provider)}
+                onManageModels={() => handleManageModels(provider)}
                 isDeleting={deleteProvider.isPending && deleteProvider.variables === provider.id}
               />
             ))}
@@ -264,6 +295,15 @@ function CustomProvidersSection() {
         onSave={handleFormClose}
         onCancel={handleFormClose}
       />
+
+      {/* Model Curation Modal */}
+      {curatingProvider && (
+        <ModelCurationModal
+          provider={curatingProvider}
+          isOpen={!!curatingProvider}
+          onClose={() => setCuratingProvider(null)}
+        />
+      )}
     </section>
   );
 }

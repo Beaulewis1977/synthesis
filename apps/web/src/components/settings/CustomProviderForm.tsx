@@ -81,6 +81,7 @@ export function CustomProviderForm({
   );
   const [testError, setTestError] = useState<string | null>(null);
   const [testSuccess, setTestSuccess] = useState(false);
+  const [testMessage, setTestMessage] = useState<string | null>(null); // Success message for manual model entry
 
   // Ref for tracking current test request (prevents race conditions)
   const testRequestRef = useRef(0);
@@ -100,6 +101,7 @@ export function CustomProviderForm({
       setDiscoveredModels(provider?.discoveredModels || []);
       setTestError(null);
       setTestSuccess(false);
+      setTestMessage(null);
       testRequestRef.current = 0;
     }
   }, [isOpen, provider]);
@@ -131,6 +133,7 @@ export function CustomProviderForm({
 
     setTestError(null);
     setTestSuccess(false);
+    setTestMessage(null);
     setDiscoveredModels([]);
 
     try {
@@ -142,9 +145,14 @@ export function CustomProviderForm({
       // Only update state if this is still the latest request
       // (prevents race conditions when URL changes during test)
       if (requestId === testRequestRef.current) {
-        if (result.valid && result.models) {
-          setDiscoveredModels(result.models);
+        if (result.valid) {
+          // Connection succeeded - may or may not have discovered models
+          setDiscoveredModels(result.models || []);
           setTestSuccess(true);
+          // Show message if provider doesn't expose models list (e.g., MiniMax)
+          if (result.message) {
+            setTestMessage(result.message);
+          }
         } else {
           setTestError(result.error || 'Connection failed');
         }
@@ -331,6 +339,19 @@ export function CustomProviderForm({
                   {model}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Test Success: No models discovered (manual entry required) */}
+        {testSuccess && discoveredModels.length === 0 && testMessage && (
+          <div className="p-sm bg-warning/10 border border-warning/30 rounded-lg">
+            <div className="flex items-start gap-sm">
+              <CheckCircle size={16} className="text-warning flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <span className="text-sm font-medium text-warning">Connection Successful</span>
+                <p className="text-xs text-warning/80 mt-xs">{testMessage}</p>
+              </div>
             </div>
           </div>
         )}

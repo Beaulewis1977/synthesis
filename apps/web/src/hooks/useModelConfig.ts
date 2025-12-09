@@ -463,6 +463,8 @@ export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   voyage: 'Voyage AI',
   cohere: 'Cohere',
   bge: 'BGE (Local)',
+  zhipu: 'Z.AI (Zhipu)',
+  moonshot: 'Moonshot AI',
   none: 'None',
 };
 

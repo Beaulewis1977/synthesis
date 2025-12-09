@@ -115,3 +115,55 @@ export function useDiscoverCustomProviderModels(id: string) {
     staleTime: 5 * 60 * 1000, // 5 minutes (models change infrequently)
   });
 }
+
+// ==========================================================================
+// Phase 17K: Model Curation Hooks
+// ==========================================================================
+
+/**
+ * Hook to update starred models for a provider
+ */
+export function useUpdateStarredModels() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, models }: { id: string; models: string[] }) =>
+      apiClient.updateStarredModels(id, models),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: customProviderKeys.all });
+      queryClient.invalidateQueries({ queryKey: customProviderKeys.detail(id) });
+    },
+  });
+}
+
+/**
+ * Hook to update models without tools list for a provider
+ */
+export function useUpdateModelsWithoutTools() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, models }: { id: string; models: string[] }) =>
+      apiClient.updateModelsWithoutTools(id, models),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: customProviderKeys.all });
+      queryClient.invalidateQueries({ queryKey: customProviderKeys.detail(id) });
+    },
+  });
+}
+
+/**
+ * Hook to mark a single model as not supporting tools
+ */
+export function useMarkModelNoTools() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, model }: { id: string; model: string }) =>
+      apiClient.markModelNoTools(id, model),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: customProviderKeys.all });
+      queryClient.invalidateQueries({ queryKey: customProviderKeys.detail(id) });
+    },
+  });
+}

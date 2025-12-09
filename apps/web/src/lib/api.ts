@@ -1277,6 +1277,54 @@ class ApiClient {
     );
     return response.models;
   }
+
+  // ==========================================================================
+  // Phase 17K: Model Curation APIs
+  // ==========================================================================
+
+  /**
+   * Update starred models for a custom provider.
+   */
+  async updateStarredModels(
+    id: string,
+    models: string[]
+  ): Promise<{ message: string; count: number }> {
+    return this.request<{ message: string; count: number }>(
+      `/api/admin/custom-providers/${encodeURIComponent(id)}/starred-models`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ models }),
+      }
+    );
+  }
+
+  /**
+   * Update models without tools list for a custom provider.
+   */
+  async updateModelsWithoutTools(
+    id: string,
+    models: string[]
+  ): Promise<{ message: string; count: number }> {
+    return this.request<{ message: string; count: number }>(
+      `/api/admin/custom-providers/${encodeURIComponent(id)}/models-without-tools`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ models }),
+      }
+    );
+  }
+
+  /**
+   * Mark a single model as not supporting tools.
+   */
+  async markModelNoTools(id: string, model: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(
+      `/api/admin/custom-providers/${encodeURIComponent(id)}/mark-no-tools/${encodeURIComponent(model)}`,
+      {
+        method: 'POST',
+      }
+    );
+  }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);
