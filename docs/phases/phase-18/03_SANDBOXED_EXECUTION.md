@@ -49,6 +49,41 @@ synthesis-sandbox:
 - **Resource limits:** Prevents resource exhaustion attacks
 - **Network isolation:** `--network=none` or domain allowlist
 
+### Network Security
+
+> **⚠️ Risk Acknowledgment:** AI-driven arbitrary code execution with internet access enables severe attack vectors including data exfiltration, command-and-control (C2) communication, and lateral movement within networks. Network isolation is critical.
+
+**Default Policy:**
+- `--network=none` is **required** for Phase 18.3 rollout
+- No sandbox container may have direct internet access without explicit security review and approval
+
+**If Internet Access Is Ever Required:**
+
+When package installation or external resources are genuinely needed, the following approach is mandatory:
+
+1. **Host-side caching/egress proxy:**
+   - Use a caching proxy like **Verdaccio** (npm) or **devpi** (Python) on the host
+   - Sandbox connects only to the local proxy, never directly to the internet
+   - Proxy pre-populates approved packages; new packages require manual approval
+
+2. **Strict domain allowlisting:**
+   - Egress proxy enforces domain allowlist (e.g., `registry.npmjs.org`, `pypi.org`)
+   - Requests to non-allowlisted domains are rejected with error: `"Network request blocked: domain not in allowlist"`
+   - Allowlist changes require security review and audit trail
+
+3. **Proxy-only egress:**
+   - Container network limited to host proxy IP only via Docker network policy
+   - No direct DNS resolution from container; proxy handles all external resolution
+
+**Audit and Monitoring:**
+- All outbound requests (including blocked attempts) must be logged with: timestamp, source container, destination domain, path, result (allowed/blocked)
+- Anomaly alerts trigger on: unusual request volume, requests to new domains, large response sizes
+- Logs retained for minimum 90 days for incident investigation
+
+**Enforcement:**
+- Non-allowlisted domain requests are rejected immediately with clear error message
+- Repeated violations trigger sandbox termination and incident alert
+
 ### Implementation
 Create `apps/server/src/services/sandbox.ts`:
 - `startSandbox()`: Ensures the container is running.
