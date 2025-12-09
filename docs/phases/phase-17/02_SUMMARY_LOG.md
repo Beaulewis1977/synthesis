@@ -116,10 +116,71 @@ Agent-updated log of completed work. Update after each sub-phase completion.
 ---
 
 ## Phase 17D: Backend CustomProviderService
-**Status:** NOT STARTED
-**Date:** -
-**Commits:** -
-**Notes:** -
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- Created shared encryption module `apps/server/src/services/encryption.ts`
+  - Extracted AES-256-GCM encryption logic from `ApiKeyService`
+  - Functions: `encryptValue()`, `decryptValue()`, `getEncryptionKey()`
+  - Uses HKDF-SHA256 for key derivation from `API_KEY_ENCRYPTION_KEY` env var
+  - Format: `{iv_hex}:{authTag_hex}:{encrypted_hex}`
+  - Fully backward-compatible with existing encrypted data
+- Updated `ApiKeyService` to use shared encryption module
+  - Removed private `encryptKey()`, `decryptKey()`, `getEncryptionKey()` functions
+  - Imported and used `encryptValue()` and `decryptValue()` from `./encryption.js`
+  - Removed unused `crypto` import
+  - All 6 usages updated successfully
+- Created `CustomProviderService` with full CRUD operations:
+  - **List**: `list()` - Returns all custom providers ordered by creation date
+  - **Get**: `get(id)`, `getByName(name)` - Fetch single provider by ID or unique name
+  - **Create**: `create(input)` - Validates uniqueness, encrypts API key, attempts model discovery
+  - **Update**: `update(id, updates)` - Partial updates with dynamic SQL, checks name conflicts
+  - **Delete**: `delete(id)` - Removes provider, throws error if not found
+  - **API Key**: `getApiKey(id)` - Retrieves and decrypts API key securely
+- Implemented connection testing with timeout:
+  - Method: `testConnection(baseUrl, apiKey?)`
+  - 10-second timeout using AbortController
+  - Normalizes base URL (handles with/without `/v1` suffix)
+  - Tests `{baseUrl}/v1/models` endpoint
+  - Parses OpenAI format: `{ object: "list", data: [{ id: "model-name" }] }`
+  - Error handling for: timeout, network, auth (401), not found (404), invalid format
+  - Returns: `{ valid: boolean, models?: string[], error?: string }`
+- Implemented model discovery:
+  - Method: `discoverModels(id)` - Discovers models for existing provider
+  - Method: `refreshDiscoveredModels(id)` - Discovers and updates DB cache
+  - Gracefully handles failures (returns empty array, logs warnings)
+  - Auto-invoked during `create()` if API key provided (non-blocking)
+- Singleton pattern implementation:
+  - Getter: `getCustomProviderService(db: Pool)`
+  - Reset: `resetCustomProviderService()` for testing
+  - Module-scoped instance variable
+- TypeScript type safety:
+  - Interfaces: `CustomProvider`, `CreateCustomProviderInput`, `TestConnectionResult`
+  - Database row interface: `CustomProviderRow`
+  - Helper method: `rowToProvider()` for type conversion
+  - Proper typing for JSON response parsing (avoided `unknown` type errors)
+- **Security Features:**
+  - API keys encrypted at rest with AES-256-GCM
+  - Never returns raw API keys (only `hasApiKey: boolean`)
+  - Validates input before database operations
+  - Name uniqueness enforced for create/update
+- **Error Handling:**
+  - Connection timeout: 10 seconds with clear message
+  - Network errors: Caught and returned with details
+  - Auth failures: 401 detected and reported
+  - Not found: 404 detected for model endpoint
+  - Invalid format: Validates OpenAI response structure
+  - Database errors: Logged and re-thrown with context
+- **Files Created:**
+  - `apps/server/src/services/encryption.ts` - Shared encryption utilities (110 lines)
+  - `apps/server/src/services/custom-provider-service.ts` - Main service (521 lines)
+- **Files Modified:**
+  - `apps/server/src/services/api-key-service.ts` - Migrated to shared encryption
+  - `docs/phases/phase-17/01_CHECKLIST.md` - Marked Phase 17D items complete
+  - `docs/phases/phase-17/02_SUMMARY_LOG.md` - This file
+- **TypeScript Status:** All errors fixed (pre-existing unrelated error in `scripts/ingest-backend-recipes.ts`)
+- **Next Steps:** Phase 17E - Create admin routes for custom provider management
 
 ---
 

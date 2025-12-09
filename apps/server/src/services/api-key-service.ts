@@ -11,95 +11,12 @@
  * - Environment variables take precedence over stored keys
  */
 
-import crypto from 'node:crypto';
 import { PROVIDER_INFO } from '@synthesis/shared';
 import type { Pool } from 'pg';
-
-// Minimum key length for security (16 bytes = 128 bits)
-const MIN_KEY_LENGTH = 16;
-
-// HKDF parameters (salt/info are not secret but should be consistent across environments)
-const HKDF_SALT = process.env.API_KEY_ENCRYPTION_SALT ?? 'synthesis-api-key-encryption-salt';
-const HKDF_INFO = process.env.API_KEY_ENCRYPTION_INFO ?? 'synthesis-api-key-encryption-info';
+import { decryptValue, encryptValue } from './encryption.js';
 
 // Anthropic model used for API key validation. Configurable so updates are easy.
 const ANTHROPIC_TEST_MODEL = process.env.ANTHROPIC_TEST_MODEL || 'claude-3-5-haiku-20241022';
-
-/**
- * Get and validate encryption key from environment.
- * Throws an error if the key is missing or too short.
- *
- * The value of API_KEY_ENCRYPTION_KEY is used as input keying material (IKM)
- * for HKDF-SHA256, combined with a configurable salt/info, to derive the
- * 32-byte AES-256-GCM key used for encrypting API keys.
- */
-function getEncryptionKey(): Buffer {
-  const keyEnv = process.env.API_KEY_ENCRYPTION_KEY;
-
-  if (!keyEnv) {
-    throw new Error(
-      'API_KEY_ENCRYPTION_KEY environment variable is required for secure API key storage. ' +
-        'Generate one with: openssl rand -hex 32'
-    );
-  }
-
-  // Support both hex-encoded (64 chars = 32 bytes) and raw keys as input keying material
-  const ikm = keyEnv.length === 64 ? Buffer.from(keyEnv, 'hex') : Buffer.from(keyEnv);
-
-  if (ikm.length < MIN_KEY_LENGTH) {
-    throw new Error(
-      `API_KEY_ENCRYPTION_KEY must be at least ${MIN_KEY_LENGTH} bytes. ` +
-        `Current key is ${ikm.length} bytes. Generate a secure key with: openssl rand -hex 32`
-    );
-  }
-
-  const salt = Buffer.from(HKDF_SALT, 'utf8');
-  const info = Buffer.from(HKDF_INFO, 'utf8');
-
-  // Derive a stable 32-byte key using HKDF-SHA256.
-  const derived = crypto.hkdfSync('sha256', ikm, salt, info, 32);
-  // hkdfSync may be typed as returning ArrayBuffer in some environments; Buffer.from
-  // accepts ArrayBuffer and produces a Node.js Buffer suitable for AES-256-GCM.
-  return Buffer.from(derived as ArrayBuffer);
-}
-
-/**
- * Encrypt an API key
- */
-function encryptKey(plaintext: string): string {
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-gcm', getEncryptionKey(), iv);
-
-  let encrypted = cipher.update(plaintext, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-
-  const authTag = cipher.getAuthTag();
-
-  // Format: iv:authTag:encrypted
-  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
-}
-
-/**
- * Decrypt an API key
- */
-function decryptKey(ciphertext: string): string {
-  const parts = ciphertext.split(':');
-  if (parts.length !== 3) {
-    throw new Error('Invalid encrypted key format');
-  }
-
-  const [ivHex, authTagHex, encrypted] = parts;
-  const iv = Buffer.from(ivHex, 'hex');
-  const authTag = Buffer.from(authTagHex, 'hex');
-
-  const decipher = crypto.createDecipheriv('aes-256-gcm', getEncryptionKey(), iv);
-  decipher.setAuthTag(authTag);
-
-  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-
-  return decrypted;
-}
 
 /**
  * Mask an API key for display (show first 4 and last 4 chars)
@@ -183,7 +100,7 @@ export class ApiKeyService {
       } else if (storedValue) {
         // Use stored key
         try {
-          const decrypted = decryptKey(storedValue);
+          const decrypted = decryptValue(storedValue);
           status = {
             provider,
             configured: true,
@@ -223,7 +140,7 @@ export class ApiKeyService {
       throw new Error('API key cannot be empty');
     }
 
-    const encrypted = encryptKey(apiKey.trim());
+    const encrypted = encryptValue(apiKey.trim());
 
     try {
       await this.db.query(
@@ -289,9 +206,9 @@ export class ApiKeyService {
         return null;
       }
 
-      // Keep existing try/catch around decryptKey as-is
+      // Keep existing try/catch around decryptValue as-is
       try {
-        return decryptKey(result.rows[0].encrypted_key);
+        return decryptValue(result.rows[0].encrypted_key);
       } catch {
         return null;
       }
@@ -513,7 +430,7 @@ export class ApiKeyService {
       throw new Error('OAuth token cannot be empty');
     }
 
-    const encrypted = encryptKey(oauthToken.trim());
+    const encrypted = encryptValue(oauthToken.trim());
 
     try {
       // Store with a special key format to differentiate from API key
@@ -559,7 +476,7 @@ export class ApiKeyService {
       }
 
       try {
-        return decryptKey(result.rows[0].encrypted_key);
+        return decryptValue(result.rows[0].encrypted_key);
       } catch {
         return null;
       }
@@ -620,7 +537,7 @@ export class ApiKeyService {
 
       if (result.rows.length > 0) {
         try {
-          const decrypted = decryptKey(result.rows[0].encrypted_key);
+          const decrypted = decryptValue(result.rows[0].encrypted_key);
           return {
             configured: true,
             source: 'db',

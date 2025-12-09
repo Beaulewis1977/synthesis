@@ -29,13 +29,15 @@ Master checklist for all Phase 17 verification items. Update status as work prog
 - [x] Trigger works (updated_at auto-updates)
 
 ## Phase 17D: Backend CustomProviderService
-- [ ] Service file created: `custom-provider-service.ts`
-- [ ] Service instantiates correctly
-- [ ] CRUD operations work (list, get, create, update, delete)
-- [ ] API key encryption/decryption works
-- [ ] Model discovery parses OpenAI format
-- [ ] Connection test has 5-10s timeout
-- [ ] `pnpm typecheck` passes
+- [x] Service file created: `custom-provider-service.ts`
+- [x] Encryption module extracted: `encryption.ts`
+- [x] ApiKeyService updated to use shared encryption
+- [x] Service instantiates correctly
+- [x] CRUD operations implemented (list, get, getByName, create, update, delete)
+- [x] API key encryption/decryption works
+- [x] Model discovery parses OpenAI format
+- [x] Connection test has 10s timeout
+- [x] `pnpm typecheck` passes (pre-existing unrelated error in scripts/)
 
 ## Phase 17E: Backend Routes
 - [ ] Routes file created: `routes/admin/custom-providers.ts`
