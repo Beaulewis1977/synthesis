@@ -866,3 +866,48 @@ export const FULL_AST_CAPABILITIES: AnalyzerCapabilities = {
  * Used as default for collection settings and search requests
  */
 export const DEFAULT_MMR_LAMBDA = 0.7;
+
+// =============================================================================
+// Phase 17: Custom Provider Types
+// =============================================================================
+
+/**
+ * Custom provider representation (returned to clients)
+ * API keys are never exposed - only hasApiKey boolean
+ */
+export interface CustomProvider {
+  id: string;
+  name: string;
+  baseUrl: string;
+  hasApiKey: boolean;
+  providerType: string;
+  maxContextTokens: number;
+  supportsVision: boolean;
+  supportsTools: boolean;
+  customModels: string[];
+  discoveredModels: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Input for creating a new custom provider
+ */
+export interface CreateCustomProviderInput {
+  name: string;
+  baseUrl: string;
+  apiKey?: string;
+  maxContextTokens?: number;
+  supportsVision?: boolean;
+  supportsTools?: boolean;
+  customModels?: string[];
+}
+
+/**
+ * Result of connection testing
+ */
+export interface TestConnectionResult {
+  valid: boolean;
+  models?: string[];
+  error?: string;
+}
