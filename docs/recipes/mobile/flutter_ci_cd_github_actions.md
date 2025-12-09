@@ -16,7 +16,9 @@ recommended: true
 
 # Flutter CI/CD with GitHub Actions
 
-> **Summary:** Automate your Flutter workflow. Run tests and static analysis on every Pull Request, and build production artifacts (APK/IPA) on release tags.
+> **Summary:** Automate your Flutter workflow. Run tests and static analysis on every Pull Request, and build Android App Bundles (AAB) for Play Store releases on version tags.
+>
+> **Note:** This recipe builds AAB (Android App Bundle), which is the preferred format for Google Play Store due to smaller size and dynamic delivery. APK and IPA (iOS) builds are not included.
 
 ## Prerequisites
 
@@ -79,6 +81,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
+        with:
+          cache: true
       
       - name: Decode Keystore
         run: |
@@ -88,7 +92,7 @@ jobs:
         run: |
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
           echo "keyPassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=upload" >> android/key.properties
+          echo "keyAlias=upload" >> android/key.properties  # Must match your keystore alias
           echo "storeFile=upload-keystore.jks" >> android/key.properties
           
       - name: Build App Bundle
@@ -108,7 +112,17 @@ jobs:
 
 **Solution:** Use GitHub Secrets. Encode your keystore file to base64 (`base64 -i upload.jks -o key.txt`) and store the string content as a secret.
 
-### 2. Cache Misses
+### 2. Keystore Alias Mismatch
+
+**Problem:** Build fails with "alias does not exist" error.
+
+**Solution:** Ensure your keystore's key alias matches the value in `key.properties` (line 91 uses `upload`). Verify your alias with:
+
+```bash
+keytool -list -v -keystore upload.jks
+```
+
+### 3. Cache Misses
 
 **Problem:** Builds take too long re-downloading packages.
 

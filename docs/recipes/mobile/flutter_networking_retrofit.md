@@ -26,15 +26,40 @@ tested_versions:
 
 ## Prerequisites
 
-- [ ] `build_runner` installed
+- [ ] `build_runner` installed (comes via dev dependency)
+
+## Installation
+
+Add the following to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  dio: ^5.5.0
+  retrofit: ^4.1.0
+  json_annotation: ^4.9.0
+
+dev_dependencies:
+  build_runner: ^2.4.0
+  json_serializable: ^6.7.0
+  retrofit_generator: ^7.0.0
+```
+
+Then run:
+
+```bash
+flutter pub get
+dart run build_runner build
+```
 
 ## Tech Stack
 
 | Component | Version | Purpose |
 |-----------|---------|---------|
 | dio | ^5.5.0 | HTTP Client |
-| retrofit | ^4.1.0 | API Interface Generator |
+| retrofit | ^4.1.0 | Type-Safe API Client |
 | json_annotation | ^4.9.0 | JSON Helpers |
+| json_serializable | ^6.7.0 | JSON Code Generator (dev) |
+| retrofit_generator | ^7.0.0 | Retrofit Code Generator (dev) |
 
 ## Step-by-Step Implementation
 
@@ -58,19 +83,26 @@ Dio dio(DioRef ref) {
   ));
 
   // Add Auth Interceptor
+  // See [State Management with Riverpod](./flutter_state_management_riverpod.md) for authProvider setup
   dio.interceptors.add(InterceptorsWrapper(
     onRequest: (options, handler) async {
-      // Fetch token from Supabase/SecureStorage
-      const token = '...'; // ref.read(authProvider).token
-      if (token.isNotEmpty) {
-        options.headers['Authorization'] = 'Bearer $token';
+      // Fetch token from auth state (Riverpod example)
+      final authState = ref.read(authProvider);
+      if (authState is AsyncData) {
+        final token = authState.value?.accessToken;
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
       }
       return handler.next(options);
     },
     onError: (DioException e, handler) {
       // Global error handling (e.g. log out on 401)
       if (e.response?.statusCode == 401) {
-        // ref.read(authProvider.notifier).logout();
+        // Trigger logout and redirect
+        ref.read(authProvider.notifier).logout();
+        // Reject to prevent further retries
+        return handler.reject(e);
       }
       return handler.next(e);
     },

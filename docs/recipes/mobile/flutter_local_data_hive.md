@@ -22,9 +22,13 @@ tested_versions:
 
 # Flutter Local Data with Hive
 
-> **Summary:** Implement fast, offline-first local- **Storage Strategy:** Boxes vs. LazyBoxes.
-- **Adapters:** Registering TypeAdapters for multiple models.
-- **Sync Strategy:** Caching API responses for offline use. datasets, and secure encryption.
+> **Summary:** Implement fast, offline-first local data storage using Hive with type-safe adapters, encrypted boxes for sensitive data, and strategies for caching API responses.
+>
+> **Key Sections:**
+> - **Storage Strategy:** Boxes vs. LazyBoxes for different dataset sizes
+> - **Adapters:** Registering TypeAdapters for custom models
+> - **Sync Strategy:** Caching API responses for offline use
+> - **Encryption:** Secure storage using encrypted boxes
 
 ## Prerequisites
 
@@ -121,7 +125,9 @@ For sensitive data (like tokens), use an encrypted box.
 **Note:** You must store the encryption key securely using `flutter_secure_storage`.
 
 ```dart
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 // Generate or retrieve key
 final secureStorage = FlutterSecureStorage();

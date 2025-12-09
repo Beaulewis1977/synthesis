@@ -32,9 +32,13 @@ Create `apps/server/src/services/sandbox.ts`:
 - **Input:** `command` (string), `timeout_ms` (number, default: 10000).
 
 ### Safety Guardrails
-- **Blacklist:** Reject commands like `docker`, `shutdown`, `reboot`.
+- **Whitelist:** Only execute commands matching an explicit allowlist of approved binaries and patterns:
+  - **Approved commands:** `node`, `npm test`, `npm run`, `python`, `python3`, `git status`, `git diff`, `git log`
+  - **Pattern matching:** Commands must match approved patterns (e.g., `npm test -- *.test.ts`)
+  - **Adding/removing entries:** Whitelist is configurable via environment or config file; changes require review
+  - **Enforcement:** Commands not matching the whitelist are rejected with error: "Command not in approved list"
 - **Timeouts:** Kill execution if it runs longer than timeout.
-- **Output:** Truncate output to 2000 characters to prevent context overflow (provide a "view more" link if needed).
+- **Output:** Truncate output to 2000 characters to prevent context overflow (provide a "view more" link if needed). This limit balances readability with token budget; adjust via config if needed.
 
 ### Example
 **User:** "Run the tests for the login module."

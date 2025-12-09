@@ -29,7 +29,7 @@ recommended: true
 | Component | Version | Purpose |
 |-----------|---------|---------|
 | firebase_crashlytics | ^3.4.19 | Crash Reporting |
-| flutter_segment | ^3.5.0 | Event Tracking |
+| segment_analytics | ^2.3.0 | Event Tracking |
 
 ## Step-by-Step Implementation
 
@@ -39,7 +39,7 @@ Initialize Segment (or Rudderstack) before your app run.
 
 ```dart
 // lib/main.dart
-import 'package:segment_flutter/segment_flutter.dart';
+import 'package:segment_analytics/segment_analytics.dart';
 
 void main() async {
   /* ... Initialize Firebase ... */
@@ -71,7 +71,7 @@ Create an abstraction for analytics so you can swap providers later (e.g. Segmen
 ```dart
 // lib/core/analytics/analytics_service.dart
 import 'package:flutter/foundation.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:segment_analytics/segment_analytics.dart';
 
 class AnalyticsService {
   void trackEvent(String name, [Map<String, dynamic>? properties]) {
@@ -109,12 +109,37 @@ FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance),
 
 // Option 2: Custom Observer for Segment
 class SegmentObserver extends NavigatorObserver {
+  final AnalyticsService analyticsService;
+  
+  SegmentObserver(this.analyticsService);
+  
   @override
   void didPush(Route route, Route? previousRoute) {
     if (route.settings.name != null) {
-      // analyticsService.trackEvent('screen_view', {'name': route.settings.name});
+      analyticsService.trackEvent('screen_view', {'name': route.settings.name});
     }
   }
+}
+
+// Usage with GoRouter (using Riverpod):
+// GoRouter(
+//   observers: [SegmentObserver(ref.watch(analyticsServiceProvider))],
+//   ...
+// )
+```
+
+### 4. Providing AnalyticsService
+
+```dart
+// lib/core/analytics/analytics_service_provider.dart
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'analytics_service.dart';
+
+part 'analytics_service_provider.g.dart';
+
+@riverpod
+AnalyticsService analyticsService(AnalyticsServiceRef ref) {
+  return AnalyticsService();
 }
 ```
 
