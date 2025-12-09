@@ -1,4 +1,9 @@
 import type {
+  CreateCustomProviderInput,
+  CustomProvider,
+  TestConnectionResult,
+} from '@synthesis/shared';
+import type {
   AgentChatRequest,
   AgentChatResponse,
   ApiError,
@@ -1183,6 +1188,94 @@ class ApiClient {
       `/api/graph/build/${encodeURIComponent(collectionId)}`,
       { method: 'POST' }
     );
+  }
+
+  // ============================================
+  // Custom Providers (Phase 17G)
+  // ============================================
+
+  /**
+   * List all custom providers.
+   */
+  async listCustomProviders(): Promise<CustomProvider[]> {
+    const response = await this.request<{ providers: CustomProvider[] }>(
+      '/api/admin/custom-providers'
+    );
+    return response.providers;
+  }
+
+  /**
+   * Get a single custom provider by ID.
+   */
+  async getCustomProvider(id: string): Promise<CustomProvider> {
+    return this.request<CustomProvider>(`/api/admin/custom-providers/${encodeURIComponent(id)}`);
+  }
+
+  /**
+   * Create a new custom provider.
+   */
+  async createCustomProvider(data: CreateCustomProviderInput): Promise<CustomProvider> {
+    return this.request<CustomProvider>('/api/admin/custom-providers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Update an existing custom provider.
+   */
+  async updateCustomProvider(
+    id: string,
+    data: Partial<CreateCustomProviderInput>
+  ): Promise<CustomProvider> {
+    return this.request<CustomProvider>(`/api/admin/custom-providers/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Delete a custom provider.
+   */
+  async deleteCustomProvider(id: string): Promise<void> {
+    return this.request<void>(`/api/admin/custom-providers/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Test connection to a custom provider before saving.
+   */
+  async testCustomProviderConnection(
+    baseUrl: string,
+    apiKey?: string
+  ): Promise<TestConnectionResult> {
+    return this.request<TestConnectionResult>('/api/admin/custom-providers/test-connection', {
+      method: 'POST',
+      body: JSON.stringify({ baseUrl, apiKey }),
+    });
+  }
+
+  /**
+   * Test an existing saved custom provider's connection.
+   */
+  async testExistingCustomProvider(id: string): Promise<TestConnectionResult> {
+    return this.request<TestConnectionResult>(
+      `/api/admin/custom-providers/${encodeURIComponent(id)}/test`,
+      {
+        method: 'POST',
+      }
+    );
+  }
+
+  /**
+   * Discover/refresh models for an existing custom provider.
+   */
+  async discoverCustomProviderModels(id: string): Promise<string[]> {
+    const response = await this.request<{ models: string[] }>(
+      `/api/admin/custom-providers/${encodeURIComponent(id)}/models`
+    );
+    return response.models;
   }
 }
 

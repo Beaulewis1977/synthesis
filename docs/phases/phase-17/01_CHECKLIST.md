@@ -68,12 +68,12 @@ Master checklist for all Phase 17 verification items. Update status as work prog
 - [x] `pnpm typecheck` passes
 
 ## Phase 17G: Frontend Hooks
-- [ ] Hooks file created: `useCustomProviders.ts`
-- [ ] API client methods added to `api.ts`
-- [ ] Frontend types added
-- [ ] Hooks compile without errors
-- [ ] API client methods match backend routes
-- [ ] `pnpm typecheck` passes
+- [x] Hooks file created: `useCustomProviders.ts`
+- [x] API client methods added to `api.ts`
+- [x] Frontend types imported from `@synthesis/shared` (not duplicated)
+- [x] Hooks compile without errors
+- [x] API client methods match backend routes
+- [x] `pnpm typecheck` passes
 
 ## Phase 17H: CustomProviderForm Component
 - [ ] Component file created: `CustomProviderForm.tsx`

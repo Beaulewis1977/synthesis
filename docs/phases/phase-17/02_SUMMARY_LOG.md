@@ -297,10 +297,50 @@ Agent-updated log of completed work. Update after each sub-phase completion.
 ---
 
 ## Phase 17G: Frontend Hooks
-**Status:** NOT STARTED
-**Date:** -
-**Commits:** -
-**Notes:** -
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- **API Client Methods** - Added 8 methods to `apps/web/src/lib/api.ts`:
+  - `listCustomProviders()` - GET /api/admin/custom-providers
+  - `getCustomProvider(id)` - GET /api/admin/custom-providers/:id
+  - `createCustomProvider(data)` - POST /api/admin/custom-providers
+  - `updateCustomProvider(id, data)` - PATCH /api/admin/custom-providers/:id
+  - `deleteCustomProvider(id)` - DELETE /api/admin/custom-providers/:id
+  - `testCustomProviderConnection(baseUrl, apiKey?)` - POST /api/admin/custom-providers/test-connection
+  - `testExistingCustomProvider(id)` - POST /api/admin/custom-providers/:id/test
+  - `discoverCustomProviderModels(id)` - GET /api/admin/custom-providers/:id/models (returns string[] from response.models)
+- **React Query Hooks** - Created `apps/web/src/hooks/useCustomProviders.ts` with 8 hooks:
+  - `useCustomProviders()` - List all providers (staleTime: 60s)
+  - `useCustomProvider(id)` - Get single provider by ID (enabled: !!id)
+  - `useCreateCustomProvider()` - Create mutation, invalidates ['custom-providers']
+  - `useUpdateCustomProvider()` - Update mutation, invalidates ['custom-providers']
+  - `useDeleteCustomProvider()` - Delete mutation, invalidates ['custom-providers']
+  - `useTestCustomProviderConnection()` - Test connection mutation (no invalidation)
+  - `useTestExistingCustomProvider()` - Test saved provider mutation (no invalidation)
+  - `useDiscoverCustomProviderModels(id)` - Discover models query (staleTime: 5min)
+- **Type Imports:**
+  - API client imports: `CustomProvider`, `CreateCustomProviderInput`, `TestConnectionResult` from `@synthesis/shared`
+  - Hooks file imports same types from `@synthesis/shared`
+  - No type duplication - uses shared types from Phase 17F
+- **Query Key Structure:**
+  - Exported `customProviderKeys` object for cache management
+  - `all`: `['custom-providers']` - base key for list
+  - `detail(id)`: `['custom-providers', id]` - single provider
+  - `models(id)`: `['custom-providers', id, 'models']` - model discovery
+- **Patterns Followed:**
+  - Consistent with `useModelConfig.ts` hook patterns
+  - URL encoding: `encodeURIComponent(id)` for all ID parameters
+  - Proper mutation invalidation on success
+  - Type-safe with generics for queries and mutations
+- **Files Created:**
+  - `apps/web/src/hooks/useCustomProviders.ts` (102 lines)
+- **Files Modified:**
+  - `apps/web/src/lib/api.ts` - Added imports and 8 API methods (lines 1-5, 1193-1287)
+  - `docs/phases/phase-17/01_CHECKLIST.md` - Marked Phase 17G items complete
+  - `docs/phases/phase-17/02_SUMMARY_LOG.md` - This file
+- **TypeScript Status:** `pnpm --filter @synthesis/web typecheck` passes
+- **Next Steps:** Phase 17H - CustomProviderForm component
 
 ---
 
