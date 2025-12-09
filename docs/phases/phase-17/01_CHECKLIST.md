@@ -40,20 +40,21 @@ Master checklist for all Phase 17 verification items. Update status as work prog
 - [x] `pnpm typecheck` passes (pre-existing unrelated error in scripts/)
 
 ## Phase 17E: Backend Routes
-- [ ] Routes file created: `routes/admin/custom-providers.ts`
-- [ ] Routes registered in `routes/admin/index.ts`
-- [ ] All endpoints respond correctly:
-  - [ ] GET `/api/admin/custom-providers`
-  - [ ] POST `/api/admin/custom-providers`
-  - [ ] GET `/api/admin/custom-providers/:id`
-  - [ ] PATCH `/api/admin/custom-providers/:id`
-  - [ ] DELETE `/api/admin/custom-providers/:id`
-  - [ ] POST `/api/admin/custom-providers/:id/test`
-  - [ ] GET `/api/admin/custom-providers/:id/models`
-  - [ ] POST `/api/admin/custom-providers/test-connection`
-- [ ] Input validation works
-- [ ] Error handling returns proper status codes
-- [ ] `pnpm typecheck` passes
+- [x] Routes file created: `routes/admin/custom-providers.ts`
+- [x] Routes registered in `apps/server/src/index.ts` (line 112)
+- [x] All endpoints implemented correctly:
+  - [x] GET `/api/admin/custom-providers`
+  - [x] POST `/api/admin/custom-providers`
+  - [x] GET `/api/admin/custom-providers/:id`
+  - [x] PATCH `/api/admin/custom-providers/:id`
+  - [x] DELETE `/api/admin/custom-providers/:id`
+  - [x] POST `/api/admin/custom-providers/:id/test`
+  - [x] GET `/api/admin/custom-providers/:id/models`
+  - [x] POST `/api/admin/custom-providers/test-connection`
+- [x] Input validation works (Zod schemas + UUID validation)
+- [x] Error handling returns proper status codes (200/201/204/400/404/500)
+- [x] Code review passed (no critical/moderate issues)
+- [x] `pnpm typecheck` passes (pre-existing unrelated error in scripts/)
 
 ## Phase 17F: Chat Integration
 - [ ] `OpenAICompatibleConfig.apiKey` optional field added

@@ -185,10 +185,64 @@ Agent-updated log of completed work. Update after each sub-phase completion.
 ---
 
 ## Phase 17E: Backend Routes
-**Status:** NOT STARTED
-**Date:** -
-**Commits:** -
-**Notes:** -
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- Created REST API routes for custom provider management in `routes/admin/custom-providers.ts`
+- Implemented all 8 required endpoints:
+  - **GET /api/admin/custom-providers** - List all custom providers
+  - **POST /api/admin/custom-providers** - Create new provider (returns 201)
+  - **GET /api/admin/custom-providers/:id** - Get single provider by ID
+  - **PATCH /api/admin/custom-providers/:id** - Update provider (partial updates)
+  - **DELETE /api/admin/custom-providers/:id** - Delete provider (returns 204)
+  - **POST /api/admin/custom-providers/:id/test** - Test existing provider connection
+  - **GET /api/admin/custom-providers/:id/models** - Get/refresh discovered models
+  - **POST /api/admin/custom-providers/test-connection** - Test connection before saving
+- Zod validation schemas:
+  - `CreateCustomProviderSchema` - Full validation for POST create
+  - `UpdateCustomProviderSchema` - Partial validation for PATCH update
+  - `TestConnectionSchema` - Validation for test endpoint
+- UUID validation helper:
+  - Custom `isValidUUID()` function to validate all `:id` parameters
+  - Returns 400 "Invalid provider ID format" on invalid UUID
+- Error handling:
+  - 200: Success for GET, PATCH, and test endpoints
+  - 201: Created for POST create
+  - 204: No Content for DELETE
+  - 400: Validation errors, invalid UUID, duplicate provider names
+  - 404: Provider not found
+  - 500: Server errors
+- Test endpoint semantics:
+  - Both test endpoints return 200 status with `{ valid: boolean, ... }` pattern
+  - Connection failures return 200 with `valid: false` and error message
+  - Only return 500 if the test endpoint itself fails
+- Service integration:
+  - Uses `getCustomProviderService(db)` singleton
+  - Proper error propagation from service layer
+  - API key decryption via `service.getApiKey()` for test endpoint
+- Logging:
+  - Info level: Successful operations with structured data (provider ID, name, counts)
+  - Warn level: Business logic issues (duplicate names)
+  - Error level: All failures with error messages
+- Registered routes in `apps/server/src/index.ts`:
+  - Added import: `import { customProviderRoutes } from './routes/admin/custom-providers.js';`
+  - Added registration: `await fastify.register(customProviderRoutes, { prefix: '/api/admin/custom-providers' });`
+- Code review results:
+  - **Status:** APPROVED FOR PRODUCTION ✓
+  - No critical or moderate issues found
+  - Comprehensive error handling validated
+  - TypeScript types correct
+  - Follows established patterns from `api-keys.ts`
+  - Pattern adherence excellent
+- **Files Created:**
+  - `apps/server/src/routes/admin/custom-providers.ts` (422 lines)
+- **Files Modified:**
+  - `apps/server/src/index.ts` - Added import (line 22) and registration (line 112)
+  - `docs/phases/phase-17/01_CHECKLIST.md` - Marked Phase 17E items complete
+  - `docs/phases/phase-17/02_SUMMARY_LOG.md` - This file
+- **TypeScript Status:** No errors in implementation (pre-existing unrelated error in `scripts/`)
+- **Next Steps:** Phase 17F - Integrate custom providers into chat system
 
 ---
 
