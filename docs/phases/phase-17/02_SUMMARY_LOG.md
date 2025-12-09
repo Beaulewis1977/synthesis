@@ -76,10 +76,42 @@ Agent-updated log of completed work. Update after each sub-phase completion.
 ---
 
 ## Phase 17C: Database Schema
-**Status:** NOT STARTED
-**Date:** -
-**Commits:** -
-**Notes:** -
+**Status:** COMPLETE
+**Date:** 2025-12-09
+**Commits:** None yet (pending user approval)
+**Notes:**
+- Created migration file `packages/db/migrations/028_custom_providers.sql`
+- Migration successfully applied with `pnpm --filter @synthesis/db migrate`
+- Table `custom_providers` created with all required columns:
+  - `id` (UUID primary key)
+  - `name` (TEXT, unique, not null) - Display name
+  - `base_url` (TEXT, not null) - OpenAI-compatible endpoint
+  - `encrypted_key` (TEXT, nullable) - AES-256-GCM encrypted API key
+  - `provider_type` (TEXT, default 'openai-compatible')
+  - `max_context_tokens` (INTEGER, default 8192)
+  - `supports_vision` (BOOLEAN, default false)
+  - `supports_tools` (BOOLEAN, default true)
+  - `custom_models` (TEXT[]) - Manual model list fallback
+  - `discovered_models` (TEXT[]) - Auto-discovered models cache
+  - `created_at`, `updated_at` (TIMESTAMPTZ)
+- Created table-specific trigger function `update_custom_providers_updated_at()`
+- Trigger `trigger_custom_providers_updated_at` auto-updates `updated_at` on row UPDATE
+- Index `idx_custom_providers_name` created for efficient name lookups
+- **Key Implementation Detail:** Followed project pattern of table-specific trigger functions (not generic `update_updated_at_column()` as mentioned in phase doc)
+- **Files Created:**
+  - `packages/db/migrations/028_custom_providers.sql`
+- **Bug Fix (CodeRabbit):** Added explicit `DEFAULT '{}'` for `custom_models` and `discovered_models` array columns
+  - **Issue:** NULL vs empty array confusion can complicate application logic
+  - **Solution:** Created migration 029 to add explicit defaults and update existing NULL values
+  - Both columns now default to empty arrays instead of NULL
+- **Files Created:**
+  - `packages/db/migrations/028_custom_providers.sql`
+  - `packages/db/migrations/029_custom_providers_array_defaults.sql` (bug fix)
+- **Files Modified:**
+  - `docs/phases/phase-17/01_CHECKLIST.md` - Marked Phase 17C items as complete
+  - `docs/phases/phase-17/17C_database_schema.md` - Marked verification checklist complete
+  - `docs/phases/phase-17/00_PHASE_17_OVERVIEW.md` - Updated status and verification
+  - `docs/phases/phase-17/02_SUMMARY_LOG.md` - This file
 
 ---
 

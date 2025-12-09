@@ -95,7 +95,7 @@ CustomProviderService
 ## Implementation Phases
 
 ### Phase 17A: Anthropic OAuth/API Key Toggle (NEW)
-**Status:** NOT STARTED
+**Status:** IMPLEMENTED (Awaiting Testing)
 
 **Goal:** Add toggle for Anthropic to switch between OAuth (Claude subscription) and API key billing
 
@@ -189,7 +189,7 @@ private async testAnthropicOAuth(): Promise<{ valid: boolean; message: string }>
 ---
 
 ### Phase 17B: Fix Z.AI & Moonshot API Testing
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 **Goal:** Add `testZhipuKey()` and `testMoonshotKey()` methods to `ApiKeyService`
 
@@ -246,7 +246,7 @@ private async testMoonshotKey(key: string): Promise<{ valid: boolean; message: s
 ---
 
 ### Phase 17C: Database Schema for Custom Providers
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 **Goal:** Create `custom_providers` table for storing user-defined LLM endpoints
 
@@ -293,9 +293,9 @@ CREATE INDEX idx_custom_providers_name ON custom_providers(name);
 1. `feat(db): add custom_providers table migration`
 
 **Verification:**
-- [ ] `pnpm --filter @synthesis/db migrate` succeeds
-- [ ] Table exists with correct schema
-- [ ] Trigger works (updated_at auto-updates)
+- [x] `pnpm --filter @synthesis/db migrate` succeeds
+- [x] Table exists with correct schema
+- [x] Trigger works (updated_at auto-updates)
 
 ---
 

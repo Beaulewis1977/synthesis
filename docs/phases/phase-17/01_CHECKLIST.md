@@ -23,10 +23,10 @@ Master checklist for all Phase 17 verification items. Update status as work prog
 - [x] `pnpm typecheck` passes
 
 ## Phase 17C: Database Schema
-- [ ] Migration file created: `028_custom_providers.sql`
-- [ ] `pnpm --filter @synthesis/db migrate` succeeds
-- [ ] Table exists with correct schema
-- [ ] Trigger works (updated_at auto-updates)
+- [x] Migration file created: `028_custom_providers.sql`
+- [x] `pnpm --filter @synthesis/db migrate` succeeds
+- [x] Table exists with correct schema
+- [x] Trigger works (updated_at auto-updates)
 
 ## Phase 17D: Backend CustomProviderService
 - [ ] Service file created: `custom-provider-service.ts`

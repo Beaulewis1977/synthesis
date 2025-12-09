@@ -92,7 +92,7 @@ feat(db): add custom_providers table migration
 
 ## Verification Checklist
 
-- [ ] Migration file created: `028_custom_providers.sql`
-- [ ] `pnpm --filter @synthesis/db migrate` succeeds
-- [ ] Table exists with correct schema
-- [ ] Trigger works (updated_at auto-updates)
+- [x] Migration file created: `028_custom_providers.sql`
+- [x] `pnpm --filter @synthesis/db migrate` succeeds
+- [x] Table exists with correct schema
+- [x] Trigger works (updated_at auto-updates)
