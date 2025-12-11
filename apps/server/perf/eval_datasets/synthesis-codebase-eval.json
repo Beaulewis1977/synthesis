@@ -1,0 +1,314 @@
+{
+  "metadata": {
+    "name": "synthesis-codebase-eval",
+    "description": "Evaluation dataset for synthesis codebase - code queries",
+    "version": "1.0.0",
+    "createdAt": "2025-12-11T00:00:00.000Z",
+    "source": "manual"
+  },
+  "queries": [
+    {
+      "id": "code-1",
+      "query": "How does the embedding router select which provider to use?",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": ["e5351ff9-a517-46fe-99d5-71039f89fff2"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["embedding", "provider", "router"]
+    },
+    {
+      "id": "code-2",
+      "query": "What is the smartSearch function and how does it work?",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "conceptual",
+      "relevantDocIds": [],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["smartSearch", "search"]
+    },
+    {
+      "id": "code-3",
+      "query": "How does the agent handle tool calls?",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": [
+        "57f5ee93-473b-48c9-95b6-db9bb60c6ad0",
+        "4c82e1d4-6792-4290-829f-6a868db23d8a"
+      ],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["agent", "tool"]
+    },
+    {
+      "id": "code-4",
+      "query": "embedding cache implementation",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "lookup",
+      "relevantDocIds": ["96c372a0-ebbc-4d20-98b0-28c592356f72"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["embedding", "cache"]
+    },
+    {
+      "id": "code-5",
+      "query": "How to create a new collection?",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "how-to",
+      "relevantDocIds": ["a4c53960-5fd2-4c3e-905f-e391fdcfd74f"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["create", "collection"]
+    },
+    {
+      "id": "code-6",
+      "query": "TypeScript test for code chunking functionality",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "lookup",
+      "relevantDocIds": ["ecdec127-419d-43f4-9da7-c2de2e653f3d"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["code", "chunk", "test"]
+    },
+    {
+      "id": "code-7",
+      "query": "How does the Dart analyzer work?",
+      "category": "code",
+      "difficulty": "hard",
+      "queryType": "conceptual",
+      "relevantDocIds": ["19a86a87-cb4a-4866-82ce-7f7cebf6d34f"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["dart", "analyzer"]
+    },
+    {
+      "id": "code-8",
+      "query": "fetch web content tool implementation",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "lookup",
+      "relevantDocIds": ["0a719ade-3b73-4586-bd47-162108a4301b"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["fetch", "web", "content"]
+    },
+    {
+      "id": "code-9",
+      "query": "How does symbol search find code usages?",
+      "category": "code",
+      "difficulty": "hard",
+      "queryType": "how-to",
+      "relevantDocIds": ["9e56ea4a-707d-4e9e-b4d1-095f1cc9fa2b"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["symbol", "usage", "find"]
+    },
+    {
+      "id": "code-10",
+      "query": "What embedding dimensions does each provider use?",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "factual",
+      "relevantDocIds": [],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["embedding", "dimension", "provider"]
+    },
+    {
+      "id": "code-11",
+      "query": "How to implement a new agent tool?",
+      "category": "code",
+      "difficulty": "hard",
+      "queryType": "how-to",
+      "relevantDocIds": [],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["agent", "tool", "implement"]
+    },
+    {
+      "id": "code-12",
+      "query": "vector search with pgvector cosine similarity",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "lookup",
+      "relevantDocIds": [],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["vector", "pgvector", "cosine"]
+    },
+    {
+      "id": "code-13",
+      "query": "Claude SDK integration for chat completions",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "lookup",
+      "relevantDocIds": ["40d62f67-5d12-40f8-aa51-d2dabcfc1d21"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["claude", "sdk", "anthropic"]
+    },
+    {
+      "id": "code-14",
+      "query": "How does the reranker improve search results?",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "conceptual",
+      "relevantDocIds": [],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["rerank", "search", "results"]
+    },
+    {
+      "id": "code-15",
+      "query": "file relationship detection between code files",
+      "category": "code",
+      "difficulty": "hard",
+      "queryType": "lookup",
+      "relevantDocIds": ["5200f6ed-044f-4613-b729-6f4c0a6d5355"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["file", "relationship"]
+    },
+    {
+      "id": "code-16",
+      "query": "How does hybrid search combine vector and BM25?",
+      "category": "code",
+      "difficulty": "hard",
+      "queryType": "conceptual",
+      "relevantDocIds": [],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["hybrid", "vector", "bm25", "rrf"]
+    },
+    {
+      "id": "code-17",
+      "query": "delete document from collection",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "lookup",
+      "relevantDocIds": ["819cc21b-22b0-4e6f-9449-8601f7bc7f26"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["delete", "document"]
+    },
+    {
+      "id": "code-18",
+      "query": "contradiction detection in retrieved context",
+      "category": "code",
+      "difficulty": "hard",
+      "queryType": "lookup",
+      "relevantDocIds": ["d894ab89-ce08-410f-b0ff-220de2958a32"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["contradiction", "detection"]
+    },
+    {
+      "id": "code-19",
+      "query": "chunk text into smaller pieces for embedding",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": ["f778c305-c2f8-457a-93e3-59c920a3161c"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["chunk", "text", "embedding"]
+    },
+    {
+      "id": "code-20",
+      "query": "find code examples using search",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "lookup",
+      "relevantDocIds": ["c9a7bc2e-edc0-4a1e-8d9d-018cf7b9ff08"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["code", "example", "find"]
+    },
+    {
+      "id": "docs-1",
+      "query": "What is Phase 9 about in the project?",
+      "category": "docs",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": [],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["phase", "9"]
+    },
+    {
+      "id": "docs-2",
+      "query": "Troubleshooting embedding dimension errors",
+      "category": "docs",
+      "difficulty": "medium",
+      "queryType": "troubleshooting",
+      "relevantDocIds": [],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["troubleshooting", "dimension", "embedding"]
+    },
+    {
+      "id": "docs-3",
+      "query": "How to configure different embedding providers?",
+      "category": "docs",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": [],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["embedding", "provider", "configure"]
+    },
+    {
+      "id": "docs-4",
+      "query": "RAG pipeline architecture overview",
+      "category": "docs",
+      "difficulty": "medium",
+      "queryType": "conceptual",
+      "relevantDocIds": [],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["rag", "pipeline", "architecture"]
+    },
+    {
+      "id": "docs-5",
+      "query": "Build plan for the synthesis project",
+      "category": "docs",
+      "difficulty": "easy",
+      "queryType": "lookup",
+      "relevantDocIds": ["23137356-8be0-4e21-8f7b-0901547b5cb2"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["build", "plan"]
+    },
+    {
+      "id": "docs-6",
+      "query": "What daily prompts were used for Phase 13?",
+      "category": "docs",
+      "difficulty": "easy",
+      "queryType": "lookup",
+      "relevantDocIds": ["2e560ee1-87c4-4b91-bbee-9982a8b568d1"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["phase", "13", "prompt"]
+    },
+    {
+      "id": "docs-7",
+      "query": "Infrastructure setup instructions",
+      "category": "docs",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": ["1db3fade-94a0-45e9-b950-281ab260a7bc"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["infrastructure", "setup"]
+    },
+    {
+      "id": "docs-8",
+      "query": "Model selector implementation plan",
+      "category": "docs",
+      "difficulty": "medium",
+      "queryType": "lookup",
+      "relevantDocIds": ["b329844b-1ff3-4c3e-8b14-8dc6dd2b7301"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["model", "selector", "implementation"]
+    },
+    {
+      "id": "docs-9",
+      "query": "synthesis user guide and documentation",
+      "category": "docs",
+      "difficulty": "easy",
+      "queryType": "lookup",
+      "relevantDocIds": ["110ed3b2-2880-41e5-ad5c-876a16376c9d"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["guide", "synthesis"]
+    },
+    {
+      "id": "docs-10",
+      "query": "hierarchical class chunking for large classes",
+      "category": "docs",
+      "difficulty": "hard",
+      "queryType": "conceptual",
+      "relevantDocIds": ["6fe6ced6-f031-49c9-b6c2-8100ee813f2d"],
+      "collectionId": "bbee1787-dd28-43d0-9515-e534e18ba252",
+      "requiredKeywords": ["hierarchical", "class", "chunk"]
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import {
   hybridSearch,
 } from './hybrid.js';
 import { type MMROptions, applyMMR, logMMRResults, resolveMMROptions } from './mmr.js';
+import { generateQueryVariants, getFallbackQueries } from './query-expansion.js';
 import {
   type QueryIntent,
   analyzeQuery,
@@ -60,6 +61,8 @@ export interface SmartSearchParams extends SearchParams {
   graphMaxNodes?: number;
   /** Filter by source quality (official, verified, community) */
   sourceQuality?: 'official' | 'verified' | 'community';
+  /** Enable query expansion for zero-hit recovery (default: env ENABLE_QUERY_EXPANSION or true) */
+  enableQueryExpansion?: boolean;
 }
 
 export interface SmartSearchResult extends SearchResult {
@@ -186,6 +189,8 @@ export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
     mmr?: MMRInfo;
     /** Graph expansion info (when expandWithGraph is true) */
     graphExpansion?: GraphExpansionInfo;
+    /** Actual query used if expansion fallback occurred */
+    queryUsed?: string;
   };
 }
 
@@ -270,7 +275,12 @@ export async function smartSearch(
     const hybridTopK = rerankRequested
       ? Math.max(candidateCap, expandedBaseTopK)
       : expandedBaseTopK;
-    const { results, elapsedMs, vectorCount, bm25Count, diagnostics } = await hybridSearch(db, {
+
+    // Determine if query expansion is enabled (default: true, or env ENABLE_QUERY_EXPANSION)
+    const queryExpansionEnabled =
+      params.enableQueryExpansion ?? (process.env.ENABLE_QUERY_EXPANSION ?? 'true') === 'true';
+
+    let hybridResult = await hybridSearch(db, {
       query: params.query,
       collectionId: params.collectionId,
       topK: hybridTopK,
@@ -287,6 +297,67 @@ export async function smartSearch(
       // GPT Phase 3: Source quality filtering
       sourceQuality: params.sourceQuality,
     });
+
+    // Track which query was actually used (for zero-hit recovery)
+    let queryUsed: string | undefined = undefined;
+
+    // Query expansion for zero-hit recovery
+    if (queryExpansionEnabled && hybridResult.results.length === 0) {
+      // Try query variants first
+      const variants = generateQueryVariants(params.query);
+      for (const variant of variants.slice(1)) {
+        // Skip original query (index 0)
+        const fallbackResult = await hybridSearch(db, {
+          query: variant,
+          collectionId: params.collectionId,
+          topK: hybridTopK,
+          minSimilarity: params.minSimilarity,
+          weights: hybridWeights,
+          rrfK: params.rrfK,
+          provider,
+          context,
+          techStack: params.techStack,
+          featureTags: params.featureTags,
+          platform: params.platform,
+          usageTier: params.usageTier,
+          sourceQuality: params.sourceQuality,
+        });
+        if (fallbackResult.results.length > 0) {
+          hybridResult = fallbackResult;
+          queryUsed = variant;
+          break;
+        }
+      }
+
+      // If still no results, try broader fallback queries
+      if (hybridResult.results.length === 0) {
+        const fallbacks = getFallbackQueries(params.query);
+        for (const fallback of fallbacks) {
+          const fallbackResult = await hybridSearch(db, {
+            query: fallback,
+            collectionId: params.collectionId,
+            topK: hybridTopK,
+            minSimilarity: params.minSimilarity,
+            weights: hybridWeights,
+            rrfK: params.rrfK,
+            provider,
+            context,
+            techStack: params.techStack,
+            featureTags: params.featureTags,
+            platform: params.platform,
+            usageTier: params.usageTier,
+            sourceQuality: params.sourceQuality,
+          });
+          if (fallbackResult.results.length > 0) {
+            hybridResult = fallbackResult;
+            queryUsed = fallback;
+            break;
+          }
+        }
+      }
+    }
+
+    const { results, elapsedMs, vectorCount, bm25Count, diagnostics } = hybridResult;
     let fusedResults: SmartSearchResult[] = results.map((item) => ({
       ...item,
       similarity: item.fusedScore,
@@ -353,6 +424,7 @@ export async function smartSearch(
           intent: intentInfo,
           mmr: mmrOptions.enabled ? mmrInfo : undefined,
           graphExpansion: graphInfo,
+          queryUsed,
         },
       };
     }
@@ -402,6 +474,7 @@ export async function smartSearch(
         intent: intentInfo,
         mmr: mmrOptions.enabled ? mmrInfo : undefined,
         graphExpansion: graphInfoHybrid,
+        queryUsed,
       },
     };
   }
@@ -411,7 +484,11 @@ export async function smartSearch(
   const vectorMmrExpansionFactor = mmrOptions.enabled ? 2 : 1;
   const vectorTopK = vectorBaseTopK * vectorMmrExpansionFactor;
 
-  const vectorResult = await vectorSearch(db, {
+  // Determine if query expansion is enabled (default: true, or env ENABLE_QUERY_EXPANSION)
+  const queryExpansionEnabled =
+    params.enableQueryExpansion ?? (process.env.ENABLE_QUERY_EXPANSION ?? 'true') === 'true';
+
+  let vectorResult = await vectorSearch(db, {
     query: params.query,
     collectionId: params.collectionId,
     topK: vectorTopK,
@@ -426,6 +503,61 @@ export async function smartSearch(
     // GPT Phase 3: Source quality filtering
     sourceQuality: params.sourceQuality,
   });
+
+  // Track which query was actually used (for zero-hit recovery)
+  let queryUsed: string | undefined = undefined;
+
+  // Query expansion for zero-hit recovery
+  if (queryExpansionEnabled && vectorResult.results.length === 0) {
+    // Try query variants first
+    const variants = generateQueryVariants(params.query);
+    for (const variant of variants.slice(1)) {
+      // Skip original query (index 0)
+      const fallbackResult = await vectorSearch(db, {
+        query: variant,
+        collectionId: params.collectionId,
+        topK: vectorTopK,
+        minSimilarity: params.minSimilarity,
+        provider,
+        context,
+        techStack: params.techStack,
+        featureTags: params.featureTags,
+        platform: params.platform,
+        usageTier: params.usageTier,
+        sourceQuality: params.sourceQuality,
+      });
+      if (fallbackResult.results.length > 0) {
+        vectorResult = fallbackResult;
+        queryUsed = variant;
+        break;
+      }
+    }
+
+    // If still no results, try broader fallback queries
+    if (vectorResult.results.length === 0) {
+      const fallbacks = getFallbackQueries(params.query);
+      for (const fallback of fallbacks) {
+        const fallbackResult = await vectorSearch(db, {
+          query: fallback,
+          collectionId: params.collectionId,
+          topK: vectorTopK,
+          minSimilarity: params.minSimilarity,
+          provider,
+          context,
+          techStack: params.techStack,
+          featureTags: params.featureTags,
+          platform: params.platform,
+          usageTier: params.usageTier,
+          sourceQuality: params.sourceQuality,
+        });
+        if (fallbackResult.results.length > 0) {
+          vectorResult = fallbackResult;
+          queryUsed = fallback;
+          break;
+        }
+      }
+    }
+  }
 
   const trustApplied = shouldApplyTrustScoring();
   let rankedResults: SmartSearchResult[] = vectorResult.results;
@@ -472,6 +604,7 @@ export async function smartSearch(
       intent: intentInfo,
       mmr: mmrOptions.enabled ? mmrInfo : undefined,
       graphExpansion: graphInfoVector,
+      queryUsed,
     },
   };
 }
@@ -736,8 +869,8 @@ async function inferCollectionEmbeddingHint(
   return { provider, context };
 }
 
-const DEFAULT_VECTOR_WEIGHT = 0.7;
-const DEFAULT_BM25_WEIGHT = 0.3;
+const DEFAULT_VECTOR_WEIGHT = 0.6;
+const DEFAULT_BM25_WEIGHT = 0.4;
 
 function resolveHybridWeights(
   weights: HybridSearchParams['weights']
