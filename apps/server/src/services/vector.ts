@@ -44,7 +44,17 @@ export interface SearchResponse {
 }
 
 const DEFAULT_TOP_K = 5;
-const DEFAULT_MIN_SIMILARITY = 0.5;
+const DEFAULT_MIN_SIMILARITY = 0.35;
+
+// Validate HNSW_EF_SEARCH to prevent SQL injection
+const HNSW_EF_SEARCH = (() => {
+  const val = Number.parseInt(process.env.HNSW_EF_SEARCH ?? '100', 10);
+  if (!Number.isInteger(val) || val < 1 || val > 1000) {
+    console.warn(`Invalid HNSW_EF_SEARCH: ${process.env.HNSW_EF_SEARCH}, using default 100`);
+    return 100;
+  }
+  return val;
+})();
 
 function toVectorLiteral(vector: number[]): string {
   if (!Array.isArray(vector) || vector.length === 0) {
@@ -86,8 +96,14 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
   // GPT Phase 3: Source quality filtering
   const sourceQualityFilter = params.sourceQuality || null;
 
-  const { rows } = await db.query(
-    `
+  // Use a client from the pool to run SET LOCAL in a transaction
+  const client = await db.connect();
+  let rows: Array<Record<string, unknown>>;
+  try {
+    await client.query('BEGIN');
+    await client.query(`SET LOCAL hnsw.ef_search = ${HNSW_EF_SEARCH}`);
+    const result = await client.query(
+      `
       SELECT
         ch.id,
         ch.text,
@@ -124,18 +140,26 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
       ORDER BY ch.embedding <=> $1::vector
       LIMIT $4
     `,
-    [
-      vectorLiteral,
-      params.collectionId,
-      minSimilarity,
-      topK,
-      techStackFilter,
-      featureTagsFilter,
-      platformFilter,
-      usageTierFilter,
-      sourceQualityFilter,
-    ]
-  );
+      [
+        vectorLiteral,
+        params.collectionId,
+        minSimilarity,
+        topK,
+        techStackFilter,
+        featureTagsFilter,
+        platformFilter,
+        usageTierFilter,
+        sourceQualityFilter,
+      ]
+    );
+    rows = result.rows;
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 
   const end = performance.now();
 

@@ -58,6 +58,9 @@ apps/web/test-results/
 apps/web/playwright-report/
 test-results/
 
+# Evaluation results (regeneratable)
+apps/server/perf/eval_results/
+
 # Lighthouse audit reports
 lighthouse*.html
 lighthouse*.json

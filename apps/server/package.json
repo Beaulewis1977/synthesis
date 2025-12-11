@@ -11,7 +11,10 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:ingestion": "tsx src/scripts/test-ingestion.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eval": "tsx src/scripts/run-evaluation.ts",
+    "eval:generate": "tsx src/scripts/run-evaluation.ts --generate-dataset",
+    "eval:retrieval": "tsx src/scripts/run-evaluation.ts --retrieval-only"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.59",

@@ -1,0 +1,764 @@
+{
+  "metadata": {
+    "name": "synthetic-eval-dataset",
+    "description": "Synthetically generated evaluation dataset with 40 queries",
+    "version": "1.0.0",
+    "createdAt": "2025-12-10T00:54:16.840Z",
+    "source": "synthetic"
+  },
+  "queries": [
+    {
+      "id": "docs-1",
+      "query": "How to start MFA enrollment process in gotrue Dart package",
+      "category": "docs",
+      "difficulty": "easy",
+      "queryType": "how-to",
+      "relevantDocIds": ["18ff21cf-9ed1-49f7-b60e-4cc20ccb1fdd"],
+      "relevantChunkIds": ["4547"],
+      "requiredKeywords": ["MFA", "enroll", "client.mfa", "Multi-Factor Authentication"],
+      "collectionId": "00000000-0000-0000-0000-000000000002",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:00.729Z",
+        "sourceChunkId": "4547",
+        "sourceDocTitle": "gotrue changelog | Dart package"
+      }
+    },
+    {
+      "id": "docs-2",
+      "query": "gotrue Flutter compatibility issues with meta package version downgrade and minimum collection version requirements",
+      "category": "docs",
+      "difficulty": "hard",
+      "queryType": "troubleshooting",
+      "relevantDocIds": ["18ff21cf-9ed1-49f7-b60e-4cc20ccb1fdd"],
+      "relevantChunkIds": ["4547"],
+      "requiredKeywords": ["meta", "Flutter", "downgrade", "minimum", "collection", "version"],
+      "collectionId": "00000000-0000-0000-0000-000000000002",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:00.730Z",
+        "sourceChunkId": "4547",
+        "sourceDocTitle": "gotrue changelog | Dart package"
+      }
+    },
+    {
+      "id": "docs-3",
+      "query": "Who is eligible to access GitHub Copilot for free?",
+      "category": "docs",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": ["ebaafbeb-aaa2-4385-a688-869f9a70d475"],
+      "relevantChunkIds": ["6891"],
+      "requiredKeywords": ["eligible", "GitHub Copilot", "free"],
+      "collectionId": "5bc6ea14-528a-4bff-aac8-79d309f46121",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:04.582Z",
+        "sourceChunkId": "6891",
+        "sourceDocTitle": "Supabase Flutter Examples - GitHub Copilot · Your AI pair programmer · GitHub"
+      }
+    },
+    {
+      "id": "docs-4",
+      "query": "What are the eligibility requirements and criteria for getting free access to GitHub Copilot AI pair programming tool?",
+      "category": "docs",
+      "difficulty": "medium",
+      "queryType": "conceptual",
+      "relevantDocIds": ["ebaafbeb-aaa2-4385-a688-869f9a70d475"],
+      "relevantChunkIds": ["6891"],
+      "requiredKeywords": ["eligibility", "GitHub Copilot", "free", "access"],
+      "collectionId": "5bc6ea14-528a-4bff-aac8-79d309f46121",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:04.582Z",
+        "sourceChunkId": "6891",
+        "sourceDocTitle": "Supabase Flutter Examples - GitHub Copilot · Your AI pair programmer · GitHub"
+      }
+    },
+    {
+      "id": "docs-5",
+      "query": "How to implement Stripe payments in Flutter app",
+      "category": "docs",
+      "difficulty": "easy",
+      "queryType": "how-to",
+      "relevantDocIds": ["5defca10-9c97-4026-860c-b62874b41334"],
+      "relevantChunkIds": ["11337"],
+      "requiredKeywords": ["Flutter", "Stripe", "payments"],
+      "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:08.335Z",
+        "sourceChunkId": "11337",
+        "sourceDocTitle": "Flutter Payments with Stripe"
+      }
+    },
+    {
+      "id": "docs-6",
+      "query": "Flutter Stripe Payment Sheet integration with flutter_stripe 11.2.0 compatibility",
+      "category": "docs",
+      "difficulty": "medium",
+      "queryType": "conceptual",
+      "relevantDocIds": ["5defca10-9c97-4026-860c-b62874b41334"],
+      "relevantChunkIds": ["11337"],
+      "requiredKeywords": ["Flutter", "Stripe", "Payment Sheet", "flutter_stripe", "11.2.0"],
+      "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:08.335Z",
+        "sourceChunkId": "11337",
+        "sourceDocTitle": "Flutter Payments with Stripe"
+      }
+    },
+    {
+      "id": "docs-7",
+      "query": "What are the key features included in GitHub Copilot Business?",
+      "category": "docs",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": ["ebaafbeb-aaa2-4385-a688-869f9a70d475"],
+      "relevantChunkIds": ["7084"],
+      "requiredKeywords": ["GitHub Copilot Business", "features", "IDE", "CLI", "GitHub Mobile"],
+      "collectionId": "5bc6ea14-528a-4bff-aac8-79d309f46121",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:12.396Z",
+        "sourceChunkId": "7084",
+        "sourceDocTitle": "Supabase Flutter Examples - GitHub Copilot · Your AI pair programmer · GitHub"
+      }
+    },
+    {
+      "id": "docs-8",
+      "query": "What's the difference between GitHub Copilot Business and Enterprise plans for organizations?",
+      "category": "docs",
+      "difficulty": "hard",
+      "queryType": "comparison",
+      "relevantDocIds": ["ebaafbeb-aaa2-4385-a688-869f9a70d475"],
+      "relevantChunkIds": ["7084"],
+      "requiredKeywords": [
+        "GitHub Copilot Business",
+        "GitHub Copilot Enterprise",
+        "organizations",
+        "customization",
+        "GitHub.com",
+        "chat interface"
+      ],
+      "collectionId": "5bc6ea14-528a-4bff-aac8-79d309f46121",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:12.396Z",
+        "sourceChunkId": "7084",
+        "sourceDocTitle": "Supabase Flutter Examples - GitHub Copilot · Your AI pair programmer · GitHub"
+      }
+    },
+    {
+      "id": "docs-9",
+      "query": "how to handle authentication error state in React Supabase auth",
+      "category": "docs",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": ["4624fb0e-5d76-419b-8c47-a2ef7cf05e1a"],
+      "relevantChunkIds": ["10338"],
+      "requiredKeywords": ["authError", "authentication failed", "error"],
+      "collectionId": "5bc6ea14-528a-4bff-aac8-79d309f46121",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:16.080Z",
+        "sourceChunkId": "10338",
+        "sourceDocTitle": "Supabase Authentication Docs - Use Supabase Auth with React | Supabase Docs"
+      }
+    },
+    {
+      "id": "docs-10",
+      "query": "what to show user while confirming magic link verification in Supabase React app",
+      "category": "docs",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": ["4624fb0e-5d76-419b-8c47-a2ef7cf05e1a"],
+      "relevantChunkIds": ["10338"],
+      "requiredKeywords": ["verifying", "magic link", "Loading"],
+      "collectionId": "5bc6ea14-528a-4bff-aac8-79d309f46121",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:16.080Z",
+        "sourceChunkId": "10338",
+        "sourceDocTitle": "Supabase Authentication Docs - Use Supabase Auth with React | Supabase Docs"
+      }
+    },
+    {
+      "id": "code-11",
+      "query": "What does the filter function return for p elements in turndown HTML to Markdown converter?",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": ["14e3fc90-9b5d-48fa-aaa0-a4c90de897e2"],
+      "relevantChunkIds": ["1336"],
+      "requiredKeywords": ["filter", "p", "elements", "replacement", "function"],
+      "collectionId": "00000000-0000-0000-0000-000000000003",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:20.667Z",
+        "sourceChunkId": "1336",
+        "sourceDocTitle": "GitHub - mixmark-io/turndown: 🛏 An HTML to Markdown converter written in JavaScript"
+      }
+    },
+    {
+      "id": "code-12",
+      "query": "How to configure turndown filter to handle paragraph elements with custom replacement function using two new lines?",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": ["14e3fc90-9b5d-48fa-aaa0-a4c90de897e2"],
+      "relevantChunkIds": ["1336"],
+      "requiredKeywords": ["filter", "replacement", "function", "p", "contents", "two new lines"],
+      "collectionId": "00000000-0000-0000-0000-000000000003",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:20.667Z",
+        "sourceChunkId": "1336",
+        "sourceDocTitle": "GitHub - mixmark-io/turndown: 🛏 An HTML to Markdown converter written in JavaScript"
+      }
+    },
+    {
+      "id": "code-13",
+      "query": "How to create a search RAG tool with input validation in TypeScript?",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": ["fecc0511-7602-4824-9e4c-a9ed12b47773"],
+      "relevantChunkIds": ["3159"],
+      "requiredKeywords": ["createSearchRagTool", "inputSchema", "validation", "TypeScript"],
+      "collectionId": "cfd13b16-0868-4cd5-883b-328f8c196dd3",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:24.951Z",
+        "sourceChunkId": "3159",
+        "sourceDocTitle": "tools.ts"
+      }
+    },
+    {
+      "id": "code-14",
+      "query": "What are the default parameters for top_k, min_similarity and collection_id in RAG search tool configuration?",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": ["fecc0511-7602-4824-9e4c-a9ed12b47773"],
+      "relevantChunkIds": ["3159"],
+      "requiredKeywords": ["top_k", "min_similarity", "collection_id", "default", "parameters"],
+      "collectionId": "cfd13b16-0868-4cd5-883b-328f8c196dd3",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:24.951Z",
+        "sourceChunkId": "3159",
+        "sourceDocTitle": "tools.ts"
+      }
+    },
+    {
+      "id": "code-15",
+      "query": "How to configure obsidian MCP server in mcpServers config",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": ["96e9ab8e-eb82-49ee-be1a-c5285965148e"],
+      "relevantChunkIds": ["1738"],
+      "requiredKeywords": ["mcpServers", "obsidian", "node", "build/index.js"],
+      "collectionId": "00000000-0000-0000-0000-000000000003",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:29.061Z",
+        "sourceChunkId": "1738",
+        "sourceDocTitle": "Obsidian MCP Server GitHub Repository"
+      }
+    },
+    {
+      "id": "code-16",
+      "query": "What command and args needed for obsidian-mcp-server build index.js",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": ["96e9ab8e-eb82-49ee-be1a-c5285965148e"],
+      "relevantChunkIds": ["1738"],
+      "requiredKeywords": ["command", "args", "obsidian-mcp-server", "build/index.js"],
+      "collectionId": "00000000-0000-0000-0000-000000000003",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:29.061Z",
+        "sourceChunkId": "1738",
+        "sourceDocTitle": "Obsidian MCP Server GitHub Repository"
+      }
+    },
+    {
+      "id": "code-17",
+      "query": "Where can I find the package-lock.json file in the Obsidian MCP Server repository?",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": ["b5a3b284-93f5-437b-927c-9a2b7dae8eee"],
+      "relevantChunkIds": ["2236"],
+      "requiredKeywords": ["package-lock.json", "obsidian", "mcp", "server"],
+      "collectionId": "00000000-0000-0000-0000-000000000001",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:31.646Z",
+        "sourceChunkId": "2236",
+        "sourceDocTitle": "Obsidian MCP Server"
+      }
+    },
+    {
+      "id": "code-18",
+      "query": "How to access the main branch package-lock.json file for the marcelmarais Obsidian MCP Server project on GitHub?",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": ["b5a3b284-93f5-437b-927c-9a2b7dae8eee"],
+      "relevantChunkIds": ["2236"],
+      "requiredKeywords": [
+        "package-lock.json",
+        "main",
+        "branch",
+        "marcelmarais",
+        "obsidian-mcp-server",
+        "github"
+      ],
+      "collectionId": "00000000-0000-0000-0000-000000000001",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:31.646Z",
+        "sourceChunkId": "2236",
+        "sourceDocTitle": "Obsidian MCP Server"
+      }
+    },
+    {
+      "id": "code-19",
+      "query": "What is the current Phase 1 readiness percentage after slot machine implementation?",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": ["e96e5fe5-1f2a-43ae-a7dd-76e847fdbe7d"],
+      "relevantChunkIds": ["5286"],
+      "requiredKeywords": ["Phase 1", "readiness", "85%", "slot machine"],
+      "collectionId": "bbe170cc-f534-4d28-895c-3531411cb4ba",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:36.117Z",
+        "sourceChunkId": "5286",
+        "sourceDocTitle": "10-IMPLEMENTATION-STATUS-UPDATE.md"
+      }
+    },
+    {
+      "id": "code-20",
+      "query": "How was the swipe deck implementation critical gap resolved and what was the impact on risk level?",
+      "category": "code",
+      "difficulty": "hard",
+      "queryType": "troubleshooting",
+      "relevantDocIds": ["e96e5fe5-1f2a-43ae-a7dd-76e847fdbe7d"],
+      "relevantChunkIds": ["5286"],
+      "requiredKeywords": [
+        "swipe deck",
+        "critical gap",
+        "risk level",
+        "MEDIUM-HIGH",
+        "LOW",
+        "Tinder-style"
+      ],
+      "collectionId": "bbe170cc-f534-4d28-895c-3531411cb4ba",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:36.117Z",
+        "sourceChunkId": "5286",
+        "sourceDocTitle": "10-IMPLEMENTATION-STATUS-UPDATE.md"
+      }
+    },
+    {
+      "id": "mobile-21",
+      "query": "How to toggle between map and list view in Flutter app with IconButton",
+      "category": "mobile",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": ["dbb63795-75e2-4ca7-b804-c4cb1047aa24"],
+      "relevantChunkIds": ["3703"],
+      "requiredKeywords": ["IconButton", "toggle", "map", "list", "viewType"],
+      "collectionId": "2795b200-6b4c-4fa4-9345-ad8359c18106",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:40.606Z",
+        "sourceChunkId": "3703",
+        "sourceDocTitle": "place_tracker_app.dart"
+      }
+    },
+    {
+      "id": "mobile-22",
+      "query": "Flutter IndexedStack with conditional widget switching based on state viewType",
+      "category": "mobile",
+      "difficulty": "hard",
+      "queryType": "conceptual",
+      "relevantDocIds": ["dbb63795-75e2-4ca7-b804-c4cb1047aa24"],
+      "relevantChunkIds": ["3703"],
+      "requiredKeywords": ["IndexedStack", "viewType", "PlaceTrackerViewType", "conditional"],
+      "collectionId": "2795b200-6b4c-4fa4-9345-ad8359c18106",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:40.606Z",
+        "sourceChunkId": "3703",
+        "sourceDocTitle": "place_tracker_app.dart"
+      }
+    },
+    {
+      "id": "mobile-23",
+      "query": "What is the price of TurboStarter SaaS boilerplate?",
+      "category": "mobile",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": ["64c819bc-b43b-4ce5-8335-092f28d962f6"],
+      "relevantChunkIds": ["4422"],
+      "requiredKeywords": ["TurboStarter", "price", "$199.00"],
+      "collectionId": "00000000-0000-0000-0000-000000000003",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:45.009Z",
+        "sourceChunkId": "4422",
+        "sourceDocTitle": "PyBoilerplate - Top 2025 Saas Boilerplates List"
+      }
+    },
+    {
+      "id": "mobile-24",
+      "query": "Compare Laravel SaaS boilerplates with payment integration features like Stripe and Lemon Squeezy",
+      "category": "mobile",
+      "difficulty": "hard",
+      "queryType": "comparison",
+      "relevantDocIds": ["64c819bc-b43b-4ce5-8335-092f28d962f6"],
+      "relevantChunkIds": ["4422"],
+      "requiredKeywords": [
+        "Laravel",
+        "SaaS",
+        "boilerplate",
+        "Stripe",
+        "Lemon Squeezy",
+        "JetShip",
+        "SaaSykit"
+      ],
+      "collectionId": "00000000-0000-0000-0000-000000000003",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:45.009Z",
+        "sourceChunkId": "4422",
+        "sourceDocTitle": "PyBoilerplate - Top 2025 Saas Boilerplates List"
+      }
+    },
+    {
+      "id": "mobile-25",
+      "query": "What is Flutter's 2024 roadmap",
+      "category": "mobile",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": ["e30a2494-8048-47b8-8196-9bcc855ac8c6"],
+      "relevantChunkIds": ["4286"],
+      "requiredKeywords": ["Flutter", "2024", "roadmap"],
+      "collectionId": "00000000-0000-0000-0000-000000000002",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:48.861Z",
+        "sourceChunkId": "4286",
+        "sourceDocTitle": "Flutter - Build apps for any screen"
+      }
+    },
+    {
+      "id": "mobile-26",
+      "query": "How can I stay updated with Flutter news releases and announcements",
+      "category": "mobile",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": ["e30a2494-8048-47b8-8196-9bcc855ac8c6"],
+      "relevantChunkIds": ["4286"],
+      "requiredKeywords": ["Flutter", "news", "releases", "newsletter"],
+      "collectionId": "00000000-0000-0000-0000-000000000002",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:48.861Z",
+        "sourceChunkId": "4286",
+        "sourceDocTitle": "Flutter - Build apps for any screen"
+      }
+    },
+    {
+      "id": "mobile-27",
+      "query": "How to create Android notification channel for Flutter push notifications",
+      "category": "mobile",
+      "difficulty": "easy",
+      "queryType": "how-to",
+      "relevantDocIds": ["36548047-b93b-4752-acd5-f9b749c7bfb6"],
+      "relevantChunkIds": ["11282"],
+      "requiredKeywords": ["AndroidNotificationChannel", "createNotificationChannel", "Flutter"],
+      "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:53.178Z",
+        "sourceChunkId": "11282",
+        "sourceDocTitle": "Flutter Push Notifications with Firebase Cloud Messaging"
+      }
+    },
+    {
+      "id": "mobile-28",
+      "query": "Flutter FCM setup with local notifications initialization and permission handling complete implementation",
+      "category": "mobile",
+      "difficulty": "hard",
+      "queryType": "conceptual",
+      "relevantDocIds": ["36548047-b93b-4752-acd5-f9b749c7bfb6"],
+      "relevantChunkIds": ["11282"],
+      "requiredKeywords": [
+        "FirebaseMessaging",
+        "FlutterLocalNotificationsPlugin",
+        "_requestPermission",
+        "_initializeLocalNotifications",
+        "_getToken"
+      ],
+      "collectionId": "3b035748-5817-4438-8acc-d974c88a6233",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:53.178Z",
+        "sourceChunkId": "11282",
+        "sourceDocTitle": "Flutter Push Notifications with Firebase Cloud Messaging"
+      }
+    },
+    {
+      "id": "mobile-29",
+      "query": "how to scale ingredient amounts for different serving sizes in Flutter",
+      "category": "mobile",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": ["c8dffbbd-3064-4651-b6b0-e403123fdb85"],
+      "relevantChunkIds": ["5335"],
+      "requiredKeywords": [
+        "scaleIngredientAmount",
+        "originalServings",
+        "targetServings",
+        "SmartUnitService"
+      ],
+      "collectionId": "bbe170cc-f534-4d28-895c-3531411cb4ba",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:55.770Z",
+        "sourceChunkId": "5335",
+        "sourceDocTitle": "06B-SMART-UNIT-FLUTTER-SPEC.md"
+      }
+    },
+    {
+      "id": "mobile-30",
+      "query": "Flutter SmartUnitService integration with grocery list creation and unit selection",
+      "category": "mobile",
+      "difficulty": "hard",
+      "queryType": "conceptual",
+      "relevantDocIds": ["c8dffbbd-3064-4651-b6b0-e403123fdb85"],
+      "relevantChunkIds": ["5335"],
+      "requiredKeywords": [
+        "GroceryListService",
+        "SmartUnitService",
+        "createGroceryItem",
+        "getSmartUnit",
+        "integration"
+      ],
+      "collectionId": "bbe170cc-f534-4d28-895c-3531411cb4ba",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:55.770Z",
+        "sourceChunkId": "5335",
+        "sourceDocTitle": "06B-SMART-UNIT-FLUTTER-SPEC.md"
+      }
+    },
+    {
+      "id": "general-31",
+      "query": "How to add recipe chatbot with OpenAI and pgvector in Flutter app",
+      "category": "general",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": ["33966211-f816-4700-ac5b-8500748a8694"],
+      "relevantChunkIds": ["5264"],
+      "requiredKeywords": ["recipe", "chatbot", "OpenAI", "pgvector"],
+      "collectionId": "bbe170cc-f534-4d28-895c-3531411cb4ba",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:59.545Z",
+        "sourceChunkId": "5264",
+        "sourceDocTitle": "00-FLUTTER-SAAS-APP-BLUEPRINT.md"
+      }
+    },
+    {
+      "id": "general-32",
+      "query": "What are the scalability requirements and SLOs for Flutter SaaS app to handle millions of users",
+      "category": "general",
+      "difficulty": "hard",
+      "queryType": "conceptual",
+      "relevantDocIds": ["33966211-f816-4700-ac5b-8500748a8694"],
+      "relevantChunkIds": ["5264"],
+      "requiredKeywords": ["SLOs", "KPIs", "millions", "users", "scale"],
+      "collectionId": "bbe170cc-f534-4d28-895c-3531411cb4ba",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:53:59.545Z",
+        "sourceChunkId": "5264",
+        "sourceDocTitle": "00-FLUTTER-SAAS-APP-BLUEPRINT.md"
+      }
+    },
+    {
+      "id": "general-33",
+      "query": "What hotkey is used for search in Obsidian MCP Server?",
+      "category": "general",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": ["b5a3b284-93f5-437b-927c-9a2b7dae8eee"],
+      "relevantChunkIds": ["2017"],
+      "requiredKeywords": ["hotkey", "search", "s,/"],
+      "collectionId": "00000000-0000-0000-0000-000000000001",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:54:03.964Z",
+        "sourceChunkId": "2017",
+        "sourceDocTitle": "Obsidian MCP Server"
+      }
+    },
+    {
+      "id": "general-34",
+      "query": "How does the search input analytics tracking work in the Obsidian MCP Server navbar interface?",
+      "category": "general",
+      "difficulty": "medium",
+      "queryType": "conceptual",
+      "relevantDocIds": ["b5a3b284-93f5-437b-927c-9a2b7dae8eee"],
+      "relevantChunkIds": ["2017"],
+      "requiredKeywords": ["analytics", "searchbar", "navbar", "tracking", "data-analytics-event"],
+      "collectionId": "00000000-0000-0000-0000-000000000001",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:54:03.964Z",
+        "sourceChunkId": "2017",
+        "sourceDocTitle": "Obsidian MCP Server"
+      }
+    },
+    {
+      "id": "general-35",
+      "query": "What technologies does Apptension SaaS Boilerplate use for integration?",
+      "category": "general",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": ["e5293922-bebe-4e15-93a5-45a1d8197ced"],
+      "relevantChunkIds": ["4379"],
+      "requiredKeywords": ["Apptension", "GraphQL", "Docker", "NX", "AWS"],
+      "collectionId": "00000000-0000-0000-0000-000000000003",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:54:08.616Z",
+        "sourceChunkId": "4379",
+        "sourceDocTitle": "SaaS Boilerplates, starter kits, and design systems | Buildkits"
+      }
+    },
+    {
+      "id": "general-36",
+      "query": "Compare SaaS starter kits that offer authentication and payment features with cloud infrastructure support",
+      "category": "general",
+      "difficulty": "hard",
+      "queryType": "comparison",
+      "relevantDocIds": ["e5293922-bebe-4e15-93a5-45a1d8197ced"],
+      "relevantChunkIds": ["4379"],
+      "requiredKeywords": [
+        "authentication",
+        "payments",
+        "AWS",
+        "Supabase",
+        "scalable",
+        "infrastructure"
+      ],
+      "collectionId": "00000000-0000-0000-0000-000000000003",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:54:08.616Z",
+        "sourceChunkId": "4379",
+        "sourceDocTitle": "SaaS Boilerplates, starter kits, and design systems | Buildkits"
+      }
+    },
+    {
+      "id": "general-37",
+      "query": "Where can I find security resources in the GitHub navbar?",
+      "category": "general",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": ["96e9ab8e-eb82-49ee-be1a-c5285965148e"],
+      "relevantChunkIds": ["1537"],
+      "requiredKeywords": ["security", "resources", "navbar"],
+      "collectionId": "00000000-0000-0000-0000-000000000003",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:54:12.665Z",
+        "sourceChunkId": "1537",
+        "sourceDocTitle": "Obsidian MCP Server GitHub Repository"
+      }
+    },
+    {
+      "id": "general-38",
+      "query": "What are the different resource categories available in the GitHub header dropdown menu for developers?",
+      "category": "general",
+      "difficulty": "medium",
+      "queryType": "conceptual",
+      "relevantDocIds": ["96e9ab8e-eb82-49ee-be1a-c5285965148e"],
+      "relevantChunkIds": ["1537"],
+      "requiredKeywords": [
+        "HeaderMenu-dropdown-link",
+        "resources",
+        "security",
+        "software-development"
+      ],
+      "collectionId": "00000000-0000-0000-0000-000000000003",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:54:12.665Z",
+        "sourceChunkId": "1537",
+        "sourceDocTitle": "Obsidian MCP Server GitHub Repository"
+      }
+    },
+    {
+      "id": "general-39",
+      "query": "Who is GitHub Copilot Pro designed for?",
+      "category": "general",
+      "difficulty": "easy",
+      "queryType": "factual",
+      "relevantDocIds": ["ebaafbeb-aaa2-4385-a688-869f9a70d475"],
+      "relevantChunkIds": ["7134"],
+      "requiredKeywords": [
+        "GitHub Copilot Pro",
+        "designed",
+        "individual developers",
+        "freelancers",
+        "students",
+        "educators",
+        "open source maintainers"
+      ],
+      "collectionId": "5bc6ea14-528a-4bff-aac8-79d309f46121",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:54:16.840Z",
+        "sourceChunkId": "7134",
+        "sourceDocTitle": "Supabase Flutter Examples - GitHub Copilot · Your AI pair programmer · GitHub"
+      }
+    },
+    {
+      "id": "general-40",
+      "query": "What are the key differences between GitHub Copilot Enterprise and GitHub Copilot Pro in terms of target users and capabilities?",
+      "category": "general",
+      "difficulty": "hard",
+      "queryType": "comparison",
+      "relevantDocIds": ["ebaafbeb-aaa2-4385-a688-869f9a70d475"],
+      "relevantChunkIds": ["7134"],
+      "requiredKeywords": [
+        "GitHub Copilot Enterprise",
+        "GitHub Copilot Pro",
+        "organizations",
+        "individual developers",
+        "codebase indexing",
+        "custom models"
+      ],
+      "collectionId": "5bc6ea14-528a-4bff-aac8-79d309f46121",
+      "metadata": {
+        "source": "synthetic",
+        "createdAt": "2025-12-10T00:54:16.840Z",
+        "sourceChunkId": "7134",
+        "sourceDocTitle": "Supabase Flutter Examples - GitHub Copilot · Your AI pair programmer · GitHub"
+      }
+    }
+  ]
+}

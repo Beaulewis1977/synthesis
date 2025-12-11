@@ -1,0 +1,161 @@
+{
+  "metadata": {
+    "name": "lifer-flutter-eval",
+    "description": "Evaluation dataset for lifer Flutter app - verified ground truth",
+    "version": "1.0.0",
+    "createdAt": "2025-12-11T00:00:00.000Z",
+    "source": "manual-verified"
+  },
+  "queries": [
+    {
+      "id": "lifer-1",
+      "query": "How is Supabase initialized in the lifer app?",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "how-to",
+      "relevantDocIds": ["b1d64fee-745b-419a-bab9-59af4141e564"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["supabase", "initialize"]
+    },
+    {
+      "id": "lifer-2",
+      "query": "Email validation regex pattern",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "lookup",
+      "relevantDocIds": ["6ad3cd7c-9794-4e77-9da3-b4bbcfab8511"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["email", "regex", "valid"]
+    },
+    {
+      "id": "lifer-3",
+      "query": "Password validation with special characters",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "lookup",
+      "relevantDocIds": ["6ad3cd7c-9794-4e77-9da3-b4bbcfab8511"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["password", "regex", "special"]
+    },
+    {
+      "id": "lifer-4",
+      "query": "App color constants and theme colors",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "lookup",
+      "relevantDocIds": ["e563f1d0-df26-4492-ad33-9124189d7a54"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["color", "theme"]
+    },
+    {
+      "id": "lifer-5",
+      "query": "MaterialApp theme configuration",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "conceptual",
+      "relevantDocIds": ["151fecf5-d04f-4241-9348-ed25f32b492d"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["theme", "material"]
+    },
+    {
+      "id": "lifer-6",
+      "query": "Arabic translation strings",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "lookup",
+      "relevantDocIds": ["6decff36-c05a-4c5c-9f94-ddc170fa097d"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["arabic", "string", "translation"]
+    },
+    {
+      "id": "lifer-7",
+      "query": "Loading widget implementation",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "lookup",
+      "relevantDocIds": ["6056a7aa-cd68-434c-a218-74aeff098467"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["loading", "widget"]
+    },
+    {
+      "id": "lifer-8",
+      "query": "SharedPreferences keys for user data",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "lookup",
+      "relevantDocIds": ["1f1058ce-1552-411d-9dee-afa8c12c4efc"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["shared", "pref", "key"]
+    },
+    {
+      "id": "lifer-9",
+      "query": "Notification service local notifications",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "how-to",
+      "relevantDocIds": ["bd10ed29-20d2-41e4-9b8c-7ab8351afb25"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["notification", "service"]
+    },
+    {
+      "id": "lifer-10",
+      "query": "Font weight helper for text styles",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "lookup",
+      "relevantDocIds": ["6f6e3268-07a3-49d7-943b-86ffb6895db7"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["font", "weight"]
+    },
+    {
+      "id": "lifer-11",
+      "query": "Custom text form field widget",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "lookup",
+      "relevantDocIds": ["a5c47b8e-a86e-40d7-9683-9f43b250fc3c"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["text", "form", "field"]
+    },
+    {
+      "id": "lifer-12",
+      "query": "Custom text button widget",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "lookup",
+      "relevantDocIds": ["741f1469-14e0-46bd-b815-121afaf603e5"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["text", "button"]
+    },
+    {
+      "id": "lifer-13",
+      "query": "Asset paths for images and animations",
+      "category": "code",
+      "difficulty": "easy",
+      "queryType": "lookup",
+      "relevantDocIds": ["19535b99-f515-43b7-9c48-93154a4ce661"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["asset", "image", "path"]
+    },
+    {
+      "id": "lifer-14",
+      "query": "Flutter Riverpod ProviderScope",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "conceptual",
+      "relevantDocIds": ["b1d64fee-745b-419a-bab9-59af4141e564"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["riverpod", "provider"]
+    },
+    {
+      "id": "lifer-15",
+      "query": "String extension methods",
+      "category": "code",
+      "difficulty": "medium",
+      "queryType": "lookup",
+      "relevantDocIds": ["b48baccf-7d16-4bf4-9a57-7a99b6785fb3"],
+      "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
+      "requiredKeywords": ["extension", "string"]
+    }
+  ]
+}
