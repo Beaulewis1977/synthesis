@@ -73,6 +73,9 @@ export function createLLMJudge(options: LLMJudgeOptions = {}) {
     const latencyMs = Date.now() - startTime;
 
     // Parse response
+    if (!response.content || response.content.length === 0) {
+      throw new Error('Empty response content from judge');
+    }
     const content = response.content[0];
     if (content.type !== 'text') {
       throw new Error('Unexpected response type from judge');
@@ -310,6 +313,9 @@ Format:
     messages: [{ role: 'user', content: prompt }],
   });
 
+  if (!response.content || response.content.length === 0) {
+    throw new Error('Empty response content');
+  }
   const content = response.content[0];
   if (content.type !== 'text') {
     throw new Error('Unexpected response type');
@@ -355,6 +361,9 @@ Respond with JSON:
     messages: [{ role: 'user', content: prompt }],
   });
 
+  if (!response.content || response.content.length === 0) {
+    throw new Error('Empty response content');
+  }
   const content = response.content[0];
   if (content.type !== 'text') {
     throw new Error('Unexpected response type');
