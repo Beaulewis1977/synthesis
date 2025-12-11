@@ -194,6 +194,38 @@ export interface SmartSearchResponse extends Omit<SearchResponse, 'results'> {
   };
 }
 
+/**
+ * Helper for query expansion fallback logic to reduce duplication.
+ * Tries query variants and fallback queries until results are found.
+ */
+async function tryQueryExpansionFallback<T extends { results: unknown[] }>(
+  originalQuery: string,
+  searchFn: (query: string) => Promise<T>
+): Promise<{ result: T; queryUsed?: string }> {
+  // Try query variants first
+  const variants = generateQueryVariants(originalQuery);
+  for (const variant of variants.slice(1)) {
+    // Skip original query (index 0)
+    const result = await searchFn(variant);
+    if (result.results.length > 0) {
+      return { result, queryUsed: variant };
+    }
+  }
+
+  // If still no results, try broader fallback queries
+  const fallbacks = getFallbackQueries(originalQuery);
+  for (const fallback of fallbacks) {
+    const result = await searchFn(fallback);
+    if (result.results.length > 0) {
+      return { result, queryUsed: fallback };
+    }
+  }
+
+  // Return last attempt result (empty)
+  const emptyResult = await searchFn(originalQuery);
+  return { result: emptyResult };
+}
+
 export async function smartSearch(
   db: Pool,
   params: SmartSearchParams
@@ -303,12 +335,9 @@ export async function smartSearch(
 
     // Query expansion for zero-hit recovery
     if (queryExpansionEnabled && hybridResult.results.length === 0) {
-      // Try query variants first
-      const variants = generateQueryVariants(params.query);
-      for (const variant of variants.slice(1)) {
-        // Skip original query (index 0)
-        const fallbackResult = await hybridSearch(db, {
-          query: variant,
+      const fallbackResult = await tryQueryExpansionFallback(params.query, (q) =>
+        hybridSearch(db, {
+          query: q,
           collectionId: params.collectionId,
           topK: hybridTopK,
           minSimilarity: params.minSimilarity,
@@ -321,39 +350,11 @@ export async function smartSearch(
           platform: params.platform,
           usageTier: params.usageTier,
           sourceQuality: params.sourceQuality,
-        });
-        if (fallbackResult.results.length > 0) {
-          hybridResult = fallbackResult;
-          queryUsed = variant;
-          break;
-        }
-      }
-
-      // If still no results, try broader fallback queries
-      if (hybridResult.results.length === 0) {
-        const fallbacks = getFallbackQueries(params.query);
-        for (const fallback of fallbacks) {
-          const fallbackResult = await hybridSearch(db, {
-            query: fallback,
-            collectionId: params.collectionId,
-            topK: hybridTopK,
-            minSimilarity: params.minSimilarity,
-            weights: hybridWeights,
-            rrfK: params.rrfK,
-            provider,
-            context,
-            techStack: params.techStack,
-            featureTags: params.featureTags,
-            platform: params.platform,
-            usageTier: params.usageTier,
-            sourceQuality: params.sourceQuality,
-          });
-          if (fallbackResult.results.length > 0) {
-            hybridResult = fallbackResult;
-            queryUsed = fallback;
-            break;
-          }
-        }
+        })
+      );
+      if (fallbackResult.result.results.length > 0) {
+        hybridResult = fallbackResult.result;
+        queryUsed = fallbackResult.queryUsed;
       }
     }
 
@@ -509,12 +510,9 @@ export async function smartSearch(
 
   // Query expansion for zero-hit recovery
   if (queryExpansionEnabled && vectorResult.results.length === 0) {
-    // Try query variants first
-    const variants = generateQueryVariants(params.query);
-    for (const variant of variants.slice(1)) {
-      // Skip original query (index 0)
-      const fallbackResult = await vectorSearch(db, {
-        query: variant,
+    const fallbackResult = await tryQueryExpansionFallback(params.query, (q) =>
+      vectorSearch(db, {
+        query: q,
         collectionId: params.collectionId,
         topK: vectorTopK,
         minSimilarity: params.minSimilarity,
@@ -525,37 +523,11 @@ export async function smartSearch(
         platform: params.platform,
         usageTier: params.usageTier,
         sourceQuality: params.sourceQuality,
-      });
-      if (fallbackResult.results.length > 0) {
-        vectorResult = fallbackResult;
-        queryUsed = variant;
-        break;
-      }
-    }
-
-    // If still no results, try broader fallback queries
-    if (vectorResult.results.length === 0) {
-      const fallbacks = getFallbackQueries(params.query);
-      for (const fallback of fallbacks) {
-        const fallbackResult = await vectorSearch(db, {
-          query: fallback,
-          collectionId: params.collectionId,
-          topK: vectorTopK,
-          minSimilarity: params.minSimilarity,
-          provider,
-          context,
-          techStack: params.techStack,
-          featureTags: params.featureTags,
-          platform: params.platform,
-          usageTier: params.usageTier,
-          sourceQuality: params.sourceQuality,
-        });
-        if (fallbackResult.results.length > 0) {
-          vectorResult = fallbackResult;
-          queryUsed = fallback;
-          break;
-        }
-      }
+      })
+    );
+    if (fallbackResult.result.results.length > 0) {
+      vectorResult = fallbackResult.result;
+      queryUsed = fallbackResult.queryUsed;
     }
   }
 

@@ -305,9 +305,9 @@ function formatDeltaWithSign(delta: number): string {
  * Get status emoji based on delta
  */
 function getStatusEmoji(delta: number): string {
-  if (delta > 0.01) return ':white_check_mark:';
-  if (delta < -0.01) return ':x:';
-  return ':heavy_minus_sign:';
+  if (delta > 0.01) return '✅';
+  if (delta < -0.01) return '❌';
+  return '➖';
 }
 
 /**

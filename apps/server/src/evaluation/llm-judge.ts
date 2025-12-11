@@ -24,7 +24,7 @@ export interface LLMJudgeOptions {
   /** Anthropic client (optional, will create if not provided) */
   anthropic?: Anthropic;
 
-  /** Model to use for judging (default: claude-sonnet-4-20250514) */
+  /** Model to use for judging (default: claude-3-5-sonnet-20241022) */
   model?: string;
 
   /** Whether to include detailed reasoning in results */
@@ -49,7 +49,7 @@ interface JudgeResponse {
  */
 export function createLLMJudge(options: LLMJudgeOptions = {}) {
   const anthropic = options.anthropic ?? new Anthropic();
-  const model = options.model ?? 'claude-sonnet-4-20250514';
+  const model = options.model ?? 'claude-3-5-sonnet-20241022';
   const includeReasoning = options.includeReasoning ?? true;
 
   /**
@@ -204,7 +204,9 @@ function parseJudgeResponse(text: string): JudgeResponse {
       reasoning: parsed.reasoning || '',
     };
   } catch (error) {
-    throw new Error(`Failed to parse judge response: ${text}`);
+    throw new Error(
+      `Failed to parse judge response: ${text.slice(0, 200)}${text.length > 200 ? '...' : ''}`
+    );
   }
 }
 
@@ -303,7 +305,7 @@ Format:
 - If issues: {"score": <0-1>, "issues": ["unsupported claim 1", "unsupported claim 2"]}`;
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-3-5-sonnet-20241022',
     max_tokens: 512,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -348,7 +350,7 @@ Respond with JSON:
 {"score": <0.0-1.0>, "reasoning": "<brief explanation>"}`;
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-3-5-sonnet-20241022',
     max_tokens: 256,
     messages: [{ role: 'user', content: prompt }],
   });

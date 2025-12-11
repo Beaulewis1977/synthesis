@@ -45,7 +45,16 @@ export interface SearchResponse {
 
 const DEFAULT_TOP_K = 5;
 const DEFAULT_MIN_SIMILARITY = 0.35;
-const HNSW_EF_SEARCH = Number(process.env.HNSW_EF_SEARCH) || 100;
+
+// Validate HNSW_EF_SEARCH to prevent SQL injection
+const HNSW_EF_SEARCH = (() => {
+  const val = Number.parseInt(process.env.HNSW_EF_SEARCH ?? '100', 10);
+  if (!Number.isInteger(val) || val < 1 || val > 1000) {
+    console.warn(`Invalid HNSW_EF_SEARCH: ${process.env.HNSW_EF_SEARCH}, using default 100`);
+    return 100;
+  }
+  return val;
+})();
 
 function toVectorLiteral(vector: number[]): string {
   if (!Array.isArray(vector) || vector.length === 0) {

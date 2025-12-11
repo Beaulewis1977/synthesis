@@ -69,10 +69,8 @@ export function expandWithSynonyms(query: string): string {
 
   for (const [abbrev, synonyms] of Object.entries(TECHNICAL_SYNONYMS)) {
     const pattern = new RegExp(`\\b${abbrev}\\b`, 'gi');
-    if (pattern.test(expanded)) {
-      // Add first synonym as expansion
-      expanded = expanded.replace(pattern, `${abbrev} ${synonyms[0]}`);
-    }
+    // Use replace directly - it returns unchanged string if no match
+    expanded = expanded.replace(pattern, `${abbrev} ${synonyms[0]}`);
   }
 
   return expanded;

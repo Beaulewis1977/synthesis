@@ -42,6 +42,7 @@ async function main() {
   const docs = result.rows as { id: string; title: string }[];
 
   if (docs.length === 0) {
+    console.log('No pending documents found for collection:', collectionId);
     await closePool();
     return;
   }
@@ -76,12 +77,17 @@ async function main() {
         failed++;
         if (result.status === 'fulfilled') {
           console.error(`Failed: ${result.value.id} - ${result.value.error}`);
+        } else {
+          console.error(`Rejected: ${result.reason}`);
         }
       }
     }
 
-    // Calculate stats for progress logging
-    void ((Date.now() - startTime) / 1000);
+    // Log batch progress
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(
+      `Batch ${Math.floor(i / batchSize) + 1}: processed=${processed}, failed=${failed}, elapsed=${elapsed}s`
+    );
   }
   await closePool();
 }

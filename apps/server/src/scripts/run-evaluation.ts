@@ -214,8 +214,6 @@ async function runEval(pool: ReturnType<typeof getPool>): Promise<void> {
     topK: Number.parseInt(args['top-k'] ?? '10', 10),
     evaluationMode,
   });
-  if (categories) {
-  }
 
   // Create LLM judge if evaluating generation
   const llmJudge = config.evaluateGeneration ? createLLMJudge() : undefined;
@@ -230,6 +228,7 @@ async function runEval(pool: ReturnType<typeof getPool>): Promise<void> {
       const displayNum = current + 1;
       const pct = ((displayNum / total) * 100).toFixed(0);
       if (args.verbose) {
+        console.log(`Verbose: Processing query ${displayNum}/${total} (${pct}%)`);
       } else if (displayNum % 10 === 0 || displayNum === 1 || displayNum === total) {
         process.stdout.write(`\rProcessing: ${displayNum}/${total} (${pct}%)`);
       }
@@ -256,7 +255,32 @@ async function runEval(pool: ReturnType<typeof getPool>): Promise<void> {
 // Helpers
 // =============================================================================
 
-function printHelp(): void {}
+function printHelp(): void {
+  console.log(`
+RAG Evaluation CLI
+
+Usage:
+  pnpm eval                           # Run all evaluations
+  pnpm eval --category=code           # Code queries only
+  pnpm eval --retrieval-only          # Skip generation eval
+  pnpm eval --compare baseline.json   # Compare against baseline
+  pnpm eval --generate-dataset        # Generate synthetic dataset
+
+Options:
+  -c, --category <type>       Filter by category: docs, code, mobile, general
+  -r, --retrieval-only        Skip LLM generation evaluation (faster, free)
+  -g, --generate-dataset      Generate synthetic queries from your docs
+  -d, --dataset <path>        Path to dataset JSON file
+  --search-mode <mode>        vector | hybrid | bm25 (default: hybrid)
+  --rerank                    Enable reranking (default: true)
+  --top-k <n>                 Results to retrieve (default: 10)
+  --eval-mode <mode>          doc | chunk | flexible (default: doc)
+  --compare <path>            Compare against a baseline report
+  -o, --output <dir>          Output directory (default: perf/eval_results)
+  -v, --verbose               Show per-query progress
+  -h, --help                  Show this help
+`);
+}
 
 // =============================================================================
 // Run
@@ -264,7 +288,5 @@ function printHelp(): void {}
 
 main().catch((error) => {
   console.error('Evaluation failed:', error);
-  closePool().finally(() => {
-    process.exitCode = 1;
-  });
+  process.exitCode = 1;
 });
