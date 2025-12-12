@@ -226,13 +226,29 @@ export function validateProfileInput(
     }
   }
 
-  if ('provider' in input && input.provider) {
-    // Empty provider is allowed for 'none' profile (manual configuration)
-    const validProviders = ['ollama', 'openai', 'voyage', 'cohere', 'google', ''];
-    if (!validProviders.includes(input.provider)) {
-      errors.push(
-        `Invalid provider. Must be one of: ${validProviders.filter((p) => p).join(', ')}`
-      );
+  if ('provider' in input && input.provider !== undefined) {
+    const validProviders = ['ollama', 'openai', 'voyage', 'cohere', 'google'] as const;
+    const provider = input.provider;
+    const name = 'name' in input ? input.name : undefined;
+    const isNoneProfile = name === 'none';
+
+    if (provider === '' && !isNoneProfile) {
+      errors.push("Provider may be empty only for the 'none' profile");
+    } else if (
+      provider !== '' &&
+      !validProviders.includes(provider as (typeof validProviders)[number])
+    ) {
+      errors.push(`Invalid provider. Must be one of: ${validProviders.join(', ')}`);
+    }
+  }
+
+  if ('model' in input && input.model !== undefined) {
+    const provider = 'provider' in input ? input.provider : undefined;
+    if (provider && !input.model) {
+      errors.push('Model is required when provider is set');
+    }
+    if (provider === '' && input.model) {
+      errors.push('Model must be empty when provider is empty');
     }
   }
 

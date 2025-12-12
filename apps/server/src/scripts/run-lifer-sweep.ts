@@ -126,7 +126,7 @@ Options:
   -h, --help             Show this help
 
 Passes:
-  1A  Embedding sweep (code) - voyage-code-3, text-embedding-3-large, nomic-embed-code
+  1A  Embedding sweep (code) - voyage-code-3, text-embedding-3-large, nomic-embed-text
   1B  Embedding sweep (docs) - nomic-embed-text, voyage-3-large (optional)
   2   Chunking sweep - 400/50, 600/100, 800/100 (uses best from 1A)
   3   Reranker sweep - none, bge, voyage (uses best from 1A+2)

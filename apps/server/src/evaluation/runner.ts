@@ -133,14 +133,25 @@ async function resolveFilePathsToDocIds(
 ): Promise<string[]> {
   if (filePaths.length === 0) return [];
 
-  const result = await db.query<{ id: string }>(
-    `SELECT id FROM documents
-     WHERE collection_id = $1
-     AND metadata->>'repoFilePath' = ANY($2)`,
-    [collectionId, filePaths]
-  );
+  try {
+    const result = await db.query<{ id: string }>(
+      `SELECT id FROM documents
+       WHERE collection_id = $1
+       AND metadata->>'repoFilePath' = ANY($2)`,
+      [collectionId, filePaths]
+    );
 
-  return result.rows.map((r) => r.id);
+    const resolvedIds = result.rows.map((r) => r.id);
+    if (resolvedIds.length < filePaths.length) {
+      console.warn(
+        `[Eval] Resolved ${resolvedIds.length}/${filePaths.length} file paths to doc IDs for collection ${collectionId}`
+      );
+    }
+    return resolvedIds;
+  } catch (error) {
+    console.error(`[Eval] Failed to resolve file paths: ${error}`);
+    return [];
+  }
 }
 
 /**

@@ -399,8 +399,10 @@ async function getVoyageClient(): Promise<VoyageAIClient> {
     return voyageClient;
   }
 
-  const apiKey = process.env.VOYAGE_API_KEY;
-  if (!apiKey) {
+  const apiKeyRaw = process.env.VOYAGE_API_KEY;
+  const apiKey = apiKeyRaw ? apiKeyRaw.trim() : '';
+
+  if (!apiKey || apiKey.length === 0 || apiKey.toLowerCase() === 'undefined') {
     throw new Error('VOYAGE_API_KEY is required for Voyage reranking');
   }
 

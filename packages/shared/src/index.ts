@@ -83,7 +83,7 @@ export type EmbeddingModel =
   | 'embed-multilingual-v3.0'
   // Google models
   | 'text-embedding-004'
-  | 'embedding-001';
+  | 'gemini-embedding-001';
 export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage' | 'cohere' | 'google';
 
 // Phase 3: Source type for metadata guarantees

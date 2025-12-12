@@ -239,7 +239,13 @@ async function runEval(pool: ReturnType<typeof getPool>): Promise<void> {
   if (args['expand-ground-truth']) {
     console.info('\n=== Expanding Ground Truth ===\n');
     const threshold = Number.parseFloat(args['expansion-threshold'] ?? '0.7');
-    const searchMode = (args['search-mode'] as 'vector' | 'hybrid') ?? 'hybrid';
+    const rawSearchMode = args['search-mode'];
+    if (rawSearchMode && rawSearchMode !== 'vector' && rawSearchMode !== 'hybrid') {
+      console.warn(
+        `Warning: Ground truth expansion only supports 'vector' or 'hybrid' mode. Using 'hybrid'.`
+      );
+    }
+    const searchMode = (rawSearchMode === 'vector' ? 'vector' : 'hybrid') as 'vector' | 'hybrid';
 
     const { dataset: expandedDataset, stats } = await expandGroundTruth(dataset, {
       db: pool,

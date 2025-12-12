@@ -288,10 +288,15 @@ export async function validateGroundTruth(
   const allDocIds = new Set<string>();
   const queryDocMap = new Map<string, string[]>();
 
-  // Collect all doc IDs
+  // UUID regex for validation
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  // Collect all doc IDs (only valid UUIDs)
   for (const query of dataset.queries) {
     for (const docId of query.relevantDocIds) {
-      allDocIds.add(docId);
+      if (uuidRe.test(docId)) {
+        allDocIds.add(docId);
+      }
     }
     queryDocMap.set(query.id, query.relevantDocIds);
   }
