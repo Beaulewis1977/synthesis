@@ -98,3 +98,45 @@ export {
   loadBaselineReport,
   compareReports,
 } from './reporter.js';
+
+// Ground Truth Expander
+export {
+  expandGroundTruth,
+  validateGroundTruth,
+  cleanGroundTruth,
+  type GroundTruthExpansionOptions,
+  type RelevanceJudgment,
+  type ExpansionStats,
+} from './ground-truth-expander.js';
+
+// Sweep Configuration
+export type {
+  SweepPass,
+  SweepConfig,
+  SweepState,
+  SweepResult,
+  DatasetResult,
+  EmbeddingProvider,
+  RerankerProvider,
+  SearchMode,
+} from './sweep-config.js';
+
+export {
+  generatePass1AConfigs,
+  generatePass1BConfigs,
+  generatePass2Configs,
+  generatePass3Configs,
+  generatePass4Configs,
+  getProfileName,
+  getCollectionName,
+  validateApiKeys,
+  formatMetrics as formatSweepMetrics,
+  getCostTier,
+  getModelDimensions,
+  MODEL_DIMENSIONS,
+  PASS_1A_CHUNKING,
+  PASS_1B_CHUNKING,
+  FIXED_SEARCH_SETTINGS,
+  CHUNKING_VARIANTS,
+  RERANKER_VARIANTS,
+} from './sweep-config.js';

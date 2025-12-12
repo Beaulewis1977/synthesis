@@ -473,13 +473,13 @@ export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
  */
 export function getProvidersForFeature(feature: ModelFeature): string[] {
   if (FEATURE_CATEGORIES.llm.includes(feature)) {
-    return ['anthropic', 'openai', 'ollama', 'google'];
+    return ['anthropic', 'openai', 'ollama', 'google', 'zhipu', 'moonshot'];
   }
   if (FEATURE_CATEGORIES.embedding.includes(feature)) {
-    return ['ollama', 'openai', 'voyage', 'google'];
+    return ['ollama', 'openai', 'voyage', 'cohere', 'google'];
   }
   if (feature === 'reranker') {
-    return ['bge', 'cohere', 'none'];
+    return ['bge', 'cohere', 'voyage', 'none'];
   }
   return [];
 }

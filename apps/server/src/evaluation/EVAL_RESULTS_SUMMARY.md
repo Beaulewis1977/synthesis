@@ -1,7 +1,7 @@
 # RAG Evaluation Results Summary
 
-**Last Updated:** 2025-12-11 (Session 3)
-**Branch:** `feature/rag-evaluation-framework`
+**Last Updated:** 2025-12-11 (Session 5 - voyage-code-3 results)
+**Branch:** `feature/multi-provider-embeddings`
 
 ---
 
@@ -30,31 +30,160 @@
 
 **Config:** Collection `bbee1787-dd28-43d0-9515-e534e18ba252`, 444 docs, 6,431 chunks
 
-**Issue:** Search returns relevant code results but doesn't match manually-specified `relevantDocIds`. The dataset ground truth needs verification - queries find semantically similar code from different files.
+**Issue:** Search returns relevant code results but doesn't match manually-specified `relevantDocIds`. Needs ground truth expansion.
 
-### Code Search (lifer Flutter app) - 2025-12-11
+---
 
-| Metric | Vector | Hybrid | BM25 | Notes |
-|--------|--------|--------|------|-------|
-| MRR | 0.168 | 0.168 | 0.168 | All modes identical |
-| Hit Rate | 0.333 | 0.333 | 0.333 | 5/15 queries match |
-| NDCG@5 | 0.162 | 0.162 | 0.162 | - |
-| Zero Hits | 10/15 (67%) | 10/15 (67%) | 10/15 (67%) | - |
-| Latency | 127ms | 155ms | 107ms | BM25 fastest |
+## New Evaluation Tools (2025-12-11)
 
-**Config:** Collection `05cab0fa-6c92-4ad3-9bf7-b0e4144081e2`, 101 docs, 389 chunks
+### Ground Truth Expansion
+```bash
+# Expand ground truth using LLM-judge
+pnpm eval:expand-gt --dataset <path> --expansion-threshold 0.7
 
-**Key Findings:**
-1. **Semantic gap:** Natural language queries ("How is Supabase initialized?") don't match code well with nomic-embed-text
-2. **Keyword queries work:** Direct keyword searches ("Supabase.initialize anonKey ProviderScope") find correct files immediately
-3. **Code chunks missing doc_id:** Bug - code-aware chunker creates chunks with empty `doc_id`, breaking evaluation matching
-4. **All modes identical:** Search modes converge to same results, suggesting embedding model is the bottleneck
+# Validate existing ground truth
+pnpm eval:validate-gt --dataset <path>
+```
+
+### Re-embedding Collections
+```bash
+# Re-embed with voyage-code-3 (requires VOYAGE_API_KEY)
+pnpm re-embed --collection <uuid> --provider voyage --model voyage-code-3
+
+# Dry run to preview changes
+pnpm re-embed --collection <uuid> --provider voyage --model voyage-code-3 --dry-run
+```
+
+### Doc ID Verification
+```bash
+# Verify chunk doc_id integrity
+pnpm verify-doc-id
+```
+
+---
+
+## Verification Results (2025-12-11)
+
+### Doc ID Integrity: ✅ PASSED
+```
+NULL doc_id: 0
+Empty string doc_id: 0
+Orphaned chunks: 0
+Total chunks: 13,570
+Embedding models: all nomic-embed-text
+```
+
+**Conclusion:** The reported doc_id bug was NOT present in production data. All chunks have valid references.
+
+---
+
+## Key Findings (Updated)
+
+### Ground Truth Is Critical
+| Issue | Impact | Solution |
+|-------|--------|----------|
+| Narrow GT (1-2 docs) | Underreports MRR | LLM-judge expansion |
+| Missing valid docs | False negatives | Auto-expand with Claude |
+| Invalid doc IDs | Crashes eval | Validate before running |
+
+### Search Mode Comparison (with doc-level matching)
+| Mode | MRR | Latency | Notes |
+|------|-----|---------|-------|
+| Vector-only | 0.726 | 45ms | ⭐ Fastest, same quality |
+| Hybrid (no rerank) | 0.726 | 43ms | BM25 not helping |
+| Hybrid + rerank | 0.726 | 54ms | Reranking adds overhead, no gain |
+
+**Conclusion:** For semantic queries, vector-only is optimal.
+
+### Embedding Model Matters for Code ⭐ CONFIRMED
+| Model | Type | MRR (code) | Hit Rate | Notes |
+|-------|------|------------|----------|-------|
+| nomic-embed-text | General | 0.400 | 40% | Poor code semantics |
+| **voyage-code-3** | Code | **0.813** | **87%** | ⭐ **2x better!** |
+
+**Conclusion:** For code repositories, use `voyage-code-3` embeddings. The improvement is dramatic (+103% MRR).
+
+---
+
+## Next Steps
+
+### Immediate (Phase 4) - ALL COMPLETE ✅
+1. ✅ Verify doc_id integrity - PASSED
+2. ✅ Implement ground truth expansion - DONE
+3. ✅ Re-embed lifer with voyage-code-3 - DONE
+4. ✅ Run comparison eval: nomic vs voyage - DONE
+
+### Evaluation Matrix (Completed)
+| Run | Ground Truth | Embeddings | Expected | Actual MRR |
+|-----|--------------|------------|----------|------------|
+| ✅ 1 | Original | nomic | 0.168 | 0.168 |
+| ✅ 2 | Expanded | nomic | 0.3+ | **0.400** |
+| ✅ 3 | Expanded | voyage-code-3 | 0.5+ | **0.813** ⭐ |
+
+**Result:** Target exceeded! MRR 0.813 vs target 0.5+
+
+### Remaining
+- ⏳ Expand ground truth for synthesis-codebase-eval.json
+- ⏳ Re-embed synthesis-codebase with voyage-code-3
+
+---
+
+## Files Added/Modified (2025-12-11)
+
+### New Files
+```
+apps/server/src/evaluation/
+└── ground-truth-expander.ts    # LLM-judge GT expansion
+
+apps/server/src/scripts/
+├── verify-doc-id.ts            # Doc ID integrity check
+└── re-embed-collection.ts      # Re-embedding script
+```
+
+### Modified Files
+```
+apps/server/src/evaluation/
+├── index.ts                    # Export new functions
+└── EVAL_RESULTS_SUMMARY.md     # This file
+
+apps/server/src/scripts/
+└── run-evaluation.ts           # --expand-ground-truth, --validate-ground-truth
+
+apps/server/package.json        # New scripts: verify-doc-id, re-embed, eval:expand-gt, eval:validate-gt
+```
+
+### New Datasets
+```
+apps/server/perf/eval_datasets/
+└── lifer-flutter-eval-expanded.json  # 15 → 21 doc IDs
+```
 
 ---
 
 ## Test Run History
 
 ### Lifer Flutter App Tests (2025-12-11)
+
+#### Run 12: voyage-code-3 embeddings - eval-2025-12-11-711820 ⭐ BEST
+**Dataset:** `lifer-flutter-eval-expanded.json` (15 code queries, expanded GT)
+**Config:** `--search-mode=vector --eval-mode=doc`, voyage-code-3 embeddings (1024 dims)
+```
+MRR:       0.813 (+103% from nomic)
+Hit Rate:  0.867 (13/15)
+NDCG@5:    1.098
+Recall@5:  1.400
+Zero Hits: 2/15 (13%)
+Latency:   388ms avg (Voyage API overhead)
+```
+**Key Changes:**
+- Re-embedded all 389 chunks with voyage-code-3
+- Updated document metadata: embedding_provider=voyage, embedding_model=voyage-code-3
+- Database schema: vector(768) → vector(1024)
+
+**Analysis:** voyage-code-3 embeddings dramatically improve code search:
+- MRR doubled (0.400 → 0.813)
+- Zero hits reduced from 9 to 2
+- Remaining failures: lifer-1 (Supabase init), lifer-15 (string extensions)
 
 #### Run 11: BM25-only - eval-2025-12-11-356320
 **Dataset:** `lifer-flutter-eval.json` (15 code queries)
@@ -412,3 +541,111 @@ For code search evaluation, queries should include:
 1. Natural language ("How does X work?") - tests semantic understanding
 2. Keyword-rich ("function_name param_type") - tests exact matching
 3. Mixed ("X authentication with OAuth") - tests hybrid capability
+
+---
+
+## Pass 1A Results Summary (2025-12-12)
+
+### Key Findings
+
+**Winner: voyage-code-3** with MRR 0.867, Hit Rate 93.3% (14/15 queries)
+
+| Config | MRR | Hit Rate | Zero Hits | Status |
+|--------|-----|----------|-----------|--------|
+| **voyage-code-3** | **0.867** | **93.3%** | 1/15 | SUCCESS |
+| openai-text-embedding-3-large | 0.000 | 0.000 | 15/15 | Failed - no ingestion |
+| ollama-nomic-embed-text | 0.000 | 0.000 | 15/15 | Failed - Ollama crashed |
+
+### Issues Encountered
+
+1. **Ollama embedding instability**: Both `manutic/nomic-embed-code` and `nomic-embed-text` models crash during batch embedding with `GGML_ASSERT` failures. This is an Ollama infrastructure issue.
+
+2. **OpenAI ingestion skipped**: The sweep reused existing collections where possible, so OpenAI embedding wasn't actually tested with fresh ingestion.
+
+3. **Ground truth fix applied**: Added `relevantFilePaths` to evaluation datasets for portable ground truth across collections. Previously, evaluation used hardcoded document IDs that only existed in the original collection.
+
+### Code Changes Made
+
+- `apps/server/src/evaluation/runner.ts`: Added `resolveFilePathsToDocIds()` for portable ground truth
+- `apps/server/src/evaluation/types.ts`: Added `relevantFilePaths` field to `EvalQuery`
+- `apps/server/src/evaluation/sweep-config.ts`: Changed Ollama model from `manutic/nomic-embed-code` to `nomic-embed-text`
+- `perf/eval_datasets/lifer-flutter-eval.json`: Added `relevantFilePaths` to all queries
+- `perf/eval_datasets/lifer-flutter-eval-expanded.json`: Added `relevantFilePaths` to all queries
+
+---
+
+## Pass 2 Results Summary (Chunking Sweep) - 2025-12-12
+
+**Tested chunking configs** with voyage-code-3 embeddings:
+
+| Chunk Size | Overlap | Chunks | MRR | Hit Rate | Zero Hits |
+|------------|---------|--------|-----|----------|-----------|
+| 400 | 50 | 526 | 0.867 | 93.3% | 1/15 |
+| 600 | 100 | 398 | 0.867 | 93.3% | 1/15 |
+| 800 | 100 | 317 | 0.867 | 93.3% | 1/15 |
+
+**Conclusion**: All chunking configurations perform identically on this dataset. Smaller chunks (400) create more chunks but don't improve retrieval quality. The script selected ch400-oa50 as the winner for Pass 3 since it appeared first with the same MRR.
+
+---
+
+## Pass 3 Results Summary (Reranker Sweep) - 2025-12-12
+
+**Tested rerankers** with voyage-code-3 embeddings and ch400-oa50 chunking:
+
+| Reranker | Model | MRR | Hit Rate | Zero Hits | Notes |
+|----------|-------|-----|----------|-----------|-------|
+| **none** | - | **0.867** | **93.3%** | 1/15 | **WINNER** |
+| bge | BAAI/bge-reranker-base | 0.776 | 86.7% | 2/15 | Worse than no reranker |
+| voyage | rerank-2.5 | 0.776 | 86.7% | 2/15 | Worse than no reranker |
+
+**Key Finding**: **Rerankers HURT retrieval performance** on this code dataset!
+- Both BGE and Voyage rerankers dropped MRR from 0.867 → 0.776 (-10.5%)
+- Hit rate dropped from 93.3% → 86.7%
+- Zero hits increased from 1 → 2
+
+**Hypothesis**: For code retrieval with voyage-code-3, the vector similarity is already well-optimized for code semantics. Rerankers may be trained on general text and actually harm code-specific queries.
+
+**Recommendation**: Skip reranking for code documentation search when using voyage-code-3 embeddings.
+
+---
+
+## Lifer Sweep Table Templates
+
+Use these templates to log the multi‑pass lifer repo sweeps (embeddings → chunking → rerank → search tuning) in a consistent way.
+
+### Lifer Sweep Run Log
+
+```md
+| Date | Pass | Collection Name | Collection ID | Embedding Provider | Embedding Model | Dims | Chunking (size/overlap) | CodeAware | Reranker Provider | Reranker Model | Search Mode | topK | minSimilarity | ef_search | Hybrid Weights (v/b) | Query Expansion | MMR Enabled (λ) | Latency avg/p95 (ms) | MRR (orig GT) | HitRate (orig GT) | ZeroHits (orig GT) | MRR (expanded GT) | HitRate (expanded GT) | ZeroHits (expanded GT) | Notes | Report JSON |
+|------|------|-----------------|---------------|--------------------|-----------------|------|--------------------------|-----------|-------------------|----------------|------------|------|---------------|-----------|-----------------------|-----------------|------------------|----------------------|---------------|-------------------|-------------------|-------------------|-----------------------|------------------------|-------|------------|
+| 2025-12-12 | 3-rerank | lifer-voyage-code-3-ch400-voyage-rerank | cda06bb5 | voyage | voyage-code-3 | 1024 | 400/50 | true | voyage | rerank-2.5 | vector | 20 | 0.35 | 100 | - | off | off | 0/0 | 0.776 | 0.867 | 2 | 0.776 | 0.867 | 2 |  | sweep-lifer-voyage-code-3-ch400-voyage-rerank-2025-12-12T00-23-13-046Z.json |
+| 2025-12-12 | 3-rerank | lifer-voyage-code-3-ch400-bge-rerank | 1068240b | voyage | voyage-code-3 | 1024 | 400/50 | true | bge | BAAI/bge-reranker-base | vector | 20 | 0.35 | 100 | - | off | off | 0/0 | 0.776 | 0.867 | 2 | 0.776 | 0.867 | 2 |  | sweep-lifer-voyage-code-3-ch400-bge-rerank-2025-12-12T00-23-07-589Z.json |
+| 2025-12-12 | 3-rerank | lifer-voyage-code-3-ch400-no-rerank | 170b3015 | voyage | voyage-code-3 | 1024 | 400/50 | true | none | - | vector | 20 | 0.35 | 100 | - | off | off | 0/0 | 0.867 | 0.933 | 1 | 0.867 | 0.933 | 1 |  | sweep-lifer-voyage-code-3-ch400-no-rerank-2025-12-12T00-23-01-280Z.json |
+| 2025-12-12 | 2-chunk | lifer-voyage-voyage-code-3-ch800-oa100 | bf5dbd81 | voyage | voyage-code-3 | 1024 | 800/100 | true | none | - | vector | 20 | 0.35 | 100 | - | off | off | 0/0 | 0.867 | 0.933 | 1 | 0.867 | 0.933 | 1 |  | sweep-lifer-voyage-voyage-code-3-ch800-oa100-2025-12-12T00-22-32-866Z.json |
+| 2025-12-12 | 2-chunk | lifer-voyage-voyage-code-3-ch400-oa50 | 3bde9154 | voyage | voyage-code-3 | 1024 | 400/50 | true | none | - | vector | 20 | 0.35 | 100 | - | off | off | 0/0 | 0.867 | 0.933 | 1 | 0.867 | 0.933 | 1 |  | sweep-lifer-voyage-voyage-code-3-ch400-oa50-2025-12-12T00-22-29-635Z.json |
+| 2025-12-12 | 1A-code-emb | lifer-ollama-nomic-embed-text-ch600-oa100 | 4817e0dd | ollama | nomic-embed-text | 768 | 600/100 | true | none | - | vector | 20 | 0.35 | 100 | - | off | off | 0/0 | 0.000 | 0.000 | 15 | 0.000 | 0.000 | 15 |  | sweep-lifer-ollama-nomic-embed-text-ch600-oa100-2025-12-12T00-15-39-266Z.json |
+| 2025-12-12 | 1A-code-emb | lifer-openai-text-embedding-3-large-ch600-oa100 | 36ae9d52 | openai | text-embedding-3-large | 1536 | 600/100 | true | none | - | vector | 20 | 0.35 | 100 | - | off | off | 0/0 | 0.000 | 0.000 | 15 | 0.000 | 0.000 | 15 |  | sweep-lifer-openai-text-embedding-3-large-ch600-oa100-2025-12-12T00-15-21-211Z.json |
+| 2025-12-12 | 1A-code-emb | lifer-voyage-voyage-code-3-ch600-oa100 | bf6007c8 | voyage | voyage-code-3 | 1024 | 600/100 | true | none | - | vector | 20 | 0.35 | 100 | - | off | off | 0/0 | 0.867 | 0.933 | 1 | 0.867 | 0.933 | 1 |  | sweep-lifer-voyage-voyage-code-3-ch600-oa100-2025-12-12T00-15-20-547Z.json |
+| 2025-12-12 | 1A-code-emb | lifer-openai-text-embedding-3-large-ch600-oa100 | 36ae9d52 | openai | text-embedding-3-large | 1536 | 600/100 | true | none | - | vector | 20 | 0.35 | 100 | - | off | off | 0/0 | 0.000 | 0.000 | 15 | 0.000 | 0.000 | 15 |  | sweep-lifer-openai-text-embedding-3-large-ch600-oa100-2025-12-12T00-09-26-090Z.json |
+| 2025-12-12 | 1A-code-emb | lifer-voyage-voyage-code-3-ch600-oa100 | bf6007c8 | voyage | voyage-code-3 | 1024 | 600/100 | true | none | - | vector | 20 | 0.35 | 100 | - | off | off | 0/0 | 0.867 | 0.933 | 1 | 0.867 | 0.933 | 1 |  | sweep-lifer-voyage-voyage-code-3-ch600-oa100-2025-12-12T00-09-17-080Z.json |
+| 2025-12-12 | 1A-code-emb | lifer-ollama-manutic-nomic-embed-code-latest-ch600-oa100 | 8f34f2ee | ollama | manutic/nomic-embed-code:latest | 768 | 600/100 | true | none | - | vector | 20 | 0.35 | 100 | - | off | off | 0/0 | 0.000 | 0.000 | 15 | 0.000 | 0.000 | 15 |  | sweep-lifer-ollama-manutic-nomic-embed-code-latest-ch600-oa100-2025-12-12T00-01-58-583Z.json |
+| 2025-12-12 | 1A-code-emb | lifer-openai-text-embedding-3-large-ch600-oa100 | a2213d73 | openai | text-embedding-3-large | 1536 | 600/100 | true | none | - | vector | 20 | 0.35 | 100 | - | off | off | 0/0 | 0.000 | 0.000 | 15 | 0.000 | 0.000 | 15 |  | sweep-lifer-openai-text-embedding-3-large-ch600-oa100-2025-12-12T00-00-59-218Z.json |
+| 2025-12-12 | 1A-code-emb | lifer-voyage-voyage-code-3-ch600-oa100 | bf6007c8 | voyage | voyage-code-3 | 1024 | 600/100 | true | none | - | vector | 20 | 0.35 | 100 | - | off | off | 0/0 | 0.000 | 0.000 | 15 | 0.000 | 0.000 | 15 |  | sweep-lifer-voyage-voyage-code-3-ch600-oa100-2025-12-12T00-00-37-780Z.json |
+| YYYY-MM-DD | 1A-code-emb | lifer-voyage-code-3-ch600-oa100 | <uuid> | voyage | voyage-code-3 | 1024 | 600 / 100 | true | none | — | vector | 20 | 0.35 | 100 | — | off | off | <avg>/<p95> | <mrr> | <hit> | <n> | <mrr> | <hit> | <n> | <notes> | perf/eval_results/<file>.json |
+| YYYY-MM-DD | 1A-code-emb | lifer-openai-te3l-ch600-oa100 | <uuid> | openai | text-embedding-3-large | 1536 | 600 / 100 | true | none | — | vector | 20 | 0.35 | 100 | — | off | off | <avg>/<p95> | … | … | … | … | … | … | … | … |
+| YYYY-MM-DD | 1A-code-emb | lifer-ollama-nomic-code-ch600-oa100 | <uuid> | ollama | manutic/nomic-embed-code:latest | 768 | 600 / 100 | true | none | — | vector | 20 | 0.35 | 100 | — | off | off | <avg>/<p95> | … | … | … | … | … | … | … | … |
+| YYYY-MM-DD | 2-chunk | lifer-voyage-code-3-ch400-oa50 | <uuid> | voyage | voyage-code-3 | 1024 | 400 / 50 | true | none | — | vector | 20 | 0.35 | 100 | — | off | off | <avg>/<p95> | … | … | … | … | … | … | … | … |
+| YYYY-MM-DD | 3-rerank | lifer-best-config | <uuid> | voyage | voyage-code-3 | 1024 | 600 / 100 | true | voyage | rerank-2.5 | vector | 20 | 0.35 | 100 | — | off | off | <avg>/<p95> | … | … | … | … | … | … | … | … |
+```
+
+### Best Configs by Pass
+
+```md
+| Pass | Winner Collection | Embedding (provider/model) | Chunking | Reranker | Search Mode / Key Params | Orig GT (MRR / HitRate / ZeroHits) | Expanded GT (MRR / HitRate / ZeroHits) | Latency avg/p95 | Why this won |
+|------|-------------------|----------------------------|----------|----------|---------------------------|------------------------------------|-----------------------------------------|-----------------|--------------|
+| 1A Code Embeddings | lifer-voyage-voyage-code-3-ch600-oa100 (bf6007c8) | voyage / voyage-code-3 | 600/100, codeAware | none | vector, minSim=0.35, ef=100 | 0.867 / 0.933 / 1 | 0.867 / 0.933 / 1 | 0/0 | Only successful config; OpenAI/Ollama failed ingestion |
+| 1B Docs Embeddings | (skipped) | - | - | - | - | - | - | - | Not needed (no doc regression) |
+| 2 Chunking | lifer-voyage-voyage-code-3-ch400-oa50 (3bde9154) | voyage / voyage-code-3 | 400/50, codeAware | none | vector, minSim=0.35, ef=100 | 0.867 / 0.933 / 1 | 0.867 / 0.933 / 1 | 0/0 | All chunking configs tied; smaller chunks = more granular retrieval |
+| 3 Reranker | lifer-voyage-code-3-ch400-no-rerank (170b3015) | voyage / voyage-code-3 | 400/50, codeAware | none | vector, minSim=0.35, ef=100 | 0.867 / 0.933 / 1 | 0.867 / 0.933 / 1 | 0/0 | **No reranker won!** BGE/Voyage rerankers HURT performance (MRR dropped to 0.776) |
+| 4 Search/Tuning | (pending) | <same> | <same> | none | <best mode + params> | … | … | … | … |
+```

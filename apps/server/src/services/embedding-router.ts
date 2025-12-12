@@ -2,7 +2,7 @@ import { getPool } from '@synthesis/db';
 import type { DocumentMetadata } from '@synthesis/shared';
 import { getModelConfigService } from './model-config-service.js';
 
-export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage';
+export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage' | 'cohere' | 'google';
 
 export interface EmbeddingConfig {
   provider: EmbeddingProvider;
@@ -17,13 +17,60 @@ export interface ContentContext {
   isPersonalCollection?: boolean;
 }
 
+/**
+ * Model dimension map for all supported embedding models
+ */
+export const MODEL_DIMENSIONS: Record<string, number> = {
+  // Voyage v3.5 models (1024 dims default, general-purpose)
+  'voyage-3.5': 1024, // General + multilingual
+  'voyage-3.5-lite': 1024, // Fast general
+  // Voyage v3 models (1024 dims default)
+  'voyage-code-3': 1024, // Best for code retrieval
+  'voyage-3-large': 1024, // General-purpose
+  // Voyage v2 models (legacy)
+  'voyage-code-2': 1536,
+  'voyage-large-2': 1536,
+  'voyage-2': 1024,
+  // OpenAI models
+  'text-embedding-3-large': 1536,
+  'text-embedding-3-small': 1536,
+  'text-embedding-ada-002': 1536,
+  // Cohere models
+  'embed-v4.0': 1536,
+  'embed-english-v3.0': 1024,
+  'embed-multilingual-v3.0': 1024,
+  // Google models
+  'text-embedding-004': 768,
+  'gemini-embedding-001': 768,
+  // Ollama models
+  'nomic-embed-text': 768,
+  'mxbai-embed-large': 1024,
+  'jina-embeddings-v2-base-code': 768, // Code-specialized, 30+ languages
+};
+
+/**
+ * Get dimensions for a model, with fallback to provider default
+ */
+export function getModelDimensions(model: string, provider?: EmbeddingProvider): number {
+  if (MODEL_DIMENSIONS[model]) {
+    return MODEL_DIMENSIONS[model];
+  }
+  // Fallback to provider defaults (kept in sync with PROVIDER_CONFIGS)
+  if (provider) {
+    return PROVIDER_CONFIGS[provider].dimensions;
+  }
+  return 768; // Ultimate fallback
+}
+
 const PROVIDER_CONFIGS: Record<EmbeddingProvider, EmbeddingConfig> = {
   ollama: { provider: 'ollama', model: 'nomic-embed-text', dimensions: 768 },
   openai: { provider: 'openai', model: 'text-embedding-3-large', dimensions: 1536 },
-  voyage: { provider: 'voyage', model: 'voyage-code-2', dimensions: 1024 },
+  voyage: { provider: 'voyage', model: 'voyage-code-3', dimensions: 1024 }, // Updated to v3
+  cohere: { provider: 'cohere', model: 'embed-v4.0', dimensions: 1536 }, // Updated to v4
+  google: { provider: 'google', model: 'text-embedding-004', dimensions: 768 },
 };
 
-const SUPPORTED_PROVIDERS: EmbeddingProvider[] = ['ollama', 'openai', 'voyage'];
+const SUPPORTED_PROVIDERS: EmbeddingProvider[] = ['ollama', 'openai', 'voyage', 'cohere', 'google'];
 
 export function isEmbeddingProvider(candidate: string | undefined): candidate is EmbeddingProvider {
   return candidate !== undefined && SUPPORTED_PROVIDERS.includes(candidate as EmbeddingProvider);
@@ -103,7 +150,7 @@ export async function selectEmbeddingProviderAsync(
     return {
       provider,
       model: config.model,
-      dimensions: PROVIDER_CONFIGS[provider]?.dimensions ?? 768,
+      dimensions: getModelDimensions(config.model, provider),
     };
   } catch {
     // Fall back to synchronous method if service unavailable

@@ -1,4 +1,5 @@
 import { performance } from 'node:perf_hooks';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getPool } from '@synthesis/db';
 import { Ollama } from 'ollama';
 import OpenAI from 'openai';
@@ -22,6 +23,18 @@ type VoyageClient = {
   }>;
 };
 
+type CohereClient = {
+  embed: (request: {
+    texts: string[];
+    model: string;
+    inputType: string;
+    embeddingTypes?: string[];
+    outputDimension?: number;
+  }) => Promise<{
+    embeddings?: { float?: number[][] };
+  }>;
+};
+
 interface OllamaClient {
   embeddings: (input: { model: string; prompt: string }) => Promise<{ embedding: unknown }>;
 }
@@ -29,6 +42,8 @@ interface OllamaClient {
 let cachedOllama: OllamaClient | null = null;
 let cachedOpenAI: OpenAI | null = null;
 let cachedVoyage: VoyageClient | null = null;
+let cachedCohere: CohereClient | null = null;
+let cachedGoogle: GoogleGenerativeAI | null = null;
 
 const DEFAULT_BATCH_SIZE = 10;
 const DEFAULT_MAX_RETRIES = 3;
@@ -71,6 +86,14 @@ export function __setOpenAIClientForTesting(client: OpenAI | null): void {
 
 export function __setVoyageClientForTesting(client: VoyageClient | null): void {
   cachedVoyage = client;
+}
+
+export function __setCohereClientForTesting(client: CohereClient | null): void {
+  cachedCohere = client;
+}
+
+export function __setGoogleClientForTesting(client: GoogleGenerativeAI | null): void {
+  cachedGoogle = client;
 }
 
 function getOllamaClient(): OllamaClient {
@@ -133,18 +156,28 @@ export async function embedText(text: string, options: EmbedOptions = {}): Promi
       console.error('Cost tracking failed:', err)
     );
 
+    // Use actual returned dimension, not static config
+    const actualDimensions = embedding.length;
+    if (actualDimensions !== primaryConfig.dimensions) {
+      console.warn(
+        `[Embed] Dimension mismatch for ${primaryConfig.provider}/${primaryConfig.model}: ` +
+          `MODEL_DIMENSIONS says ${primaryConfig.dimensions}, provider returned ${actualDimensions}. ` +
+          'Consider updating MODEL_DIMENSIONS map.'
+      );
+    }
+
     setCachedEmbedding(cacheKey, {
       embedding,
       provider: primaryConfig.provider,
       model: primaryConfig.model,
-      dimensions: primaryConfig.dimensions,
+      dimensions: actualDimensions,
     });
 
     return {
       embedding,
       provider: primaryConfig.provider,
       model: primaryConfig.model,
-      dimensions: primaryConfig.dimensions,
+      dimensions: actualDimensions,
       usedFallback: false,
     };
   } catch (error) {
@@ -184,18 +217,28 @@ export async function embedText(text: string, options: EmbedOptions = {}): Promi
       console.error('Cost tracking failed:', err)
     );
 
+    // Use actual returned dimension, not static config
+    const actualDimensions = embedding.length;
+    if (actualDimensions !== fallbackConfig.dimensions) {
+      console.warn(
+        `[Embed] Dimension mismatch for ${fallbackConfig.provider}/${fallbackConfig.model}: ` +
+          `MODEL_DIMENSIONS says ${fallbackConfig.dimensions}, provider returned ${actualDimensions}. ` +
+          'Consider updating MODEL_DIMENSIONS map.'
+      );
+    }
+
     setCachedEmbedding(fallbackKey, {
       embedding,
       provider: fallbackConfig.provider,
       model: fallbackConfig.model,
-      dimensions: fallbackConfig.dimensions,
+      dimensions: actualDimensions,
     });
 
     return {
       embedding,
       provider: fallbackConfig.provider,
       model: fallbackConfig.model,
-      dimensions: fallbackConfig.dimensions,
+      dimensions: actualDimensions,
       usedFallback: true,
     };
   }
@@ -280,6 +323,10 @@ async function generateEmbedding(
       return embedWithOpenAI(text, config);
     case 'voyage':
       return embedWithVoyage(text, config);
+    case 'cohere':
+      return embedWithCohere(text, config);
+    case 'google':
+      return embedWithGoogle(text, config);
     default:
       throw new Error(`Unsupported embedding provider: ${config.provider}`);
   }
@@ -351,6 +398,45 @@ async function embedWithVoyage(text: string, config: EmbeddingConfig): Promise<n
   return embedding.map(validateEmbeddingValue);
 }
 
+async function embedWithCohere(text: string, config: EmbeddingConfig): Promise<number[]> {
+  const client = await getCohereClient();
+  const response = await client.embed({
+    texts: [text],
+    model: config.model,
+    inputType: 'search_document',
+    embeddingTypes: ['float'],
+    outputDimension: config.dimensions,
+  });
+
+  const embeddings = response.embeddings?.float;
+  if (!embeddings || !Array.isArray(embeddings) || embeddings.length === 0) {
+    throw new Error('Cohere embedding response missing embeddings array');
+  }
+
+  const embedding = embeddings[0];
+  if (!embedding || !Array.isArray(embedding)) {
+    throw new Error('Cohere embedding response missing embedding array');
+  }
+
+  return embedding.map(validateEmbeddingValue);
+}
+
+async function embedWithGoogle(text: string, config: EmbeddingConfig): Promise<number[]> {
+  const client = getGoogleClient();
+  const model = client.getGenerativeModel({ model: config.model });
+  // Note: @google/generative-ai SDK v0.24.1 does not expose outputDimensionality parameter.
+  // Google models return fixed dimensions per model (768 for text-embedding-004).
+  // SDK is deprecated; migration to @google/genai planned for future release.
+  const response = await model.embedContent(text);
+
+  const embedding = response.embedding?.values;
+  if (!embedding || !Array.isArray(embedding)) {
+    throw new Error('Google embedding response missing embedding array');
+  }
+
+  return embedding.map(validateEmbeddingValue);
+}
+
 async function withRetry<T>(
   fn: () => Promise<T>,
   maxRetries: number,
@@ -417,6 +503,43 @@ async function loadVoyageModule(): Promise<{
   VoyageAIClient: new (options: { apiKey?: string }) => VoyageClient;
 }> {
   return import('@voyageai/voyageai');
+}
+
+async function getCohereClient(): Promise<CohereClient> {
+  if (cachedCohere) {
+    return cachedCohere;
+  }
+
+  const apiKey = process.env.COHERE_API_KEY;
+  if (!apiKey) {
+    throw new Error('COHERE_API_KEY environment variable is not set');
+  }
+
+  const module = await loadCohereModule();
+  cachedCohere = new module.CohereClientV2({ token: apiKey }) as CohereClient;
+  return cachedCohere;
+}
+
+async function loadCohereModule(): Promise<{
+  CohereClientV2: new (options: { token?: string }) => CohereClient;
+}> {
+  return import('cohere-ai') as unknown as {
+    CohereClientV2: new (options: { token?: string }) => CohereClient;
+  };
+}
+
+function getGoogleClient(): GoogleGenerativeAI {
+  if (cachedGoogle) {
+    return cachedGoogle;
+  }
+
+  const apiKey = process.env.GOOGLE_API_KEY;
+  if (!apiKey) {
+    throw new Error('GOOGLE_API_KEY environment variable is not set');
+  }
+
+  cachedGoogle = new GoogleGenerativeAI(apiKey);
+  return cachedGoogle;
 }
 
 /**

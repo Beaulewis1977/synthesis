@@ -274,8 +274,100 @@ export async function extract(
     return extractPlainText(buffer);
   }
 
-  // Fallback for code files (prevents "Unsupported content type" errors)
-  if (['dart', 'ts', 'tsx', 'js', 'jsx', 'sql', 'yaml', 'yml', 'json'].includes(ext || '')) {
+  // XML files (Android manifests, iOS configs, etc.)
+  if (type.includes('xml') || ext === 'xml' || ext === 'plist') {
+    return extractPlainText(buffer);
+  }
+
+  // Comprehensive list of code/config file extensions
+  const CODE_EXTENSIONS = [
+    // Already supported languages
+    'dart',
+    'ts',
+    'tsx',
+    'js',
+    'jsx',
+    'sql',
+    'yaml',
+    'yml',
+    'json',
+    // Mobile native
+    'swift',
+    'kt',
+    'java',
+    'm',
+    'h',
+    'mm',
+    // Config files
+    'gradle',
+    'properties',
+    'toml',
+    'ini',
+    'cfg',
+    // Web
+    'html',
+    'htm',
+    'css',
+    'scss',
+    'sass',
+    'less',
+    'vue',
+    'svelte',
+    // Infrastructure
+    'hcl',
+    'tf',
+    'prisma',
+    'graphql',
+    'gql',
+    // Scripts
+    'sh',
+    'bash',
+    'zsh',
+    'ps1',
+    'bat',
+    'cmd',
+    // Other languages
+    'rb',
+    'py',
+    'go',
+    'rs',
+    'c',
+    'cpp',
+    'cs',
+    'php',
+    'r',
+    'lua',
+    // Config/meta
+    'env',
+    'gitignore',
+    'dockerignore',
+    'editorconfig',
+    'prettierrc',
+    'eslintrc',
+    'lock',
+    'sum',
+  ];
+
+  if (CODE_EXTENSIONS.includes(ext || '')) {
+    return extractPlainText(buffer);
+  }
+
+  // Handle extensionless files (Dockerfile, Makefile, etc.)
+  const EXTENSIONLESS_FILES = [
+    'dockerfile',
+    'makefile',
+    'gemfile',
+    'podfile',
+    'procfile',
+    'vagrantfile',
+    'brewfile',
+    'rakefile',
+    'guardfile',
+    'containerfile',
+  ];
+
+  const baseFilename = filename?.toLowerCase().split('/').pop() || '';
+  if (EXTENSIONLESS_FILES.includes(baseFilename)) {
     return extractPlainText(buffer);
   }
 

@@ -1,11 +1,11 @@
 {
   "metadata": {
-    "name": "lifer-flutter-eval",
-    "description": "Evaluation dataset for lifer Flutter app - verified ground truth with portable file paths",
+    "name": "lifer-flutter-eval-expanded",
+    "description": "Evaluation dataset for lifer Flutter app - verified ground truth with portable file paths (LLM-expanded)",
     "version": "1.1.0",
     "createdAt": "2025-12-11T00:00:00.000Z",
     "updatedAt": "2025-12-12T00:00:00.000Z",
-    "source": "manual-verified"
+    "source": "mixed"
   },
   "queries": [
     {
@@ -17,7 +17,10 @@
       "relevantDocIds": ["b1d64fee-745b-419a-bab9-59af4141e564"],
       "relevantFilePaths": ["lib/main.dart"],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["supabase", "initialize"]
+      "requiredKeywords": ["supabase", "initialize"],
+      "metadata": {
+        "notes": "Expanded from 1 to 1 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     },
     {
       "id": "lifer-2",
@@ -28,7 +31,10 @@
       "relevantDocIds": ["6ad3cd7c-9794-4e77-9da3-b4bbcfab8511"],
       "relevantFilePaths": ["lib/core/helpers/app_regex.dart"],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["email", "regex", "valid"]
+      "requiredKeywords": ["email", "regex", "valid"],
+      "metadata": {
+        "notes": "Expanded from 1 to 1 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     },
     {
       "id": "lifer-3",
@@ -39,7 +45,10 @@
       "relevantDocIds": ["6ad3cd7c-9794-4e77-9da3-b4bbcfab8511"],
       "relevantFilePaths": ["lib/core/helpers/app_regex.dart"],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["password", "regex", "special"]
+      "requiredKeywords": ["password", "regex", "special"],
+      "metadata": {
+        "notes": "Expanded from 1 to 1 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     },
     {
       "id": "lifer-4",
@@ -47,10 +56,16 @@
       "category": "code",
       "difficulty": "easy",
       "queryType": "lookup",
-      "relevantDocIds": ["e563f1d0-df26-4492-ad33-9124189d7a54"],
-      "relevantFilePaths": ["lib/core/theming/app_colors.dart"],
+      "relevantDocIds": [
+        "e563f1d0-df26-4492-ad33-9124189d7a54",
+        "151fecf5-d04f-4241-9348-ed25f32b492d"
+      ],
+      "relevantFilePaths": ["lib/core/theming/app_colors.dart", "lib/core/theming/app_theme.dart"],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["color", "theme"]
+      "requiredKeywords": ["color", "theme"],
+      "metadata": {
+        "notes": "Expanded from 1 to 2 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     },
     {
       "id": "lifer-5",
@@ -61,7 +76,10 @@
       "relevantDocIds": ["151fecf5-d04f-4241-9348-ed25f32b492d"],
       "relevantFilePaths": ["lib/core/theming/app_theme.dart"],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["theme", "material"]
+      "requiredKeywords": ["theme", "material"],
+      "metadata": {
+        "notes": "Expanded from 1 to 1 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     },
     {
       "id": "lifer-6",
@@ -72,7 +90,10 @@
       "relevantDocIds": ["6decff36-c05a-4c5c-9f94-ddc170fa097d"],
       "relevantFilePaths": ["lib/core/helpers/app_strings.dart"],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["arabic", "string", "translation"]
+      "requiredKeywords": ["arabic", "string", "translation"],
+      "metadata": {
+        "notes": "Expanded from 1 to 1 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     },
     {
       "id": "lifer-7",
@@ -83,7 +104,10 @@
       "relevantDocIds": ["6056a7aa-cd68-434c-a218-74aeff098467"],
       "relevantFilePaths": ["lib/core/widgets/loading_widget.dart"],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["loading", "widget"]
+      "requiredKeywords": ["loading", "widget"],
+      "metadata": {
+        "notes": "Expanded from 1 to 1 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     },
     {
       "id": "lifer-8",
@@ -91,10 +115,19 @@
       "category": "code",
       "difficulty": "easy",
       "queryType": "lookup",
-      "relevantDocIds": ["1f1058ce-1552-411d-9dee-afa8c12c4efc"],
-      "relevantFilePaths": ["lib/core/utils/shared_pref_keys.dart"],
+      "relevantDocIds": [
+        "1f1058ce-1552-411d-9dee-afa8c12c4efc",
+        "db8669b2-0395-4809-96d9-c86f95cdda63"
+      ],
+      "relevantFilePaths": [
+        "lib/core/utils/shared_pref_keys.dart",
+        "lib/core/utils/user_manager.dart"
+      ],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["shared", "pref", "key"]
+      "requiredKeywords": ["shared", "pref", "key"],
+      "metadata": {
+        "notes": "Expanded from 1 to 2 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     },
     {
       "id": "lifer-9",
@@ -105,7 +138,10 @@
       "relevantDocIds": ["bd10ed29-20d2-41e4-9b8c-7ab8351afb25"],
       "relevantFilePaths": ["lib/core/utils/notifications_service.dart"],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["notification", "service"]
+      "requiredKeywords": ["notification", "service"],
+      "metadata": {
+        "notes": "Expanded from 1 to 1 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     },
     {
       "id": "lifer-10",
@@ -116,7 +152,10 @@
       "relevantDocIds": ["6f6e3268-07a3-49d7-943b-86ffb6895db7"],
       "relevantFilePaths": ["lib/core/theming/font_weight_helper.dart"],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["font", "weight"]
+      "requiredKeywords": ["font", "weight"],
+      "metadata": {
+        "notes": "Expanded from 1 to 1 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     },
     {
       "id": "lifer-11",
@@ -127,7 +166,10 @@
       "relevantDocIds": ["a5c47b8e-a86e-40d7-9683-9f43b250fc3c"],
       "relevantFilePaths": ["lib/core/widgets/app_text_form_field.dart"],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["text", "form", "field"]
+      "requiredKeywords": ["text", "form", "field"],
+      "metadata": {
+        "notes": "Expanded from 1 to 1 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     },
     {
       "id": "lifer-12",
@@ -138,7 +180,10 @@
       "relevantDocIds": ["741f1469-14e0-46bd-b815-121afaf603e5"],
       "relevantFilePaths": ["lib/core/widgets/app_text_button.dart"],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["text", "button"]
+      "requiredKeywords": ["text", "button"],
+      "metadata": {
+        "notes": "Expanded from 1 to 1 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     },
     {
       "id": "lifer-13",
@@ -146,10 +191,25 @@
       "category": "code",
       "difficulty": "easy",
       "queryType": "lookup",
-      "relevantDocIds": ["19535b99-f515-43b7-9c48-93154a4ce661"],
-      "relevantFilePaths": ["lib/core/helpers/app_assets.dart"],
+      "relevantDocIds": [
+        "19535b99-f515-43b7-9c48-93154a4ce661",
+        "aa3242eb-b7d5-4a44-b713-dc445e100249",
+        "b09988e0-c9cf-44d0-99b7-b52155da6e0c",
+        "6c95fef5-8f30-4977-acc9-cbb9fd3c8f0c",
+        "dc0b3eaa-72cd-41cd-b887-8dac086bce94"
+      ],
+      "relevantFilePaths": [
+        "lib/core/helpers/app_assets.dart",
+        "ios/Runner.xcodeproj/project.pbxproj",
+        "macos/Runner.xcodeproj/project.pbxproj",
+        "ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md",
+        "ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json"
+      ],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["asset", "image", "path"]
+      "requiredKeywords": ["asset", "image", "path"],
+      "metadata": {
+        "notes": "Expanded from 1 to 5 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     },
     {
       "id": "lifer-14",
@@ -160,7 +220,10 @@
       "relevantDocIds": ["b1d64fee-745b-419a-bab9-59af4141e564"],
       "relevantFilePaths": ["lib/main.dart"],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["riverpod", "provider"]
+      "requiredKeywords": ["riverpod", "provider"],
+      "metadata": {
+        "notes": "Expanded from 1 to 1 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     },
     {
       "id": "lifer-15",
@@ -171,7 +234,10 @@
       "relevantDocIds": ["b48baccf-7d16-4bf4-9a57-7a99b6785fb3"],
       "relevantFilePaths": ["lib/core/utils/extensions.dart"],
       "collectionId": "05cab0fa-6c92-4ad3-9bf7-b0e4144081e2",
-      "requiredKeywords": ["extension", "string"]
+      "requiredKeywords": ["extension", "string"],
+      "metadata": {
+        "notes": "Expanded from 1 to 1 docs (model: claude-sonnet-4-20250514, threshold: 0.7)"
+      }
     }
   ]
 }

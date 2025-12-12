@@ -372,7 +372,16 @@ export class ApiKeyService {
 
   private async testZhipuKey(key: string): Promise<{ valid: boolean; message: string }> {
     try {
-      const response = await fetch('https://api.z.ai/api/paas/v4/chat/completions', {
+      // Check if coding plan endpoint is enabled
+      const settingsService = getProviderSettingsService(this.db);
+      const useCodingPlan = await settingsService.isZhipuCodingPlanEnabled();
+
+      // Use appropriate endpoint based on setting
+      const baseURL = useCodingPlan
+        ? 'https://api.z.ai/api/coding/paas/v4'
+        : 'https://api.z.ai/api/paas/v4';
+
+      const response = await fetch(`${baseURL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -384,7 +393,10 @@ export class ApiKeyService {
           max_tokens: 1,
         }),
       });
-      if (response.ok) return { valid: true, message: 'API key is valid' };
+      if (response.ok) {
+        const endpointType = useCodingPlan ? 'Coding Plan' : 'Pay-per-use';
+        return { valid: true, message: `API key is valid (${endpointType} endpoint)` };
+      }
       if (response.status === 401) return { valid: false, message: 'Invalid API key' };
 
       const data = (await response.json().catch(() => ({}))) as { error?: { message?: string } };

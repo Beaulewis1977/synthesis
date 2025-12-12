@@ -45,16 +45,31 @@ export class EmbeddingProfileService {
       return this.allProfilesCache.profiles;
     }
 
-    const result = await this.db.query<EmbeddingProfileRow>(
-      'SELECT * FROM embedding_profiles ORDER BY is_system DESC, name ASC'
-    );
+    try {
+      const result = await this.db.query<EmbeddingProfileRow>(
+        'SELECT * FROM embedding_profiles ORDER BY is_system DESC, name ASC'
+      );
 
-    const profiles = result.rows.map(rowToEmbeddingProfile);
+      const profiles = result.rows.map(rowToEmbeddingProfile);
 
-    // Update cache
-    this.allProfilesCache = { profiles, timestamp: Date.now() };
+      // Update cache
+      this.allProfilesCache = { profiles, timestamp: Date.now() };
 
-    return profiles;
+      return profiles;
+    } catch {
+      // Fallback to in-memory presets if DB table doesn't exist
+      const profiles = Object.values(PROFILE_PRESETS).map((preset, index) => ({
+        ...preset,
+        id: `preset-${index}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+
+      // Update cache with fallback
+      this.allProfilesCache = { profiles, timestamp: Date.now() };
+
+      return profiles;
+    }
   }
 
   /**
@@ -402,6 +417,16 @@ export class EmbeddingProfileService {
    */
   clearCache(): void {
     this.invalidateCache();
+  }
+
+  /**
+   * Check if profile indicates manual/per-type configuration
+   *
+   * When this returns true, the pipeline should use per-type model configs
+   * instead of the profile's provider/model settings.
+   */
+  isManualProfile(profile: EmbeddingProfile): boolean {
+    return profile.name === 'none' || !profile.provider;
   }
 
   /**

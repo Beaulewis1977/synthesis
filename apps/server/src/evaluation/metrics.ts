@@ -237,20 +237,39 @@ export function calculateRetrievalMetrics(
       relevantIds = new Set(relevantDocIds);
   }
 
+  // In doc-level evaluation, multiple chunks from the same document can appear in results.
+  // Deduplicate by docId to avoid inflating recall/NDCG beyond 1.0.
+  const resultsForScoring = useChunkIds ? results : dedupeResultsByDocId(results);
+
   return {
-    mrr: calculateMRR(results, relevantIds, useChunkIds),
-    ndcg_at_5: calculateNDCG(results, relevantIds, 5, useChunkIds),
-    ndcg_at_10: calculateNDCG(results, relevantIds, 10, useChunkIds),
-    recall_at_3: calculateRecall(results, relevantIds, 3, useChunkIds),
-    recall_at_5: calculateRecall(results, relevantIds, 5, useChunkIds),
-    recall_at_10: calculateRecall(results, relevantIds, 10, useChunkIds),
-    precision_at_5: calculatePrecision(results, relevantIds, 5, useChunkIds),
-    hit_rate: calculateHitRate(results, relevantIds, useChunkIds),
+    mrr: calculateMRR(resultsForScoring, relevantIds, useChunkIds),
+    ndcg_at_5: calculateNDCG(resultsForScoring, relevantIds, 5, useChunkIds),
+    ndcg_at_10: calculateNDCG(resultsForScoring, relevantIds, 10, useChunkIds),
+    recall_at_3: calculateRecall(resultsForScoring, relevantIds, 3, useChunkIds),
+    recall_at_5: calculateRecall(resultsForScoring, relevantIds, 5, useChunkIds),
+    recall_at_10: calculateRecall(resultsForScoring, relevantIds, 10, useChunkIds),
+    precision_at_5: calculatePrecision(resultsForScoring, relevantIds, 5, useChunkIds),
+    hit_rate: calculateHitRate(resultsForScoring, relevantIds, useChunkIds),
     latency_ms: latencyMs,
-    num_results: results.length,
+    num_results: resultsForScoring.length,
     search_mode: searchMode,
     reranked,
   };
+}
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+function dedupeResultsByDocId(results: EvalSearchResult[]): EvalSearchResult[] {
+  const seen = new Set<string>();
+  const deduped: EvalSearchResult[] = [];
+  for (const result of results) {
+    if (seen.has(result.docId)) continue;
+    seen.add(result.docId);
+    deduped.push(result);
+  }
+  return deduped;
 }
 
 // =============================================================================

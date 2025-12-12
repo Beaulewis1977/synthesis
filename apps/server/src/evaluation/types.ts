@@ -46,6 +46,9 @@ export interface EvalQuery {
   /** Document IDs that are relevant to this query (ground truth for retrieval) */
   relevantDocIds: string[];
 
+  /** File paths that are relevant (portable ground truth for cross-collection evaluation) */
+  relevantFilePaths?: string[];
+
   /** Chunk IDs that directly answer the query (more granular ground truth) */
   relevantChunkIds?: string[];
 
