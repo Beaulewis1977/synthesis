@@ -29,6 +29,7 @@ type CohereClient = {
     model: string;
     inputType: string;
     embeddingTypes?: string[];
+    outputDimension?: number;
   }) => Promise<{
     embeddings?: { float?: number[][] };
   }>;
@@ -155,18 +156,28 @@ export async function embedText(text: string, options: EmbedOptions = {}): Promi
       console.error('Cost tracking failed:', err)
     );
 
+    // Use actual returned dimension, not static config
+    const actualDimensions = embedding.length;
+    if (actualDimensions !== primaryConfig.dimensions) {
+      console.warn(
+        `[Embed] Dimension mismatch for ${primaryConfig.provider}/${primaryConfig.model}: ` +
+          `MODEL_DIMENSIONS says ${primaryConfig.dimensions}, provider returned ${actualDimensions}. ` +
+          'Consider updating MODEL_DIMENSIONS map.'
+      );
+    }
+
     setCachedEmbedding(cacheKey, {
       embedding,
       provider: primaryConfig.provider,
       model: primaryConfig.model,
-      dimensions: primaryConfig.dimensions,
+      dimensions: actualDimensions,
     });
 
     return {
       embedding,
       provider: primaryConfig.provider,
       model: primaryConfig.model,
-      dimensions: primaryConfig.dimensions,
+      dimensions: actualDimensions,
       usedFallback: false,
     };
   } catch (error) {
@@ -206,18 +217,28 @@ export async function embedText(text: string, options: EmbedOptions = {}): Promi
       console.error('Cost tracking failed:', err)
     );
 
+    // Use actual returned dimension, not static config
+    const actualDimensions = embedding.length;
+    if (actualDimensions !== fallbackConfig.dimensions) {
+      console.warn(
+        `[Embed] Dimension mismatch for ${fallbackConfig.provider}/${fallbackConfig.model}: ` +
+          `MODEL_DIMENSIONS says ${fallbackConfig.dimensions}, provider returned ${actualDimensions}. ` +
+          'Consider updating MODEL_DIMENSIONS map.'
+      );
+    }
+
     setCachedEmbedding(fallbackKey, {
       embedding,
       provider: fallbackConfig.provider,
       model: fallbackConfig.model,
-      dimensions: fallbackConfig.dimensions,
+      dimensions: actualDimensions,
     });
 
     return {
       embedding,
       provider: fallbackConfig.provider,
       model: fallbackConfig.model,
-      dimensions: fallbackConfig.dimensions,
+      dimensions: actualDimensions,
       usedFallback: true,
     };
   }
@@ -384,6 +405,7 @@ async function embedWithCohere(text: string, config: EmbeddingConfig): Promise<n
     model: config.model,
     inputType: 'search_document',
     embeddingTypes: ['float'],
+    outputDimension: config.dimensions,
   });
 
   const embeddings = response.embeddings?.float;
@@ -402,6 +424,9 @@ async function embedWithCohere(text: string, config: EmbeddingConfig): Promise<n
 async function embedWithGoogle(text: string, config: EmbeddingConfig): Promise<number[]> {
   const client = getGoogleClient();
   const model = client.getGenerativeModel({ model: config.model });
+  // Note: @google/generative-ai SDK v0.24.1 does not expose outputDimensionality parameter.
+  // Google models return fixed dimensions per model (768 for text-embedding-004).
+  // SDK is deprecated; migration to @google/genai planned for future release.
   const response = await model.embedContent(text);
 
   const embedding = response.embedding?.values;
