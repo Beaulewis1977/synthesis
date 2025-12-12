@@ -87,7 +87,7 @@ export type EmbeddingModel =
 export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage' | 'cohere' | 'google';
 
 // Phase 3: Source type for metadata guarantees
-export type SourceType = 'url' | 'repo' | 'file' | 'web'; // GPT Phase 1: Added 'web' for scraped content
+export type SourceType = 'url' | 'repo' | 'file' | 'web' | 'api'; // GPT Phase 1: Added 'web' for scraped content, 'api' for API-sourced docs
 
 // =============================================================================
 // GPT Phase 1: Mobile Feature Metadata Types

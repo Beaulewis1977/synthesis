@@ -41,7 +41,7 @@ export const MODEL_DIMENSIONS: Record<string, number> = {
   'embed-multilingual-v3.0': 1024,
   // Google models
   'text-embedding-004': 768,
-  'embedding-001': 768,
+  'gemini-embedding-001': 768,
   // Ollama models
   'nomic-embed-text': 768,
   'mxbai-embed-large': 1024,

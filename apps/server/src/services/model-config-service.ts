@@ -74,6 +74,26 @@ function isValidRerankerModel(provider: string, model: string): boolean {
 }
 
 /**
+ * Check if a model is a valid embedding model (not a reranker)
+ */
+export function isValidEmbeddingModel(provider: string, model: string): boolean {
+  const normalizedModel = model.toLowerCase();
+
+  // BGE models are reranker-only
+  if (provider === 'bge') {
+    return false;
+  }
+
+  // For Voyage and Cohere, embedding models should NOT start with 'rerank-'
+  if (provider === 'voyage' || provider === 'cohere') {
+    return !normalizedModel.startsWith('rerank-');
+  }
+
+  // For other providers (ollama, openai, google), all models in PROVIDER_INFO are embedding models
+  return true;
+}
+
+/**
  * Check if a model is valid for a given provider
  */
 export function isValidModelForProvider(provider: string, model: string): boolean {
@@ -302,6 +322,17 @@ export class ModelConfigService {
 
     if (feature === 'reranker' && provider !== 'none' && !isValidRerankerModel(provider, model)) {
       throw new Error(`Invalid reranker model '${model}' for provider '${provider}'`);
+    }
+
+    // Validate embedding models don't use reranker models
+    if (
+      ['embedding_docs', 'embedding_code', 'embedding_writing'].includes(feature) &&
+      provider !== 'none' &&
+      !isValidEmbeddingModel(provider, model)
+    ) {
+      throw new Error(
+        `Invalid embedding model '${model}' for provider '${provider}'. Reranker models cannot be used for embedding.`
+      );
     }
 
     // Check local-only constraint

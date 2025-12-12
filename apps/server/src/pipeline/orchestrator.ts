@@ -16,6 +16,7 @@ import {
 import { buildGraphForDocument } from '../services/graph-builder.js';
 import { buildMetadata } from '../services/metadata-builder.js';
 import { inferLanguages } from '../services/metadata-validator.js';
+import { getModelConfigService } from '../services/model-config-service.js';
 import { validateAndSplitChunks } from './chunk-splitter.js';
 import type { Chunk, ChunkOptions } from './chunk.js';
 import { chunkText } from './chunk.js';
@@ -154,8 +155,24 @@ export async function ingestDocument(
 
     // Validate and split chunks that exceed token limits
     // Phase 5: Use profile's provider/model for token validation
-    const embeddingProvider = options.embed?.provider ?? profile.provider;
-    const embeddingModel = options.embed?.model ?? profile.model;
+    // If profile is 'none' (manual), defer to per-type model configs from ModelConfigService
+    const isManual = profileService.isManualProfile(profile);
+
+    let embeddingProvider: string;
+    let embeddingModel: string;
+
+    if (isManual && !options.embed?.provider) {
+      // Manual profile: use per-type model config based on content context
+      const modelConfigService = getModelConfigService(db);
+      const contentType = contentContext.type === 'code' ? 'code' : 'docs';
+      const perTypeConfig = await modelConfigService.getEmbeddingConfig(contentType);
+      embeddingProvider = perTypeConfig.provider;
+      embeddingModel = perTypeConfig.model;
+    } else {
+      embeddingProvider = options.embed?.provider ?? profile.provider;
+      embeddingModel = options.embed?.model ?? profile.model;
+    }
+
     const embeddingConfig = getProviderConfig(embeddingProvider);
     const validatedChunks = validateAndSplitChunks(
       chunks,
