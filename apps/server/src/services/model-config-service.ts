@@ -50,14 +50,26 @@ export function isValidProviderForFeature(feature: ModelFeature, provider: strin
 
   // Embedding features
   if (['embedding_docs', 'embedding_code', 'embedding_writing'].includes(feature)) {
-    return ['ollama', 'openai', 'voyage', 'google'].includes(provider);
+    return ['ollama', 'openai', 'voyage', 'cohere', 'google'].includes(provider);
   }
 
   // Reranker feature
   if (feature === 'reranker') {
-    return ['bge', 'cohere', 'none'].includes(provider);
+    return ['bge', 'cohere', 'voyage', 'none'].includes(provider);
   }
 
+  return false;
+}
+
+function isValidRerankerModel(provider: string, model: string): boolean {
+  const normalizedModel = model.toLowerCase();
+  if (provider === 'bge') {
+    return normalizedModel.includes('bge-reranker');
+  }
+  if (provider === 'voyage' || provider === 'cohere') {
+    return normalizedModel.startsWith('rerank-');
+  }
+  // Unknown reranker providers/models should fail validation.
   return false;
 }
 
@@ -286,6 +298,10 @@ export class ModelConfigService {
     // Validate model for provider (skip for 'none' provider)
     if (provider !== 'none' && !isValidModelForProvider(provider, model)) {
       throw new Error(`Invalid model '${model}' for provider '${provider}'`);
+    }
+
+    if (feature === 'reranker' && provider !== 'none' && !isValidRerankerModel(provider, model)) {
+      throw new Error(`Invalid reranker model '${model}' for provider '${provider}'`);
     }
 
     // Check local-only constraint

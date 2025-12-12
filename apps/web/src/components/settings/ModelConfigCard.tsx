@@ -64,6 +64,27 @@ function getSourceLabel(source: ConfigSource): string {
   }
 }
 
+function filterModelsForFeature(feature: string, provider: string, models: string[]): string[] {
+  if (feature !== 'reranker') {
+    return models;
+  }
+
+  const normalizedProvider = provider.toLowerCase();
+  if (normalizedProvider === 'none') {
+    return [];
+  }
+
+  if (normalizedProvider === 'bge') {
+    return models.filter((m) => m.toLowerCase().includes('bge-reranker'));
+  }
+
+  if (normalizedProvider === 'voyage' || normalizedProvider === 'cohere') {
+    return models.filter((m) => m.toLowerCase().startsWith('rerank-'));
+  }
+
+  return models;
+}
+
 export function ModelConfigCard({
   config,
   availableProviders,
@@ -82,7 +103,8 @@ export function ModelConfigCard({
 
   // Get models for selected provider
   const providerInfo = availableProviders[localProvider];
-  const availableModels = providerInfo?.models || [];
+  const rawAvailableModels = providerInfo?.models || [];
+  const availableModels = filterModelsForFeature(config.feature, localProvider, rawAvailableModels);
 
   // Check if API key is missing for selected provider
   const isApiKeyMissing = providerInfo?.requiresApiKey && missingApiKeys.includes(localProvider);
@@ -114,8 +136,15 @@ export function ModelConfigCard({
     setLocalProvider(newProvider);
     // Reset model to first available for new provider
     const newProviderInfo = availableProviders[newProvider];
-    if (newProviderInfo?.models.length > 0) {
-      setLocalModel(newProviderInfo.models[0]);
+    const filteredModels = filterModelsForFeature(
+      config.feature,
+      newProvider,
+      newProviderInfo?.models || []
+    );
+    if (filteredModels.length > 0) {
+      setLocalModel(filteredModels[0]);
+    } else {
+      setLocalModel('');
     }
   };
 
@@ -137,6 +166,7 @@ export function ModelConfigCard({
       provider: localProvider,
       model: localModel,
       localOnly,
+      enabled: true, // Always enable when saving
     });
   };
 

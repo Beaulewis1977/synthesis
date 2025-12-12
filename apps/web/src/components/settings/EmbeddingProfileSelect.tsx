@@ -4,7 +4,7 @@
  * Phase 6: Dropdown for selecting embedding profiles with cost tier badges.
  */
 
-import { Check, ChevronDown, Cpu, DollarSign, Sparkles, Zap } from 'lucide-react';
+import { Check, ChevronDown, Cpu, DollarSign, Settings2, Sparkles, Zap } from 'lucide-react';
 import { useState } from 'react';
 import type { CostTier, EmbeddingProfile } from '../../types';
 
@@ -40,9 +40,32 @@ function CostBadge({ tier }: { tier: CostTier }) {
 }
 
 /**
+ * Use case badge for profiles (Code/Docs/General)
+ */
+function UseCaseBadge({ profile }: { profile: EmbeddingProfile }) {
+  if (profile.name === 'none') return null;
+
+  if (profile.codeAware || profile.name.includes('code')) {
+    return (
+      <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">Code</span>
+    );
+  }
+
+  if (profile.name.includes('docs')) {
+    return <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">Docs</span>;
+  }
+
+  return <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">General</span>;
+}
+
+/**
  * Profile icon based on characteristics
  */
 function ProfileIcon({ profile }: { profile: EmbeddingProfile }) {
+  // Manual configuration icon
+  if (profile.name === 'none') {
+    return <Settings2 size={18} className="text-accent" />;
+  }
   if (profile.costTier === 'free') {
     return <Cpu size={18} className="text-success" />;
   }
@@ -65,9 +88,14 @@ export function EmbeddingProfileSelect({
   const selectedProfile =
     profiles.find((p) => p.id === selectedId) || profiles.find((p) => p.id === defaultProfileId);
 
-  // Sort profiles: system profiles first, then by cost tier
+  // Sort profiles: 'none' (manual) first, then system profiles by cost tier, then custom
   const sortedProfiles = [...profiles].sort((a, b) => {
+    // 'none' (manual) always first
+    if (a.name === 'none') return -1;
+    if (b.name === 'none') return 1;
+    // Then system profiles before custom
     if (a.isSystem !== b.isSystem) return a.isSystem ? -1 : 1;
+    // Then by cost tier
     const tierOrder = { free: 0, low: 1, medium: 2, high: 3 };
     return tierOrder[a.costTier] - tierOrder[b.costTier];
   });
@@ -92,13 +120,16 @@ export function EmbeddingProfileSelect({
             <div className="text-left">
               <div className="flex items-center gap-sm">
                 <span className="font-medium text-text-primary">{selectedProfile.displayName}</span>
-                <CostBadge tier={selectedProfile.costTier} />
+                <UseCaseBadge profile={selectedProfile} />
+                {selectedProfile.name !== 'none' && <CostBadge tier={selectedProfile.costTier} />}
                 {selectedProfile.id === defaultProfileId && (
                   <span className="text-xs text-text-secondary">(default)</span>
                 )}
               </div>
               <span className="text-xs text-text-secondary">
-                {selectedProfile.provider} / {selectedProfile.model}
+                {selectedProfile.name === 'none'
+                  ? 'Configure each content type manually'
+                  : `${selectedProfile.provider} / ${selectedProfile.model}`}
               </span>
             </div>
           </div>
@@ -127,6 +158,8 @@ export function EmbeddingProfileSelect({
               const isSelected =
                 profile.id === selectedId || (!selectedId && profile.id === defaultProfileId);
 
+              const isManual = profile.name === 'none';
+
               return (
                 <button
                   key={profile.id}
@@ -137,13 +170,14 @@ export function EmbeddingProfileSelect({
                   }}
                   className={`w-full flex items-start gap-md p-md text-left transition-colors ${
                     isSelected ? 'bg-accent/5' : 'hover:bg-bg-secondary'
-                  }`}
+                  } ${isManual ? 'border-b border-border' : ''}`}
                 >
                   <ProfileIcon profile={profile} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-sm">
                       <span className="font-medium text-text-primary">{profile.displayName}</span>
-                      <CostBadge tier={profile.costTier} />
+                      <UseCaseBadge profile={profile} />
+                      {!isManual && <CostBadge tier={profile.costTier} />}
                       {profile.id === defaultProfileId && (
                         <span className="text-xs text-text-secondary">(default)</span>
                       )}
@@ -151,11 +185,13 @@ export function EmbeddingProfileSelect({
                     <p className="text-xs text-text-secondary mt-xs line-clamp-2">
                       {profile.description || `${profile.provider} / ${profile.model}`}
                     </p>
-                    <div className="flex items-center gap-md mt-xs text-xs text-text-secondary">
-                      <span>Chunk: {profile.chunkSize}</span>
-                      <span>Overlap: {profile.chunkOverlap}</span>
-                      {profile.codeAware && <span className="text-accent">Code-aware</span>}
-                    </div>
+                    {!isManual && (
+                      <div className="flex items-center gap-md mt-xs text-xs text-text-secondary">
+                        <span>Chunk: {profile.chunkSize}</span>
+                        <span>Overlap: {profile.chunkOverlap}</span>
+                        {profile.codeAware && <span className="text-accent">Code-aware</span>}
+                      </div>
+                    )}
                   </div>
                   {isSelected && <Check size={18} className="text-accent flex-shrink-0" />}
                 </button>

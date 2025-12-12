@@ -42,7 +42,6 @@ async function main() {
   const docs = result.rows as { id: string; title: string }[];
 
   if (docs.length === 0) {
-    console.log('No pending documents found for collection:', collectionId);
     await closePool();
     return;
   }
@@ -85,7 +84,7 @@ async function main() {
 
     // Log batch progress
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(
+    console.info(
       `Batch ${Math.floor(i / batchSize) + 1}: processed=${processed}, failed=${failed}, elapsed=${elapsed}s`
     );
   }

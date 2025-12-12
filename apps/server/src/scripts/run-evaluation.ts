@@ -19,12 +19,14 @@ import {
   compareReports,
   createConfig,
   createLLMJudge,
+  expandGroundTruth,
   generateDataset,
   loadBaselineReport,
   loadDataset,
   runEvaluation,
   saveDataset,
   saveReports,
+  validateGroundTruth,
 } from '../evaluation/index.js';
 
 // =============================================================================
@@ -127,6 +129,21 @@ const { values: args } = parseArgs({
       default: false,
       description: 'Verbose output',
     },
+    'expand-ground-truth': {
+      type: 'boolean',
+      default: false,
+      description: 'Expand ground truth using LLM judge before evaluation',
+    },
+    'expansion-threshold': {
+      type: 'string',
+      default: '0.7',
+      description: 'Confidence threshold for ground truth expansion (0-1)',
+    },
+    'validate-ground-truth': {
+      type: 'boolean',
+      default: false,
+      description: 'Validate that ground truth doc IDs exist in database',
+    },
   },
   allowPositionals: false,
 });
@@ -170,7 +187,7 @@ async function runDatasetGeneration(pool: ReturnType<typeof getPool>): Promise<v
     db: pool,
     categories,
     queriesPerCategory,
-    onProgress: (msg) => console.log(msg),
+    onProgress: (msg) => console.info(msg),
   });
 
   // Save dataset - use path relative to script location
@@ -196,6 +213,62 @@ async function runEval(pool: ReturnType<typeof getPool>): Promise<void> {
     console.error(`Failed to load dataset from ${datasetPath}`);
     console.error('Run with --generate-dataset to create a new dataset first.');
     process.exit(1);
+  }
+
+  // Validate ground truth if requested
+  if (args['validate-ground-truth']) {
+    console.info('\n=== Validating Ground Truth ===\n');
+    const validation = await validateGroundTruth(pool, dataset);
+    console.info(`Total doc IDs: ${validation.stats.total}`);
+    console.info(`Found in DB: ${validation.stats.found}`);
+    console.info(`Missing: ${validation.stats.missing}`);
+
+    if (!validation.valid) {
+      console.info('\nMissing doc IDs by query:');
+      for (const [queryId, docIds] of validation.missingDocIds) {
+        console.info(`  ${queryId}: ${docIds.join(', ')}`);
+      }
+      console.info('\nRun with --expand-ground-truth to fix these issues.');
+    } else {
+      console.info('\n✅ All ground truth doc IDs are valid!');
+    }
+    return;
+  }
+
+  // Expand ground truth if requested
+  if (args['expand-ground-truth']) {
+    console.info('\n=== Expanding Ground Truth ===\n');
+    const threshold = Number.parseFloat(args['expansion-threshold'] ?? '0.7');
+    const searchMode = (args['search-mode'] as 'vector' | 'hybrid') ?? 'hybrid';
+
+    const { dataset: expandedDataset, stats } = await expandGroundTruth(dataset, {
+      db: pool,
+      confidenceThreshold: threshold,
+      searchMode,
+      rerank: args.rerank ?? true,
+      verbose: args.verbose ?? false,
+      onProgress: (current, total, query) => {
+        const pct = ((current / total) * 100).toFixed(0);
+        process.stdout.write(
+          `\rExpanding: ${current}/${total} (${pct}%) - ${query.slice(0, 40)}...`
+        );
+      },
+    });
+
+    console.info('\n\n=== Expansion Stats ===');
+    console.info(`Queries expanded: ${stats.queriesExpanded}/${stats.totalQueries}`);
+    console.info(
+      `Avg docs/query: ${stats.avgDocsPerQuery.before.toFixed(1)} → ${stats.avgDocsPerQuery.after.toFixed(1)}`
+    );
+    console.info(`Total doc IDs: ${stats.originalDocCount} → ${stats.expandedDocCount}`);
+
+    // Save expanded dataset
+    const expandedPath = datasetPath.replace('.json', '-expanded.json');
+    await saveDataset(expandedDataset, expandedPath);
+    console.info(`\n✅ Saved expanded dataset to: ${expandedPath}\n`);
+
+    // Use expanded dataset for evaluation
+    dataset = expandedDataset;
   }
 
   // Build config
@@ -228,7 +301,7 @@ async function runEval(pool: ReturnType<typeof getPool>): Promise<void> {
       const displayNum = current + 1;
       const pct = ((displayNum / total) * 100).toFixed(0);
       if (args.verbose) {
-        console.log(`Verbose: Processing query ${displayNum}/${total} (${pct}%)`);
+        console.info(`Verbose: Processing query ${displayNum}/${total} (${pct}%)`);
       } else if (displayNum % 10 === 0 || displayNum === 1 || displayNum === total) {
         process.stdout.write(`\rProcessing: ${displayNum}/${total} (${pct}%)`);
       }
@@ -256,7 +329,7 @@ async function runEval(pool: ReturnType<typeof getPool>): Promise<void> {
 // =============================================================================
 
 function printHelp(): void {
-  console.log(`
+  console.info(`
 RAG Evaluation CLI
 
 Usage:
@@ -265,6 +338,8 @@ Usage:
   pnpm eval --retrieval-only          # Skip generation eval
   pnpm eval --compare baseline.json   # Compare against baseline
   pnpm eval --generate-dataset        # Generate synthetic dataset
+  pnpm eval --expand-ground-truth     # Expand ground truth with LLM judge
+  pnpm eval --validate-ground-truth   # Check if doc IDs exist in DB
 
 Options:
   -c, --category <type>       Filter by category: docs, code, mobile, general
@@ -279,6 +354,11 @@ Options:
   -o, --output <dir>          Output directory (default: perf/eval_results)
   -v, --verbose               Show per-query progress
   -h, --help                  Show this help
+
+Ground Truth Options:
+  --expand-ground-truth       Expand ground truth using LLM judge before eval
+  --expansion-threshold <n>   Confidence threshold for expansion (default: 0.7)
+  --validate-ground-truth     Validate doc IDs exist in database (no eval)
 `);
 }
 

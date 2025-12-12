@@ -123,6 +123,27 @@ export async function runEvaluation(
 // =============================================================================
 
 /**
+ * Resolve file paths to document IDs for a given collection.
+ * Used for cross-collection evaluation where ground truth uses file paths instead of doc IDs.
+ */
+async function resolveFilePathsToDocIds(
+  db: Pool,
+  collectionId: string,
+  filePaths: string[]
+): Promise<string[]> {
+  if (filePaths.length === 0) return [];
+
+  const result = await db.query<{ id: string }>(
+    `SELECT id FROM documents
+     WHERE collection_id = $1
+     AND metadata->>'repoFilePath' = ANY($2)`,
+    [collectionId, filePaths]
+  );
+
+  return result.rows.map((r) => r.id);
+}
+
+/**
  * Evaluate a single query
  */
 async function evaluateSingleQuery(
@@ -166,10 +187,19 @@ async function evaluateSingleQuery(
     })
   );
 
+  // Resolve ground truth: prefer file paths (portable), fallback to doc IDs (collection-specific)
+  let relevantDocIds = query.relevantDocIds;
+  if (query.relevantFilePaths && query.relevantFilePaths.length > 0) {
+    const resolvedIds = await resolveFilePathsToDocIds(db, collectionId, query.relevantFilePaths);
+    if (resolvedIds.length > 0) {
+      relevantDocIds = resolvedIds;
+    }
+  }
+
   // Calculate retrieval metrics
   const retrievalMetrics = calculateRetrievalMetrics(
     searchResults,
-    query.relevantDocIds,
+    relevantDocIds,
     query.relevantChunkIds,
     searchEndTime - startTime,
     config.searchMode,

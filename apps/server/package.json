@@ -14,7 +14,15 @@
     "typecheck": "tsc --noEmit",
     "eval": "tsx src/scripts/run-evaluation.ts",
     "eval:generate": "tsx src/scripts/run-evaluation.ts --generate-dataset",
-    "eval:retrieval": "tsx src/scripts/run-evaluation.ts --retrieval-only"
+    "eval:retrieval": "tsx src/scripts/run-evaluation.ts --retrieval-only",
+    "eval:expand-gt": "tsx src/scripts/run-evaluation.ts --expand-ground-truth",
+    "eval:validate-gt": "tsx src/scripts/run-evaluation.ts --validate-ground-truth",
+    "verify-doc-id": "tsx src/scripts/verify-doc-id.ts",
+    "re-embed": "tsx src/scripts/re-embed-collection.ts",
+    "sweep:lifer": "tsx src/scripts/run-lifer-sweep.ts",
+    "sweep:lifer:pass1": "tsx src/scripts/run-lifer-sweep.ts --pass=1A",
+    "sweep:lifer:dry": "tsx src/scripts/run-lifer-sweep.ts --dry-run",
+    "generate:lifer-docs": "tsx src/scripts/generate-docs-dataset.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.59",

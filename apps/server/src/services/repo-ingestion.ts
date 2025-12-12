@@ -423,14 +423,18 @@ export async function syncRepository(_db: Pool, repoSourceId: string): Promise<v
 
               // Save file content
               const fileExtension = path.extname(relativePath) || '.txt';
-              await writeDocumentFile(
+              const savedFilePath = await writeDocumentFile(
                 repoSource.collection_id,
                 document.id,
                 fileExtension,
                 content
               );
 
-              // Update document with metadata
+              // Update document with file_path and metadata
+              await pool.query(
+                'UPDATE documents SET file_path = $1, updated_at = NOW() WHERE id = $2',
+                [savedFilePath, document.id]
+              );
               await updateDocumentMetadata(document.id, {
                 repoFilePath: relativePath,
                 repoSourceId,

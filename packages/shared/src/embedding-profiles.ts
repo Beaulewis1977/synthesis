@@ -88,7 +88,13 @@ export interface EmbeddingProfilesResponse {
 /**
  * System profile names (built-in, cannot be deleted)
  */
-export const SYSTEM_PROFILE_NAMES = ['fast-cheap', 'balanced', 'high-accuracy'] as const;
+export const SYSTEM_PROFILE_NAMES = [
+  'none',
+  'fast-cheap',
+  'balanced',
+  'high-accuracy-code',
+  'high-accuracy-docs',
+] as const;
 export type SystemProfileName = (typeof SYSTEM_PROFILE_NAMES)[number];
 
 /**
@@ -103,6 +109,18 @@ export const PROFILE_PRESETS: Record<
   SystemProfileName,
   Omit<EmbeddingProfile, 'id' | 'createdAt' | 'updatedAt'>
 > = {
+  none: {
+    name: 'none',
+    displayName: 'Manual Configuration',
+    description: 'Use per-type model selectors below. No preset applied.',
+    provider: '',
+    model: '',
+    chunkSize: 800,
+    chunkOverlap: 150,
+    codeAware: false,
+    costTier: 'free',
+    isSystem: true,
+  },
   'fast-cheap': {
     name: 'fast-cheap',
     displayName: 'Fast & Cheap',
@@ -129,17 +147,28 @@ export const PROFILE_PRESETS: Record<
     costTier: 'low',
     isSystem: true,
   },
-  'high-accuracy': {
-    name: 'high-accuracy',
-    displayName: 'High Accuracy',
-    description:
-      'Voyage voyage-code-2 embeddings optimized for code. Best quality for code repositories.',
+  'high-accuracy-code': {
+    name: 'high-accuracy-code',
+    displayName: 'High Accuracy (Code)',
+    description: 'Voyage voyage-code-3 embeddings optimized for code. Best for code repositories.',
     provider: 'voyage',
-    model: 'voyage-code-2',
+    model: 'voyage-code-3',
     chunkSize: 600,
     chunkOverlap: 100,
     codeAware: true,
     costTier: 'medium',
+    isSystem: true,
+  },
+  'high-accuracy-docs': {
+    name: 'high-accuracy-docs',
+    displayName: 'High Accuracy (Docs)',
+    description: 'OpenAI text-embedding-3-large for general documentation. Best quality for docs.',
+    provider: 'openai',
+    model: 'text-embedding-3-large',
+    chunkSize: 600,
+    chunkOverlap: 100,
+    codeAware: false,
+    costTier: 'high',
     isSystem: true,
   },
 };
@@ -198,9 +227,12 @@ export function validateProfileInput(
   }
 
   if ('provider' in input && input.provider) {
-    const validProviders = ['ollama', 'openai', 'voyage'];
+    // Empty provider is allowed for 'none' profile (manual configuration)
+    const validProviders = ['ollama', 'openai', 'voyage', 'cohere', 'google', ''];
     if (!validProviders.includes(input.provider)) {
-      errors.push(`Invalid provider. Must be one of: ${validProviders.join(', ')}`);
+      errors.push(
+        `Invalid provider. Must be one of: ${validProviders.filter((p) => p).join(', ')}`
+      );
     }
   }
 

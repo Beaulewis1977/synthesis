@@ -508,6 +508,32 @@ export function ModelsPage() {
             }}
             disabled={setDefaultProfileMutation.isPending}
           />
+
+          {/* Mode indicator */}
+          {(() => {
+            const selectedProfile = profiles.find((p) => p.id === defaultProfileId);
+            if (selectedProfile?.name === 'none') {
+              return (
+                <div className="mt-md p-sm bg-accent/10 border border-accent/30 rounded-lg">
+                  <p className="text-sm text-accent font-medium">Manual mode enabled</p>
+                  <p className="text-xs text-text-secondary mt-xs">
+                    Configure each content type individually using the selectors below.
+                  </p>
+                </div>
+              );
+            }
+            if (selectedProfile) {
+              return (
+                <div className="mt-md p-sm bg-bg-secondary rounded-lg">
+                  <p className="text-xs text-text-secondary">
+                    Using <strong>{selectedProfile.displayName}</strong> preset. Per-type settings
+                    below can override this.
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
 
         {/* Per-Type Configuration */}

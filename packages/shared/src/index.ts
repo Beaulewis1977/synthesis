@@ -61,8 +61,30 @@ export type DocumentContentCategory =
   | 'example'
   | 'guide'
   | 'snippet';
-export type EmbeddingModel = 'nomic-embed-text' | 'text-embedding-3-large' | 'voyage-code-2';
-export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage';
+export type EmbeddingModel =
+  // Ollama models
+  | 'nomic-embed-text'
+  | 'mxbai-embed-large'
+  | 'jina-embeddings-v2-base-code'
+  // OpenAI models
+  | 'text-embedding-3-large'
+  | 'text-embedding-3-small'
+  | 'text-embedding-ada-002'
+  // Voyage models
+  | 'voyage-code-3'
+  | 'voyage-3.5'
+  | 'voyage-3.5-lite'
+  | 'voyage-3-large'
+  | 'voyage-code-2'
+  | 'voyage-large-2'
+  // Cohere models
+  | 'embed-v4.0'
+  | 'embed-english-v3.0'
+  | 'embed-multilingual-v3.0'
+  // Google models
+  | 'text-embedding-004'
+  | 'embedding-001';
+export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage' | 'cohere' | 'google';
 
 // Phase 3: Source type for metadata guarantees
 export type SourceType = 'url' | 'repo' | 'file' | 'web'; // GPT Phase 1: Added 'web' for scraped content
@@ -608,7 +630,7 @@ export const DEFAULT_MODEL_CONFIGS: Record<ModelFeature, Omit<ModelConfig, 'sour
   embedding_code: {
     feature: 'embedding_code',
     provider: 'voyage',
-    model: 'voyage-code-2',
+    model: 'voyage-code-3',
     localOnly: false,
     enabled: true,
   },
@@ -671,8 +693,9 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   ollama: {
     models: [
       // Embedding models
-      'nomic-embed-text',
-      'manutic/nomic-embed-code:latest',
+      'nomic-embed-text', // General purpose, 768 dims
+      'mxbai-embed-large', // High quality, 1024 dims
+      'jina-embeddings-v2-base-code', // Code-specialized, 30+ languages, 768 dims
       // Chat models
       'llama3.2',
       'mistral',
@@ -722,13 +745,36 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
     isLocal: false,
   },
   voyage: {
-    models: ['voyage-code-2', 'voyage-large-2', 'voyage-2'],
+    models: [
+      // Embedding models (v3.5 - latest general-purpose)
+      'voyage-3.5', // General + multilingual, 1024 dims
+      'voyage-3.5-lite', // Fast general, 1024 dims
+      // Embedding models (v3 - code optimized)
+      'voyage-code-3', // Best for code retrieval, 1024 dims
+      'voyage-3-large', // General-purpose, 1024 dims
+      // Embedding models (v2 - legacy)
+      'voyage-code-2', // Code, 1536 dims (legacy)
+      'voyage-large-2', // General, 1536 dims (legacy)
+      // Reranker models
+      'rerank-2.5', // Best quality reranker
+      'rerank-2.5-lite', // Fast + quality balance
+    ],
     requiresApiKey: true,
     apiKeyEnvVar: 'VOYAGE_API_KEY',
     isLocal: false,
   },
   cohere: {
-    models: ['rerank-v3.5', 'rerank-english-v3.0', 'rerank-multilingual-v3.0'],
+    models: [
+      // Embedding models (v4 - latest)
+      'embed-v4.0', // Best multimodal, 1536 dims (supports 256-1536)
+      // Embedding models (v3)
+      'embed-english-v3.0', // English only, 1024 dims
+      'embed-multilingual-v3.0', // Multilingual, 1024 dims
+      // Reranker models
+      'rerank-v3.5', // Best reasoning reranker
+      'rerank-english-v3.0',
+      'rerank-multilingual-v3.0',
+    ],
     requiresApiKey: true,
     apiKeyEnvVar: 'COHERE_API_KEY',
     isLocal: false,
