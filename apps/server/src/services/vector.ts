@@ -153,14 +153,23 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
 
   if (typeof poolWithConnect.connect === 'function') {
     const client = await poolWithConnect.connect();
+    let inTx = false;
     try {
       await client.query('BEGIN');
+      inTx = true;
       await client.query(`SET LOCAL hnsw.ef_search = ${HNSW_EF_SEARCH}`);
       const result = await client.query(queryText, queryParams);
       rows = result.rows;
       await client.query('COMMIT');
+      inTx = false;
     } catch (err) {
-      await client.query('ROLLBACK');
+      if (inTx) {
+        try {
+          await client.query('ROLLBACK');
+        } catch {
+          // Swallow ROLLBACK errors to preserve original error
+        }
+      }
       throw err;
     } finally {
       client.release();

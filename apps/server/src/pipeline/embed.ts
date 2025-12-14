@@ -63,8 +63,6 @@ export interface EmbedOptions {
   provider?: EmbeddingProvider;
   model?: string;
   batchSize?: number;
-  maxRetries?: number;
-  retryDelayMs?: number;
   context?: ContentContext;
 }
 
@@ -345,8 +343,6 @@ export async function embedBatch(
         embedText(text, {
           provider: options.provider,
           model: options.model,
-          maxRetries: options.maxRetries,
-          retryDelayMs: options.retryDelayMs,
           context: contexts?.[batchIndex] ?? options.context,
         })
       )
@@ -421,7 +417,7 @@ async function generateEmbeddingWithRetry(
       } else {
         // All retries exhausted
         console.error(
-          `[Embed] All retries exhausted (${RETRY_DELAYS.length} attempts): ` +
+          `[Embed] All retries exhausted (${RETRY_DELAYS.length + 1} total attempts): ` +
             `provider=${config.provider}, model=${config.model}, ` +
             `error=${errorMessage}`
         );

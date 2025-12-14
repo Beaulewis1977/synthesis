@@ -81,6 +81,7 @@ export interface SmartSearchResult extends SearchResult {
     nodeCount: number;
     edgeCount: number;
     expandedFromChunkId?: number;
+    hopDistance?: number;
   } | null;
 }
 
@@ -754,10 +755,13 @@ async function expandWithGraphContext(
   // Convert graph chunks to SmartSearchResult format
   const graphDerivedResults: SmartSearchResult[] = graphResult.chunks
     .filter((chunk) => !existingChunkIds.has(chunk.id)) // Dedupe
+    .filter((chunk) => Boolean(chunk.doc_id)) // Filter out chunks without doc_id
     .map((chunk) => {
+      // Guard hopDistance - default to 1 if missing or invalid
+      const hop = Number.isFinite(chunk.hopDistance) && chunk.hopDistance >= 0 ? chunk.hopDistance : 1;
       // Apply exponential decay based on hop distance
       // hopDistance=0: topScore * 1.0, hopDistance=1: topScore * 0.9, hopDistance=2: topScore * 0.81
-      const decayedScore = topScore * DECAY_FACTOR ** chunk.hopDistance;
+      const decayedScore = topScore * DECAY_FACTOR ** hop;
       return {
         id: chunk.id,
         text: chunk.text,
@@ -776,7 +780,7 @@ async function expandWithGraphContext(
           nodeCount: graphResult.nodes.length,
           edgeCount: graphResult.edges.length,
           expandedFromChunkId: seedChunkIds[0], // Track which seed triggered this
-          hopDistance: chunk.hopDistance, // Include hop distance for debugging
+          hopDistance: hop, // Include hop distance for debugging
         },
       };
     });
