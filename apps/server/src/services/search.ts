@@ -747,9 +747,10 @@ async function expandWithGraphContext(
   // Get existing chunk IDs to deduplicate
   const existingChunkIds = new Set(results.map((r) => r.id));
 
-  // Score graph results relative to top original result with distance decay
+  // Score graph results relative to maximum similarity in results with distance decay
   // Chunks closer to seed nodes (lower hopDistance) get higher scores
-  const topScore = results[0]?.similarity ?? 0.5;
+  const topScore =
+    results.length > 0 ? Math.max(...results.map((r) => r.similarity ?? 0), 0.5) : 0.5;
   const DECAY_FACTOR = 0.9; // Each hop reduces score by 10%
 
   // Convert graph chunks to SmartSearchResult format
