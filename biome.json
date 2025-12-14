@@ -35,6 +35,18 @@
       }
     }
   },
+  "overrides": [
+    {
+      "include": ["**/perf/**/*.mjs", "**/scripts/**/*.mjs"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsoleLog": "off"
+          }
+        }
+      }
+    }
+  ],
   "formatter": {
     "enabled": true,
     "indentStyle": "space",

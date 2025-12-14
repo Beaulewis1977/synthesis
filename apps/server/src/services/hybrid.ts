@@ -91,10 +91,12 @@ export interface HybridDiagnostics {
 
 /**
  * Parse number from environment variable, allowing explicit 0 values
+ * Treats empty/whitespace strings the same as null/undefined
  */
 function numberFromEnv(name: string, fallback: number): number {
   const raw = process.env[name];
   if (raw == null) return fallback;
+  if (raw.trim() === '') return fallback;
   const n = Number(raw);
   return Number.isFinite(n) ? n : fallback;
 }

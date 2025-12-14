@@ -175,6 +175,8 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
       client.release();
     }
   } else {
+    // Non-transactional path: set HNSW parameter at session level before query
+    await poolWithConnect.query(`SET hnsw.ef_search = ${HNSW_EF_SEARCH}`);
     const result = await poolWithConnect.query(queryText, queryParams);
     rows = result.rows;
   }
