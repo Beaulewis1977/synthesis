@@ -378,6 +378,15 @@ export interface EvalConfig {
    * @default 'doc'
    */
   evaluationMode?: EvaluationMode;
+
+  /** Enable graph expansion for connected context */
+  expandWithGraph?: boolean;
+
+  /** Max graph traversal depth (default: 3) */
+  graphMaxDepth?: number;
+
+  /** Max nodes to visit during expansion (default: 50) */
+  graphMaxNodes?: number;
 }
 
 /**

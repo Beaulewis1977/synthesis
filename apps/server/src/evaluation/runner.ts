@@ -178,6 +178,10 @@ async function evaluateSingleQuery(
     mode: config.searchMode === 'bm25' ? 'vector' : config.searchMode, // bm25 is handled via hybrid
     rerank: config.rerank,
     autoIntent: true,
+    // Graph expansion params (Pass 5)
+    expandWithGraph: config.expandWithGraph,
+    graphMaxDepth: config.graphMaxDepth,
+    graphMaxNodes: config.graphMaxNodes,
   };
 
   // Execute search

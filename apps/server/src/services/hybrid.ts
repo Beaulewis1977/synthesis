@@ -90,8 +90,8 @@ export interface HybridDiagnostics {
 }
 
 const DEFAULT_TOP_K = 10;
-const DEFAULT_VECTOR_WEIGHT = Number(process.env.HYBRID_VECTOR_WEIGHT) || 0.6;
-const DEFAULT_BM25_WEIGHT = Number(process.env.HYBRID_BM25_WEIGHT) || 0.4;
+const DEFAULT_VECTOR_WEIGHT = Number(process.env.HYBRID_VECTOR_WEIGHT) || 0.7;
+const DEFAULT_BM25_WEIGHT = Number(process.env.HYBRID_BM25_WEIGHT) || 0.3;
 const DEFAULT_WEIGHTS = { vector: DEFAULT_VECTOR_WEIGHT, bm25: DEFAULT_BM25_WEIGHT };
 const DEFAULT_RRF_K = Number(process.env.HYBRID_RRF_K) || 60;
 

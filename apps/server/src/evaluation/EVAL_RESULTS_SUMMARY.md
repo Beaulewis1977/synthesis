@@ -128,6 +128,55 @@ Embedding models: all nomic-embed-text
 
 ---
 
+## Pass 5: Graph Expansion Sweep
+
+### Overview
+Pass 5 tests knowledge graph expansion for code retrieval. Graph search follows imports/dependencies to find related files, which is critical for understanding codebases.
+
+### Prerequisites
+1. Knowledge graph must be built for the collection (`POST /api/graph/build/:collectionId`)
+2. Best config from Pass 4 must be available
+3. Collection should have code files with import relationships
+
+### Graph Variants Tested
+| Variant | Depth | Nodes | Use Case |
+|---------|-------|-------|----------|
+| no-graph | 0 | 0 | Baseline comparison |
+| d2-n25 | 2 | 25 | Fast, minimal expansion |
+| d3-n50 | 3 | 50 | Balanced (default) |
+| d3-n100 | 3 | 100 | More context, same depth |
+| d4-n100 | 4 | 100 | Deep traversal for complex codebases |
+
+### Running Pass 5
+```bash
+# Run Pass 5 only (requires Pass 1-4 results)
+pnpm sweep:lifer --pass=5-graph
+
+# Or as part of full sweep
+pnpm sweep:lifer --pass=all
+```
+
+### Expected Metrics Impact
+| Metric | Expected | Notes |
+|--------|----------|-------|
+| Recall@10 | +10-20% | Graph finds related files via imports |
+| MRR | ≥ baseline | Should not hurt retrieval |
+| Latency | +50-200ms | Graph traversal overhead |
+| Zero hits | -20%+ | Graph rescues failed queries |
+
+### Results (TBD)
+*Run Pass 5 sweep and record results here*
+
+| Config | MRR | Recall@10 | Latency | Notes |
+|--------|-----|-----------|---------|-------|
+| no-graph | - | - | - | Baseline |
+| d2-n25 | - | - | - | |
+| d3-n50 | - | - | - | |
+| d3-n100 | - | - | - | |
+| d4-n100 | - | - | - | |
+
+---
+
 ## Files Added/Modified (2025-12-11)
 
 ### New Files

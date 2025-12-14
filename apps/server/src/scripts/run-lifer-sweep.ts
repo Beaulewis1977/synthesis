@@ -30,6 +30,7 @@ import {
   generatePass2Configs,
   generatePass3Configs,
   generatePass4Configs,
+  generatePass5Configs,
   getCollectionName,
   getCostTier,
   getModelDimensions,
@@ -131,6 +132,7 @@ Passes:
   2   Chunking sweep - 400/50, 600/100, 800/100 (uses best from 1A)
   3   Reranker sweep - none, bge, voyage (uses best from 1A+2)
   4   Search tuning - modes, similarity, ef_search (uses best from 1A+2+3)
+  5   Graph expansion - traverse knowledge graph for connected context (uses best from 1-4)
 
 Examples:
   pnpm sweep:lifer                  # Run all passes
@@ -388,6 +390,10 @@ async function runSweepEvaluation(
     topK: config.search.topK,
     evaluateGeneration: false,
     evaluationMode: 'doc',
+    // Graph expansion params (Pass 5)
+    expandWithGraph: config.graph?.enabled,
+    graphMaxDepth: config.graph?.maxDepth,
+    graphMaxNodes: config.graph?.maxNodes,
   });
 
   // Set search tuning via environment
@@ -537,6 +543,11 @@ async function appendToSweepTable(result: SweepResult, summaryPath: string): Pro
   const dims = getModelDimensions(config.embedding.model, config.embedding.provider);
   const date = new Date().toISOString().split('T')[0];
 
+  // Graph expansion info
+  const graphInfo = config.graph?.enabled
+    ? `d${config.graph.maxDepth}/n${config.graph.maxNodes}`
+    : 'off';
+
   const row = [
     date,
     config.pass,
@@ -558,6 +569,7 @@ async function appendToSweepTable(result: SweepResult, summaryPath: string): Pro
       : '-',
     config.search.queryExpansion ? 'on' : 'off',
     config.search.mmrEnabled ? `on(${config.search.mmrLambda})` : 'off',
+    graphInfo, // Graph expansion column
     `${result.latency.avg.toFixed(0)}/${result.latency.p95.toFixed(0)}`,
     result.datasets.code.original.mrr.toFixed(3),
     result.datasets.code.original.hitRate.toFixed(3),
@@ -831,6 +843,41 @@ async function runPass(
     );
   }
 
+  if (pass === '5-graph') {
+    const best1A = state.bestByPass['1A-code-emb'];
+    const best2 = state.bestByPass['2-chunk'];
+    const best3 = state.bestByPass['3-rerank'];
+    const best4 = state.bestByPass['4-search-tune'];
+
+    if (!best1A) {
+      throw new Error('Pass 5 requires Pass 1A results.');
+    }
+
+    const embeddingResult = state.results.find((r) => r.config.name === best1A.configName);
+    const chunkingResult = best2
+      ? state.results.find((r) => r.config.name === best2.configName)
+      : embeddingResult;
+    const rerankerResult = best3
+      ? state.results.find((r) => r.config.name === best3.configName)
+      : chunkingResult;
+    const searchResult = best4
+      ? state.results.find((r) => r.config.name === best4.configName)
+      : rerankerResult;
+
+    if (!embeddingResult || !chunkingResult || !rerankerResult || !searchResult) {
+      throw new Error('Could not find best configs from previous passes.');
+    }
+
+    configs.push(
+      ...generatePass5Configs(
+        embeddingResult.config.embedding,
+        chunkingResult.config.chunking,
+        rerankerResult.config.reranker,
+        searchResult.config.search
+      )
+    );
+  }
+
   console.info(`\nConfigurations to run: ${configs.length}`);
 
   // Filter out already completed
@@ -939,6 +986,8 @@ async function main(): Promise<void> {
       pass = '3-rerank';
     } else if (passArg === '4') {
       pass = '4-search-tune';
+    } else if (passArg === '5') {
+      pass = '5-graph';
     } else {
       console.error(`Unknown pass: ${args.pass}`);
       process.exit(1);

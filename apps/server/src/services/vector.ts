@@ -96,14 +96,7 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
   // GPT Phase 3: Source quality filtering
   const sourceQualityFilter = params.sourceQuality || null;
 
-  // Use a client from the pool to run SET LOCAL in a transaction
-  const client = await db.connect();
-  let rows: Array<Record<string, unknown>>;
-  try {
-    await client.query('BEGIN');
-    await client.query(`SET LOCAL hnsw.ef_search = ${HNSW_EF_SEARCH}`);
-    const result = await client.query(
-      `
+  const queryText = `
       SELECT
         ch.id,
         ch.text,
@@ -139,26 +132,42 @@ export async function searchCollection(db: Pool, params: SearchParams): Promise<
         )
       ORDER BY ch.embedding <=> $1::vector
       LIMIT $4
-    `,
-      [
-        vectorLiteral,
-        params.collectionId,
-        minSimilarity,
-        topK,
-        techStackFilter,
-        featureTagsFilter,
-        platformFilter,
-        usageTierFilter,
-        sourceQualityFilter,
-      ]
-    );
+    `;
+  const queryParams = [
+    vectorLiteral,
+    params.collectionId,
+    minSimilarity,
+    topK,
+    techStackFilter,
+    featureTagsFilter,
+    platformFilter,
+    usageTierFilter,
+    sourceQualityFilter,
+  ];
+
+  let rows: Array<Record<string, unknown>>;
+  const poolWithConnect = db as unknown as {
+    connect?: () => Promise<{ query: Pool['query']; release: () => void }>;
+    query: Pool['query'];
+  };
+
+  if (typeof poolWithConnect.connect === 'function') {
+    const client = await poolWithConnect.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`SET LOCAL hnsw.ef_search = ${HNSW_EF_SEARCH}`);
+      const result = await client.query(queryText, queryParams);
+      rows = result.rows;
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } else {
+    const result = await poolWithConnect.query(queryText, queryParams);
     rows = result.rows;
-    await client.query('COMMIT');
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
   }
 
   const end = performance.now();

@@ -17,7 +17,8 @@ export type SweepPass =
   | '1B-docs-emb' // Embedding sweep for docs (optional, if doc regression)
   | '2-chunk' // Chunking sweep (best embedding fixed)
   | '3-rerank' // Reranker sweep (best embedding+chunking fixed)
-  | '4-search-tune'; // Search strategy + parameter tuning
+  | '4-search-tune' // Search strategy + parameter tuning
+  | '5-graph'; // Graph expansion sweep (best from Pass 4)
 
 /**
  * Embedding provider identifier
@@ -33,6 +34,18 @@ export type RerankerProvider = 'voyage' | 'cohere' | 'bge' | 'none';
  * Search mode identifier
  */
 export type SearchMode = 'vector' | 'hybrid' | 'bm25';
+
+/**
+ * Graph expansion configuration
+ */
+export interface GraphConfig {
+  /** Whether graph expansion is enabled */
+  enabled: boolean;
+  /** Maximum BFS traversal depth */
+  maxDepth: number;
+  /** Maximum nodes to visit during expansion */
+  maxNodes: number;
+}
 
 /**
  * Complete sweep configuration for a single evaluation run
@@ -74,6 +87,9 @@ export interface SweepConfig {
     mmrEnabled: boolean;
     mmrLambda?: number;
   };
+
+  /** Graph expansion configuration (optional, used in Pass 5) */
+  graph?: GraphConfig;
 }
 
 // =============================================================================
@@ -468,6 +484,62 @@ export function generatePass4Configs(
       mmrLambda: 0.5,
     },
   });
+
+  return configs;
+}
+
+// =============================================================================
+// Pass 5: Graph Expansion Sweep Configurations
+// =============================================================================
+
+/**
+ * Graph expansion configurations to test
+ * Tests different traversal depths and node limits
+ */
+export const GRAPH_VARIANTS: GraphConfig[] = [
+  { enabled: false, maxDepth: 0, maxNodes: 0 }, // Baseline (no graph)
+  { enabled: true, maxDepth: 2, maxNodes: 25 }, // Shallow, fast
+  { enabled: true, maxDepth: 3, maxNodes: 50 }, // Balanced (recommended)
+  { enabled: true, maxDepth: 3, maxNodes: 100 }, // More context, same depth
+  { enabled: true, maxDepth: 4, maxNodes: 100 }, // Deep traversal
+];
+
+/**
+ * Generate Pass 5 configurations (graph expansion sweep)
+ * Uses best embedding, chunking, reranker, and search from Pass 1-4
+ */
+export function generatePass5Configs(
+  bestEmbedding: { provider: EmbeddingProvider; model: string },
+  bestChunking: { size: number; overlap: number; codeAware: boolean },
+  bestReranker: { provider: RerankerProvider; model?: string },
+  bestSearch: {
+    mode: SearchMode;
+    topK: number;
+    minSimilarity: number;
+    efSearch: number;
+    queryExpansion: boolean;
+    mmrEnabled: boolean;
+    mmrLambda?: number;
+  }
+): SweepConfig[] {
+  const configs: SweepConfig[] = [];
+  const modelShort = bestEmbedding.model.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+
+  for (const graphConfig of GRAPH_VARIANTS) {
+    const suffix = graphConfig.enabled
+      ? `graph-d${graphConfig.maxDepth}-n${graphConfig.maxNodes}`
+      : 'no-graph';
+
+    configs.push({
+      name: `lifer-${modelShort}-${suffix}`,
+      pass: '5-graph',
+      embedding: bestEmbedding,
+      chunking: bestChunking,
+      reranker: bestReranker,
+      search: bestSearch,
+      graph: graphConfig,
+    });
+  }
 
   return configs;
 }
