@@ -350,18 +350,47 @@ function buildBM25Query(tsFunction: TsQueryFunction): string {
 }
 
 /**
- * Builds a prefix-matching tsquery for code symbols.
- * Each term gets a :* suffix for prefix matching.
+ * Determines if a term looks like a complete code identifier.
+ * Complete identifiers use exact matching to prevent false positives
+ * like "setState" matching "setStateError".
+ *
+ * @param term - The search term
+ * @returns true if term is a complete identifier, false otherwise
+ */
+function isCompleteIdentifier(term: string): boolean {
+  // camelCase: starts lowercase, has uppercase inside (setState, getUserId)
+  if (/^[a-z]+[A-Z][a-zA-Z]*$/.test(term)) return true;
+
+  // PascalCase with multiple humps: StatefulWidget, MyComponent
+  if (/^[A-Z][a-z]+[A-Z][a-zA-Z]*$/.test(term)) return true;
+
+  // snake_case: get_user, my_function
+  if (/^[a-z]+(_[a-z]+)+$/.test(term)) return true;
+
+  return false;
+}
+
+/**
+ * Builds a tsquery for code symbols with smart matching.
+ * - Complete identifiers (camelCase, PascalCase, snake_case): exact match
+ * - Other terms: prefix matching with :*
  *
  * @param input - The search query
- * @returns Formatted tsquery string with prefix operators
+ * @returns Formatted tsquery string
  */
 function buildPrefixTsQuery(input: string): string {
   const terms = input
     .split(/\s+/)
     .map((term) => term.replace(/[':*&|!()]/g, '').trim())
     .filter((term) => term.length > 0)
-    .map((term) => `${term}:*`);
+    .map((term) => {
+      // Complete identifiers get exact match to avoid false positives
+      if (isCompleteIdentifier(term)) {
+        return term;
+      }
+      // Other terms get prefix matching
+      return `${term}:*`;
+    });
 
   return terms.join(' & ');
 }

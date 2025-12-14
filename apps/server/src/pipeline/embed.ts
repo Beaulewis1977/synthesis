@@ -46,15 +46,23 @@ let cachedCohere: CohereClient | null = null;
 let cachedGoogle: GoogleGenerativeAI | null = null;
 
 const DEFAULT_BATCH_SIZE = 10;
-const DEFAULT_MAX_RETRIES = 3;
-const DEFAULT_RETRY_DELAY_MS = 250;
+
+// Exponential backoff delays: 50ms, 100ms, 250ms
+const RETRY_DELAYS = [50, 100, 250];
+
+// Provider health tracking
+interface ProviderHealth {
+  success: number;
+  failure: number;
+  lastFailure?: Date;
+}
+
+const providerHealthStats = new Map<EmbeddingProvider, ProviderHealth>();
 
 export interface EmbedOptions {
   provider?: EmbeddingProvider;
   model?: string;
   batchSize?: number;
-  maxRetries?: number;
-  retryDelayMs?: number;
   context?: ContentContext;
 }
 
@@ -64,8 +72,6 @@ export interface EmbedBatchOptions extends EmbedOptions {
 
 interface OllamaRuntimeConfig {
   model: string;
-  maxRetries: number;
-  retryDelayMs: number;
 }
 
 export interface EmbedResult {
@@ -94,6 +100,40 @@ export function __setCohereClientForTesting(client: CohereClient | null): void {
 
 export function __setGoogleClientForTesting(client: GoogleGenerativeAI | null): void {
   cachedGoogle = client;
+}
+
+/**
+ * Get provider health statistics for monitoring
+ * Returns success/failure counts and last failure time for each provider
+ */
+export function getProviderHealth(): Map<EmbeddingProvider, ProviderHealth> {
+  return new Map(providerHealthStats);
+}
+
+/**
+ * Reset provider health statistics (useful for testing)
+ */
+export function __resetProviderHealth(): void {
+  providerHealthStats.clear();
+}
+
+/**
+ * Track provider success
+ */
+function trackProviderSuccess(provider: EmbeddingProvider): void {
+  const stats = providerHealthStats.get(provider) ?? { success: 0, failure: 0 };
+  stats.success++;
+  providerHealthStats.set(provider, stats);
+}
+
+/**
+ * Track provider failure
+ */
+function trackProviderFailure(provider: EmbeddingProvider): void {
+  const stats = providerHealthStats.get(provider) ?? { success: 0, failure: 0 };
+  stats.failure++;
+  stats.lastFailure = new Date();
+  providerHealthStats.set(provider, stats);
 }
 
 function getOllamaClient(): OllamaClient {
@@ -145,11 +185,12 @@ export async function embedText(text: string, options: EmbedOptions = {}): Promi
 
   try {
     const start = performance.now();
-    const embedding = await generateEmbedding(text, primaryConfig, options);
+    const embedding = await generateEmbeddingWithRetry(text, primaryConfig, options);
     const duration = Math.round(performance.now() - start);
 
     trackEmbeddingRequest(primaryConfig.provider, false);
     observeEmbeddingLatency(primaryConfig.provider, duration);
+    trackProviderSuccess(primaryConfig.provider);
 
     // Track cost (async, non-blocking)
     trackEmbeddingCost(primaryConfig, text, options.context).catch((err) =>
@@ -181,10 +222,24 @@ export async function embedText(text: string, options: EmbedOptions = {}): Promi
       usedFallback: false,
     };
   } catch (error) {
+    // Log primary provider failure after all retries exhausted
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(
+      '[Embed] Primary provider failed after retries: ' +
+        `provider=${primaryConfig.provider}, model=${primaryConfig.model}, ` +
+        `error=${errorMessage}`
+    );
+    trackProviderFailure(primaryConfig.provider);
+
     const fallbackConfig = getFallbackConfig(primaryConfig);
     if (fallbackConfig.provider === primaryConfig.provider) {
       throw error;
     }
+
+    console.warn(
+      `[Embed] Falling back: ${primaryConfig.provider}/${primaryConfig.model} -> ` +
+        `${fallbackConfig.provider}/${fallbackConfig.model}`
+    );
 
     const fallbackKey = buildEmbeddingCacheKey(
       text,
@@ -196,6 +251,9 @@ export async function embedText(text: string, options: EmbedOptions = {}): Promi
     const cachedFallback = getCachedEmbedding(fallbackKey);
     if (cachedFallback) {
       trackEmbeddingRequest(cachedFallback.provider, true);
+      console.info(
+        `[Embed] Fallback succeeded (cached): ${fallbackConfig.provider}/${fallbackConfig.model}`
+      );
       return {
         embedding: cachedFallback.embedding,
         provider: cachedFallback.provider,
@@ -205,42 +263,60 @@ export async function embedText(text: string, options: EmbedOptions = {}): Promi
       };
     }
 
-    const fallbackStart = performance.now();
-    const embedding = await generateEmbedding(text, fallbackConfig, options);
-    const duration = Math.round(performance.now() - fallbackStart);
+    try {
+      const fallbackStart = performance.now();
+      const embedding = await generateEmbeddingWithRetry(text, fallbackConfig, options);
+      const duration = Math.round(performance.now() - fallbackStart);
 
-    trackEmbeddingRequest(fallbackConfig.provider, false);
-    observeEmbeddingLatency(fallbackConfig.provider, duration);
+      trackEmbeddingRequest(fallbackConfig.provider, false);
+      observeEmbeddingLatency(fallbackConfig.provider, duration);
+      trackProviderSuccess(fallbackConfig.provider);
 
-    // Track fallback cost (async, non-blocking)
-    trackEmbeddingCost(fallbackConfig, text, options.context).catch((err) =>
-      console.error('Cost tracking failed:', err)
-    );
-
-    // Use actual returned dimension, not static config
-    const actualDimensions = embedding.length;
-    if (actualDimensions !== fallbackConfig.dimensions) {
-      console.warn(
-        `[Embed] Dimension mismatch for ${fallbackConfig.provider}/${fallbackConfig.model}: ` +
-          `MODEL_DIMENSIONS says ${fallbackConfig.dimensions}, provider returned ${actualDimensions}. ` +
-          'Consider updating MODEL_DIMENSIONS map.'
+      // Track fallback cost (async, non-blocking)
+      trackEmbeddingCost(fallbackConfig, text, options.context).catch((err) =>
+        console.error('Cost tracking failed:', err)
       );
+
+      // Use actual returned dimension, not static config
+      const actualDimensions = embedding.length;
+      if (actualDimensions !== fallbackConfig.dimensions) {
+        console.warn(
+          `[Embed] Dimension mismatch for ${fallbackConfig.provider}/${fallbackConfig.model}: ` +
+            `MODEL_DIMENSIONS says ${fallbackConfig.dimensions}, provider returned ${actualDimensions}. ` +
+            'Consider updating MODEL_DIMENSIONS map.'
+        );
+      }
+
+      setCachedEmbedding(fallbackKey, {
+        embedding,
+        provider: fallbackConfig.provider,
+        model: fallbackConfig.model,
+        dimensions: actualDimensions,
+      });
+
+      console.info(
+        `[Embed] Fallback succeeded: ${fallbackConfig.provider}/${fallbackConfig.model} ` +
+          `(original: ${primaryConfig.provider}/${primaryConfig.model})`
+      );
+
+      return {
+        embedding,
+        provider: fallbackConfig.provider,
+        model: fallbackConfig.model,
+        dimensions: actualDimensions,
+        usedFallback: true,
+      };
+    } catch (fallbackError) {
+      const fallbackErrorMessage =
+        fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      console.error(
+        '[Embed] Fallback provider also failed: ' +
+          `provider=${fallbackConfig.provider}, model=${fallbackConfig.model}, ` +
+          `error=${fallbackErrorMessage}`
+      );
+      trackProviderFailure(fallbackConfig.provider);
+      throw fallbackError;
     }
-
-    setCachedEmbedding(fallbackKey, {
-      embedding,
-      provider: fallbackConfig.provider,
-      model: fallbackConfig.model,
-      dimensions: actualDimensions,
-    });
-
-    return {
-      embedding,
-      provider: fallbackConfig.provider,
-      model: fallbackConfig.model,
-      dimensions: actualDimensions,
-      usedFallback: true,
-    };
   }
 }
 
@@ -267,8 +343,6 @@ export async function embedBatch(
         embedText(text, {
           provider: options.provider,
           model: options.model,
-          maxRetries: options.maxRetries,
-          retryDelayMs: options.retryDelayMs,
           context: contexts?.[batchIndex] ?? options.context,
         })
       )
@@ -311,6 +385,50 @@ function getFallbackConfig(primary: EmbeddingConfig): EmbeddingConfig {
   return getProviderConfig('ollama');
 }
 
+/**
+ * Generate embedding with exponential backoff retry logic
+ * Retries on failure with delays: 50ms, 100ms, 250ms
+ * Logs each retry attempt and final failure
+ */
+async function generateEmbeddingWithRetry(
+  text: string,
+  config: EmbeddingConfig,
+  options: EmbedOptions
+): Promise<number[]> {
+  let lastError: Error | unknown;
+
+  for (let attempt = 0; attempt < RETRY_DELAYS.length + 1; attempt++) {
+    try {
+      return await generateEmbedding(text, config, options);
+    } catch (error) {
+      lastError = error;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      if (attempt < RETRY_DELAYS.length) {
+        // Log retry attempt
+        console.warn(
+          `[Embed] Retry attempt ${attempt + 1}/${RETRY_DELAYS.length}: ` +
+            `provider=${config.provider}, model=${config.model}, ` +
+            `error=${errorMessage}, delay=${RETRY_DELAYS[attempt]}ms`
+        );
+
+        // Wait before retrying with exponential backoff
+        await delay(RETRY_DELAYS[attempt]);
+      } else {
+        // All retries exhausted
+        console.error(
+          `[Embed] All retries exhausted (${RETRY_DELAYS.length + 1} total attempts): ` +
+            `provider=${config.provider}, model=${config.model}, ` +
+            `error=${errorMessage}`
+        );
+      }
+    }
+  }
+
+  // This should never happen due to the throw in the loop, but TypeScript needs it
+  throw lastError;
+}
+
 async function generateEmbedding(
   text: string,
   config: EmbeddingConfig,
@@ -338,33 +456,17 @@ function resolveOllamaRuntimeConfig(model: string, options: EmbedOptions): Ollam
     throw new Error('Embedding model cannot be empty');
   }
 
-  const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
-  if (!Number.isInteger(maxRetries) || maxRetries < 0) {
-    throw new Error('Embedding maxRetries cannot be negative');
-  }
-
-  const retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
-  if (!Number.isInteger(retryDelayMs) || retryDelayMs < 0) {
-    throw new Error('Embedding retryDelayMs cannot be negative');
-  }
-
-  return { model: resolvedModel, maxRetries, retryDelayMs };
+  return { model: resolvedModel };
 }
 
 async function embedWithOllama(text: string, runtime: OllamaRuntimeConfig): Promise<number[]> {
-  const response = await withRetry(
-    async () => {
-      const result = await getOllamaClient().embeddings({
-        model: runtime.model,
-        prompt: text,
-      });
-      return normalizeEmbedding(result?.embedding);
-    },
-    runtime.maxRetries,
-    runtime.retryDelayMs
-  );
-
-  return response;
+  // Note: Retry logic is now handled by generateEmbeddingWithRetry wrapper
+  // to ensure consistent retry behavior across all providers
+  const result = await getOllamaClient().embeddings({
+    model: runtime.model,
+    prompt: text,
+  });
+  return normalizeEmbedding(result?.embedding);
 }
 
 async function embedWithOpenAI(text: string, config: EmbeddingConfig): Promise<number[]> {
@@ -435,29 +537,6 @@ async function embedWithGoogle(text: string, config: EmbeddingConfig): Promise<n
   }
 
   return embedding.map(validateEmbeddingValue);
-}
-
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  maxRetries: number,
-  retryDelayMs: number
-): Promise<T> {
-  let attempt = 0;
-
-  while (true) {
-    try {
-      return await fn();
-    } catch (error) {
-      if (attempt >= maxRetries) {
-        throw error;
-      }
-
-      attempt += 1;
-      if (retryDelayMs > 0) {
-        await delay(retryDelayMs * attempt);
-      }
-    }
-  }
 }
 
 function delay(ms: number): Promise<void> {

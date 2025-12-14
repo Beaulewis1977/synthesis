@@ -233,6 +233,7 @@ export async function rerankResults<T extends RerankCandidate>(
     provider: cacheProviderKey,
     documents: preparedCandidates.map((item) => item.documentText),
     signatures: preparedCandidates.map((item) => item.signature),
+    topK,
   });
 
   if (cacheKey) {

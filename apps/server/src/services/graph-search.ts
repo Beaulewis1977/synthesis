@@ -37,10 +37,19 @@ export interface GraphSearchParams {
   nodeTypes?: KnowledgeNodeType[];
 }
 
+export interface GraphChunk {
+  id: number;
+  text: string;
+  doc_id: string;
+  metadata: Record<string, unknown>;
+  /** Distance (in hops) from the original seed nodes */
+  hopDistance: number;
+}
+
 export interface GraphContextResult {
   nodes: KnowledgeNodeRow[];
   edges: KnowledgeEdgeRow[];
-  chunks: Array<{ id: number; text: string; metadata: Record<string, unknown> }>;
+  chunks: GraphChunk[];
   stats: {
     nodesVisited: number;
     edgesTraversed: number;
@@ -200,16 +209,19 @@ export async function graphSearch(
     params.nodeTypes
   );
 
-  // 3. Collect edges between visited nodes
-  const edges = await collectEdgesBetweenNodes([...visitedNodes.values()], params.edgeTypes);
+  // Extract just the nodes for edge collection
+  const nodes = [...visitedNodes.values()].map((v) => v.node);
 
-  // 4. Get chunks for nodes that have chunk_id
-  const chunks = await getChunksForNodes(db, [...visitedNodes.values()]);
+  // 3. Collect edges between visited nodes
+  const edges = await collectEdgesBetweenNodes(nodes, params.edgeTypes);
+
+  // 4. Get chunks for nodes that have chunk_id (with hop distance)
+  const chunks = await getChunksForNodesWithDepth(db, visitedNodes);
 
   const durationMs = performance.now() - startTime;
 
   return {
-    nodes: [...visitedNodes.values()],
+    nodes,
     edges,
     chunks,
     stats: {
@@ -225,6 +237,12 @@ export async function graphSearch(
 // BFS TRAVERSAL
 // =============================================================================
 
+/** Node with its traversal depth */
+interface NodeWithDepth {
+  node: KnowledgeNodeRow;
+  depth: number;
+}
+
 /**
  * Perform BFS traversal from seed nodes with depth and node limits.
  *
@@ -233,7 +251,7 @@ export async function graphSearch(
  * @param maxNodes - Maximum nodes to visit
  * @param edgeTypes - Optional edge type filter
  * @param nodeTypes - Optional node type filter
- * @returns Visited nodes map and max depth reached
+ * @returns Visited nodes map (with depth) and max depth reached
  */
 async function bfsTraverse(
   seedNodeIds: string[],
@@ -241,8 +259,8 @@ async function bfsTraverse(
   maxNodes: number,
   edgeTypes?: KnowledgeEdgeType[],
   nodeTypes?: KnowledgeNodeType[]
-): Promise<{ visitedNodes: Map<string, KnowledgeNodeRow>; maxDepthReached: number }> {
-  const visited = new Map<string, KnowledgeNodeRow>();
+): Promise<{ visitedNodes: Map<string, NodeWithDepth>; maxDepthReached: number }> {
+  const visited = new Map<string, NodeWithDepth>();
   const queue: Array<{ nodeId: string; depth: number }> = [];
   let maxDepthReached = 0;
 
@@ -269,8 +287,8 @@ async function bfsTraverse(
       continue;
     }
 
-    // Mark as visited
-    visited.set(nodeId, node);
+    // Mark as visited with depth
+    visited.set(nodeId, { node, depth });
     maxDepthReached = Math.max(maxDepthReached, depth);
 
     // Stop expanding if at max depth
@@ -341,30 +359,73 @@ async function collectEdgesBetweenNodes(
 // =============================================================================
 
 /**
- * Get chunk text for nodes that have associated chunk_id.
+ * Get chunk text for nodes that have associated chunk_id, including hop distance.
+ *
+ * @param db - PostgreSQL connection pool
+ * @param nodesWithDepth - Map of node IDs to nodes with their traversal depth
+ * @returns Chunk data including id, text, metadata, and hop distance
+ */
+async function getChunksForNodesWithDepth(
+  db: Pool,
+  nodesWithDepth: Map<string, NodeWithDepth>
+): Promise<GraphChunk[]> {
+  // Build a map from chunk_id to minimum hop distance
+  // (a chunk might be referenced by multiple nodes at different depths)
+  const chunkDepthMap = new Map<number, number>();
+
+  for (const { node, depth } of nodesWithDepth.values()) {
+    if (node.chunk_id !== null) {
+      const existingDepth = chunkDepthMap.get(node.chunk_id);
+      if (existingDepth === undefined || depth < existingDepth) {
+        chunkDepthMap.set(node.chunk_id, depth);
+      }
+    }
+  }
+
+  if (chunkDepthMap.size === 0) return [];
+
+  const uniqueChunkIds = [...chunkDepthMap.keys()];
+
+  const result = await db.query(
+    'SELECT id, doc_id, text, metadata FROM chunks WHERE id = ANY($1)',
+    [uniqueChunkIds]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id as number,
+    text: row.text as string,
+    doc_id: row.doc_id as string,
+    metadata: (row.metadata as Record<string, unknown>) ?? {},
+    hopDistance: chunkDepthMap.get(row.id as number) ?? 0,
+  }));
+}
+
+/**
+ * Get chunk text for nodes (legacy version without depth tracking).
+ * Used for browse mode where all nodes are at depth 0.
  *
  * @param db - PostgreSQL connection pool
  * @param nodes - Nodes to get chunks for
- * @returns Chunk data including id, text, and metadata
+ * @returns Chunk data including id, text, and metadata with hopDistance=0
  */
-async function getChunksForNodes(
-  db: Pool,
-  nodes: KnowledgeNodeRow[]
-): Promise<Array<{ id: number; text: string; metadata: Record<string, unknown> }>> {
+async function getChunksForNodes(db: Pool, nodes: KnowledgeNodeRow[]): Promise<GraphChunk[]> {
   const chunkIds = nodes.filter((n) => n.chunk_id !== null).map((n) => n.chunk_id as number);
 
   if (chunkIds.length === 0) return [];
 
   const uniqueChunkIds = [...new Set(chunkIds)];
 
-  const result = await db.query('SELECT id, text, metadata FROM chunks WHERE id = ANY($1)', [
-    uniqueChunkIds,
-  ]);
+  const result = await db.query(
+    'SELECT id, doc_id, text, metadata FROM chunks WHERE id = ANY($1)',
+    [uniqueChunkIds]
+  );
 
   return result.rows.map((row) => ({
     id: row.id as number,
     text: row.text as string,
+    doc_id: row.doc_id as string,
     metadata: (row.metadata as Record<string, unknown>) ?? {},
+    hopDistance: 0, // Browse mode: all nodes at root level
   }));
 }
 
