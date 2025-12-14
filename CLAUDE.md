@@ -126,7 +126,7 @@ chunks (id, doc_id, chunk_index, text, embedding VECTOR(768|1024|1536), metadata
 
 ### Multi-Provider Embeddings
 - **Ollama** (nomic-embed-text): Free local, general docs
-- **Voyage** (voyage-code-2): Code documentation
+- **Voyage** (voyage-code-3): Code documentation ⭐ **Best for code**
 - **OpenAI** (text-embedding-3-large): Personal writing
 - Auto-detection routes content to appropriate provider
 
@@ -134,6 +134,58 @@ chunks (id, doc_id, chunk_index, text, embedding VECTOR(768|1024|1536), metadata
 ```
 Upload → Extract (PDF/DOCX/MD) → Chunk (800 chars) → Provider Selection → Embed → pgvector
 ```
+
+---
+
+## Search Best Practices
+
+**Optimal settings for code:** `voyage-code-3` + `vector` mode + no reranker + graph off = **MRR 1.000**
+
+| Setting | Code Repos | Documentation |
+|---------|------------|---------------|
+| Embedding | **voyage-code-3** (2x better) | nomic-embed-text |
+| Search mode | vector | vector |
+| Reranker | none (hurts code!) | none |
+| Graph | off (unless cross-file) | off |
+
+**Key findings:**
+- voyage-code-3 provides **2x better MRR** than nomic for code
+- Rerankers **hurt** code search (-10% MRR)
+- Graph expansion only helps cross-file queries ("what imports X?")
+- Use 5-10 word queries with specific terms
+
+## Ingestion Best Practices
+
+```bash
+# Ingest file
+curl -X POST "http://localhost:3333/api/ingest" \
+  -F "collection_id=${COLLECTION_ID}" -F "file=@/path/to/file.md"
+
+# Re-embed with voyage-code-3 (recommended for code)
+pnpm re-embed --collection <uuid> --provider voyage --model voyage-code-3
+
+# Build knowledge graph
+curl -X POST "http://localhost:3333/api/graph/build/${COLLECTION_ID}"
+```
+
+**Metadata for filtering:**
+```json
+{ "tech_stack": ["flutter"], "feature_tags": ["auth"], "platform": ["mobile"] }
+```
+
+## Evaluation
+
+```bash
+# Regenerate ground truth BEFORE eval (critical!)
+node perf/regenerate-ground-truth.mjs perf/eval_datasets/your-dataset.json
+
+# Run evaluation
+pnpm eval:retrieval --eval-mode=doc --search-mode=vector
+```
+
+**Targets:** MRR >0.9, Hit Rate 100%, Recall@10 >90%, Latency <10ms
+
+---
 
 ### MCP Server
 Exposes RAG to external agents (Cursor, Windsurf, Claude Desktop):

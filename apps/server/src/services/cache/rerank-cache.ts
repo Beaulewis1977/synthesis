@@ -19,6 +19,7 @@ export interface RerankCacheKeyInput {
   provider: string;
   signatures: string[];
   documents: string[];
+  topK: number;
 }
 
 export function createRerankCacheKey(input: RerankCacheKeyInput): string {
@@ -31,6 +32,7 @@ export function createRerankCacheKey(input: RerankCacheKeyInput): string {
     provider: input.provider,
     signatures: input.signatures,
     docs: docHashes,
+    topK: input.topK,
   };
 
   const hash = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');

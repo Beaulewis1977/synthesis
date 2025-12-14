@@ -540,7 +540,7 @@ async function appendToSweepTable(result: SweepResult, summaryPath: string): Pro
 
   // Build new row
   const config = result.config;
-  const dims = getModelDimensions(config.embedding.model, config.embedding.provider);
+  const dims = getModelDimensions(config.embedding.provider, config.embedding.model);
   const date = new Date().toISOString().split('T')[0];
 
   // Graph expansion info

@@ -746,31 +746,45 @@ async function expandWithGraphContext(
   // Get existing chunk IDs to deduplicate
   const existingChunkIds = new Set(results.map((r) => r.id));
 
+  // Score graph results relative to top original result with distance decay
+  // Chunks closer to seed nodes (lower hopDistance) get higher scores
+  const topScore = results[0]?.similarity ?? 0.5;
+  const DECAY_FACTOR = 0.9; // Each hop reduces score by 10%
+
   // Convert graph chunks to SmartSearchResult format
   const graphDerivedResults: SmartSearchResult[] = graphResult.chunks
     .filter((chunk) => !existingChunkIds.has(chunk.id)) // Dedupe
-    .map((chunk) => ({
-      id: chunk.id,
-      text: chunk.text,
-      snippet: chunk.text.slice(0, 200), // Generate snippet from chunk text
-      similarity: 0.75, // Graph-derived results get moderate similarity score
-      docId: (chunk.metadata?.doc_id as string) ?? '',
-      docTitle: (chunk.metadata?.doc_title as string) ?? null,
-      sourceUrl: (chunk.metadata?.source_url as string) ?? null,
-      metadata: chunk.metadata,
-      citation: {
-        title: (chunk.metadata?.doc_title as string) ?? null,
-      },
-      // Mark as graph-derived with context info
-      graphContext: {
-        nodeCount: graphResult.nodes.length,
-        edgeCount: graphResult.edges.length,
-        expandedFromChunkId: seedChunkIds[0], // Track which seed triggered this
-      },
-    }));
+    .map((chunk) => {
+      // Apply exponential decay based on hop distance
+      // hopDistance=0: topScore * 1.0, hopDistance=1: topScore * 0.9, hopDistance=2: topScore * 0.81
+      const decayedScore = topScore * DECAY_FACTOR ** chunk.hopDistance;
+      return {
+        id: chunk.id,
+        text: chunk.text,
+        snippet: chunk.text.slice(0, 200), // Generate snippet from chunk text
+        similarity: decayedScore, // Score with distance-based decay
+        // Use doc_id from chunk (now included in graph-search query)
+        docId: chunk.doc_id ?? '',
+        docTitle: (chunk.metadata?.doc_title as string) ?? null,
+        sourceUrl: (chunk.metadata?.source_url as string) ?? null,
+        metadata: chunk.metadata,
+        citation: {
+          title: (chunk.metadata?.doc_title as string) ?? null,
+        },
+        // Mark as graph-derived with context info
+        graphContext: {
+          nodeCount: graphResult.nodes.length,
+          edgeCount: graphResult.edges.length,
+          expandedFromChunkId: seedChunkIds[0], // Track which seed triggered this
+          hopDistance: chunk.hopDistance, // Include hop distance for debugging
+        },
+      };
+    });
 
-  // Merge: original results first, then graph-derived
-  const mergedResults = [...results, ...graphDerivedResults];
+  // Merge and sort by similarity descending so graph results can appear in top results
+  const mergedResults = [...results, ...graphDerivedResults].sort(
+    (a, b) => (b.similarity ?? 0) - (a.similarity ?? 0)
+  );
 
   const expansionTimeMs = Math.round(performance.now() - startTime);
 

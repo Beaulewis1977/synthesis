@@ -1,0 +1,646 @@
+{
+  "name": "Recipe Slot Webapp Evaluation Dataset",
+  "description": "Ground truth queries for testing RAG on Recipe Slot Machine webapp (Next.js + Flutter)",
+  "collection_id": "9094df89-b604-45e4-bf16-9c0d4f97d197",
+  "created_at": "2025-12-14",
+  "queries": [
+    {
+      "id": "q1",
+      "query": "How does the slot machine animation work?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "3b57e3ca-dab7-455d-b777-3c7c72dd8162",
+        "d4c543ed-a659-47ba-931c-3a5355585047"
+      ],
+      "expected_doc_titles": ["WEB_TO_MOBILE_MAPPING.md", "slot_machine_widget.dart"]
+    },
+    {
+      "id": "q2",
+      "query": "Where is the recipe card component?",
+      "type": "code_location",
+      "expected_doc_ids": [
+        "3b57e3ca-dab7-455d-b777-3c7c72dd8162",
+        "8bfd7bd0-e6c2-4811-9784-bff88309efb2",
+        "6d1b0106-0ea5-4dfb-8027-d8d5bb8c372b",
+        "db4cd66b-bd68-45c1-91c1-f1c08394282b",
+        "3be9aaaa-7ac9-4a1d-a2cd-78c0ac499793"
+      ],
+      "expected_doc_titles": [
+        "WEB_TO_MOBILE_MAPPING.md",
+        "recipe_card.dart",
+        "SAAS_TECHNICAL_SPECIFICATIONS.md",
+        "recipe_slot_app_complete_blueprint.md",
+        "recipe_slot_app_complete_blueprint.md"
+      ]
+    },
+    {
+      "id": "q3",
+      "query": "How do I save a recipe to favorites?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "8a579341-e3bb-4c72-9cd7-8779371d8dc9",
+        "d349f2f1-bc41-4294-9f43-9ce602a60784",
+        "f510860b-c3fb-4f1a-a918-bd65fc48fd39"
+      ],
+      "expected_doc_titles": ["page.tsx", "route.ts", "route.ts"]
+    },
+    {
+      "id": "q4",
+      "query": "What API endpoints exist for recipes?",
+      "type": "api",
+      "expected_doc_ids": [
+        "5620b45c-91b5-4717-9a6a-618c253e8c73",
+        "0d14b237-61fd-45d0-bcce-b99bf4cad5ea"
+      ],
+      "expected_doc_titles": ["API_SETUP_GUIDE.md", "select.tsx"]
+    },
+    {
+      "id": "q5",
+      "query": "How does the Spoonacular API integration work?",
+      "type": "api",
+      "expected_doc_ids": [
+        "a1e6f214-9ea5-4803-bdd6-c1f950921bc2",
+        "d349f2f1-bc41-4294-9f43-9ce602a60784",
+        "f510860b-c3fb-4f1a-a918-bd65fc48fd39"
+      ],
+      "expected_doc_titles": ["route.ts", "route.ts", "route.ts"]
+    },
+    {
+      "id": "q6",
+      "query": "What is the Flutter project structure?",
+      "type": "architecture",
+      "expected_doc_ids": [
+        "80071232-f116-4a0b-a6c5-0f33914d6fff",
+        "0d14b237-61fd-45d0-bcce-b99bf4cad5ea"
+      ],
+      "expected_doc_titles": ["FLUTTER_PROJECT_GUIDE.md", "select.tsx"]
+    },
+    {
+      "id": "q7",
+      "query": "How do I implement the swipe interface?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "6d1b0106-0ea5-4dfb-8027-d8d5bb8c372b",
+        "50bb604a-947c-4518-aab5-266cb2f27a6a"
+      ],
+      "expected_doc_titles": ["SAAS_TECHNICAL_SPECIFICATIONS.md", "types.ts"]
+    },
+    {
+      "id": "q8",
+      "query": "What components use the recipe model?",
+      "type": "cross_file",
+      "expected_doc_ids": [
+        "3be9aaaa-7ac9-4a1d-a2cd-78c0ac499793",
+        "db4cd66b-bd68-45c1-91c1-f1c08394282b",
+        "c6d9483d-bd0f-4838-a728-03e1111e2d2f",
+        "3b57e3ca-dab7-455d-b777-3c7c72dd8162"
+      ],
+      "expected_doc_titles": [
+        "recipe_slot_app_complete_blueprint.md",
+        "recipe_slot_app_complete_blueprint.md",
+        "page.tsx",
+        "WEB_TO_MOBILE_MAPPING.md"
+      ]
+    },
+    {
+      "id": "q9",
+      "query": "How is state management implemented?",
+      "type": "architecture",
+      "expected_doc_ids": [
+        "3b57e3ca-dab7-455d-b777-3c7c72dd8162",
+        "26890dbd-874c-4be3-b517-bee2437b474a"
+      ],
+      "expected_doc_titles": ["WEB_TO_MOBILE_MAPPING.md", "use-toast.ts"]
+    },
+    {
+      "id": "q10",
+      "query": "Where is the grocery list feature implemented?",
+      "type": "code_location",
+      "expected_doc_ids": [
+        "787e6f7d-b7d8-42a1-895e-3b62f8ecd3b1",
+        "3495b47b-e476-4a06-97ff-a6ea4345d162",
+        "8a579341-e3bb-4c72-9cd7-8779371d8dc9",
+        "10be839e-1957-4530-be9b-daba84322ab0"
+      ],
+      "expected_doc_titles": ["README.md", "page.tsx", "page.tsx", "page.tsx"]
+    },
+    {
+      "id": "q11",
+      "query": "What is the Flutter equivalent of the pantry modal?",
+      "type": "feature_mapping",
+      "expected_doc_ids": [
+        "787e6f7d-b7d8-42a1-895e-3b62f8ecd3b1",
+        "3b57e3ca-dab7-455d-b777-3c7c72dd8162",
+        "3d4708b3-4b9d-43a9-bb0f-b7cc0d85d4e5",
+        "ecfff929-ad56-4242-a52f-576f3f00d261",
+        "62b8f44b-c128-4c83-95ff-0cb3dc31ba1a"
+      ],
+      "expected_doc_titles": [
+        "README.md",
+        "WEB_TO_MOBILE_MAPPING.md",
+        "pantry-modal.tsx",
+        "pantry-modal.tsx",
+        "FEATURE_PORTING_SPECIFICATIONS.md"
+      ]
+    },
+    {
+      "id": "q12",
+      "query": "How do I configure dietary preferences?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "3be9aaaa-7ac9-4a1d-a2cd-78c0ac499793",
+        "810531f6-1980-4ff1-8fc7-4b5ecad1a089",
+        "db4cd66b-bd68-45c1-91c1-f1c08394282b"
+      ],
+      "expected_doc_titles": [
+        "recipe_slot_app_complete_blueprint.md",
+        "recipe-filter-modal.tsx",
+        "recipe_slot_app_complete_blueprint.md"
+      ]
+    },
+    {
+      "id": "q13",
+      "query": "What database tables are needed for the SaaS?",
+      "type": "architecture",
+      "expected_doc_ids": [
+        "6d1b0106-0ea5-4dfb-8027-d8d5bb8c372b",
+        "0d14b237-61fd-45d0-bcce-b99bf4cad5ea"
+      ],
+      "expected_doc_titles": ["SAAS_TECHNICAL_SPECIFICATIONS.md", "select.tsx"]
+    },
+    {
+      "id": "q14",
+      "query": "How does authentication work?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "6d1b0106-0ea5-4dfb-8027-d8d5bb8c372b",
+        "d349f2f1-bc41-4294-9f43-9ce602a60784",
+        "f510860b-c3fb-4f1a-a918-bd65fc48fd39",
+        "6a0d1fd1-2611-4bea-9b16-74c13b0863ec"
+      ],
+      "expected_doc_titles": [
+        "SAAS_TECHNICAL_SPECIFICATIONS.md",
+        "route.ts",
+        "route.ts",
+        "route.ts"
+      ]
+    },
+    {
+      "id": "q15",
+      "query": "What is the ingredient mode screen?",
+      "type": "code_location",
+      "expected_doc_ids": [
+        "dde03223-fd6d-411e-8766-d0df41b01861",
+        "cce14ce0-fbaa-4015-a752-b2efc055faab"
+      ],
+      "expected_doc_titles": ["ingredient_mode_screen.dart", "main_screen.dart"]
+    },
+    {
+      "id": "q16",
+      "query": "How do I implement recipe filtering?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "c6d9483d-bd0f-4838-a728-03e1111e2d2f",
+        "810531f6-1980-4ff1-8fc7-4b5ecad1a089"
+      ],
+      "expected_doc_titles": ["page.tsx", "recipe-filter-modal.tsx"]
+    },
+    {
+      "id": "q17",
+      "query": "What theme configuration is used?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "80071232-f116-4a0b-a6c5-0f33914d6fff",
+        "41853c38-f605-4a65-8a57-6b54129839ba",
+        "582bf455-fb9a-4822-9f6d-6bc3fe605382",
+        "99b52d1e-de05-49bc-b512-a8f42e91d8a8",
+        "3b57e3ca-dab7-455d-b777-3c7c72dd8162"
+      ],
+      "expected_doc_titles": [
+        "FLUTTER_PROJECT_GUIDE.md",
+        "sonner.tsx",
+        "main.dart",
+        "tailwind.config.ts",
+        "WEB_TO_MOBILE_MAPPING.md"
+      ]
+    },
+    {
+      "id": "q18",
+      "query": "How is navigation implemented in Flutter?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "3b57e3ca-dab7-455d-b777-3c7c72dd8162",
+        "0d14b237-61fd-45d0-bcce-b99bf4cad5ea"
+      ],
+      "expected_doc_titles": ["WEB_TO_MOBILE_MAPPING.md", "select.tsx"]
+    },
+    {
+      "id": "q19",
+      "query": "What animations are used in the app?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "6d1b0106-0ea5-4dfb-8027-d8d5bb8c372b",
+        "0d14b237-61fd-45d0-bcce-b99bf4cad5ea"
+      ],
+      "expected_doc_titles": ["SAAS_TECHNICAL_SPECIFICATIONS.md", "select.tsx"]
+    },
+    {
+      "id": "q20",
+      "query": "How does the recipe detail screen work?",
+      "type": "code_location",
+      "expected_doc_ids": [
+        "234b1bdf-3815-4bd1-8b05-6daa03cd4a03",
+        "3be9aaaa-7ac9-4a1d-a2cd-78c0ac499793",
+        "db4cd66b-bd68-45c1-91c1-f1c08394282b",
+        "5468558b-9b3d-426b-8f4f-566576adc23d"
+      ],
+      "expected_doc_titles": [
+        "recipe_detail_screen.dart",
+        "recipe_slot_app_complete_blueprint.md",
+        "recipe_slot_app_complete_blueprint.md",
+        "page.tsx"
+      ]
+    },
+    {
+      "id": "q21",
+      "query": "What is the data model for recipes?",
+      "type": "architecture",
+      "expected_doc_ids": [
+        "3b57e3ca-dab7-455d-b777-3c7c72dd8162",
+        "50bb604a-947c-4518-aab5-266cb2f27a6a"
+      ],
+      "expected_doc_titles": ["WEB_TO_MOBILE_MAPPING.md", "types.ts"]
+    },
+    {
+      "id": "q22",
+      "query": "How are grocery templates managed?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "0298742b-7c99-4190-b30a-b6d36bdfbd75",
+        "d349f2f1-bc41-4294-9f43-9ce602a60784",
+        "f510860b-c3fb-4f1a-a918-bd65fc48fd39"
+      ],
+      "expected_doc_titles": ["templates-modal.tsx", "route.ts", "route.ts"]
+    },
+    {
+      "id": "q23",
+      "query": "What sorting options exist for the grocery list?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "62b8f44b-c128-4c83-95ff-0cb3dc31ba1a",
+        "d33076c1-8c7d-4d6b-95f6-beb95b474154",
+        "08d8b86e-6850-46b8-93b7-c1896408dead"
+      ],
+      "expected_doc_titles": [
+        "FEATURE_PORTING_SPECIFICATIONS.md",
+        "grocery-sort-filter.tsx",
+        "utils.ts"
+      ]
+    },
+    {
+      "id": "q24",
+      "query": "How do I store user settings?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "62eff007-510d-4749-8f8b-348d6cd9ce63",
+        "10dd77bc-93a8-43de-b697-94886fdee599",
+        "50bb604a-947c-4518-aab5-266cb2f27a6a"
+      ],
+      "expected_doc_titles": ["recipe_provider.dart", "settings-provider.tsx", "types.ts"]
+    },
+    {
+      "id": "q25",
+      "query": "What is the layout structure?",
+      "type": "architecture",
+      "expected_doc_ids": [
+        "6d1b0106-0ea5-4dfb-8027-d8d5bb8c372b",
+        "41eb5eb8-21b1-40df-9c08-ba2d1a1a5bc6",
+        "3be9aaaa-7ac9-4a1d-a2cd-78c0ac499793",
+        "db4cd66b-bd68-45c1-91c1-f1c08394282b"
+      ],
+      "expected_doc_titles": [
+        "SAAS_TECHNICAL_SPECIFICATIONS.md",
+        "settings_screen.dart",
+        "recipe_slot_app_complete_blueprint.md",
+        "recipe_slot_app_complete_blueprint.md"
+      ]
+    },
+    {
+      "id": "q26",
+      "query": "How does Hive local storage work?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "80071232-f116-4a0b-a6c5-0f33914d6fff",
+        "08d8b86e-6850-46b8-93b7-c1896408dead"
+      ],
+      "expected_doc_titles": ["FLUTTER_PROJECT_GUIDE.md", "utils.ts"]
+    },
+    {
+      "id": "q27",
+      "query": "What components are in the saved recipes screen?",
+      "type": "code_location",
+      "expected_doc_ids": [
+        "8a579341-e3bb-4c72-9cd7-8779371d8dc9",
+        "3495b47b-e476-4a06-97ff-a6ea4345d162",
+        "10be839e-1957-4530-be9b-daba84322ab0"
+      ],
+      "expected_doc_titles": ["page.tsx", "page.tsx", "page.tsx"]
+    },
+    {
+      "id": "q28",
+      "query": "How are recipe list items rendered?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "3be9aaaa-7ac9-4a1d-a2cd-78c0ac499793",
+        "bd5c9508-7e0c-4bff-834c-87a16aa676dc",
+        "db4cd66b-bd68-45c1-91c1-f1c08394282b",
+        "62b8f44b-c128-4c83-95ff-0cb3dc31ba1a"
+      ],
+      "expected_doc_titles": [
+        "recipe_slot_app_complete_blueprint.md",
+        "saved_recipes_screen.dart",
+        "recipe_slot_app_complete_blueprint.md",
+        "FEATURE_PORTING_SPECIFICATIONS.md"
+      ]
+    },
+    {
+      "id": "q29",
+      "query": "What is the feature parity plan?",
+      "type": "architecture",
+      "expected_doc_ids": [
+        "3b57e3ca-dab7-455d-b777-3c7c72dd8162",
+        "0d14b237-61fd-45d0-bcce-b99bf4cad5ea"
+      ],
+      "expected_doc_titles": ["WEB_TO_MOBILE_MAPPING.md", "select.tsx"]
+    },
+    {
+      "id": "q30",
+      "query": "How do I map web components to Flutter widgets?",
+      "type": "feature_mapping",
+      "expected_doc_ids": [
+        "3b57e3ca-dab7-455d-b777-3c7c72dd8162",
+        "0d14b237-61fd-45d0-bcce-b99bf4cad5ea"
+      ],
+      "expected_doc_titles": ["WEB_TO_MOBILE_MAPPING.md", "select.tsx"]
+    },
+    {
+      "id": "q31",
+      "query": "What is the enhanced recipe card?",
+      "type": "code_location",
+      "expected_doc_ids": [
+        "58610530-3879-4fb8-adcc-fb2a3875ad9e",
+        "cda40a73-4f4b-4ceb-808b-26cfa6956a76",
+        "3b57e3ca-dab7-455d-b777-3c7c72dd8162",
+        "3be9aaaa-7ac9-4a1d-a2cd-78c0ac499793",
+        "db4cd66b-bd68-45c1-91c1-f1c08394282b"
+      ],
+      "expected_doc_titles": [
+        "enhanced-recipe-card.tsx",
+        "enhanced-recipe-card.tsx",
+        "WEB_TO_MOBILE_MAPPING.md",
+        "recipe_slot_app_complete_blueprint.md",
+        "recipe_slot_app_complete_blueprint.md"
+      ]
+    },
+    {
+      "id": "q32",
+      "query": "How do I implement spin mode?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "62b8f44b-c128-4c83-95ff-0cb3dc31ba1a",
+        "59da02a1-68cc-4767-ad07-0470d9a520aa",
+        "6d1b0106-0ea5-4dfb-8027-d8d5bb8c372b",
+        "e47aee88-adcd-4245-a702-e0ebbf0af3d2",
+        "3b57e3ca-dab7-455d-b777-3c7c72dd8162"
+      ],
+      "expected_doc_titles": [
+        "FEATURE_PORTING_SPECIFICATIONS.md",
+        "spin_mode_screen.dart",
+        "SAAS_TECHNICAL_SPECIFICATIONS.md",
+        "page.tsx",
+        "WEB_TO_MOBILE_MAPPING.md"
+      ]
+    },
+    {
+      "id": "q33",
+      "query": "What extracted algorithms exist for porting?",
+      "type": "architecture",
+      "expected_doc_ids": [
+        "0b0f3f8d-1c59-4886-93a8-ec5e1ba73480",
+        "c847a89a-8a77-42a4-ad9d-446c99a3dee5"
+      ],
+      "expected_doc_titles": ["EXTRACTED_ALGORITHMS.md", "sheet.tsx"]
+    },
+    {
+      "id": "q34",
+      "query": "How is ingredient storage managed?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "db4cd66b-bd68-45c1-91c1-f1c08394282b",
+        "c38ef930-b7b5-46fd-b674-f2900d6adaaa",
+        "3be9aaaa-7ac9-4a1d-a2cd-78c0ac499793",
+        "62b8f44b-c128-4c83-95ff-0cb3dc31ba1a",
+        "3b57e3ca-dab7-455d-b777-3c7c72dd8162"
+      ],
+      "expected_doc_titles": [
+        "recipe_slot_app_complete_blueprint.md",
+        "ingredient-storage-provider.tsx",
+        "recipe_slot_app_complete_blueprint.md",
+        "FEATURE_PORTING_SPECIFICATIONS.md",
+        "WEB_TO_MOBILE_MAPPING.md"
+      ]
+    },
+    {
+      "id": "q35",
+      "query": "What TypeScript types are defined?",
+      "type": "code_location",
+      "expected_doc_ids": [
+        "26890dbd-874c-4be3-b517-bee2437b474a",
+        "810531f6-1980-4ff1-8fc7-4b5ecad1a089"
+      ],
+      "expected_doc_titles": ["use-toast.ts", "recipe-filter-modal.tsx"]
+    },
+    {
+      "id": "q36",
+      "query": "How does the swipe guide overlay work?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "52b845bc-04e4-4a97-ad1b-b4f2391eaa59",
+        "50bb604a-947c-4518-aab5-266cb2f27a6a"
+      ],
+      "expected_doc_titles": ["swipe-guide-overlay.tsx", "types.ts"]
+    },
+    {
+      "id": "q37",
+      "query": "What navigation component is used?",
+      "type": "code_location",
+      "expected_doc_ids": [
+        "3be9aaaa-7ac9-4a1d-a2cd-78c0ac499793",
+        "0d14b237-61fd-45d0-bcce-b99bf4cad5ea"
+      ],
+      "expected_doc_titles": ["recipe_slot_app_complete_blueprint.md", "select.tsx"]
+    },
+    {
+      "id": "q38",
+      "query": "How is toast/notification shown?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "d1d1d1d5-5f59-4a23-866a-e0e29da56a88",
+        "26890dbd-874c-4be3-b517-bee2437b474a"
+      ],
+      "expected_doc_titles": ["use-toast.ts", "use-toast.ts"]
+    },
+    {
+      "id": "q39",
+      "query": "What is the complete blueprint for the app?",
+      "type": "architecture",
+      "expected_doc_ids": [
+        "3be9aaaa-7ac9-4a1d-a2cd-78c0ac499793",
+        "0d14b237-61fd-45d0-bcce-b99bf4cad5ea"
+      ],
+      "expected_doc_titles": ["recipe_slot_app_complete_blueprint.md", "select.tsx"]
+    },
+    {
+      "id": "q40",
+      "query": "How do I use the database connection?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "6d1b0106-0ea5-4dfb-8027-d8d5bb8c372b",
+        "d349f2f1-bc41-4294-9f43-9ce602a60784",
+        "f510860b-c3fb-4f1a-a918-bd65fc48fd39",
+        "6a0d1fd1-2611-4bea-9b16-74c13b0863ec"
+      ],
+      "expected_doc_titles": [
+        "SAAS_TECHNICAL_SPECIFICATIONS.md",
+        "route.ts",
+        "route.ts",
+        "route.ts"
+      ]
+    },
+    {
+      "id": "q41",
+      "query": "What API routes handle grocery lists?",
+      "type": "api",
+      "expected_doc_ids": [
+        "787e6f7d-b7d8-42a1-895e-3b62f8ecd3b1",
+        "d349f2f1-bc41-4294-9f43-9ce602a60784",
+        "f510860b-c3fb-4f1a-a918-bd65fc48fd39",
+        "6a0d1fd1-2611-4bea-9b16-74c13b0863ec"
+      ],
+      "expected_doc_titles": ["README.md", "route.ts", "route.ts", "route.ts"]
+    },
+    {
+      "id": "q42",
+      "query": "How is the main screen structured?",
+      "type": "code_location",
+      "expected_doc_ids": [
+        "3b57e3ca-dab7-455d-b777-3c7c72dd8162",
+        "cce14ce0-fbaa-4015-a752-b2efc055faab",
+        "41eb5eb8-21b1-40df-9c08-ba2d1a1a5bc6",
+        "80071232-f116-4a0b-a6c5-0f33914d6fff"
+      ],
+      "expected_doc_titles": [
+        "WEB_TO_MOBILE_MAPPING.md",
+        "main_screen.dart",
+        "settings_screen.dart",
+        "FLUTTER_PROJECT_GUIDE.md"
+      ]
+    },
+    {
+      "id": "q43",
+      "query": "What utility functions are available?",
+      "type": "code_location",
+      "expected_doc_ids": [
+        "62b8f44b-c128-4c83-95ff-0cb3dc31ba1a",
+        "0d14b237-61fd-45d0-bcce-b99bf4cad5ea"
+      ],
+      "expected_doc_titles": ["FEATURE_PORTING_SPECIFICATIONS.md", "select.tsx"]
+    },
+    {
+      "id": "q44",
+      "query": "How do I implement recipe card stack?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "2ca1f8df-ad65-4943-92ca-0acac1cccf5e",
+        "58610530-3879-4fb8-adcc-fb2a3875ad9e",
+        "7dede599-1e3f-4223-bc08-a15a87726154",
+        "59da02a1-68cc-4767-ad07-0470d9a520aa"
+      ],
+      "expected_doc_titles": [
+        "recipe-card.tsx",
+        "enhanced-recipe-card.tsx",
+        "recipe-card.tsx",
+        "spin_mode_screen.dart"
+      ]
+    },
+    {
+      "id": "q45",
+      "query": "What Riverpod providers exist?",
+      "type": "architecture",
+      "expected_doc_ids": [
+        "80071232-f116-4a0b-a6c5-0f33914d6fff",
+        "e256831c-b2eb-4d7a-ae7a-1c1680a4fcaf"
+      ],
+      "expected_doc_titles": ["FLUTTER_PROJECT_GUIDE.md", "toast.tsx"]
+    },
+    {
+      "id": "q46",
+      "query": "How are settings serialized?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "698f1319-d075-4588-86a5-637930286c1f",
+        "62eff007-510d-4749-8f8b-348d6cd9ce63"
+      ],
+      "expected_doc_titles": ["settings.g.dart", "recipe_provider.dart"]
+    },
+    {
+      "id": "q47",
+      "query": "What is the slot machine widget?",
+      "type": "code_location",
+      "expected_doc_ids": [
+        "d4c543ed-a659-47ba-931c-3a5355585047",
+        "6d1b0106-0ea5-4dfb-8027-d8d5bb8c372b"
+      ],
+      "expected_doc_titles": ["slot_machine_widget.dart", "SAAS_TECHNICAL_SPECIFICATIONS.md"]
+    },
+    {
+      "id": "q48",
+      "query": "How do I handle API errors?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "5620b45c-91b5-4717-9a6a-618c253e8c73",
+        "d349f2f1-bc41-4294-9f43-9ce602a60784",
+        "f510860b-c3fb-4f1a-a918-bd65fc48fd39"
+      ],
+      "expected_doc_titles": ["API_SETUP_GUIDE.md", "route.ts", "route.ts"]
+    },
+    {
+      "id": "q49",
+      "query": "What recipe generation functionality exists?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "98ff4b1a-ea82-4c6e-b2a2-107586b53757",
+        "d349f2f1-bc41-4294-9f43-9ce602a60784",
+        "f510860b-c3fb-4f1a-a918-bd65fc48fd39"
+      ],
+      "expected_doc_titles": ["route.ts", "route.ts", "route.ts"]
+    },
+    {
+      "id": "q50",
+      "query": "How is the client session managed?",
+      "type": "implementation",
+      "expected_doc_ids": [
+        "6d1b0106-0ea5-4dfb-8027-d8d5bb8c372b",
+        "d349f2f1-bc41-4294-9f43-9ce602a60784",
+        "f510860b-c3fb-4f1a-a918-bd65fc48fd39"
+      ],
+      "expected_doc_titles": ["SAAS_TECHNICAL_SPECIFICATIONS.md", "route.ts", "route.ts"]
+    }
+  ],
+  "regenerated_at": "2025-12-14T01:40:02.367Z",
+  "regeneration_settings": {
+    "topK": 5,
+    "minSimilarity": 0.3,
+    "searchMode": "hybrid"
+  }
+}
