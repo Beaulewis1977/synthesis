@@ -1,4 +1,5 @@
 import { performance } from 'node:perf_hooks';
+import { getCollectionOptimalSettings } from '@synthesis/db';
 import type { DocumentMetadata } from '@synthesis/shared';
 import type { Pool } from 'pg';
 import type { ContentContext, EmbeddingProvider } from './embedding-router.js';
@@ -263,17 +264,27 @@ export async function smartSearch(
   // params.rerank explicitly set takes precedence, then searchConfig, then false
   const rerankRequested = params.rerank ?? searchConfig?.rerank ?? false;
 
-  // Determine search mode: explicit > intent-based > env > default
+  // Auto-Optimal RAG Settings: Fetch collection's optimal settings (if any)
+  const optimalSettings = await getCollectionOptimalSettings(params.collectionId);
+
+  // Determine search mode: explicit > intent-based > optimal > env > default
   const envMode = process.env.SEARCH_MODE === 'hybrid' ? 'hybrid' : 'vector';
   const intentMode = searchConfig?.mode;
-  const requestedMode = params.mode ?? intentMode ?? envMode;
+  const optimalMode = optimalSettings?.searchMode;
+  const requestedMode = params.mode ?? intentMode ?? optimalMode ?? envMode;
   const mode = rerankRequested ? 'hybrid' : requestedMode;
 
   const hint =
     params.provider && params.context
       ? undefined
       : await inferCollectionEmbeddingHint(db, params.collectionId);
-  const provider = params.provider ?? hint?.provider;
+
+  // Provider: explicit > hint > optimal > default
+  const optimalProvider =
+    optimalSettings?.embeddingProvider && isEmbeddingProvider(optimalSettings.embeddingProvider)
+      ? (optimalSettings.embeddingProvider as EmbeddingProvider)
+      : undefined;
+  const provider = params.provider ?? hint?.provider ?? optimalProvider;
   const context = params.context ?? hint?.context;
 
   // Resolve MMR options

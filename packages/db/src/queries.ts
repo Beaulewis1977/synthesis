@@ -2,6 +2,34 @@ import type { PoolClient } from 'pg';
 import { getPool, query } from './client.js';
 
 // Type definitions
+
+/**
+ * Content profile from analyzing collection files.
+ * Used to determine optimal RAG settings.
+ */
+export interface ContentProfile {
+  codeFileRatio: number; // Percentage of code files (0.0-1.0)
+  docFileRatio: number; // Percentage of doc files (0.0-1.0)
+  totalFiles: number;
+  codeFiles: number;
+  docFiles: number;
+  confidence: 'low' | 'medium' | 'high';
+}
+
+/**
+ * Auto-detected optimal RAG settings for a collection.
+ * Stored in collections.optimal_settings JSONB column.
+ */
+export interface OptimalSettings {
+  embeddingProvider: 'voyage' | 'ollama' | 'openai';
+  embeddingModel: string;
+  searchMode: 'vector' | 'hybrid';
+  reasoning: string; // Human-readable explanation
+  confidence: 'low' | 'medium' | 'high';
+  analyzedAt: Date;
+  fileCount: number; // How many files were analyzed
+}
+
 /**
  * Represents a collection of documents.
  */
@@ -11,6 +39,7 @@ export interface Collection {
   description: string | null;
   created_at: Date;
   updated_at: Date;
+  optimal_settings?: OptimalSettings | null;
 }
 
 /**
@@ -200,6 +229,51 @@ export async function deleteCollection(id: string, client?: PoolClient): Promise
  */
 export async function touchCollection(collectionId: string): Promise<void> {
   await query('UPDATE collections SET updated_at = NOW() WHERE id = $1', [collectionId]);
+}
+
+// Optimal Settings queries
+
+/**
+ * Updates the optimal settings for a collection.
+ * Called when content analysis detects the best RAG settings.
+ * @param collectionId The UUID of the collection.
+ * @param optimalSettings The auto-detected optimal settings.
+ */
+export async function updateCollectionOptimalSettings(
+  collectionId: string,
+  optimalSettings: OptimalSettings,
+  client?: PoolClient
+): Promise<void> {
+  const queryFn = client ? client.query.bind(client) : query;
+  await queryFn(
+    `UPDATE collections
+     SET optimal_settings = $1, updated_at = NOW()
+     WHERE id = $2`,
+    [JSON.stringify(optimalSettings), collectionId]
+  );
+}
+
+/**
+ * Retrieves the optimal settings for a collection.
+ * @param collectionId The UUID of the collection.
+ * @returns The optimal settings or null if not set.
+ */
+export async function getCollectionOptimalSettings(
+  collectionId: string
+): Promise<OptimalSettings | null> {
+  const result = await query('SELECT optimal_settings FROM collections WHERE id = $1', [
+    collectionId,
+  ]);
+
+  if (result.rows.length === 0 || !result.rows[0].optimal_settings) {
+    return null;
+  }
+
+  const settings = result.rows[0].optimal_settings;
+  return {
+    ...settings,
+    analyzedAt: new Date(settings.analyzedAt),
+  };
 }
 
 // Document queries

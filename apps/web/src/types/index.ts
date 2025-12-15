@@ -1,5 +1,19 @@
 // Type definitions for the Synthesis RAG application
 
+/**
+ * Auto-detected optimal RAG settings for a collection.
+ * Phase: Auto-Optimal RAG Settings
+ */
+export interface OptimalSettings {
+  embeddingProvider: 'voyage' | 'ollama' | 'openai';
+  embeddingModel: string;
+  searchMode: 'vector' | 'hybrid';
+  reasoning: string;
+  confidence: 'low' | 'medium' | 'high';
+  analyzedAt: string; // ISO string in frontend
+  fileCount: number;
+}
+
 export interface Collection {
   id: string;
   name: string;
@@ -9,6 +23,8 @@ export interface Collection {
   // MMR defaults for searches in this collection
   mmr_enabled?: boolean;
   mmr_lambda?: number;
+  // Auto-detected optimal settings
+  optimal_settings?: OptimalSettings | null;
 }
 
 // Phase 7: Lifecycle status for document versioning

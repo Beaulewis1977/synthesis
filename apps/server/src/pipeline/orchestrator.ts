@@ -3,10 +3,13 @@ import {
   type Document,
   getDocument,
   getPool,
+  query,
+  updateCollectionOptimalSettings,
   updateDocumentMetadata,
   updateDocumentStatus,
 } from '@synthesis/db';
 import type { DocumentMetadata } from '@synthesis/shared';
+import { generateOptimalSettings, shouldTriggerAnalysis } from '../services/content-analyzer.js';
 import { getEmbeddingProfileService } from '../services/embedding-profile-service.js';
 import {
   type ContentContext,
@@ -298,6 +301,32 @@ export async function ingestDocument(
     }
 
     await updateDocumentStatus(documentId, 'complete');
+
+    // Auto-Optimal RAG Settings: Trigger analysis at milestones
+    try {
+      const { rows } = await query<{ count: number }>(
+        `SELECT COUNT(*)::int as count FROM documents
+         WHERE collection_id = $1 AND status = 'complete'`,
+        [document.collection_id]
+      );
+      const completedCount = rows[0]?.count ?? 0;
+
+      if (shouldTriggerAnalysis(completedCount)) {
+        const optimalSettings = await generateOptimalSettings(document.collection_id);
+        await updateCollectionOptimalSettings(document.collection_id, optimalSettings);
+        console.info(
+          `[Ingest] Updated optimal settings for collection ${document.collection_id}: ` +
+            `${optimalSettings.embeddingProvider}/${optimalSettings.embeddingModel}, ` +
+            `mode=${optimalSettings.searchMode}, confidence=${optimalSettings.confidence}`
+        );
+      }
+    } catch (analysisError) {
+      // Non-blocking: don't fail ingestion if analysis fails
+      console.error(
+        `[Ingest] Failed to analyze optimal settings for collection ${document.collection_id}:`,
+        analysisError instanceof Error ? analysisError.message : analysisError
+      );
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await updateDocumentStatus(documentId, 'error', message);
