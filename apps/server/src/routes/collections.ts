@@ -5,11 +5,13 @@ import {
   deleteCollection,
   deleteDocumentChunks,
   getCollection,
+  getCollectionOptimalSettings,
   getDocument,
   getDocumentFileInfo,
   getPool,
   listCollections,
   listDocuments,
+  updateCollectionOptimalSettings,
 } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
@@ -31,6 +33,7 @@ import {
   restoreDocument,
   supersedeDocument,
 } from '../services/collection-lifecycle.js';
+import { generateOptimalSettings } from '../services/content-analyzer.js';
 import { fetchWebContent } from '../services/documentOperations.js';
 import { getRelatedFiles } from '../services/file-relationships.js';
 
@@ -197,6 +200,64 @@ export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(500).send({ error: 'Failed to update MMR defaults' });
     }
   });
+
+  // GET /api/collections/:id/optimal-settings - Get auto-detected optimal settings
+  fastify.get<{ Params: { id: string } }>(
+    '/api/collections/:id/optimal-settings',
+    async (request, reply) => {
+      try {
+        const settings = await getCollectionOptimalSettings(request.params.id);
+
+        if (!settings) {
+          return reply.code(404).send({
+            error: 'No optimal settings found for this collection',
+            hint: 'Ingest documents or POST to /api/collections/:id/analyze to generate settings',
+          });
+        }
+
+        return reply.send(settings);
+      } catch (error) {
+        fastify.log.error(error, 'Failed to get optimal settings');
+        return reply.code(500).send({ error: 'Failed to get optimal settings' });
+      }
+    }
+  );
+
+  // POST /api/collections/:id/analyze - Manually trigger content analysis
+  fastify.post<{ Params: { id: string } }>(
+    '/api/collections/:id/analyze',
+    async (request, reply) => {
+      try {
+        // Verify collection exists
+        const collection = await getCollection(request.params.id);
+        if (!collection) {
+          return reply.code(404).send({ error: 'Collection not found' });
+        }
+
+        const settings = await generateOptimalSettings(request.params.id);
+        await updateCollectionOptimalSettings(request.params.id, settings);
+
+        fastify.log.info(
+          {
+            collectionId: request.params.id,
+            provider: settings.embeddingProvider,
+            model: settings.embeddingModel,
+            mode: settings.searchMode,
+            confidence: settings.confidence,
+          },
+          'Collection optimal settings analyzed'
+        );
+
+        return reply.send(settings);
+      } catch (error) {
+        fastify.log.error(error, 'Failed to analyze collection');
+        return reply.code(500).send({
+          error: 'Failed to analyze collection',
+          details: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  );
 
   // GET /api/collections/:id/documents - Get documents in collection
   fastify.get<{ Params: { id: string } }>(

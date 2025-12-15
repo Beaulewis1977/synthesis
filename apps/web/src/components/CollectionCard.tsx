@@ -158,6 +158,28 @@ export function CollectionCard({
         </div>
       )}
 
+      {/* Optimal RAG Settings Badge */}
+      {collection.optimal_settings && (
+        <div className="mb-sm flex flex-wrap items-center gap-xs text-xs">
+          <span className="text-text-secondary">Detected:</span>
+          <span
+            className={`px-2 py-0.5 rounded ${
+              collection.optimal_settings.confidence === 'high'
+                ? 'bg-success/20 text-success'
+                : collection.optimal_settings.confidence === 'medium'
+                  ? 'bg-warning/20 text-warning'
+                  : 'bg-bg-tertiary text-text-secondary'
+            }`}
+            title={collection.optimal_settings.reasoning}
+          >
+            {collection.optimal_settings.embeddingModel}
+          </span>
+          <span className="px-2 py-0.5 rounded bg-bg-tertiary text-text-secondary">
+            {collection.optimal_settings.searchMode}
+          </span>
+        </div>
+      )}
+
       <p className="text-text-secondary text-sm mb-md">
         Updated {formatRelativeTime(collection.updated_at)}
       </p>

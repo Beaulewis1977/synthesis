@@ -39,6 +39,7 @@ import type {
   ModelConfigUpdate,
   ModelFeature,
   OllamaModelsResponse,
+  OptimalSettings,
   RelatedFilesResponse,
   RepositorySource,
   RepositorySourcesResponse,
@@ -167,6 +168,34 @@ class ApiClient {
         method: 'PATCH',
         body: JSON.stringify(settings),
       }
+    );
+  }
+
+  /**
+   * Get auto-detected optimal RAG settings for a collection.
+   * Returns null if no analysis has been performed yet.
+   */
+  async getCollectionOptimalSettings(collectionId: string): Promise<OptimalSettings | null> {
+    try {
+      return await this.request<OptimalSettings>(
+        `/api/collections/${encodeURIComponent(collectionId)}/optimal-settings`
+      );
+    } catch (error) {
+      // Return null for 404 (no settings yet)
+      if (error instanceof Error && 'status' in error && error.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Trigger manual re-analysis of collection content for optimal settings.
+   */
+  async analyzeCollectionOptimalSettings(collectionId: string): Promise<OptimalSettings> {
+    return this.request<OptimalSettings>(
+      `/api/collections/${encodeURIComponent(collectionId)}/analyze`,
+      { method: 'POST' }
     );
   }
 
