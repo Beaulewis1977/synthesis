@@ -39,6 +39,14 @@ const grepPatternInputSchema = z.object({
     .optional()
     .default(0)
     .describe('Number of context lines before/after match (default: 0)'),
+  max_file_size: z
+    .number()
+    .int()
+    .min(1024)
+    .max(50 * 1024 * 1024)
+    .optional()
+    .default(5 * 1024 * 1024)
+    .describe('Maximum file size to search in bytes (default: 5MB, max: 50MB)'),
 });
 
 type GrepPatternInput = z.infer<typeof grepPatternInputSchema>;
@@ -109,11 +117,20 @@ export const grepPatternTool: UnifiedToolDefinition = {
       // Search files
       const results: GrepMatch[] = [];
       let totalMatches = 0;
+      let skippedLargeFiles = 0;
+      const maxFileSize = parsed.max_file_size ?? 5 * 1024 * 1024;
 
       for (const filePath of filesToSearch) {
         if (results.length >= (parsed.max_results ?? 50)) break;
 
         try {
+          // Check file size before reading to prevent memory issues
+          const fileStat = await fs.promises.stat(filePath);
+          if (fileStat.size > maxFileSize) {
+            skippedLargeFiles++;
+            continue;
+          }
+
           const content = await fs.promises.readFile(filePath, 'utf-8');
           const lines = content.split('\n');
 
@@ -152,6 +169,7 @@ export const grepPatternTool: UnifiedToolDefinition = {
         pattern: parsed.pattern,
         search_path: parsed.path || '.',
         files_searched: filesToSearch.length,
+        files_skipped_large: skippedLargeFiles,
         matches: results,
         total_matches: totalMatches,
         returned: results.length,

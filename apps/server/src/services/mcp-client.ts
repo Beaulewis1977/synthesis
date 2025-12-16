@@ -364,16 +364,6 @@ export class McpClientManager {
       };
     }
   }
-
-  /**
-   * Check if an API key environment variable is configured.
-   *
-   * @param envVar The environment variable name
-   * @returns True if the env var is set
-   */
-  isApiKeyConfigured(envVar: string): boolean {
-    return !!process.env[envVar];
-  }
 }
 
 // Singleton instance
