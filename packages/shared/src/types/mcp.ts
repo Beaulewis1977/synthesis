@@ -192,4 +192,16 @@ export const MCP_SERVER_PRESETS: McpServerPreset[] = [
     },
     documentationUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem',
   },
+  {
+    name: 'context7',
+    displayName: 'Context7',
+    description: 'Up-to-date documentation for any library via Context7',
+    serverType: 'stdio',
+    config: {
+      command: 'npx',
+      args: ['-y', '@upstash/context7-mcp'],
+    },
+    apiKeyEnvVar: 'CONTEXT7_API_KEY',
+    documentationUrl: 'https://github.com/upstash/context7',
+  },
 ];
