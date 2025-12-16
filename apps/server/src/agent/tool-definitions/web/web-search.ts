@@ -74,13 +74,18 @@ function getPerplexityModel(mode: WebSearchInput['mode']): string {
 }
 
 /**
- * Call the Perplexity API
+ * Call the Perplexity API with timeout
  */
 async function callPerplexityApi(
   query: string,
   model: string,
   apiKey: string
 ): Promise<PerplexityResponse> {
+  const controller = new AbortController();
+  // Longer timeout for deep research mode
+  const timeoutMs = model === 'sonar-deep-research' ? 120000 : 60000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   const messages: PerplexityMessage[] = [
     {
       role: 'system',
@@ -93,26 +98,36 @@ async function callPerplexityApi(
     },
   ];
 
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      max_tokens: model === 'sonar-deep-research' ? 4096 : 2048,
-      return_citations: true,
-    }),
-  });
+  try {
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens: model === 'sonar-deep-research' ? 4096 : 2048,
+        return_citations: true,
+      }),
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Perplexity API error (${response.status}): ${errorText}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Perplexity API error (${response.status}): ${errorText}`);
+    }
+
+    return (await response.json()) as PerplexityResponse;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Perplexity API timeout after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return (await response.json()) as PerplexityResponse;
 }
 
 // =============================================================================

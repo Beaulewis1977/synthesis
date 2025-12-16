@@ -210,8 +210,12 @@ export class McpClientManager {
     }
 
     return new Promise((resolve) => {
+      // Declare child before timeout to avoid ReferenceError
+      // biome-ignore lint/style/useConst: Must be let since we declare before timeout callback, then assign after
+      let child: ReturnType<typeof spawn>;
+
       const timeout = setTimeout(() => {
-        child.kill();
+        child?.kill();
         resolve({
           success: false,
           serverName: config.name,
@@ -220,7 +224,7 @@ export class McpClientManager {
         });
       }, 10000);
 
-      const child = spawn(stdioConfig.command, stdioConfig.args || [], {
+      child = spawn(stdioConfig.command, stdioConfig.args || [], {
         env,
         cwd: stdioConfig.cwd,
         stdio: ['pipe', 'pipe', 'pipe'],

@@ -8,6 +8,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { glob } from 'glob';
+import safeRegex from 'safe-regex2';
 import { z } from 'zod';
 import { createToolResponse } from '../adapters.js';
 import type { ToolContext, UnifiedToolDefinition } from '../types.js';
@@ -76,6 +77,14 @@ export const grepPatternTool: UnifiedToolDefinition = {
     }
 
     try {
+      // Validate regex pattern for ReDoS safety
+      if (!safeRegex(parsed.pattern)) {
+        return createToolResponse(
+          'Invalid regex pattern: Pattern may cause performance issues. Simplify the pattern.',
+          { error: 'unsafe_regex', pattern: parsed.pattern }
+        );
+      }
+
       // Compile regex
       const flags = parsed.case_insensitive ? 'gi' : 'g';
       const regex = new RegExp(parsed.pattern, flags);

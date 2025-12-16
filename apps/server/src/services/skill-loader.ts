@@ -90,6 +90,18 @@ export class SkillLoader {
    * @returns Skill object or null if not found
    */
   async load(name: string): Promise<Skill | null> {
+    // Validate skill name - reject path traversal attempts
+    if (name.includes('/') || name.includes('\\') || name.includes('..')) {
+      console.warn(`[SkillLoader] Invalid skill name (path traversal attempt): ${name}`);
+      return null;
+    }
+
+    // Validate name is alphanumeric with dashes/underscores only
+    if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+      console.warn(`[SkillLoader] Invalid skill name (invalid characters): ${name}`);
+      return null;
+    }
+
     // Try directory pattern first: .claude/skills/{name}/SKILL.md
     const dirPath = join(this.skillsDir, name, 'SKILL.md');
     try {
@@ -119,6 +131,12 @@ export class SkillLoader {
    * Load skill from a specific path
    */
   private async loadFromPath(filePath: string, fallbackName: string): Promise<Skill> {
+    // Check file size before reading (1MB limit)
+    const stats = await stat(filePath);
+    if (stats.size > 1024 * 1024) {
+      throw new Error(`Skill file too large: ${stats.size} bytes (max 1MB)`);
+    }
+
     const content = await readFile(filePath, 'utf-8');
     const { frontmatter, body } = this.parseFrontmatter(content);
 

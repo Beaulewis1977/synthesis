@@ -772,7 +772,8 @@ export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
   // Toolpack Management
   // ==========================================================================
 
-  const VALID_TOOLPACKS: ToolpackName[] = [
+  // Use const tuple as single source of truth
+  const VALID_TOOLPACKS = [
     'gateway',
     'core',
     'mobile_core',
@@ -780,20 +781,10 @@ export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
     'graphing',
     'web',
     'orchestration',
-  ];
+  ] as const;
 
   const UpdateToolpacksSchema = z.object({
-    toolpacks: z.array(
-      z.enum([
-        'gateway',
-        'core',
-        'mobile_core',
-        'introspection',
-        'graphing',
-        'web',
-        'orchestration',
-      ])
-    ),
+    toolpacks: z.array(z.enum(VALID_TOOLPACKS)),
   });
 
   // GET /api/collections/:id/toolpacks - Get enabled toolpacks for a collection

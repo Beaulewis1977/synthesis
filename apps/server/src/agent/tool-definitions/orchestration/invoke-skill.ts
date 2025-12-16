@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { getSkillLoader } from '../../../services/skill-loader.js';
+import { type Skill, getSkillLoader } from '../../../services/skill-loader.js';
 import { createToolResponse } from '../adapters.js';
 import type { UnifiedToolDefinition } from '../types.js';
 
@@ -49,8 +49,27 @@ Example skills:
   createExecutor: () => async (input: unknown) => {
     const parsed = invokeSkillInputSchema.parse(input) as InvokeSkillInput;
 
+    // Defense in depth: validate skill name before loader
+    if (parsed.skill.includes('/') || parsed.skill.includes('\\') || parsed.skill.includes('..')) {
+      return createToolResponse(`Invalid skill name: "${parsed.skill}"`, {
+        error: 'invalid_skill_name',
+        message: 'Skill names cannot contain path separators or traversal patterns',
+      });
+    }
+
     const loader = getSkillLoader();
-    const skill = await loader.load(parsed.skill);
+
+    let skill: Skill | null;
+    try {
+      skill = await loader.load(parsed.skill);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return createToolResponse(`Failed to load skill "${parsed.skill}": ${message}`, {
+        error: 'load_failed',
+        requested_skill: parsed.skill,
+        message,
+      });
+    }
 
     if (!skill) {
       // Get available skills to suggest alternatives

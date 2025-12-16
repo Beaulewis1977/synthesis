@@ -62,15 +62,17 @@ export const bashCommandTool: UnifiedToolDefinition = {
       let stderr = '';
       let timedOut = false;
 
-      // Spawn shell process
+      // Spawn shell process with restricted environment (no secrets)
       const proc = spawn('sh', ['-c', parsed.command], {
         cwd: collectionDir,
         env: {
-          ...process.env,
-          HOME: collectionDir, // Restrict home directory
-          PATH: '/usr/local/bin:/usr/bin:/bin', // Minimal PATH
+          // Allowlist safe variables only - DO NOT spread process.env
+          HOME: collectionDir,
+          PATH: '/usr/local/bin:/usr/bin:/bin',
+          TERM: process.env.TERM || 'xterm',
+          LANG: process.env.LANG || 'en_US.UTF-8',
         },
-        timeout,
+        // Note: timeout handled manually with setTimeout below
       });
 
       // Set up timeout

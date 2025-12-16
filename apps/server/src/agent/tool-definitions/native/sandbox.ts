@@ -130,6 +130,16 @@ export function validateCommand(command: string): void {
     throw new Error('Command substitution ($() or backticks) is not allowed');
   }
 
+  // Block absolute paths to executables (bypass prevention)
+  if (/\/(?:bin|usr|sbin|opt)\//.test(command)) {
+    throw new Error('Absolute paths to executables are not allowed');
+  }
+
+  // Block shell variable expansion (bypass prevention)
+  if (/\$\{|\$[A-Za-z_]/.test(command)) {
+    throw new Error('Variable expansion is not allowed');
+  }
+
   // Check for blocked commands at start of command or after pipe/semicolon
   for (const blocked of BLOCKED_COMMANDS) {
     const patterns = [
