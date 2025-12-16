@@ -96,6 +96,42 @@ export const GATEWAY_TOOLPACK: ToolpackDefinition = {
   sensitiveTools: [],
 };
 
+/**
+ * Web Pack - Real-time information retrieval
+ * Primary use: Web search for current information
+ */
+export const WEB_TOOLPACK: ToolpackDefinition = {
+  name: 'web',
+  description: 'Web search and real-time information via Perplexity',
+  defaultCategory: 'web',
+  tools: ['web_search'],
+  sensitiveTools: [],
+};
+
+/**
+ * Orchestration Pack - Subagent and skill management
+ * Primary use: Complex multi-step workflows
+ */
+export const ORCHESTRATION_TOOLPACK: ToolpackDefinition = {
+  name: 'orchestration',
+  description: 'Subagent spawning and skill invocation for complex workflows',
+  defaultCategory: 'orchestration',
+  tools: ['spawn_subagent', 'get_subagent_status', 'invoke_skill', 'list_skills'],
+  sensitiveTools: [],
+};
+
+/**
+ * Native Pack - File system operations (sandboxed)
+ * Primary use: Reading and searching files within collection storage
+ */
+export const NATIVE_TOOLPACK: ToolpackDefinition = {
+  name: 'native',
+  description: 'Native file system operations (glob, grep, read, bash) - sandboxed to collection',
+  defaultCategory: 'introspection',
+  tools: ['glob_files', 'grep_pattern', 'read_file', 'bash_command'],
+  sensitiveTools: ['bash_command'],
+};
+
 // =============================================================================
 // Toolpack Registry
 // =============================================================================
@@ -109,6 +145,9 @@ export const TOOLPACKS: Record<ToolpackName, ToolpackDefinition> = {
   introspection: INTROSPECTION_TOOLPACK,
   graphing: GRAPHING_TOOLPACK,
   gateway: GATEWAY_TOOLPACK,
+  web: WEB_TOOLPACK,
+  orchestration: ORCHESTRATION_TOOLPACK,
+  native: NATIVE_TOOLPACK,
 };
 
 // =============================================================================
@@ -141,7 +180,15 @@ export const CORE_PROFILE: ProfileDefinition = {
 export const FULL_PROFILE: ProfileDefinition = {
   name: 'full',
   description: 'All tools enabled, maximum context usage',
-  toolpacks: ['gateway', 'core', 'mobile_core', 'introspection', 'graphing'],
+  toolpacks: [
+    'gateway',
+    'core',
+    'mobile_core',
+    'introspection',
+    'graphing',
+    'web',
+    'orchestration',
+  ],
   additionalTools: [],
 };
 

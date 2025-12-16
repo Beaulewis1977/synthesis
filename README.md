@@ -196,10 +196,173 @@ The scripts are located in `scripts/` and can be run directly:
 ### 🤖 Autonomous Agent
 
 **Claude Agent SDK Integration:**
-- 10-turn agentic loop for complex queries
-- Tool use: search, ingest, web scraping
+- 25-turn agentic loop for complex queries
+- MCP tools with dynamic lazy loading
 - Context-aware conversation
-- Multi-step reasoning
+- Multi-step reasoning with subagent delegation
+
+## 🛠️ Agent Tools & MCP Server
+
+Synthesis exposes **28 tools** across **7 toolpacks** via MCP (Model Context Protocol). Tools are **lazy-loaded** using a gateway pattern to optimize context window usage.
+
+### Gateway Pattern (Lazy Loading)
+
+The agent starts with minimal tools and discovers/enables more on demand:
+
+```
+Session Start (default: "core" profile)
+├── Gateway tools always enabled: discover_tools, enable_tools
+├── Core tools enabled: search_rag, add_document, list_collections, etc.
+└── Advanced toolpacks disabled: web, orchestration, mobile_core, introspection, graphing
+
+Agent needs web search?
+├── Calls discover_tools → sees available toolpacks
+├── Calls enable_tools(toolpacks: ['web'])
+└── Now has access to web_search tool
+
+Next request uses newly enabled tools automatically
+```
+
+**Benefits:**
+- Only enabled tools sent to LLM (saves tokens)
+- Session-scoped isolation (concurrent sessions don't interfere)
+- Agents autonomously discover and enable tools as needed
+
+### Tool Profiles
+
+| Profile | Tools | Use Case |
+|---------|-------|----------|
+| **minimal** | 2 | Gateway only - discover and enable tools as needed |
+| **core** (default) | 16 | General RAG workflows |
+| **full** | 28 | Maximum capability |
+
+### Complete Tool Inventory
+
+#### 🔧 Core Toolpack (14 tools)
+| Tool | Description |
+|------|-------------|
+| `search_rag` | Search knowledge base with vector/hybrid modes |
+| `list_collections` | List collections with document counts |
+| `list_documents` | List documents with status filtering |
+| `get_document_status` | Check document processing status |
+| `create_collection` | Create new document collection |
+| `delete_collection` | Delete collection (requires confirm) |
+| `add_document` | Add document from file path or URL |
+| `fetch_web_content` | Crawl and ingest web pages (up to 200) |
+| `delete_document` | Delete document (requires confirm) |
+| `restart_ingest` | Retry failed document ingestion |
+| `summarize_document` | Summarize document using Claude |
+| `add_repo_to_collection` | Add GitHub/Git repository |
+| `sync_repo` | Trigger repository sync |
+| `list_repos` | List repository sources |
+
+#### 🌐 Gateway Toolpack (2 tools) - Always Enabled
+| Tool | Description |
+|------|-------------|
+| `discover_tools` | Discover available toolpacks and tools |
+| `enable_tools` | Enable/disable tools dynamically |
+
+#### 🔍 Web Toolpack (1 tool)
+| Tool | Description |
+|------|-------------|
+| `web_search` | Search web via Perplexity AI (quick/reason/deep_research modes) |
+
+#### 🎭 Orchestration Toolpack (4 tools)
+| Tool | Description |
+|------|-------------|
+| `spawn_subagent` | Spawn Claude subagent (explore/plan/code-reviewer/test-writer/doc-writer) |
+| `get_subagent_status` | Check background subagent task status |
+| `invoke_skill` | Load specialized skill for domain knowledge |
+| `list_skills` | List available skills |
+
+#### 📱 Mobile Core Toolpack (3 tools)
+| Tool | Description |
+|------|-------------|
+| `search_mobile_docs` | Search mobile docs with feature/platform filters |
+| `find_code_examples` | Find working code examples |
+| `get_feature_recipe` | Get step-by-step implementation recipes |
+
+#### 🔬 Introspection Toolpack (3 tools)
+| Tool | Description |
+|------|-------------|
+| `get_project_tech_stack` | Analyze collection's tech stack |
+| `get_db_schema` | Extract database schema |
+| `find_symbol_usages` | Find symbol definitions and usages |
+
+#### 🕸️ Graphing Toolpack (1 tool)
+| Tool | Description |
+|------|-------------|
+| `graph_expand_context` | Traverse knowledge graph for related context |
+
+### MCP Server Integration
+
+The MCP server exposes all tools to external AI agents (Cursor, Windsurf, Claude Desktop):
+
+```bash
+# Start MCP server
+pnpm dev:mcp
+
+# Modes
+MCP_MODE=stdio   # WSL/IDE agents (default)
+MCP_MODE=sse     # Windows Claude Desktop
+```
+
+**MCP Tool Names:** `mcp__synthesis-rag-tools__<tool_name>`
+
+## 🧠 Skills System
+
+Skills are markdown-based domain knowledge that agents can discover and invoke on demand.
+
+### Available Skills
+
+| Skill | Description |
+|-------|-------------|
+| `synthesis-architecture` | Routes, services, agent tools, ModelConfigService patterns |
+| `llm-provider-integration` | Multi-provider LLM integration (OpenAI, Anthropic, Google, Ollama, Z.AI, Moonshot) |
+| `sse-streaming` | Server-Sent Events for Fastify + React |
+
+### How Skills Work
+
+```
+Agent needs domain knowledge
+├── Calls list_skills → sees available skills
+├── Calls invoke_skill(skill: "synthesis-architecture")
+└── Receives full markdown content with patterns, examples, checklists
+
+Agent uses skill knowledge to generate better responses
+```
+
+### Adding New Skills
+
+Create a skill file at `.claude/skills/{name}/SKILL.md`:
+
+```markdown
+---
+name: my-skill
+description: What this skill provides
+---
+
+# Skill Content
+
+Your markdown content with patterns, examples, etc.
+```
+
+## 🔐 Security Configuration
+
+### Subagent Permissions
+
+By default, subagents run with `--dangerously-skip-permissions` for autonomous operation. For production:
+
+```bash
+# .env - Require permission prompts (disables autonomous subagent operation)
+SUBAGENT_REQUIRE_PERMISSIONS=true
+```
+
+### SDK Hooks
+
+The Anthropic provider includes safety hooks:
+- **PreToolUse**: Logs all tool calls, blocks dangerous Bash commands
+- **PostToolUse**: Logs tool completion
 
 ## 📖 Planning Docs
 

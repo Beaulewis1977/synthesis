@@ -7,10 +7,13 @@
  */
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { getCollectionToolpacks } from '@synthesis/db';
 import type { Pool } from 'pg';
 import { BASE_SYSTEM_PROMPT } from '../../agent/agent.js';
 import { MCP_SERVER_NAME, MCP_TOOL_NAMES, buildAgentMcpServer } from '../../agent/tools.js';
 import { getApiKeyService, getProviderSettingsService } from '../../services/api-key-service.js';
+import { getMcpClientManager } from '../../services/mcp-client.js';
+import { getToolRegistry } from '../../services/tool-registry.js';
 import { getProviderApiKey } from './index.js';
 import {
   MCP_SERVER_NAME as REGISTRY_MCP_SERVER_NAME,
@@ -140,6 +143,21 @@ export class AnthropicChatProvider implements ChatProvider {
   async *streamChat(params: ChatParams): AsyncGenerator<ChatStreamChunk, void, unknown> {
     // Initialize registry and build MCP server with session-filtered tools
     ensureRegistryInitialized();
+
+    // Apply collection-specific toolpacks if we have a session
+    if (this.context.sessionId && this.context.collectionId) {
+      try {
+        const toolpacks = await getCollectionToolpacks(this.context.collectionId);
+        if (toolpacks && toolpacks.length > 0) {
+          const registry = getToolRegistry();
+          registry.applyCollectionToolpacks(this.context.sessionId, toolpacks);
+        }
+      } catch (error) {
+        console.warn('[AnthropicProvider] Failed to load collection toolpacks:', error);
+        // Continue with default toolpacks
+      }
+    }
+
     const mcpServer = this.context.sessionId
       ? getSessionMcpServer(this.db, this.context)
       : buildAgentMcpServer(this.db, this.context);
@@ -161,6 +179,12 @@ export class AnthropicChatProvider implements ChatProvider {
     // Phase 17A: Configure authentication based on auth mode setting
     await this.configureAuthentication();
 
+    // Load external MCP servers
+    const mcpClientManager = getMcpClientManager();
+    const externalMcpServers = await mcpClientManager.getEnabledMcpServersForSdk();
+    if (Object.keys(externalMcpServers).length > 0) {
+    }
+
     // Use Claude Agent SDK query()
     const claudeCliPath = getClaudeCliPath();
 
@@ -172,10 +196,38 @@ export class AnthropicChatProvider implements ChatProvider {
         model: params.model,
         mcpServers: {
           [serverName]: mcpServer,
+          ...externalMcpServers,
         },
         allowedTools,
         permissionMode: 'bypassPermissions',
         maxTurns: 25,
+        // SDK hooks for logging and safety
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: '*',
+              hooks: [
+                async (_input) => {
+                  // Hook placeholder for tool usage tracking
+                  return {};
+                },
+              ],
+            },
+          ],
+          PostToolUse: [
+            {
+              hooks: [
+                async (input) => {
+                  // Log tool completion
+                  const toolInput = input as { tool_name?: string };
+                  if (toolInput.tool_name) {
+                  }
+                  return {};
+                },
+              ],
+            },
+          ],
+        },
       },
     });
 

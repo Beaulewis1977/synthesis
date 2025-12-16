@@ -36,7 +36,13 @@ export function ChatPage() {
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Track freshly created sessions to prevent message sync overwriting optimistic updates
+  const justCreatedSessionRef = useRef<string | null>(null);
+
+  // Message queue for follow-up messages sent while streaming
+  const [pendingMessages, setPendingMessages] = useState<string[]>([]);
 
   // Sidebar resize handlers
   const startResizing = useCallback((e: React.MouseEvent) => {
@@ -165,10 +171,18 @@ export function ChatPage() {
   // Sync messages and model selection when session data is loaded
   useEffect(() => {
     if (sessionData?.session) {
-      setSelectedProvider(sessionData.session.provider ?? null);
-      setSelectedModel(sessionData.session.model ?? null);
+      // Only override provider/model if session has them set
+      // This allows localStorage preference to persist when session doesn't specify
+      if (sessionData.session.provider) {
+        setSelectedProvider(sessionData.session.provider);
+      }
+      if (sessionData.session.model) {
+        setSelectedModel(sessionData.session.model);
+      }
     }
-    if (sessionData?.messages) {
+    // Only sync messages if this is an existing session being loaded, not freshly created
+    // This prevents overwriting optimistically added user messages
+    if (sessionData?.messages && sessionData.session?.id !== justCreatedSessionRef.current) {
       setMessages(sessionData.messages);
       // If it's an existing session, set the last user query for synthesis view context
       const lastUserMsg = [...sessionData.messages].reverse().find((m) => m.role === 'user');
@@ -176,7 +190,28 @@ export function ChatPage() {
         setLastUserQuery(lastUserMsg.content);
       }
     }
+    // Clear the flag after first check so subsequent loads work normally
+    if (justCreatedSessionRef.current === sessionData?.session?.id) {
+      justCreatedSessionRef.current = null;
+    }
   }, [sessionData]);
+
+  // Load saved model preference for collection from localStorage
+  useEffect(() => {
+    if (!collectionId) return;
+
+    const key = `chat-model-${collectionId}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        const { provider, model } = JSON.parse(saved);
+        setSelectedProvider(provider);
+        setSelectedModel(model);
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  }, [collectionId]);
 
   // Chat mutation
   const chatMutation = useMutation({
@@ -253,7 +288,53 @@ export function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Auto-resize textarea based on content
+  // biome-ignore lint/correctness/useExhaustiveDependencies: inputValue triggers resize when content changes
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (textarea) {
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+      // Set height to scrollHeight, capped at max-height (200px = ~6 lines)
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+    }
+  }, [inputValue]);
+
+  // Process pending messages after streaming completes using latest context values
+  useEffect(() => {
+    if (!isStreaming || pendingMessages.length === 0 || !collectionId || !sessionId) return;
+
+    // Combine all pending messages into one request
+    const combinedMessage = pendingMessages.join('\n\n---\n\n');
+    setPendingMessages([]);
+
+    // Build history from current messages (which includes all user messages already)
+    const history = messages.slice(-10).map((msg) => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    }));
+
+    // Send combined message
+    streamChat({
+      message: combinedMessage,
+      collection_id: collectionId,
+      session_id: sessionId,
+      history,
+      provider: selectedProvider ?? undefined,
+      model: selectedModel ?? undefined,
+    });
+  }, [
+    collectionId,
+    isStreaming,
+    messages,
+    pendingMessages,
+    selectedModel,
+    selectedProvider,
+    sessionId,
+    streamChat,
+  ]);
+
+  const handleSubmit = async (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
 
     const trimmedMessage = inputValue.trim();
@@ -275,6 +356,13 @@ export function ChatPage() {
     // Re-focus input
     setTimeout(() => inputRef.current?.focus(), 0);
 
+    // If streaming, queue the message instead of sending immediately
+    // The queued messages will be combined and sent after current stream completes
+    if (isStreaming) {
+      setPendingMessages((prev) => [...prev, trimmedMessage]);
+      return;
+    }
+
     // Create session if needed
     let currentSessionId = sessionId;
     if (!currentSessionId) {
@@ -282,6 +370,8 @@ export function ChatPage() {
         const title = trimmedMessage.slice(0, 30) + (trimmedMessage.length > 30 ? '...' : '');
         const { session } = await apiClient.createChatSession(collectionId, title);
         currentSessionId = session.id;
+        // Mark as freshly created to prevent useEffect from overwriting optimistic messages
+        justCreatedSessionRef.current = currentSessionId;
         setSessionId(currentSessionId);
         setSearchParams({ session: currentSessionId });
         refetchSessions();
@@ -314,6 +404,7 @@ export function ChatPage() {
     setLastUserQuery(''); // Reset synthesis context
     setSelectedProvider(null);
     setSelectedModel(null);
+    setPendingMessages([]); // Clear any queued messages
     chatMutation.reset();
     inputRef.current?.focus();
   };
@@ -340,6 +431,16 @@ export function ChatPage() {
   const handleModelChange = (provider: string, model: string) => {
     setSelectedProvider(provider || null);
     setSelectedModel(model || null);
+
+    // Persist model selection per collection to localStorage
+    if (collectionId) {
+      const key = `chat-model-${collectionId}`;
+      if (provider && model) {
+        localStorage.setItem(key, JSON.stringify({ provider, model }));
+      } else {
+        localStorage.removeItem(key);
+      }
+    }
   };
 
   const handleRenameSession = async (id: string, newTitle: string) => {
@@ -557,16 +658,21 @@ export function ChatPage() {
 
             {/* Input form */}
             <div className="border-t border-border pt-md">
-              <form onSubmit={handleSubmit} className="flex gap-sm">
-                <input
+              <form onSubmit={handleSubmit} className="flex gap-sm items-end">
+                <textarea
                   ref={inputRef}
-                  type="text"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="Type your message..."
-                  className="input flex-1"
-                  // Don't disable input while loading to allow queueing/optimistic updates
-                  // disabled={isLoading}
+                  onKeyDown={(e) => {
+                    // Enter to submit (without Shift), Shift+Enter for new line
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit(e);
+                    }
+                  }}
+                  placeholder="Type your message... (Shift+Enter for new line)"
+                  className="input flex-1 resize-none overflow-hidden min-h-[44px] max-h-[200px] py-2"
+                  rows={1}
                 />
                 {isStreaming ? (
                   <button

@@ -18,12 +18,27 @@ import type { ChatTool } from '../../services/chat-providers/types.js';
 /**
  * Toolpack names for grouping related tools
  */
-export type ToolpackName = 'core' | 'mobile_core' | 'introspection' | 'graphing' | 'gateway';
+export type ToolpackName =
+  | 'core'
+  | 'mobile_core'
+  | 'introspection'
+  | 'graphing'
+  | 'gateway'
+  | 'web'
+  | 'orchestration'
+  | 'native';
 
 /**
  * Category names for tool classification
  */
-export type CategoryName = 'core' | 'mobile' | 'graph' | 'introspection' | 'gateway';
+export type CategoryName =
+  | 'core'
+  | 'mobile'
+  | 'graph'
+  | 'introspection'
+  | 'gateway'
+  | 'web'
+  | 'orchestration';
 
 // =============================================================================
 // Tool Metadata

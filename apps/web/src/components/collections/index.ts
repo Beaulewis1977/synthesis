@@ -10,3 +10,4 @@
 export { VersionFilter, VersionStats } from './VersionFilter';
 export { LifecycleBadge, VersionBadge, SupersededByLink } from './LifecycleBadge';
 export { DocumentActions, BatchActions } from './DocumentActions';
+export { ToolpackConfigCard } from './ToolpackConfigCard';

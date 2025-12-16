@@ -1,3 +1,10 @@
+import type {
+  CreateMcpServerConfig,
+  McpServerConfig,
+  McpServerConfigData,
+  McpServerType,
+  UpdateMcpServerConfig,
+} from '@synthesis/shared';
 import type { PoolClient } from 'pg';
 import { getPool, query } from './client.js';
 
@@ -1232,4 +1239,250 @@ export async function listWorkflowInstances(
   sql += ' ORDER BY started_at DESC';
   const result = await query<WorkflowInstance>(sql, params);
   return result.rows;
+}
+
+// =============================================================================
+// Collection Toolpacks
+// =============================================================================
+
+/**
+ * Valid toolpack names that can be enabled per collection.
+ * Gateway is always enabled and cannot be disabled.
+ */
+export type ToolpackName =
+  | 'gateway'
+  | 'core'
+  | 'mobile_core'
+  | 'introspection'
+  | 'graphing'
+  | 'web'
+  | 'orchestration';
+
+/**
+ * Retrieves the enabled toolpacks for a collection.
+ * @param collectionId The UUID of the collection.
+ * @returns Array of enabled toolpack names, defaults to ['gateway', 'core'] if not set.
+ */
+export async function getCollectionToolpacks(collectionId: string): Promise<ToolpackName[]> {
+  const result = await query('SELECT enabled_toolpacks FROM collections WHERE id = $1', [
+    collectionId,
+  ]);
+
+  if (result.rows.length === 0) {
+    return ['gateway', 'core']; // Default if collection not found
+  }
+
+  const toolpacks = result.rows[0].enabled_toolpacks;
+  if (!toolpacks || !Array.isArray(toolpacks)) {
+    return ['gateway', 'core']; // Default if not set
+  }
+
+  // Ensure gateway is always included
+  if (!toolpacks.includes('gateway')) {
+    return ['gateway', ...toolpacks] as ToolpackName[];
+  }
+
+  return toolpacks as ToolpackName[];
+}
+
+/**
+ * Updates the enabled toolpacks for a collection.
+ * Gateway is always included regardless of input.
+ * @param collectionId The UUID of the collection.
+ * @param toolpacks Array of toolpack names to enable.
+ */
+export async function updateCollectionToolpacks(
+  collectionId: string,
+  toolpacks: ToolpackName[]
+): Promise<void> {
+  // Ensure gateway is always included
+  const finalToolpacks = toolpacks.includes('gateway') ? toolpacks : ['gateway', ...toolpacks];
+
+  await query(
+    `UPDATE collections
+     SET enabled_toolpacks = $1, updated_at = NOW()
+     WHERE id = $2`,
+    [JSON.stringify(finalToolpacks), collectionId]
+  );
+}
+
+// =============================================================================
+// MCP Server Configurations
+// =============================================================================
+
+/**
+ * Database row for mcp_server_configs table
+ */
+interface McpServerConfigRow {
+  id: string;
+  name: string;
+  display_name: string | null;
+  server_type: McpServerType;
+  config: McpServerConfigData;
+  api_key_env_var: string | null;
+  enabled: boolean;
+  description: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Converts a database row to a McpServerConfig object.
+ */
+function rowToMcpServerConfig(row: McpServerConfigRow): McpServerConfig {
+  return {
+    id: row.id,
+    name: row.name,
+    displayName: row.display_name,
+    serverType: row.server_type,
+    config: row.config,
+    apiKeyEnvVar: row.api_key_env_var,
+    enabled: row.enabled,
+    description: row.description,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+/**
+ * Retrieves all MCP server configurations.
+ * @returns List of all MCP server configs.
+ */
+export async function listMcpServerConfigs(): Promise<McpServerConfig[]> {
+  const result = await query<McpServerConfigRow>(
+    'SELECT * FROM mcp_server_configs ORDER BY created_at DESC'
+  );
+  return result.rows.map(rowToMcpServerConfig);
+}
+
+/**
+ * Retrieves all enabled MCP server configurations.
+ * @returns List of enabled MCP server configs.
+ */
+export async function listEnabledMcpServerConfigs(): Promise<McpServerConfig[]> {
+  const result = await query<McpServerConfigRow>(
+    'SELECT * FROM mcp_server_configs WHERE enabled = true ORDER BY name'
+  );
+  return result.rows.map(rowToMcpServerConfig);
+}
+
+/**
+ * Retrieves a single MCP server configuration by ID.
+ * @param id The UUID of the MCP server config.
+ * @returns The MCP server config or null if not found.
+ */
+export async function getMcpServerConfig(id: string): Promise<McpServerConfig | null> {
+  const result = await query<McpServerConfigRow>('SELECT * FROM mcp_server_configs WHERE id = $1', [
+    id,
+  ]);
+  return result.rows[0] ? rowToMcpServerConfig(result.rows[0]) : null;
+}
+
+/**
+ * Retrieves a single MCP server configuration by name.
+ * @param name The unique name of the MCP server config.
+ * @returns The MCP server config or null if not found.
+ */
+export async function getMcpServerConfigByName(name: string): Promise<McpServerConfig | null> {
+  const result = await query<McpServerConfigRow>(
+    'SELECT * FROM mcp_server_configs WHERE name = $1',
+    [name]
+  );
+  return result.rows[0] ? rowToMcpServerConfig(result.rows[0]) : null;
+}
+
+/**
+ * Creates a new MCP server configuration.
+ * @param data The configuration data for the new server.
+ * @returns The created MCP server config.
+ */
+export async function createMcpServerConfig(data: CreateMcpServerConfig): Promise<McpServerConfig> {
+  const result = await query<McpServerConfigRow>(
+    `INSERT INTO mcp_server_configs (name, display_name, server_type, config, api_key_env_var, enabled, description)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING *`,
+    [
+      data.name,
+      data.displayName ?? null,
+      data.serverType,
+      JSON.stringify(data.config),
+      data.apiKeyEnvVar ?? null,
+      data.enabled ?? true,
+      data.description ?? null,
+    ]
+  );
+  return rowToMcpServerConfig(result.rows[0]);
+}
+
+/**
+ * Updates an existing MCP server configuration.
+ * @param id The UUID of the MCP server config to update.
+ * @param updates The fields to update.
+ * @returns The updated MCP server config or null if not found.
+ */
+export async function updateMcpServerConfig(
+  id: string,
+  updates: UpdateMcpServerConfig
+): Promise<McpServerConfig | null> {
+  const setClauses: string[] = ['updated_at = NOW()'];
+  const params: (string | boolean | null | object)[] = [id];
+  let idx = 2;
+
+  if (updates.displayName !== undefined) {
+    setClauses.push(`display_name = $${idx++}`);
+    params.push(updates.displayName);
+  }
+  if (updates.serverType !== undefined) {
+    setClauses.push(`server_type = $${idx++}`);
+    params.push(updates.serverType);
+  }
+  if (updates.config !== undefined) {
+    setClauses.push(`config = $${idx++}`);
+    params.push(JSON.stringify(updates.config));
+  }
+  if (updates.apiKeyEnvVar !== undefined) {
+    setClauses.push(`api_key_env_var = $${idx++}`);
+    params.push(updates.apiKeyEnvVar);
+  }
+  if (updates.enabled !== undefined) {
+    setClauses.push(`enabled = $${idx++}`);
+    params.push(updates.enabled);
+  }
+  if (updates.description !== undefined) {
+    setClauses.push(`description = $${idx++}`);
+    params.push(updates.description);
+  }
+
+  const result = await query<McpServerConfigRow>(
+    `UPDATE mcp_server_configs SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`,
+    params
+  );
+  return result.rows[0] ? rowToMcpServerConfig(result.rows[0]) : null;
+}
+
+/**
+ * Deletes an MCP server configuration.
+ * @param id The UUID of the MCP server config to delete.
+ * @returns True if deleted, false if not found.
+ */
+export async function deleteMcpServerConfig(id: string): Promise<boolean> {
+  const result = await query('DELETE FROM mcp_server_configs WHERE id = $1', [id]);
+  return (result.rowCount ?? 0) > 0;
+}
+
+/**
+ * Toggles the enabled status of an MCP server configuration.
+ * @param id The UUID of the MCP server config.
+ * @param enabled The new enabled status.
+ * @returns The updated config or null if not found.
+ */
+export async function setMcpServerEnabled(
+  id: string,
+  enabled: boolean
+): Promise<McpServerConfig | null> {
+  const result = await query<McpServerConfigRow>(
+    'UPDATE mcp_server_configs SET enabled = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+    [enabled, id]
+  );
+  return result.rows[0] ? rowToMcpServerConfig(result.rows[0]) : null;
 }

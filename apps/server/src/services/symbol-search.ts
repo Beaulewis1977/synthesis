@@ -15,7 +15,15 @@ import type { Pool } from 'pg';
 /**
  * Symbol kinds supported for filtering
  */
-export type SymbolKind = 'function' | 'class' | 'widget' | 'method' | 'constant';
+export type SymbolKind =
+  | 'function'
+  | 'class'
+  | 'widget'
+  | 'method'
+  | 'constant'
+  | 'interface'
+  | 'type'
+  | 'enum';
 
 /**
  * Parameters for finding symbol usages
@@ -311,8 +319,29 @@ function extractSymbolKind(node: SymbolNodeRow): string {
     return symbolKind;
   }
 
+  // Check metadata.type (another common key)
+  const typeKind = node.metadata?.type;
+  if (typeof typeKind === 'string') {
+    return typeKind;
+  }
+
   // Infer from name patterns
   const name = node.name.toLowerCase();
+
+  // Interface pattern: starts with I + PascalCase or ends with Interface
+  if (/^I[A-Z]/.test(node.name) || name.endsWith('interface')) {
+    return 'interface';
+  }
+
+  // Type pattern: ends with Type, Props, Options, Config, State
+  if (/(?:Type|Props|Options|Config|State|Params|Args)$/i.test(node.name)) {
+    return 'type';
+  }
+
+  // Enum pattern: ends with Enum or Status, or metadata suggests enum
+  if (name.endsWith('enum') || /(?:Status|Kind|Mode)$/.test(node.name)) {
+    return 'enum';
+  }
 
   // Widget pattern (Flutter/React): ends with Widget or starts with capital
   if (name.endsWith('widget') || name.endsWith('component')) {
@@ -321,7 +350,7 @@ function extractSymbolKind(node: SymbolNodeRow): string {
 
   // Class pattern: PascalCase with common suffixes
   if (
-    /^[A-Z][a-zA-Z]*(?:Service|Repository|Controller|Manager|Factory|Provider|Model)$/.test(
+    /^[A-Z][a-zA-Z]*(?:Service|Repository|Controller|Manager|Factory|Provider|Model|Handler|Adapter|Builder)$/.test(
       node.name
     )
   ) {

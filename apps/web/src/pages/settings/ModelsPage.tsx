@@ -6,12 +6,14 @@
  */
 
 import type { CustomProvider } from '@synthesis/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
   ArrowLeft,
   Bot,
   Code2,
   FileText,
+  Globe,
   Loader2,
   Pencil,
   Plus,
@@ -25,9 +27,12 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useToast } from '../../components/Toast';
 import { ApiKeyManager } from '../../components/settings/ApiKeyManager';
 import { CustomProviderForm } from '../../components/settings/CustomProviderForm';
 import { EmbeddingProfileSelect } from '../../components/settings/EmbeddingProfileSelect';
+import { McpServerCard } from '../../components/settings/McpServerCard';
+import { McpServerModal } from '../../components/settings/McpServerModal';
 import { ModelConfigCard } from '../../components/settings/ModelConfigCard';
 import { ModelCurationModal } from '../../components/settings/ModelCurationModal';
 import { useCustomProviders, useDeleteCustomProvider } from '../../hooks/useCustomProviders';
@@ -40,7 +45,13 @@ import {
   useUpdateModelConfig,
 } from '../../hooks/useModelConfig';
 import { useOllamaModels } from '../../hooks/useOllamaModels';
-import type { ModelFeature } from '../../types';
+import { apiClient } from '../../lib/api';
+import type {
+  CreateMcpServerInput,
+  McpServerResponse,
+  ModelFeature,
+  UpdateMcpServerInput,
+} from '../../types';
 
 /**
  * Section header component
@@ -304,6 +315,280 @@ function CustomProvidersSection() {
           onClose={() => setCuratingProvider(null)}
         />
       )}
+    </section>
+  );
+}
+
+/**
+ * Section component for managing external MCP servers
+ */
+function McpServersSection() {
+  const queryClient = useQueryClient();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingServer, setEditingServer] = useState<McpServerResponse | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const { addToast } = useToast();
+
+  // Fetch MCP servers
+  const {
+    data: serversData,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ['mcpServers'],
+    queryFn: () => apiClient.listMcpServers(),
+  });
+
+  // Fetch presets
+  const { data: presetsData } = useQuery({
+    queryKey: ['mcpServerPresets'],
+    queryFn: () => apiClient.getMcpServerPresets(),
+  });
+
+  // Create mutation
+  const createMutation = useMutation({
+    mutationFn: (data: CreateMcpServerInput) => apiClient.createMcpServer(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mcpServers'] });
+      setModalError(null);
+    },
+    onError: (err) => {
+      setModalError(err instanceof Error ? err.message : 'Failed to add server');
+    },
+  });
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateMcpServerInput }) =>
+      apiClient.updateMcpServer(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mcpServers'] });
+      setModalError(null);
+    },
+    onError: (err) => {
+      setModalError(err instanceof Error ? err.message : 'Failed to update server');
+    },
+  });
+
+  // Toggle enabled mutation
+  const toggleEnabledMutation = useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      apiClient.setMcpServerEnabled(id, enabled),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mcpServers'] });
+    },
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiClient.deleteMcpServer(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mcpServers'] });
+    },
+  });
+
+  // Test mutation
+  const testMutation = useMutation({
+    mutationFn: (id: string) => apiClient.testMcpServer(id),
+  });
+
+  // Set API key mutation
+  const setApiKeyMutation = useMutation({
+    mutationFn: ({ id, apiKey }: { id: string; apiKey: string }) =>
+      apiClient.setMcpServerApiKey(id, apiKey),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mcpServers'] });
+    },
+  });
+
+  // Delete API key mutation
+  const deleteApiKeyMutation = useMutation({
+    mutationFn: (id: string) => apiClient.deleteMcpServerApiKey(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mcpServers'] });
+    },
+  });
+
+  const handleToggleEnabled = async (id: string, enabled: boolean) => {
+    try {
+      await toggleEnabledMutation.mutateAsync({ id, enabled });
+    } catch (err) {
+      console.error('Failed to toggle MCP server', err);
+      addToast('error', 'Failed to update server status');
+      throw err;
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id);
+    } catch (err) {
+      console.error('Failed to delete MCP server', err);
+      addToast('error', 'Failed to delete server');
+      throw err;
+    }
+  };
+
+  const handleTest = async (id: string) => {
+    try {
+      return await testMutation.mutateAsync(id);
+    } catch (err) {
+      console.error('Failed to test MCP server', err);
+      addToast('error', 'Failed to test server connection');
+      throw err;
+    }
+  };
+
+  const handleSetApiKey = async (id: string, apiKey: string) => {
+    try {
+      await setApiKeyMutation.mutateAsync({ id, apiKey });
+    } catch (err) {
+      console.error('Failed to set MCP server API key', err);
+      addToast('error', 'Failed to set API key');
+      throw err;
+    }
+  };
+
+  const handleDeleteApiKey = async (id: string) => {
+    try {
+      await deleteApiKeyMutation.mutateAsync(id);
+    } catch (err) {
+      console.error('Failed to delete MCP server API key', err);
+      addToast('error', 'Failed to delete API key');
+      throw err;
+    }
+  };
+
+  const handleAdd = async (data: CreateMcpServerInput) => {
+    try {
+      await createMutation.mutateAsync(data);
+    } catch (err) {
+      console.error('Failed to add MCP server', err);
+      addToast('error', 'Failed to add MCP server');
+      throw err;
+    }
+  };
+
+  const handleEdit = (server: McpServerResponse) => {
+    setEditingServer(server);
+    setIsModalOpen(true);
+  };
+
+  const handleUpdate = async (id: string, data: UpdateMcpServerInput) => {
+    try {
+      await updateMutation.mutateAsync({ id, data });
+    } catch (err) {
+      console.error('Failed to update MCP server', err);
+      addToast('error', 'Failed to update MCP server');
+      throw err;
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingServer(null);
+    setModalError(null);
+  };
+
+  // Error state
+  if (error) {
+    return (
+      <section className="mb-xl">
+        <SectionHeader
+          icon={Globe}
+          title="External MCP Servers"
+          description="Add external MCP servers like Perplexity, Brave Search, and custom tools."
+        />
+        <div className="card">
+          <div className="p-md bg-error/10 border border-error/30 rounded-lg flex items-center gap-sm text-error">
+            <AlertTriangle size={18} />
+            <span>
+              Failed to load MCP servers: {error instanceof Error ? error.message : 'Unknown error'}
+            </span>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const servers = serversData?.servers || [];
+  const presets = presetsData?.presets || [];
+
+  // Filter out presets that are already configured
+  const availablePresets = presets.filter((preset) => !servers.some((s) => s.name === preset.name));
+
+  return (
+    <section className="mb-xl">
+      <SectionHeader
+        icon={Globe}
+        title="External MCP Servers"
+        description="Add external MCP servers like Perplexity, Brave Search, and custom tools."
+      />
+
+      <div className="card">
+        <div className="flex items-center justify-between mb-md">
+          <h3 className="font-medium text-text-primary">Configured Servers</h3>
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="btn btn-primary text-sm flex items-center gap-xs"
+          >
+            <Plus size={14} />
+            Add MCP Server
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-lg">
+            <Loader2 className="animate-spin text-accent" size={24} />
+            <span className="ml-sm text-text-secondary">Loading MCP servers...</span>
+          </div>
+        ) : servers.length > 0 ? (
+          <div className="space-y-sm">
+            {servers.map((server) => (
+              <McpServerCard
+                key={server.id}
+                server={server}
+                onToggleEnabled={handleToggleEnabled}
+                onDelete={handleDelete}
+                onTest={handleTest}
+                onEdit={handleEdit}
+                onSetApiKey={handleSetApiKey}
+                onDeleteApiKey={handleDeleteApiKey}
+                isTogglingEnabled={
+                  toggleEnabledMutation.isPending &&
+                  toggleEnabledMutation.variables?.id === server.id
+                }
+                isDeleting={deleteMutation.isPending && deleteMutation.variables === server.id}
+                isTesting={testMutation.isPending && testMutation.variables === server.id}
+                isSettingApiKey={
+                  setApiKeyMutation.isPending && setApiKeyMutation.variables?.id === server.id
+                }
+                isDeletingApiKey={
+                  deleteApiKeyMutation.isPending && deleteApiKeyMutation.variables === server.id
+                }
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-lg text-text-secondary">
+            No MCP servers configured. Add Perplexity or other external tools to extend agent
+            capabilities.
+          </div>
+        )}
+      </div>
+
+      {/* MCP Server Modal (Add/Edit) */}
+      <McpServerModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onAdd={handleAdd}
+        onUpdate={handleUpdate}
+        presets={editingServer ? presets : availablePresets}
+        server={editingServer ?? undefined}
+        isSubmitting={createMutation.isPending || updateMutation.isPending}
+        error={modalError}
+      />
     </section>
   );
 }
@@ -594,6 +879,9 @@ export function ModelsPage() {
 
       {/* Custom Providers Section */}
       <CustomProvidersSection />
+
+      {/* External MCP Servers Section */}
+      <McpServersSection />
 
       {/* Reset Confirmation Modal */}
       {showResetConfirm && (

@@ -19,6 +19,7 @@ import type {
   CostAlertsResponse,
   CostHistoryResponse,
   CostSummaryResponse,
+  CreateMcpServerInput,
   Document,
   DocumentChunksResponse,
   DocumentQualityScore,
@@ -34,6 +35,9 @@ import type {
   IngestionJobStatusResponse,
   LanguageSupportStatus,
   LifecycleStatus,
+  McpConnectionTestResult,
+  McpServerPreset,
+  McpServerResponse,
   ModelConfig,
   ModelConfigResponse,
   ModelConfigUpdate,
@@ -50,7 +54,10 @@ import type {
   SynthesisResponse,
   TechStackProfile,
   TechStackTemplate,
+  ToolpackConfig,
+  ToolpackName,
   UpdateChunkResponse,
+  UpdateMcpServerInput,
   VersionHistoryResponse,
   VersionedDocument,
   WorkflowInstance,
@@ -1351,6 +1358,155 @@ class ApiClient {
       `/api/admin/custom-providers/${encodeURIComponent(id)}/mark-no-tools/${encodeURIComponent(model)}`,
       {
         method: 'POST',
+      }
+    );
+  }
+
+  // ============================================
+  // Toolpack Management
+  // ============================================
+
+  /**
+   * Get enabled toolpacks for a collection.
+   */
+  async getCollectionToolpacks(collectionId: string): Promise<ToolpackConfig> {
+    return this.request<ToolpackConfig>(
+      `/api/collections/${encodeURIComponent(collectionId)}/toolpacks`
+    );
+  }
+
+  /**
+   * Update enabled toolpacks for a collection.
+   */
+  async updateCollectionToolpacks(
+    collectionId: string,
+    toolpacks: ToolpackName[]
+  ): Promise<ToolpackConfig> {
+    return this.request<ToolpackConfig>(
+      `/api/collections/${encodeURIComponent(collectionId)}/toolpacks`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ toolpacks }),
+      }
+    );
+  }
+
+  // ============================================
+  // External MCP Server Management
+  // ============================================
+
+  /**
+   * List all configured MCP servers.
+   */
+  async listMcpServers(): Promise<{ servers: McpServerResponse[] }> {
+    return this.request<{ servers: McpServerResponse[] }>('/api/admin/mcp-servers');
+  }
+
+  /**
+   * Get MCP server presets (Perplexity, Brave Search, etc.)
+   */
+  async getMcpServerPresets(): Promise<{ presets: McpServerPreset[] }> {
+    return this.request<{ presets: McpServerPreset[] }>('/api/admin/mcp-servers/presets');
+  }
+
+  /**
+   * Get a specific MCP server configuration.
+   */
+  async getMcpServer(id: string): Promise<{ server: McpServerResponse }> {
+    return this.request<{ server: McpServerResponse }>(
+      `/api/admin/mcp-servers/${encodeURIComponent(id)}`
+    );
+  }
+
+  /**
+   * Create a new MCP server configuration.
+   */
+  async createMcpServer(data: CreateMcpServerInput): Promise<{ server: McpServerResponse }> {
+    return this.request<{ server: McpServerResponse }>('/api/admin/mcp-servers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Update an existing MCP server configuration.
+   */
+  async updateMcpServer(
+    id: string,
+    data: UpdateMcpServerInput
+  ): Promise<{ server: McpServerResponse }> {
+    return this.request<{ server: McpServerResponse }>(
+      `/api/admin/mcp-servers/${encodeURIComponent(id)}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  /**
+   * Toggle MCP server enabled status.
+   */
+  async setMcpServerEnabled(id: string, enabled: boolean): Promise<{ server: McpServerResponse }> {
+    return this.request<{ server: McpServerResponse }>(
+      `/api/admin/mcp-servers/${encodeURIComponent(id)}/enabled`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ enabled }),
+      }
+    );
+  }
+
+  /**
+   * Delete an MCP server configuration.
+   */
+  async deleteMcpServer(id: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(
+      `/api/admin/mcp-servers/${encodeURIComponent(id)}`,
+      {
+        method: 'DELETE',
+      }
+    );
+  }
+
+  /**
+   * Test connection to an MCP server.
+   */
+  async testMcpServer(id: string): Promise<McpConnectionTestResult> {
+    return this.request<McpConnectionTestResult>(
+      `/api/admin/mcp-servers/${encodeURIComponent(id)}/test`,
+      {
+        method: 'POST',
+      }
+    );
+  }
+
+  /**
+   * Set API key for an MCP server.
+   */
+  async setMcpServerApiKey(
+    id: string,
+    apiKey: string
+  ): Promise<{ success: boolean; message: string; server: McpServerResponse }> {
+    return this.request<{ success: boolean; message: string; server: McpServerResponse }>(
+      `/api/admin/mcp-servers/${encodeURIComponent(id)}/api-key`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ apiKey }),
+      }
+    );
+  }
+
+  /**
+   * Delete API key for an MCP server.
+   */
+  async deleteMcpServerApiKey(
+    id: string
+  ): Promise<{ success: boolean; message: string; server: McpServerResponse }> {
+    return this.request<{ success: boolean; message: string; server: McpServerResponse }>(
+      `/api/admin/mcp-servers/${encodeURIComponent(id)}/api-key`,
+      {
+        method: 'DELETE',
       }
     );
   }

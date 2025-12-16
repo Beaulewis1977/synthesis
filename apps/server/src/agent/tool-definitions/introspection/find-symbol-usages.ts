@@ -23,7 +23,7 @@ const findSymbolUsagesInputSchema = z.object({
     .describe('Collection ID (defaults to active collection)'),
   symbolName: z.string().min(1).describe('Symbol name to search'),
   symbolKind: z
-    .enum(['function', 'class', 'widget', 'method', 'constant'])
+    .enum(['function', 'class', 'widget', 'method', 'constant', 'interface', 'type', 'enum'])
     .optional()
     .describe('Type of symbol to search for'),
   includeDefinitions: z
@@ -51,7 +51,7 @@ type FindSymbolUsagesInput = z.infer<typeof findSymbolUsagesInputSchema>;
 export const findSymbolUsagesTool: UnifiedToolDefinition = {
   name: 'find_symbol_usages',
   description:
-    'Find where a symbol (function, class, widget, method, constant) is defined and used across the codebase.',
+    'Find where a symbol (function, class, widget, method, constant, interface, type, enum) is defined and used across the codebase.',
   inputSchema: findSymbolUsagesInputSchema,
   metadata: {
     toolpack: 'introspection',
