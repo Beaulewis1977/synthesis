@@ -835,3 +835,140 @@ export interface GraphBuildResponse {
   duration_ms: number;
   errors: string[];
 }
+
+// =============================================================================
+// Toolpack Management
+// =============================================================================
+
+/**
+ * Valid toolpack names for agent chat sessions.
+ * Gateway is always enabled and cannot be disabled.
+ */
+export type ToolpackName =
+  | 'gateway'
+  | 'core'
+  | 'mobile_core'
+  | 'introspection'
+  | 'graphing'
+  | 'web'
+  | 'orchestration';
+
+/**
+ * Toolpack configuration response from API.
+ */
+export interface ToolpackConfig {
+  /** Currently enabled toolpacks for the collection */
+  toolpacks: ToolpackName[];
+  /** All available toolpacks */
+  available: ToolpackName[];
+}
+
+/**
+ * Toolpack metadata for display.
+ */
+export interface ToolpackInfo {
+  name: ToolpackName;
+  displayName: string;
+  description: string;
+  toolCount: number;
+  isLocked: boolean; // true for gateway
+}
+
+// =============================================================================
+// External MCP Server Management
+// =============================================================================
+
+/**
+ * MCP server connection types
+ */
+export type McpServerType = 'stdio' | 'sse' | 'http';
+
+/**
+ * Stdio config for local MCP servers
+ */
+export interface McpStdioConfig {
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+}
+
+/**
+ * HTTP/SSE config for remote MCP servers
+ */
+export interface McpHttpConfig {
+  url: string;
+  headers?: Record<string, string>;
+  timeout?: number;
+}
+
+/**
+ * Union type for MCP server config data
+ */
+export type McpServerConfigData = McpStdioConfig | McpHttpConfig;
+
+/**
+ * MCP server response from API
+ */
+export interface McpServerResponse {
+  id: string;
+  name: string;
+  displayName: string | null;
+  serverType: McpServerType;
+  config: McpServerConfigData;
+  apiKeyEnvVar: string | null;
+  apiKeyConfigured: boolean;
+  enabled: boolean;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * MCP server preset for quick setup
+ */
+export interface McpServerPreset {
+  name: string;
+  displayName: string;
+  description: string;
+  serverType: McpServerType;
+  config: McpServerConfigData;
+  apiKeyEnvVar?: string;
+  documentationUrl?: string;
+}
+
+/**
+ * Input for creating a new MCP server
+ */
+export interface CreateMcpServerInput {
+  name: string;
+  displayName?: string;
+  serverType: McpServerType;
+  config: McpServerConfigData;
+  apiKeyEnvVar?: string;
+  enabled?: boolean;
+  description?: string;
+}
+
+/**
+ * Input for updating an MCP server
+ */
+export interface UpdateMcpServerInput {
+  displayName?: string | null;
+  serverType?: McpServerType;
+  config?: McpServerConfigData;
+  apiKeyEnvVar?: string | null;
+  enabled?: boolean;
+  description?: string | null;
+}
+
+/**
+ * Result of testing MCP server connection
+ */
+export interface McpConnectionTestResult {
+  success: boolean;
+  serverName?: string;
+  tools?: string[];
+  error?: string;
+  latencyMs?: number;
+}

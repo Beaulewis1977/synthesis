@@ -1,6 +1,9 @@
 // Phase 5: Embedding Profiles
 export * from './embedding-profiles.js';
 
+// External MCP Server Configuration Types
+export * from './types/mcp.js';
+
 export type DocumentSourceQuality = 'official' | 'verified' | 'community';
 export type DocumentType =
   | 'official_doc'

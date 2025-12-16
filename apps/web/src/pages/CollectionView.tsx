@@ -5,9 +5,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DocumentList } from '../components/DocumentList';
 import { CollectionLanguageSummary } from '../components/LanguageSupportBadge';
-import { VersionFilter, VersionStats } from '../components/collections';
+import { ToolpackConfigCard, VersionFilter, VersionStats } from '../components/collections';
 import { apiClient } from '../lib/api';
-import type { GraphStatsResponse, LifecycleStatus } from '../types';
+import type { GraphStatsResponse, LifecycleStatus, ToolpackName } from '../types';
 
 /**
  * Node type color mapping for graph coverage badges
@@ -219,6 +219,31 @@ export function CollectionView() {
       return apiClient.getGraphStats(id);
     },
     enabled: !!id,
+  });
+
+  // Fetch toolpack configuration for this collection
+  const {
+    data: toolpackConfig,
+    isLoading: toolpackLoading,
+    error: toolpackError,
+  } = useQuery({
+    queryKey: ['collection-toolpacks', id],
+    queryFn: () => {
+      if (!id) throw new Error('Collection ID is required');
+      return apiClient.getCollectionToolpacks(id);
+    },
+    enabled: !!id,
+  });
+
+  // Toolpack update mutation
+  const toolpackMutation = useMutation({
+    mutationFn: (toolpacks: ToolpackName[]) => {
+      if (!id) throw new Error('Collection ID is required');
+      return apiClient.updateCollectionToolpacks(id, toolpacks);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['collection-toolpacks', id] });
+    },
   });
 
   // MMR defaults state - initialized from collection data
@@ -577,6 +602,40 @@ export function CollectionView() {
             )}
           </div>
         </div>
+
+        {/* Toolpack Configuration */}
+        {toolpackConfig && (
+          <div className="mt-lg">
+            <ToolpackConfigCard
+              config={toolpackConfig}
+              onUpdate={(toolpacks) => toolpackMutation.mutate(toolpacks)}
+              isUpdating={toolpackMutation.isPending}
+              error={
+                toolpackError
+                  ? toolpackError instanceof Error
+                    ? toolpackError.message
+                    : 'Failed to load toolpacks'
+                  : toolpackMutation.error
+                    ? toolpackMutation.error instanceof Error
+                      ? toolpackMutation.error.message
+                      : 'Failed to update toolpacks'
+                    : null
+              }
+            />
+          </div>
+        )}
+        {toolpackLoading && (
+          <div className="mt-lg p-4 bg-bg-secondary rounded-lg border border-border animate-pulse">
+            <div className="h-5 bg-gray-200 rounded w-48 mb-2" />
+            <div className="h-4 bg-gray-200 rounded w-64 mb-4" />
+            <div className="grid grid-cols-2 gap-2">
+              <div className="h-16 bg-gray-200 rounded" />
+              <div className="h-16 bg-gray-200 rounded" />
+              <div className="h-16 bg-gray-200 rounded" />
+              <div className="h-16 bg-gray-200 rounded" />
+            </div>
+          </div>
+        )}
 
         {/* GPT Phase 2: Knowledge Graph Coverage */}
         <GraphCoverageCard

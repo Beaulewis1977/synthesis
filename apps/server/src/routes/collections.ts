@@ -1,17 +1,20 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import {
+  type ToolpackName,
   createCollection,
   deleteCollection,
   deleteDocumentChunks,
   getCollection,
   getCollectionOptimalSettings,
+  getCollectionToolpacks,
   getDocument,
   getDocumentFileInfo,
   getPool,
   listCollections,
   listDocuments,
   updateCollectionOptimalSettings,
+  updateCollectionToolpacks,
 } from '@synthesis/db';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
@@ -761,6 +764,87 @@ export const collectionRoutes: FastifyPluginAsync = async (fastify) => {
       } catch (error) {
         fastify.log.error(error, 'Failed to archive by framework version');
         return reply.code(500).send({ error: 'Failed to archive by framework version' });
+      }
+    }
+  );
+
+  // ==========================================================================
+  // Toolpack Management
+  // ==========================================================================
+
+  // Use const tuple as single source of truth
+  const VALID_TOOLPACKS = [
+    'gateway',
+    'core',
+    'mobile_core',
+    'introspection',
+    'graphing',
+    'web',
+    'orchestration',
+  ] as const;
+
+  const UpdateToolpacksSchema = z.object({
+    toolpacks: z.array(z.enum(VALID_TOOLPACKS)),
+  });
+
+  // GET /api/collections/:id/toolpacks - Get enabled toolpacks for a collection
+  fastify.get<{ Params: { id: string } }>(
+    '/api/collections/:id/toolpacks',
+    async (request, reply) => {
+      try {
+        const collection = await getCollection(request.params.id);
+        if (!collection) {
+          return reply.code(404).send({ error: 'Collection not found' });
+        }
+
+        const toolpacks = await getCollectionToolpacks(request.params.id);
+        return reply.send({
+          toolpacks,
+          available: VALID_TOOLPACKS,
+        });
+      } catch (error) {
+        fastify.log.error(error, 'Failed to get collection toolpacks');
+        return reply.code(500).send({ error: 'Failed to get collection toolpacks' });
+      }
+    }
+  );
+
+  // PATCH /api/collections/:id/toolpacks - Update enabled toolpacks for a collection
+  fastify.patch<{ Params: { id: string }; Body: { toolpacks: ToolpackName[] } }>(
+    '/api/collections/:id/toolpacks',
+    async (request, reply) => {
+      try {
+        const collection = await getCollection(request.params.id);
+        if (!collection) {
+          return reply.code(404).send({ error: 'Collection not found' });
+        }
+
+        const validation = UpdateToolpacksSchema.safeParse(request.body);
+        if (!validation.success) {
+          return reply.code(400).send({
+            error: 'Invalid request',
+            details: validation.error.issues,
+          });
+        }
+
+        // Gateway is always included
+        const toolpacks = validation.data.toolpacks;
+        await updateCollectionToolpacks(request.params.id, toolpacks);
+
+        fastify.log.info(
+          { collectionId: request.params.id, toolpacks },
+          'Collection toolpacks updated'
+        );
+
+        // Return updated state
+        const updated = await getCollectionToolpacks(request.params.id);
+        return reply.send({
+          toolpacks: updated,
+          available: VALID_TOOLPACKS,
+        });
+      } catch (error) {
+        fastify.log.error(error, 'Failed to update collection toolpacks');
+        return reply.code(500).send({ error: 'Failed to update collection toolpacks' });
       }
     }
   );

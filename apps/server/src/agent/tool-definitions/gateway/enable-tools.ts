@@ -24,7 +24,7 @@ const enableToolsInputSchema = z.object({
   session_id: z.string().optional().describe('Session ID for tool state tracking'),
   /** Toolpack name to enable/disable */
   toolpack: z
-    .enum(['core', 'mobile_core', 'introspection', 'graphing'])
+    .enum(['core', 'mobile_core', 'introspection', 'graphing', 'web', 'orchestration'])
     .optional()
     .describe('Toolpack to enable/disable'),
   /** Individual tool names to enable/disable */

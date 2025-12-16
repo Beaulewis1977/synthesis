@@ -17,12 +17,15 @@ import { GATEWAY_TOOLS } from './gateway/index.js';
 import { GRAPHING_TOOLS } from './graphing/index.js';
 import { INTROSPECTION_TOOLS } from './introspection/index.js';
 import { MOBILE_CORE_TOOLS } from './mobile-core/index.js';
+import { NATIVE_TOOLS } from './native/index.js';
+import { ORCHESTRATION_TOOLS } from './orchestration/index.js';
 import type {
   BuiltAgentTools,
   BuiltChatTools,
   ToolContext,
   UnifiedToolDefinition,
 } from './types.js';
+import { WEB_TOOLS } from './web/index.js';
 
 // =============================================================================
 // Re-exports
@@ -36,6 +39,9 @@ export { GATEWAY_TOOLS } from './gateway/index.js';
 export { GRAPHING_TOOLS } from './graphing/index.js';
 export { INTROSPECTION_TOOLS } from './introspection/index.js';
 export { MOBILE_CORE_TOOLS } from './mobile-core/index.js';
+export { NATIVE_TOOLS } from './native/index.js';
+export { ORCHESTRATION_TOOLS } from './orchestration/index.js';
+export { WEB_TOOLS } from './web/index.js';
 
 // =============================================================================
 // All Tool Definitions
@@ -51,6 +57,9 @@ export function getAllToolDefinitions(): UnifiedToolDefinition[] {
     ...MOBILE_CORE_TOOLS,
     ...INTROSPECTION_TOOLS,
     ...GRAPHING_TOOLS,
+    ...WEB_TOOLS,
+    ...ORCHESTRATION_TOOLS,
+    ...NATIVE_TOOLS,
   ];
 }
 

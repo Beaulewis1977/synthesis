@@ -410,6 +410,74 @@ export class DynamicToolRegistry {
   }
 
   /**
+   * Apply collection-specific toolpacks to a session.
+   * This resets the session to only include gateway tools and the specified toolpacks.
+   * Gateway is always included regardless of the toolpacks array.
+   *
+   * @param sessionId - Session to configure
+   * @param toolpackNames - Array of toolpack names to enable
+   * @returns Object with applied tools and any failures
+   */
+  applyCollectionToolpacks(
+    sessionId: string,
+    toolpackNames: ToolpackName[]
+  ): { applied: string[]; failed: { name: string; reason: string }[] } {
+    const session = this.getOrCreateSession(sessionId);
+    const previousTools = new Set(session.enabledTools);
+
+    // Clear all non-gateway tools
+    session.enabledTools.clear();
+
+    // Always enable gateway tools
+    for (const tool of GATEWAY_TOOL_NAMES) {
+      session.enabledTools.add(tool);
+    }
+
+    const applied: string[] = [];
+    const failed: { name: string; reason: string }[] = [];
+
+    // Apply each toolpack
+    for (const toolpackName of toolpackNames) {
+      if (!isValidToolpack(toolpackName)) {
+        failed.push({ name: toolpackName, reason: 'Invalid toolpack name' });
+        continue;
+      }
+
+      const toolpack = TOOLPACKS[toolpackName];
+      if (toolpack) {
+        for (const tool of toolpack.tools) {
+          if (this.toolDefinitions.has(tool) && !session.enabledTools.has(tool)) {
+            session.enabledTools.add(tool);
+            applied.push(tool);
+          }
+        }
+      }
+    }
+
+    // Mark profile as custom since we're using collection-specific toolpacks
+    session.activeProfile = 'core'; // Closest match, though not exact
+
+    // Calculate changed tools for notification
+    const changed: string[] = [];
+    for (const tool of previousTools) {
+      if (!session.enabledTools.has(tool)) {
+        changed.push(tool);
+      }
+    }
+    for (const tool of session.enabledTools) {
+      if (!previousTools.has(tool)) {
+        changed.push(tool);
+      }
+    }
+
+    if (changed.length > 0) {
+      this.notifyChange(sessionId, changed);
+    }
+
+    return { applied, failed };
+  }
+
+  /**
    * Check if a tool is enabled for a session
    */
   isToolEnabled(sessionId: string, toolName: string): boolean {

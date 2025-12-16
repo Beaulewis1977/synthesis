@@ -20,6 +20,7 @@ import { closePool, getPool } from '@synthesis/db';
 import Fastify from 'fastify';
 import { apiKeyRoutes } from './routes/admin/api-keys.js';
 import { customProviderRoutes } from './routes/admin/custom-providers.js';
+import { mcpServerRoutes } from './routes/admin/mcp-servers.js';
 import { adminModelRoutes } from './routes/admin/models.js';
 import { registerProfileRoutes } from './routes/admin/profiles.js';
 import { providerSettingsRoutes } from './routes/admin/provider-settings.js';
@@ -110,6 +111,7 @@ await fastify.register(registerProfileRoutes, { prefix: '/api/admin' });
 await fastify.register(apiKeyRoutes, { prefix: '/api/admin/api-keys' });
 await fastify.register(providerSettingsRoutes, { prefix: '/api/admin/provider-settings' });
 await fastify.register(customProviderRoutes, { prefix: '/api/admin/custom-providers' });
+await fastify.register(mcpServerRoutes, { prefix: '/api/admin/mcp-servers' });
 await registerMetricsRoute(fastify);
 
 /**

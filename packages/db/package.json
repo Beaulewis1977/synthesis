@@ -20,6 +20,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@synthesis/shared": "workspace:*",
     "pg": "^8.12.0"
   },
   "devDependencies": {
