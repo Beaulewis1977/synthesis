@@ -54,7 +54,19 @@ export interface ApiKeyStatus {
  * API Key Service
  */
 export class ApiKeyService {
+  private loggedDecryptWarnings = new Set<string>();
   constructor(private db: Pool) {}
+
+  private warnDecryptFailure(key: string): void {
+    if (this.loggedDecryptWarnings.has(key)) {
+      return;
+    }
+    this.loggedDecryptWarnings.add(key);
+    // eslint-disable-next-line no-console
+    console.warn(
+      `Failed to decrypt stored credential for ${key}; attempting environment variable fallback.`
+    );
+  }
 
   /**
    * Get status of all API keys
@@ -103,6 +115,7 @@ export class ApiKeyService {
             maskedValue: maskKey(decrypted),
           };
         } catch {
+          this.warnDecryptFailure(provider);
           // Decryption failed, fall through to env check
           if (envValue) {
             status = {
@@ -214,6 +227,7 @@ export class ApiKeyService {
         try {
           return decryptValue(result.rows[0].encrypted_key);
         } catch {
+          this.warnDecryptFailure(provider);
           // Decryption failed, fall through to env check
         }
       }
@@ -498,6 +512,7 @@ export class ApiKeyService {
         try {
           return decryptValue(result.rows[0].encrypted_key);
         } catch {
+          this.warnDecryptFailure(`${provider}_oauth`);
           // Decryption failed, fall through to env check
         }
       }
@@ -566,6 +581,7 @@ export class ApiKeyService {
             maskedValue: maskKey(decrypted),
           };
         } catch {
+          this.warnDecryptFailure('anthropic_oauth');
           // Decryption failed, fall through to env check
         }
       }
