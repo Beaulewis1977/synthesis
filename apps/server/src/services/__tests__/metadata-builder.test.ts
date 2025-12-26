@@ -118,7 +118,7 @@ describe('MetadataBuilder', () => {
       .setContentCategory('guide')
       .setLanguage('dart')
       .setRepo('flutter/samples', 5000)
-      .setEmbedding('voyage', 'voyage-code-2', 1024)
+      .setEmbedding('voyage', 'voyage-code-3', 1024)
       .setLastVerified(new Date('2024-01-01T00:00:00.000Z'))
       .addTags('authentication', 'security')
       .setNotes('Important reference')
@@ -130,7 +130,7 @@ describe('MetadataBuilder', () => {
     expect(metadata.framework_version).toBe('3.24.3');
     expect(metadata.sdk_constraints).toBe('>=3.22.0 <4.0.0');
     expect(metadata.embedding_provider).toBe('voyage');
-    expect(metadata.embedding_model).toBe('voyage-code-2');
+    expect(metadata.embedding_model).toBe('voyage-code-3');
     expect(metadata.embedding_dimensions).toBe(1024);
     expect(metadata.tags).toEqual(['authentication', 'security']);
     expect(metadata.last_verified).toBe('2024-01-01T00:00:00.000Z');
@@ -155,9 +155,9 @@ describe('MetadataBuilder', () => {
     const metadata = new MetadataBuilder().build();
     expect(metadata.doc_type).toBe('tutorial');
     expect(metadata.source_quality).toBe('community');
-    expect(metadata.embedding_model).toBe('nomic-embed-text');
+    expect(metadata.embedding_model).toBe('mxbai-embed-large');
     expect(metadata.embedding_provider).toBe('ollama');
-    expect(metadata.embedding_dimensions).toBe(768);
+    expect(metadata.embedding_dimensions).toBe(1024);
   });
 
   it('supports fluent chaining without shared state', () => {

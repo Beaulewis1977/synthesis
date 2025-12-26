@@ -22,8 +22,9 @@ export type SweepPass =
 
 /**
  * Embedding provider identifier
+ * Note: Only providers with 1024-dimension models are included
  */
-export type EmbeddingProvider = 'voyage' | 'openai' | 'ollama' | 'cohere' | 'google';
+export type EmbeddingProvider = 'voyage' | 'ollama';
 
 /**
  * Reranker provider identifier
@@ -179,31 +180,24 @@ export interface SweepState {
 
 /**
  * Model dimension map for reference
+ * Note: Only 1024-dimension models are supported for standardized vector storage
  */
 export const MODEL_DIMENSIONS: Record<string, number> = {
-  // Voyage
+  // Voyage (1024-dim models only)
   'voyage-code-3': 1024,
   'voyage-3-large': 1024,
   'voyage-3.5': 1024,
-  'voyage-code-2': 1536,
-  // OpenAI
-  'text-embedding-3-large': 1536,
-  'text-embedding-3-small': 1536,
-  // Ollama
-  'nomic-embed-text': 768,
-  'nomic-embed-text:latest': 768,
+  'voyage-3.5-lite': 1024,
+  // Ollama (1024-dim models only)
   'mxbai-embed-large': 1024,
-  // Cohere
-  'embed-v4.0': 1536,
-  // Google
-  'text-embedding-004': 768,
 };
 
 /**
  * Get dimensions for an embedding model
+ * All supported models are 1024-dimensional
  */
-export function getModelDimensions(provider: string, model: string): number {
-  return MODEL_DIMENSIONS[model] ?? (provider === 'ollama' ? 768 : 1536);
+export function getModelDimensions(_provider: string, model: string): number {
+  return MODEL_DIMENSIONS[model] ?? 1024;
 }
 
 /**
@@ -217,10 +211,7 @@ export type CostTier = 'free' | 'low' | 'medium' | 'high';
 export function getCostTier(provider: EmbeddingProvider): CostTier {
   const tiers: Record<EmbeddingProvider, CostTier> = {
     ollama: 'free',
-    openai: 'medium',
     voyage: 'medium',
-    cohere: 'medium',
-    google: 'low',
   };
   return tiers[provider];
 }
@@ -252,12 +243,15 @@ export const FIXED_SEARCH_SETTINGS = {
 
 /**
  * Generate Pass 1A configurations (embedding sweep)
+ * Only includes 1024-dimension models for standardized vector storage
  */
 export function generatePass1AConfigs(): SweepConfig[] {
   const embeddings: Array<{ provider: EmbeddingProvider; model: string }> = [
     { provider: 'voyage', model: 'voyage-code-3' },
-    { provider: 'openai', model: 'text-embedding-3-large' },
-    { provider: 'ollama', model: 'nomic-embed-text' },
+    { provider: 'voyage', model: 'voyage-3-large' },
+    { provider: 'voyage', model: 'voyage-3.5' },
+    { provider: 'voyage', model: 'voyage-3.5-lite' },
+    { provider: 'ollama', model: 'mxbai-embed-large' },
   ];
 
   return embeddings.map(({ provider, model }) => {
@@ -288,11 +282,14 @@ export const PASS_1B_CHUNKING = {
 
 /**
  * Generate Pass 1B configurations (docs embedding sweep)
+ * Only includes 1024-dimension models for standardized vector storage
  */
 export function generatePass1BConfigs(): SweepConfig[] {
   const embeddings: Array<{ provider: EmbeddingProvider; model: string }> = [
-    { provider: 'ollama', model: 'nomic-embed-text' },
     { provider: 'voyage', model: 'voyage-3-large' },
+    { provider: 'voyage', model: 'voyage-3.5' },
+    { provider: 'voyage', model: 'voyage-3.5-lite' },
+    { provider: 'ollama', model: 'mxbai-embed-large' },
   ];
 
   return embeddings.map(({ provider, model }) => {
@@ -576,9 +573,7 @@ export function hasApiKey(provider: EmbeddingProvider | RerankerProvider): boole
 
   const keyMap: Record<string, string | undefined> = {
     voyage: process.env.VOYAGE_API_KEY,
-    openai: process.env.OPENAI_API_KEY,
     cohere: process.env.COHERE_API_KEY,
-    google: process.env.GOOGLE_API_KEY,
   };
 
   return !!keyMap[provider];

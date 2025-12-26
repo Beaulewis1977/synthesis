@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { getPool } from '@synthesis/db';
+import { getApiKeyService, getProviderSettingsService } from './api-key-service.js';
 import { getCostTracker } from './cost-tracker.js';
 
 export interface ContradictionSource {
@@ -40,6 +41,7 @@ const MIN_OVERLAP = clampFloat(process.env.CONTRADICTION_MIN_SIMILARITY, 1, 0.2)
 const MAX_OVERLAP = clampFloat(process.env.CONTRADICTION_MAX_SIMILARITY, 1, 0.7);
 
 let cachedClient: Anthropic | null = null;
+let cachedAuthMode: 'oauth' | 'api_key' | null = null;
 
 export async function detectContradictions(
   approaches: ContradictionApproach[],
@@ -49,7 +51,7 @@ export async function detectContradictions(
     return [];
   }
 
-  const client = options.client ?? getClient();
+  const client = options.client ?? (await getClient());
   if (!client) {
     return [];
   }
@@ -80,18 +82,53 @@ function isDetectionEnabled(): boolean {
   return raw.trim().toLowerCase() === 'true';
 }
 
-function getClient(): Anthropic | null {
-  if (cachedClient) {
+/**
+ * Get Anthropic client with OAuth support
+ * Phase 17B: Supports both API key and OAuth authentication
+ */
+async function getClient(): Promise<Anthropic | null> {
+  try {
+    const db = getPool();
+    const settingsService = getProviderSettingsService(db);
+    const authMode = await settingsService.getAnthropicAuthMode();
+
+    // Re-create client if auth mode changed
+    if (cachedClient && cachedAuthMode === authMode) {
+      return cachedClient;
+    }
+
+    const apiKeyService = getApiKeyService(db);
+
+    if (authMode === 'oauth') {
+      // OAuth mode: Use CLAUDE_CODE_OAUTH_TOKEN
+      const oauthToken = await apiKeyService.getOAuthToken('anthropic');
+      if (oauthToken) {
+        cachedClient = new Anthropic({ apiKey: oauthToken });
+        cachedAuthMode = 'oauth';
+        return cachedClient;
+      }
+      // Fall back to API key if OAuth token not available
+    }
+
+    // API key mode
+    const apiKey = await apiKeyService.getKey('anthropic');
+    if (!apiKey) {
+      return null;
+    }
+
+    cachedClient = new Anthropic({ apiKey });
+    cachedAuthMode = 'api_key';
+    return cachedClient;
+  } catch (error) {
+    // Fall back to environment variable
+    const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+    if (!apiKey) {
+      return null;
+    }
+    cachedClient = new Anthropic({ apiKey });
+    cachedAuthMode = 'api_key';
     return cachedClient;
   }
-
-  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!apiKey) {
-    return null;
-  }
-
-  cachedClient = new Anthropic({ apiKey });
-  return cachedClient;
 }
 
 function buildComparisonPairs(

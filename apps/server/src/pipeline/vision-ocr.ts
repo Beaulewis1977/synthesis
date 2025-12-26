@@ -1,12 +1,17 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getPool } from '@synthesis/db';
+import OpenAI from 'openai';
+import { getApiKeyService } from '../services/api-key-service.js';
 import { PROVIDER_PRICING } from '../services/cost-tracker.js';
 import { getModelConfigService } from '../services/model-config-service.js';
 
 /**
  * Vision OCR Module
  *
- * Extracts text from scanned/image-based PDFs using Claude Vision API.
+ * Phase 17B: Multi-provider Vision OCR
+ * Extracts text from scanned/image-based PDFs using vision-capable LLMs.
+ * Supports: Anthropic (Claude), OpenAI (GPT-4V), Google (Gemini Pro Vision)
  * This is used as a fallback when pdf-parse fails to extract text.
  */
 
@@ -21,29 +26,57 @@ function getVisionOCRConfig() {
 }
 
 /**
- * Get OCR model from ModelConfigService (async)
+ * Get OCR model config from ModelConfigService (async)
  * Falls back to environment/default if service unavailable
  */
-async function getOCRModel(): Promise<string> {
+async function getOCRModelConfig(): Promise<{ provider: string; model: string }> {
   try {
     const db = getPool();
     const modelConfigService = getModelConfigService(db);
     const config = await modelConfigService.getOCRModelConfig();
-    return config.model;
+    return { provider: config.provider, model: config.model };
   } catch {
     // Fall back to environment config if service unavailable
-    return getVisionOCRConfig().model;
+    return { provider: 'anthropic', model: getVisionOCRConfig().model };
   }
 }
 
-// Anthropic client (lazy initialization)
-let anthropicClient: Anthropic | null = null;
+// =============================================================================
+// Provider-specific API key retrieval
+// =============================================================================
 
-function getAnthropicClient(): Anthropic {
-  if (!anthropicClient) {
-    anthropicClient = new Anthropic();
+/**
+ * Get API key for a provider using the API key service
+ * Supports both DB-configured and environment variable keys
+ */
+async function getProviderApiKey(provider: string): Promise<string | null> {
+  try {
+    const db = getPool();
+    const apiKeyService = getApiKeyService(db);
+    return await apiKeyService.getKey(provider);
+  } catch {
+    // Fall back to environment variable
+    const envVarMap: Record<string, string> = {
+      anthropic: 'ANTHROPIC_API_KEY',
+      openai: 'OPENAI_API_KEY',
+      google: 'GOOGLE_API_KEY',
+    };
+    const envVar = envVarMap[provider];
+    return envVar ? (process.env[envVar] ?? null) : null;
   }
-  return anthropicClient;
+}
+
+/**
+ * Get OAuth token for Anthropic (if OAuth mode is enabled)
+ */
+async function getAnthropicOAuthToken(): Promise<string | null> {
+  try {
+    const db = getPool();
+    const apiKeyService = getApiKeyService(db);
+    return await apiKeyService.getOAuthToken('anthropic');
+  } catch {
+    return process.env.CLAUDE_CODE_OAUTH_TOKEN ?? null;
+  }
 }
 
 /**
@@ -81,15 +114,37 @@ export function isVisionOCREnabled(): boolean {
   return getVisionOCRConfig().enabled;
 }
 
+// =============================================================================
+// Provider-specific Vision OCR implementations
+// =============================================================================
+
+const OCR_PROMPT = (pageNum: number) => `Extract ALL text from this document page (page ${pageNum}).
+Preserve the original structure, paragraphs, and formatting as much as possible.
+Include headers, footers, captions, and any visible text.
+Output ONLY the extracted text, no commentary or explanations.`;
+
 /**
- * Extract text from a single PDF page image using Claude Vision
+ * Extract text from image using Anthropic Claude Vision
  */
-async function extractTextFromImage(
+async function extractTextWithAnthropic(
   imageBase64: string,
   pageNum: number,
   model: string
 ): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
-  const anthropic = getAnthropicClient();
+  // Try OAuth token first, then API key
+  const oauthToken = await getAnthropicOAuthToken();
+  const apiKey = oauthToken || (await getProviderApiKey('anthropic'));
+
+  if (!apiKey) {
+    throw new Error(
+      'Anthropic API key not configured. Please set ANTHROPIC_API_KEY environment variable or configure in Settings > API Keys.'
+    );
+  }
+
+  // Create client with appropriate auth
+  const anthropic = oauthToken
+    ? new Anthropic({ apiKey: oauthToken }) // OAuth token passed as apiKey
+    : new Anthropic({ apiKey });
 
   const response = await anthropic.messages.create({
     model,
@@ -108,10 +163,7 @@ async function extractTextFromImage(
           },
           {
             type: 'text',
-            text: `Extract ALL text from this document page (page ${pageNum}). 
-Preserve the original structure, paragraphs, and formatting as much as possible.
-Include headers, footers, captions, and any visible text.
-Output ONLY the extracted text, no commentary or explanations.`,
+            text: OCR_PROMPT(pageNum),
           },
         ],
       },
@@ -129,7 +181,118 @@ Output ONLY the extracted text, no commentary or explanations.`,
 }
 
 /**
- * Convert PDF buffer to images and extract text using Claude Vision
+ * Extract text from image using OpenAI GPT-4 Vision
+ */
+async function extractTextWithOpenAI(
+  imageBase64: string,
+  pageNum: number,
+  model: string
+): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
+  const apiKey = await getProviderApiKey('openai');
+
+  if (!apiKey) {
+    throw new Error(
+      'OpenAI API key not configured. Please set OPENAI_API_KEY environment variable or configure in Settings > API Keys.'
+    );
+  }
+
+  const client = new OpenAI({ apiKey });
+
+  const response = await client.chat.completions.create({
+    model,
+    max_tokens: 4096,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:image/png;base64,${imageBase64}`,
+            },
+          },
+          {
+            type: 'text',
+            text: OCR_PROMPT(pageNum),
+          },
+        ],
+      },
+    ],
+  });
+
+  const text = response.choices[0]?.message?.content ?? '';
+
+  return {
+    text,
+    inputTokens: response.usage?.prompt_tokens ?? 0,
+    outputTokens: response.usage?.completion_tokens ?? 0,
+  };
+}
+
+/**
+ * Extract text from image using Google Gemini Vision
+ */
+async function extractTextWithGoogle(
+  imageBase64: string,
+  pageNum: number,
+  model: string
+): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
+  const apiKey = await getProviderApiKey('google');
+
+  if (!apiKey) {
+    throw new Error(
+      'Google API key not configured. Please set GOOGLE_API_KEY environment variable or configure in Settings > API Keys.'
+    );
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const geminiModel = genAI.getGenerativeModel({ model });
+
+  const response = await geminiModel.generateContent([
+    {
+      inlineData: {
+        mimeType: 'image/png',
+        data: imageBase64,
+      },
+    },
+    OCR_PROMPT(pageNum),
+  ]);
+
+  const result = await response.response;
+  const text = result.text();
+
+  return {
+    text,
+    inputTokens: result.usageMetadata?.promptTokenCount ?? 0,
+    outputTokens: result.usageMetadata?.candidatesTokenCount ?? 0,
+  };
+}
+
+/**
+ * Extract text from a single PDF page image using the configured vision provider
+ * Routes to Anthropic, OpenAI, or Google based on model config
+ */
+async function extractTextFromImage(
+  imageBase64: string,
+  pageNum: number,
+  provider: string,
+  model: string
+): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
+  switch (provider) {
+    case 'openai':
+      return extractTextWithOpenAI(imageBase64, pageNum, model);
+    case 'google':
+      return extractTextWithGoogle(imageBase64, pageNum, model);
+    default:
+      return extractTextWithAnthropic(imageBase64, pageNum, model);
+  }
+}
+
+/**
+ * Convert PDF buffer to images and extract text using Vision LLM
+ *
+ * Phase 17B: Multi-provider support
+ * Supports Anthropic (Claude), OpenAI (GPT-4V), and Google (Gemini)
  *
  * @param pdfBuffer - The PDF file as a Buffer
  * @param options - Configuration options
@@ -148,11 +311,32 @@ export async function extractTextWithVision(
 
   const maxPages = options?.maxPages ?? config.maxPages;
   const scale = options?.scale ?? 2.0;
-  // Use provided model, or fetch from config service, or fall back to env/default
-  const model = options?.model ?? (await getOCRModel());
+
+  // Get provider and model from config service (or options)
+  let provider: string;
+  let model: string;
+
+  if (options?.model) {
+    // If model is provided, infer provider from model name
+    model = options.model;
+    if (model.startsWith('gpt-')) {
+      provider = 'openai';
+    } else if (model.startsWith('gemini-')) {
+      provider = 'google';
+    } else {
+      provider = 'anthropic';
+    }
+  } else {
+    // Get from config service
+    const ocrConfig = await getOCRModelConfig();
+    provider = ocrConfig.provider;
+    model = ocrConfig.model;
+  }
 
   console.info('[Vision OCR] Starting PDF to image conversion...');
-  console.info(`[Vision OCR] Config: maxPages=${maxPages}, scale=${scale}, model=${model}`);
+  console.info(
+    `[Vision OCR] Config: maxPages=${maxPages}, scale=${scale}, provider=${provider}, model=${model}`
+  );
 
   // Dynamic import of pdf-to-img (ESM module)
   const { pdf } = await import('pdf-to-img');
@@ -178,9 +362,9 @@ export async function extractTextWithVision(
       // Convert image buffer to base64
       const base64 = image.toString('base64');
 
-      console.info(`[Vision OCR] Processing page ${pageCount}...`);
+      console.info(`[Vision OCR] Processing page ${pageCount} with ${provider}...`);
 
-      const result = await extractTextFromImage(base64, pageCount, model);
+      const result = await extractTextFromImage(base64, pageCount, provider, model);
       pages.push(result.text);
       totalInputTokens += result.inputTokens;
       totalOutputTokens += result.outputTokens;
@@ -229,25 +413,47 @@ export async function extractTextWithVision(
 }
 
 /**
+ * Infer provider from model name
+ */
+function inferProviderFromModel(model: string): string {
+  if (model.startsWith('gpt-')) return 'openai';
+  if (model.startsWith('gemini-')) return 'google';
+  if (model.startsWith('claude-')) return 'anthropic';
+  return 'anthropic'; // default
+}
+
+/**
  * Calculate estimated cost for Vision OCR
+ *
+ * Phase 17B: Multi-provider support
  *
  * @param inputTokens - Number of input tokens
  * @param outputTokens - Number of output tokens
  * @param model - Model used (default: claude-3-5-haiku-20241022)
+ * @param provider - Provider used (if not specified, inferred from model)
  * @returns Estimated cost in USD
  */
 export function calculateVisionOCRCost(
   inputTokens: number,
   outputTokens: number,
-  model?: string
+  model?: string,
+  provider?: string
 ): number {
   const modelName = model ?? getVisionOCRConfig().model;
+  const providerName = provider ?? inferProviderFromModel(modelName);
 
   // Pricing per 1K tokens uses shared provider pricing from CostTracker
-  const inputPricingTable = PROVIDER_PRICING.anthropic ?? {};
-  const outputPricingTable = PROVIDER_PRICING['anthropic-output'] ?? {};
+  const inputPricingTable = PROVIDER_PRICING[providerName] ?? PROVIDER_PRICING.anthropic ?? {};
+  const outputPricingTable =
+    PROVIDER_PRICING[`${providerName}-output`] ?? PROVIDER_PRICING['anthropic-output'] ?? {};
 
-  const defaultModel = 'claude-3-5-haiku-20241022';
+  const defaultModels: Record<string, string> = {
+    anthropic: 'claude-3-5-haiku-20241022',
+    openai: 'gpt-4o-mini',
+    google: 'gemini-1.5-flash',
+  };
+  const defaultModel = defaultModels[providerName] ?? 'claude-3-5-haiku-20241022';
+
   const inputRate =
     (modelName && inputPricingTable[modelName]) || inputPricingTable[defaultModel] || 0;
   const outputRate =

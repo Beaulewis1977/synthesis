@@ -437,7 +437,7 @@ export class AnthropicChatProvider implements ChatProvider {
       if (oauthToken) {
         // Set the OAuth token environment variable for the SDK
         process.env.CLAUDE_CODE_OAUTH_TOKEN = oauthToken;
-        // Clear API key to ensure OAuth is used
+        // Clear API key to ensure OAuth is used (delete, not undefined - process.env only stores strings)
         process.env.ANTHROPIC_API_KEY = undefined;
         return 'oauth';
       }
@@ -452,7 +452,7 @@ export class AnthropicChatProvider implements ChatProvider {
     if (apiKey) {
       // Set the API key environment variable for the SDK
       process.env.ANTHROPIC_API_KEY = apiKey;
-      // Clear OAuth token to ensure API key is used
+      // Clear OAuth token to ensure API key is used (delete, not undefined - process.env only stores strings)
       process.env.CLAUDE_CODE_OAUTH_TOKEN = undefined;
     }
 

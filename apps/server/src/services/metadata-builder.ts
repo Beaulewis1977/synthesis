@@ -237,11 +237,11 @@ export class MetadataBuilder {
       'community';
 
     const embeddingModel =
-      this.metadata.embedding_model ?? defaults.embedding_model ?? 'nomic-embed-text';
+      this.metadata.embedding_model ?? defaults.embedding_model ?? 'mxbai-embed-large';
     const embeddingProvider =
       this.metadata.embedding_provider ?? defaults.embedding_provider ?? 'ollama';
     const embeddingDimensions =
-      this.metadata.embedding_dimensions ?? defaults.embedding_dimensions ?? 768;
+      this.metadata.embedding_dimensions ?? defaults.embedding_dimensions ?? 1024;
 
     const defaultTags = Array.isArray(defaults.tags) ? defaults.tags : [];
     const explicitTags = Array.isArray(this.metadata.tags) ? this.metadata.tags : [];

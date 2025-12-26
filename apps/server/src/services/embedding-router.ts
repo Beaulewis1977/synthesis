@@ -2,7 +2,7 @@ import { getPool } from '@synthesis/db';
 import type { DocumentMetadata } from '@synthesis/shared';
 import { getModelConfigService } from './model-config-service.js';
 
-export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage' | 'cohere' | 'google';
+export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage' | 'cohere';
 
 export interface EmbeddingConfig {
   provider: EmbeddingProvider;
@@ -18,7 +18,8 @@ export interface ContentContext {
 }
 
 /**
- * Model dimension map for all supported embedding models
+ * Model dimension map for all supported embedding models (1024-only)
+ * All models must produce 1024-dimensional embeddings for pgvector compatibility
  */
 export const MODEL_DIMENSIONS: Record<string, number> = {
   // Voyage v3.5 models (1024 dims default, general-purpose)
@@ -27,26 +28,37 @@ export const MODEL_DIMENSIONS: Record<string, number> = {
   // Voyage v3 models (1024 dims default)
   'voyage-code-3': 1024, // Best for code retrieval
   'voyage-3-large': 1024, // General-purpose
-  // Voyage v2 models (legacy)
-  'voyage-code-2': 1536,
-  'voyage-large-2': 1536,
+  // Voyage v2 models (1024 only)
   'voyage-2': 1024,
-  // OpenAI models
-  'text-embedding-3-large': 1536,
-  'text-embedding-3-small': 1536,
-  'text-embedding-ada-002': 1536,
-  // Cohere models
-  'embed-v4.0': 1536,
+  // OpenAI models (forced to 1024 via dimensions parameter)
+  'text-embedding-3-large': 1024,
+  'text-embedding-3-small': 1024,
+  'text-embedding-ada-002': 1024,
+  // Cohere models (forced to 1024 via dimensions parameter)
+  'embed-v4.0': 1024,
   'embed-english-v3.0': 1024,
   'embed-multilingual-v3.0': 1024,
-  // Google models
-  'text-embedding-004': 768,
-  'gemini-embedding-001': 768,
-  // Ollama models
-  'nomic-embed-text': 768,
+  // Ollama models (1024 only)
   'mxbai-embed-large': 1024,
-  'jina-embeddings-v2-base-code': 768, // Code-specialized, 30+ languages
 };
+
+/**
+ * Validate that a model is 1024-dimensional
+ * @throws Error if model is not in MODEL_DIMENSIONS or doesn't map to 1024
+ */
+export function validate1024Dimension(model: string): void {
+  const dimensions = MODEL_DIMENSIONS[model];
+  if (dimensions === undefined) {
+    throw new Error(
+      `Model '${model}' is not supported. Supported 1024-dimension models: ${Object.keys(MODEL_DIMENSIONS).join(', ')}`
+    );
+  }
+  if (dimensions !== 1024) {
+    throw new Error(
+      `Model '${model}' has ${dimensions} dimensions. Only 1024-dimensional models are supported.`
+    );
+  }
+}
 
 /**
  * Get dimensions for a model, with fallback to provider default
@@ -59,18 +71,17 @@ export function getModelDimensions(model: string, provider?: EmbeddingProvider):
   if (provider) {
     return PROVIDER_CONFIGS[provider].dimensions;
   }
-  return 768; // Ultimate fallback
+  return 1024; // Ultimate fallback - always 1024 for consistency
 }
 
 const PROVIDER_CONFIGS: Record<EmbeddingProvider, EmbeddingConfig> = {
-  ollama: { provider: 'ollama', model: 'nomic-embed-text', dimensions: 768 },
-  openai: { provider: 'openai', model: 'text-embedding-3-large', dimensions: 1536 },
-  voyage: { provider: 'voyage', model: 'voyage-code-3', dimensions: 1024 }, // Updated to v3
-  cohere: { provider: 'cohere', model: 'embed-v4.0', dimensions: 1536 }, // Updated to v4
-  google: { provider: 'google', model: 'text-embedding-004', dimensions: 768 },
+  ollama: { provider: 'ollama', model: 'mxbai-embed-large', dimensions: 1024 },
+  openai: { provider: 'openai', model: 'text-embedding-3-large', dimensions: 1024 },
+  voyage: { provider: 'voyage', model: 'voyage-3-large', dimensions: 1024 },
+  cohere: { provider: 'cohere', model: 'embed-v4.0', dimensions: 1024 },
 };
 
-const SUPPORTED_PROVIDERS: EmbeddingProvider[] = ['ollama', 'openai', 'voyage', 'cohere', 'google'];
+const SUPPORTED_PROVIDERS: EmbeddingProvider[] = ['ollama', 'openai', 'voyage', 'cohere'];
 
 export function isEmbeddingProvider(candidate: string | undefined): candidate is EmbeddingProvider {
   return candidate !== undefined && SUPPORTED_PROVIDERS.includes(candidate as EmbeddingProvider);

@@ -3,17 +3,30 @@
  *
  * Phase 6: Card for configuring a single model feature (Chat, OCR, etc.)
  * Shows provider/model dropdowns, local-only toggle, and config source.
+ *
+ * Updated for 1024-dimension embeddings:
+ * - Filters embedding models to 1024-only
+ * - Adds "Use profile settings" option for embedding features
+ * - Removes Google from embedding providers (no 1024-dim models)
  */
 
 import { AlertTriangle, Check, Database, FileCode, Loader2, Server } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
+  FEATURE_CATEGORIES,
   FEATURE_DESCRIPTIONS,
   FEATURE_DISPLAY_NAMES,
   PROVIDER_DISPLAY_NAMES,
   getProvidersForFeature,
+  useEmbeddingProfiles,
 } from '../../hooks/useModelConfig';
-import type { ConfigSource, ModelConfig, ModelConfigUpdate, ProviderInfo } from '../../types';
+import type {
+  ConfigSource,
+  EmbeddingProfile,
+  ModelConfig,
+  ModelConfigUpdate,
+  ProviderInfo,
+} from '../../types';
 
 interface ModelConfigCardProps {
   config: ModelConfig;
@@ -64,26 +77,68 @@ function getSourceLabel(source: ConfigSource): string {
   }
 }
 
+/**
+ * 1024-dimension embedding models by provider.
+ * These are the only models that should be shown for embedding features.
+ */
+const EMBEDDING_1024_MODELS: Record<string, string[]> = {
+  ollama: ['mxbai-embed-large'],
+  openai: ['text-embedding-3-large', 'text-embedding-3-small'],
+  voyage: ['voyage-3.5', 'voyage-3.5-lite', 'voyage-code-3', 'voyage-3-large'],
+  cohere: ['embed-english-v3.0', 'embed-multilingual-v3.0'],
+  // Note: Google removed - no 1024-dim embedding models available
+};
+
+/**
+ * Check if a feature is an embedding feature
+ */
+function isEmbeddingFeature(feature: string): boolean {
+  return FEATURE_CATEGORIES.embedding.includes(feature as ModelConfig['feature']);
+}
+
+/**
+ * Filter models based on feature type.
+ * For embedding features, only show 1024-dimension compatible models.
+ * For reranker, filter to reranker-specific models.
+ */
 function filterModelsForFeature(feature: string, provider: string, models: string[]): string[] {
-  if (feature !== 'reranker') {
-    return models;
-  }
-
   const normalizedProvider = provider.toLowerCase();
-  if (normalizedProvider === 'none') {
-    return [];
+
+  // For embedding features, only show 1024-dim models
+  if (isEmbeddingFeature(feature)) {
+    const allowed1024Models = EMBEDDING_1024_MODELS[normalizedProvider] || [];
+    return models.filter((m) =>
+      allowed1024Models.some((allowed) => m.toLowerCase() === allowed.toLowerCase())
+    );
   }
 
-  if (normalizedProvider === 'bge') {
-    return models.filter((m) => m.toLowerCase().includes('bge-reranker'));
-  }
-
-  if (normalizedProvider === 'voyage' || normalizedProvider === 'cohere') {
-    return models.filter((m) => m.toLowerCase().startsWith('rerank-'));
+  // Reranker filtering
+  if (feature === 'reranker') {
+    if (normalizedProvider === 'none') {
+      return [];
+    }
+    if (normalizedProvider === 'bge') {
+      return models.filter((m) => m.toLowerCase().includes('bge-reranker'));
+    }
+    if (normalizedProvider === 'voyage' || normalizedProvider === 'cohere') {
+      return models.filter((m) => m.toLowerCase().startsWith('rerank-'));
+    }
   }
 
   return models;
 }
+
+/**
+ * Filter providers for embedding features.
+ * Removes Google (no 1024-dim models) and adds filtering logic.
+ */
+function filterProvidersForEmbedding(providers: string[]): string[] {
+  // Remove Google from embedding providers - no 1024-dim models available
+  return providers.filter((p) => p.toLowerCase() !== 'google');
+}
+
+// Special value for "Use profile settings" option
+const USE_PROFILE_VALUE = '__USE_PROFILE__';
 
 export function ModelConfigCard({
   config,
@@ -98,16 +153,36 @@ export function ModelConfigCard({
   const [localOnly, setLocalOnly] = useState(config.localOnly);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Get valid providers for this feature
-  const validProviders = getProvidersForFeature(config.feature);
+  // Fetch embedding profiles to show active profile name
+  const { data: profilesData } = useEmbeddingProfiles();
+  const defaultProfile = profilesData?.profiles.find(
+    (p: EmbeddingProfile) => p.id === profilesData?.defaultProfileId
+  );
 
-  // Get models for selected provider
-  const providerInfo = availableProviders[localProvider];
+  // Check if this is an embedding feature
+  const isEmbedding = isEmbeddingFeature(config.feature);
+
+  // Check if currently using profile settings (empty provider/model)
+  const isUsingProfileSettings = isEmbedding && localProvider === '' && localModel === '';
+
+  // Get valid providers for this feature
+  let validProviders = getProvidersForFeature(config.feature);
+
+  // For embedding features, filter out Google (no 1024-dim models)
+  if (isEmbedding) {
+    validProviders = filterProvidersForEmbedding(validProviders);
+  }
+
+  // Get models for selected provider (skip if using profile settings)
+  const providerInfo = localProvider ? availableProviders[localProvider] : null;
   const rawAvailableModels = providerInfo?.models || [];
-  const availableModels = filterModelsForFeature(config.feature, localProvider, rawAvailableModels);
+  const availableModels = localProvider
+    ? filterModelsForFeature(config.feature, localProvider, rawAvailableModels)
+    : [];
 
   // Check if API key is missing for selected provider
-  const isApiKeyMissing = providerInfo?.requiresApiKey && missingApiKeys.includes(localProvider);
+  const isApiKeyMissing =
+    localProvider && providerInfo?.requiresApiKey && missingApiKeys.includes(localProvider);
 
   // Filter providers based on local-only setting
   const filteredProviders = localOnly
@@ -133,6 +208,13 @@ export function ModelConfigCard({
 
   // Handle provider change
   const handleProviderChange = (newProvider: string) => {
+    // Handle "Use profile settings" option for embedding features
+    if (newProvider === USE_PROFILE_VALUE) {
+      setLocalProvider('');
+      setLocalModel('');
+      return;
+    }
+
     setLocalProvider(newProvider);
     // Reset model to first available for new provider
     const newProviderInfo = availableProviders[newProvider];
@@ -208,18 +290,26 @@ export function ModelConfigCard({
             className="block text-xs font-medium text-text-secondary mb-xs"
           >
             Provider
+            {isEmbedding && <span className="ml-xs text-accent font-normal">(1024 dims)</span>}
           </label>
           <select
             id={`provider-${config.feature}`}
-            value={localProvider}
+            value={isUsingProfileSettings ? USE_PROFILE_VALUE : localProvider}
             onChange={(e) => handleProviderChange(e.target.value)}
             className="input text-sm"
             disabled={isUpdating}
           >
+            {/* "Use profile settings" option for embedding features */}
+            {isEmbedding && (
+              <option value={USE_PROFILE_VALUE}>
+                Use profile settings
+                {defaultProfile ? ` (${defaultProfile.displayName})` : ''}
+              </option>
+            )}
             {filteredProviders.map((provider) => (
               <option key={provider} value={provider}>
                 {PROVIDER_DISPLAY_NAMES[provider] || provider}
-                {availableProviders[provider]?.isLocal ? ' 🏠' : ''}
+                {availableProviders[provider]?.isLocal ? ' (Local)' : ''}
               </option>
             ))}
           </select>
@@ -235,17 +325,32 @@ export function ModelConfigCard({
           </label>
           <select
             id={`model-${config.feature}`}
-            value={localModel}
-            onChange={(e) => setLocalModel(e.target.value)}
+            value={isUsingProfileSettings ? USE_PROFILE_VALUE : localModel}
+            onChange={(e) => {
+              if (e.target.value !== USE_PROFILE_VALUE) {
+                setLocalModel(e.target.value);
+              }
+            }}
             className="input text-sm"
-            disabled={isUpdating || availableModels.length === 0}
+            disabled={isUpdating || isUsingProfileSettings || availableModels.length === 0}
           >
-            {availableModels.map((model) => (
-              <option key={model} value={model}>
-                {model}
+            {/* Show profile info when using profile settings */}
+            {isUsingProfileSettings && (
+              <option value={USE_PROFILE_VALUE}>
+                {defaultProfile
+                  ? `${defaultProfile.model} (from profile)`
+                  : 'Using profile settings'}
               </option>
-            ))}
-            {availableModels.length === 0 && <option value="">No models available</option>}
+            )}
+            {!isUsingProfileSettings &&
+              availableModels.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            {!isUsingProfileSettings && availableModels.length === 0 && (
+              <option value="">No models available</option>
+            )}
           </select>
         </div>
       </div>
