@@ -482,6 +482,7 @@ export class ApiKeyService {
         [`${provider}_oauth`, encrypted]
       );
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error(`Failed to set OAuth token for provider ${provider}:`, error);
       throw new Error(
         `Failed to store OAuth token for provider ${provider}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -614,6 +615,17 @@ export class ApiKeyService {
       return { valid: false, message: 'No OAuth token configured' };
     }
 
+    const apiValidation = await this.testAnthropicKey(token);
+    if (!apiValidation.valid) {
+      return {
+        valid: false,
+        message:
+          apiValidation.message === 'Invalid API key'
+            ? 'Invalid OAuth token'
+            : apiValidation.message,
+      };
+    }
+
     const cliPath = process.env.CLAUDE_CLI_PATH || 'claude';
 
     try {
@@ -629,12 +641,10 @@ export class ApiKeyService {
         };
       }
 
-      // Token is set and CLI is accessible - this is the best we can verify
-      // without actually making an API call (token validity checked on first use)
+      // Token is set, CLI is accessible, and API validation succeeded
       return {
         valid: true,
-        message:
-          'OAuth token configured. Claude CLI accessible. Token will be validated on first use.',
+        message: 'OAuth token configured. Claude CLI accessible. API validation succeeded.',
       };
     } catch (error) {
       return {
