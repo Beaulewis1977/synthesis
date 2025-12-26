@@ -8,7 +8,7 @@
  * - Keys are encrypted at rest using AES-256-GCM
  * - Keys are never returned in full after initial storage
  * - Only masked versions are shown in the UI
- * - Environment variables take precedence over stored keys
+ * - Stored keys take precedence over environment variables
  */
 
 import { PROVIDER_INFO } from '@synthesis/shared';
