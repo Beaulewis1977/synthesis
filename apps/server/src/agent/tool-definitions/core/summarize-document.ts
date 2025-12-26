@@ -9,6 +9,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { getDocument, getDocumentChunks, getPool } from '@synthesis/db';
 import { z } from 'zod';
 import { getModelConfigService } from '../../../services/model-config-service.js';
+import { resolveSummaryProviderCredentials } from '../../utils/provider-credentials.js';
 import { createToolResponse } from '../adapters.js';
 import type { UnifiedToolDefinition } from '../types.js';
 
@@ -75,12 +76,15 @@ export const summarizeDocumentTool: UnifiedToolDefinition = {
     const modelConfigService = getModelConfigService(db);
     const summaryConfig = await modelConfigService.getSummaryModelConfig();
 
-    // Validate API key for the configured provider
-    if (summaryConfig.provider === 'anthropic' && !process.env.ANTHROPIC_API_KEY) {
-      return createToolResponse(
-        'Summarization unavailable: ANTHROPIC_API_KEY environment variable is not set.'
-      );
+    const credentials = await resolveSummaryProviderCredentials(
+      summaryConfig.provider,
+      db,
+      createToolResponse
+    );
+    if ('errorResponse' in credentials) {
+      return credentials.errorResponse;
     }
+    const apiKey = credentials.apiKey;
 
     const document = await getDocument(parsed.doc_id);
     if (!document) {
@@ -96,7 +100,7 @@ export const summarizeDocumentTool: UnifiedToolDefinition = {
     const combinedText = selectedChunks.map((chunk) => chunk.text).join('\n\n');
 
     const client = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+      apiKey,
     });
 
     const response = await client.messages.create({

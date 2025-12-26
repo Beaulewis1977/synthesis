@@ -8,6 +8,7 @@ import { ingestDocument } from '../pipeline/orchestrator.js';
 import { deleteDocumentById, fetchWebContent } from '../services/documentOperations.js';
 import { getModelConfigService } from '../services/model-config-service.js';
 import { smartSearch } from '../services/search.js';
+import { resolveSummaryProviderCredentials } from './utils/provider-credentials.js';
 import {
   type RemoteDownloadResult,
   downloadRemoteFile,
@@ -641,12 +642,15 @@ export function createSummarizeDocumentTool(_db: Pool): {
       const modelConfigService = getModelConfigService(db);
       const summaryConfig = await modelConfigService.getSummaryModelConfig();
 
-      // Validate API key for the configured provider
-      if (summaryConfig.provider === 'anthropic' && !process.env.ANTHROPIC_API_KEY) {
-        return createToolResponse(
-          'Summarization unavailable: ANTHROPIC_API_KEY environment variable is not set.'
-        );
+      const credentials = await resolveSummaryProviderCredentials(
+        summaryConfig.provider,
+        db,
+        createToolResponse
+      );
+      if ('errorResponse' in credentials) {
+        return credentials.errorResponse;
       }
+      const apiKey = credentials.apiKey;
 
       const document = await getDocument(parsed.doc_id);
       if (!document) {
@@ -662,7 +666,7 @@ export function createSummarizeDocumentTool(_db: Pool): {
       const combinedText = selectedChunks.map((chunk) => chunk.text).join('\n\n');
 
       const client = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY,
+        apiKey,
       });
 
       const response = await client.messages.create({
@@ -1267,13 +1271,15 @@ export function buildAgentMcpServer(db: Pool, context: ToolContext) {
             const modelConfigService = getModelConfigService(db);
             const summaryConfig = await modelConfigService.getSummaryModelConfig();
 
-            if (summaryConfig.provider === 'anthropic' && !process.env.ANTHROPIC_API_KEY) {
-              return createMcpToolResult(
-                createToolResponse(
-                  'Summarization unavailable: ANTHROPIC_API_KEY environment variable is not set.'
-                )
-              );
+            const credentials = await resolveSummaryProviderCredentials(
+              summaryConfig.provider,
+              db,
+              createToolResponse
+            );
+            if ('errorResponse' in credentials) {
+              return createMcpToolResult(credentials.errorResponse);
             }
+            const apiKey = credentials.apiKey;
 
             const document = await getDocument(args.doc_id);
             if (!document) {
@@ -1290,7 +1296,7 @@ export function buildAgentMcpServer(db: Pool, context: ToolContext) {
             const selectedChunks = chunks.slice(0, args.max_chunks ?? 10);
             const combinedText = selectedChunks.map((chunk) => chunk.text).join('\n\n');
 
-            const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+            const client = new Anthropic({ apiKey });
             const response = await client.messages.create({
               model: summaryConfig.model,
               max_tokens: 512,

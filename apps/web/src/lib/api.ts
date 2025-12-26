@@ -883,7 +883,7 @@ class ApiClient {
 
   /**
    * Set the default embedding profile.
-   * Pass null to reset to the 'balanced' profile.
+   * Pass null to reset to the 'free-local' profile.
    */
   async setDefaultEmbeddingProfile(profileId: string | null): Promise<{
     profile: EmbeddingProfile;

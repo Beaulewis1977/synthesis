@@ -45,17 +45,17 @@ describe('embed pipeline', () => {
   });
 
   it('returns numeric vector from embedText', async () => {
-    mockEmbeddings.mockResolvedValue({ embedding: Array(768).fill(0.25) });
+    mockEmbeddings.mockResolvedValue({ embedding: Array(1024).fill(0.25) });
 
     const result = await embedText('hello world');
 
-    expect(result.embedding).toHaveLength(768);
+    expect(result.embedding).toHaveLength(1024);
     expect(result.embedding.every((value) => typeof value === 'number')).toBe(true);
     expect(result.provider).toBe('ollama');
     expect(result.usedFallback).toBe(false);
     expect(mockEmbeddings).toHaveBeenCalledTimes(1);
     expect(mockEmbeddings).toHaveBeenCalledWith({
-      model: 'nomic-embed-text',
+      model: 'mxbai-embed-large',
       prompt: 'hello world',
     });
   });
@@ -67,34 +67,34 @@ describe('embed pipeline', () => {
     mockEmbeddings
       .mockRejectedValueOnce(new Error('network issue'))
       .mockRejectedValueOnce(new Error('still failing'))
-      .mockResolvedValue({ embedding: Array(5).fill(1) });
+      .mockResolvedValue({ embedding: Array(1024).fill(1) });
 
     const result = await embedText('retry me', {
-      model: 'custom-model',
+      model: 'mxbai-embed-large',
     });
 
-    expect(result.embedding).toEqual([1, 1, 1, 1, 1]);
+    expect(result.embedding).toHaveLength(1024);
     expect(mockEmbeddings).toHaveBeenCalledTimes(3);
 
     vi.restoreAllMocks();
   });
 
   it('processes texts in batches with embedBatch', async () => {
-    mockEmbeddings.mockResolvedValue({ embedding: [0.1, 0.2, 0.3] });
+    mockEmbeddings.mockResolvedValue({ embedding: Array(1024).fill(0.1) });
 
     const texts = ['one', 'two', 'three'];
     const vectors = await embedBatch(texts, { batchSize: 2, retryDelayMs: 0 });
 
     expect(vectors).toHaveLength(3);
     expect(mockEmbeddings).toHaveBeenCalledTimes(3);
-    expect(vectors.every((vector) => vector.embedding.length === 3)).toBe(true);
+    expect(vectors.every((vector) => vector.embedding.length === 1024)).toBe(true);
   });
 
   it('routes to OpenAI when provider specified', async () => {
     openAiCreate.mockResolvedValue({
       data: [
         {
-          embedding: Array(1536).fill(0.5),
+          embedding: Array(1024).fill(0.5),
         },
       ],
     });
@@ -104,10 +104,10 @@ describe('embed pipeline', () => {
     expect(openAiCreate).toHaveBeenCalledWith({
       model: 'text-embedding-3-large',
       input: 'personal writing example',
-      dimensions: 1536,
+      dimensions: 1024,
     });
     expect(result.provider).toBe('openai');
-    expect(result.embedding).toHaveLength(1536);
+    expect(result.embedding).toHaveLength(1024);
     expect(result.usedFallback).toBe(false);
   });
 
@@ -124,7 +124,7 @@ describe('embed pipeline', () => {
 
     expect(voyageEmbed).toHaveBeenCalledWith({
       input: ['code example'],
-      model: 'voyage-code-3',
+      model: 'voyage-3-large',
     });
     expect(result.provider).toBe('voyage');
     expect(result.embedding).toHaveLength(1024);
@@ -134,7 +134,7 @@ describe('embed pipeline', () => {
   it('falls back to Ollama when primary provider fails', async () => {
     // Fail all retry attempts for OpenAI
     openAiCreate.mockRejectedValue(new Error('openai unavailable'));
-    mockEmbeddings.mockResolvedValue({ embedding: Array(4).fill(0.4) });
+    mockEmbeddings.mockResolvedValue({ embedding: Array(1024).fill(0.4) });
 
     // Suppress console output for cleaner test output
     vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -148,7 +148,7 @@ describe('embed pipeline', () => {
     expect(mockEmbeddings).toHaveBeenCalledTimes(1);
     expect(result.usedFallback).toBe(true);
     expect(result.provider).toBe('ollama');
-    expect(result.embedding).toEqual([0.4, 0.4, 0.4, 0.4]);
+    expect(result.embedding).toHaveLength(1024);
 
     vi.restoreAllMocks();
   });
@@ -180,7 +180,7 @@ describe('embed pipeline', () => {
         .mockRejectedValueOnce(new Error('Rate limit'))
         .mockRejectedValueOnce(new Error('Service unavailable'));
 
-      mockEmbeddings.mockResolvedValue({ embedding: Array(768).fill(0.1) });
+      mockEmbeddings.mockResolvedValue({ embedding: Array(1024).fill(0.1) });
 
       const result = await embedText('test retry', { provider: 'voyage' });
 
@@ -220,7 +220,7 @@ describe('embed pipeline', () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       openAiCreate.mockRejectedValue(new Error('OpenAI API down'));
-      mockEmbeddings.mockResolvedValue({ embedding: Array(768).fill(0.2) });
+      mockEmbeddings.mockResolvedValue({ embedding: Array(1024).fill(0.2) });
 
       const result = await embedText('fallback test', { provider: 'openai' });
 
@@ -248,7 +248,7 @@ describe('embed pipeline', () => {
 
   describe('provider health tracking', () => {
     it('tracks successful embeddings', async () => {
-      mockEmbeddings.mockResolvedValue({ embedding: Array(768).fill(0.5) });
+      mockEmbeddings.mockResolvedValue({ embedding: Array(1024).fill(0.5) });
 
       await embedText('test 1');
       await embedText('test 2');
@@ -263,7 +263,7 @@ describe('embed pipeline', () => {
 
     it('tracks failed embeddings with fallback', async () => {
       openAiCreate.mockRejectedValue(new Error('API error'));
-      mockEmbeddings.mockResolvedValue({ embedding: Array(768).fill(0.3) });
+      mockEmbeddings.mockResolvedValue({ embedding: Array(1024).fill(0.3) });
 
       // Suppress console output for cleaner test output
       vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -289,7 +289,7 @@ describe('embed pipeline', () => {
     it('tracks multiple provider failures independently', async () => {
       openAiCreate.mockRejectedValue(new Error('OpenAI down'));
       voyageEmbed.mockRejectedValue(new Error('Voyage down'));
-      mockEmbeddings.mockResolvedValue({ embedding: Array(768).fill(0.1) });
+      mockEmbeddings.mockResolvedValue({ embedding: Array(1024).fill(0.1) });
 
       // Suppress console output
       vi.spyOn(console, 'warn').mockImplementation(() => {});

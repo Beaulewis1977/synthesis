@@ -94,7 +94,7 @@ describe('Database Integration Tests', () => {
       );
       const documentId = documentResult.rows[0].id;
 
-      const testEmbedding = Array.from({ length: 768 }, () => Math.random());
+      const testEmbedding = Array.from({ length: 1024 }, () => Math.random());
       const chunkResult = await pool.query(
         `INSERT INTO chunks (doc_id, chunk_index, text, embedding, metadata)
          VALUES ($1, $2, $3, $4::vector, $5) RETURNING id`,
@@ -102,7 +102,7 @@ describe('Database Integration Tests', () => {
       );
       expect(chunkResult.rows).toHaveLength(1);
 
-      const queryEmbedding = Array.from({ length: 768 }, () => Math.random());
+      const queryEmbedding = Array.from({ length: 1024 }, () => Math.random());
       const searchResult = await pool.query(
         `SELECT id, text, embedding <=> $1::vector AS distance
          FROM chunks

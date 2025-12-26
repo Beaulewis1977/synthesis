@@ -454,12 +454,13 @@ export const FEATURE_CATEGORIES = {
 
 /**
  * Provider display names
+ * Note: Google AI removed from embedding providers (not 1024-dimension compatible)
  */
 export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
   ollama: 'Ollama (Local)',
-  google: 'Google AI',
+  google: 'Google AI', // Kept for LLM features, not embedding
   voyage: 'Voyage AI',
   cohere: 'Cohere',
   bge: 'BGE (Local)',
@@ -476,10 +477,94 @@ export function getProvidersForFeature(feature: ModelFeature): string[] {
     return ['anthropic', 'openai', 'ollama', 'google', 'zhipu', 'moonshot'];
   }
   if (FEATURE_CATEGORIES.embedding.includes(feature)) {
-    return ['ollama', 'openai', 'voyage', 'cohere', 'google'];
+    // Only 1024-dimension capable providers (google removed - not 1024 compatible)
+    return ['ollama', 'openai', 'voyage', 'cohere'];
   }
   if (feature === 'reranker') {
     return ['bge', 'cohere', 'voyage', 'none'];
   }
   return [];
+}
+
+// ============================================
+// 1024-Dimension Embedding Helpers
+// ============================================
+
+/**
+ * Models that support 1024 dimensions for embeddings.
+ * Used to filter model lists for embedding features.
+ */
+export const EMBEDDING_MODELS_1024: Record<string, string[]> = {
+  ollama: ['mxbai-embed-large'],
+  openai: ['text-embedding-3-large', 'text-embedding-3-small'],
+  voyage: ['voyage-3.5', 'voyage-3.5-lite', 'voyage-code-3', 'voyage-3-large'],
+  cohere: ['embed-english-v3.0', 'embed-multilingual-v3.0'],
+};
+
+/**
+ * Get only 1024-compatible models for a provider
+ * Returns all models if provider is not an embedding provider
+ */
+export function get1024CompatibleModels(provider: string): string[] {
+  return EMBEDDING_MODELS_1024[provider] ?? [];
+}
+
+/**
+ * Check if a model is 1024-dimension compatible
+ */
+export function is1024CompatibleModel(provider: string, model: string): boolean {
+  const compatibleModels = EMBEDDING_MODELS_1024[provider];
+  if (!compatibleModels) return false;
+  return compatibleModels.includes(model);
+}
+
+// ============================================
+// Inherited Settings Helpers
+// ============================================
+
+/**
+ * Display text for inherited/empty settings
+ */
+export const INHERITED_DISPLAY_TEXT = '(Using profile)';
+
+/**
+ * Check if embedding config is using inherited (profile) settings
+ * Empty provider/model means the feature inherits from the active profile
+ */
+export function isUsingInheritedSettings(provider: string, model: string): boolean {
+  return !provider && !model;
+}
+
+/**
+ * Get display value for provider, showing inherited indicator if empty
+ */
+export function getProviderDisplayValue(provider: string): string {
+  if (!provider) return INHERITED_DISPLAY_TEXT;
+  return PROVIDER_DISPLAY_NAMES[provider] ?? provider;
+}
+
+/**
+ * Get display value for model, showing inherited indicator if empty
+ */
+export function getModelDisplayValue(model: string, provider?: string): string {
+  if (!model) {
+    return provider ? '(Select model)' : INHERITED_DISPLAY_TEXT;
+  }
+  return model;
+}
+
+/**
+ * Format embedding config display for UI
+ * Shows "(Using profile)" when both provider and model are empty
+ */
+export function formatEmbeddingConfigDisplay(
+  provider: string,
+  model: string
+): { provider: string; model: string; isInherited: boolean } {
+  const isInherited = isUsingInheritedSettings(provider, model);
+  return {
+    provider: isInherited ? INHERITED_DISPLAY_TEXT : (PROVIDER_DISPLAY_NAMES[provider] ?? provider),
+    model: isInherited ? '' : model,
+    isInherited,
+  };
 }

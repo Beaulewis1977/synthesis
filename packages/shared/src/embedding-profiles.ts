@@ -88,22 +88,17 @@ export interface EmbeddingProfilesResponse {
 /**
  * System profile names (built-in, cannot be deleted)
  */
-export const SYSTEM_PROFILE_NAMES = [
-  'none',
-  'fast-cheap',
-  'balanced',
-  'high-accuracy-code',
-  'high-accuracy-docs',
-] as const;
+export const SYSTEM_PROFILE_NAMES = ['none', 'free-local', 'cheap', 'medium', 'high'] as const;
 export type SystemProfileName = (typeof SYSTEM_PROFILE_NAMES)[number];
 
 /**
  * Default profile name used when no profile is specified
  */
-export const DEFAULT_PROFILE_NAME: SystemProfileName = 'balanced';
+export const DEFAULT_PROFILE_NAME: SystemProfileName = 'free-local';
 
 /**
  * Profile presets for reference (actual values come from DB)
+ * All profiles use 1024-dimension models for consistency.
  */
 export const PROFILE_PRESETS: Record<
   SystemProfileName,
@@ -121,50 +116,50 @@ export const PROFILE_PRESETS: Record<
     costTier: 'free',
     isSystem: true,
   },
-  'fast-cheap': {
-    name: 'fast-cheap',
-    displayName: 'Fast & Cheap',
+  'free-local': {
+    name: 'free-local',
+    displayName: 'Free & Local',
     description:
-      'Local embedding with Ollama nomic-embed-text. Free, fast, good for general documentation.',
+      'Local embedding with Ollama mxbai-embed-large. Free, 1024 dimensions, good for general documentation.',
     provider: 'ollama',
-    model: 'nomic-embed-text',
+    model: 'mxbai-embed-large',
     chunkSize: 1000,
     chunkOverlap: 150,
     codeAware: false,
     costTier: 'free',
     isSystem: true,
   },
-  balanced: {
-    name: 'balanced',
-    displayName: 'Balanced',
-    description:
-      'OpenAI text-embedding-3-small with code-aware chunking. Good balance of cost and quality.',
-    provider: 'openai',
-    model: 'text-embedding-3-small',
+  cheap: {
+    name: 'cheap',
+    displayName: 'Cheap',
+    description: 'Voyage voyage-3.5-lite embeddings. Low cost, 1024 dimensions, good balance.',
+    provider: 'voyage',
+    model: 'voyage-3.5-lite',
     chunkSize: 800,
     chunkOverlap: 150,
     codeAware: true,
     costTier: 'low',
     isSystem: true,
   },
-  'high-accuracy-code': {
-    name: 'high-accuracy-code',
-    displayName: 'High Accuracy (Code)',
-    description: 'Voyage voyage-code-3 embeddings optimized for code. Best for code repositories.',
+  medium: {
+    name: 'medium',
+    displayName: 'Medium',
+    description:
+      'Voyage voyage-3-large embeddings. Medium cost, 1024 dimensions, excellent for code.',
     provider: 'voyage',
-    model: 'voyage-code-3',
+    model: 'voyage-3-large',
     chunkSize: 600,
     chunkOverlap: 100,
     codeAware: true,
     costTier: 'medium',
     isSystem: true,
   },
-  'high-accuracy-docs': {
-    name: 'high-accuracy-docs',
-    displayName: 'High Accuracy (Docs)',
-    description: 'OpenAI text-embedding-3-large for general documentation. Best quality for docs.',
-    provider: 'openai',
-    model: 'text-embedding-3-large',
+  high: {
+    name: 'high',
+    displayName: 'High Quality',
+    description: 'Voyage voyage-3.5 embeddings. Highest quality, 1024 dimensions.',
+    provider: 'voyage',
+    model: 'voyage-3.5',
     chunkSize: 600,
     chunkOverlap: 100,
     codeAware: false,
@@ -227,7 +222,7 @@ export function validateProfileInput(
   }
 
   if ('provider' in input && input.provider !== undefined) {
-    const validProviders = ['ollama', 'openai', 'voyage', 'cohere', 'google'] as const;
+    const validProviders = ['ollama', 'openai', 'voyage', 'cohere'] as const;
     const provider = input.provider;
     const name = 'name' in input ? input.name : undefined;
     const isNoneProfile = name === 'none';

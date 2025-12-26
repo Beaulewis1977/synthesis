@@ -41,20 +41,20 @@ function CostBadge({ tier }: { tier: CostTier }) {
 
 /**
  * Use case badge for profiles (Code/Docs/General)
+ * Note: With the new profile naming scheme (free-local, cheap, medium, high, none),
+ * we rely on codeAware flag and costTier for display logic.
  */
 function UseCaseBadge({ profile }: { profile: EmbeddingProfile }) {
   if (profile.name === 'none') return null;
 
-  if (profile.codeAware || profile.name.includes('code')) {
+  // Code-aware profiles get the Code badge
+  if (profile.codeAware) {
     return (
       <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">Code</span>
     );
   }
 
-  if (profile.name.includes('docs')) {
-    return <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">Docs</span>;
-  }
-
+  // All non-code profiles are now general purpose
   return <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">General</span>;
 }
 

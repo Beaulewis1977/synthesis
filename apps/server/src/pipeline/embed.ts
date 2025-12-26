@@ -1,5 +1,4 @@
 import { performance } from 'node:perf_hooks';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getPool } from '@synthesis/db';
 import { Ollama } from 'ollama';
 import OpenAI from 'openai';
@@ -43,7 +42,6 @@ let cachedOllama: OllamaClient | null = null;
 let cachedOpenAI: OpenAI | null = null;
 let cachedVoyage: VoyageClient | null = null;
 let cachedCohere: CohereClient | null = null;
-let cachedGoogle: GoogleGenerativeAI | null = null;
 
 const DEFAULT_BATCH_SIZE = 10;
 
@@ -96,10 +94,6 @@ export function __setVoyageClientForTesting(client: VoyageClient | null): void {
 
 export function __setCohereClientForTesting(client: CohereClient | null): void {
   cachedCohere = client;
-}
-
-export function __setGoogleClientForTesting(client: GoogleGenerativeAI | null): void {
-  cachedGoogle = client;
 }
 
 /**
@@ -434,20 +428,33 @@ async function generateEmbedding(
   config: EmbeddingConfig,
   options: EmbedOptions
 ): Promise<number[]> {
+  let embedding: number[];
   switch (config.provider) {
     case 'ollama':
-      return embedWithOllama(text, resolveOllamaRuntimeConfig(config.model, options));
+      embedding = await embedWithOllama(text, resolveOllamaRuntimeConfig(config.model, options));
+      break;
     case 'openai':
-      return embedWithOpenAI(text, config);
+      embedding = await embedWithOpenAI(text, config);
+      break;
     case 'voyage':
-      return embedWithVoyage(text, config);
+      embedding = await embedWithVoyage(text, config);
+      break;
     case 'cohere':
-      return embedWithCohere(text, config);
-    case 'google':
-      return embedWithGoogle(text, config);
+      embedding = await embedWithCohere(text, config);
+      break;
     default:
       throw new Error(`Unsupported embedding provider: ${config.provider}`);
   }
+
+  // Enforce 1024-dimension standard
+  if (embedding.length !== 1024) {
+    throw new Error(
+      `Embedding dimension must be 1024, but ${config.provider}/${config.model} returned ${embedding.length} dimensions. ` +
+        'Only 1024-dimensional models are supported.'
+    );
+  }
+
+  return embedding;
 }
 
 function resolveOllamaRuntimeConfig(model: string, options: EmbedOptions): OllamaRuntimeConfig {
@@ -523,22 +530,6 @@ async function embedWithCohere(text: string, config: EmbeddingConfig): Promise<n
   return embedding.map(validateEmbeddingValue);
 }
 
-async function embedWithGoogle(text: string, config: EmbeddingConfig): Promise<number[]> {
-  const client = getGoogleClient();
-  const model = client.getGenerativeModel({ model: config.model });
-  // Note: @google/generative-ai SDK v0.24.1 does not expose outputDimensionality parameter.
-  // Google models return fixed dimensions per model (768 for text-embedding-004).
-  // SDK is deprecated; migration to @google/genai planned for future release.
-  const response = await model.embedContent(text);
-
-  const embedding = response.embedding?.values;
-  if (!embedding || !Array.isArray(embedding)) {
-    throw new Error('Google embedding response missing embedding array');
-  }
-
-  return embedding.map(validateEmbeddingValue);
-}
-
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -605,20 +596,6 @@ async function loadCohereModule(): Promise<{
   return import('cohere-ai') as unknown as {
     CohereClientV2: new (options: { token?: string }) => CohereClient;
   };
-}
-
-function getGoogleClient(): GoogleGenerativeAI {
-  if (cachedGoogle) {
-    return cachedGoogle;
-  }
-
-  const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) {
-    throw new Error('GOOGLE_API_KEY environment variable is not set');
-  }
-
-  cachedGoogle = new GoogleGenerativeAI(apiKey);
-  return cachedGoogle;
 }
 
 /**

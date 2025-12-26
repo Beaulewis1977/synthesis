@@ -12,11 +12,11 @@ import { EmbeddingProfileSelect } from './EmbeddingProfileSelect';
 const mockProfiles: EmbeddingProfile[] = [
   {
     id: 'profile-1',
-    name: 'fast-cheap',
-    displayName: 'Fast & Cheap',
-    description: 'Local embedding with Ollama. Free and fast.',
+    name: 'free-local',
+    displayName: 'Free & Local',
+    description: 'Free & Local - Ollama mxbai-embed-large (1024 dims)',
     provider: 'ollama',
-    model: 'nomic-embed-text',
+    model: 'mxbai-embed-large',
     chunkSize: 1000,
     chunkOverlap: 150,
     codeAware: false,
@@ -27,11 +27,11 @@ const mockProfiles: EmbeddingProfile[] = [
   },
   {
     id: 'profile-2',
-    name: 'balanced',
-    displayName: 'Balanced',
-    description: 'OpenAI embeddings with code-aware chunking.',
-    provider: 'openai',
-    model: 'text-embedding-3-small',
+    name: 'cheap',
+    displayName: 'Cheap',
+    description: 'Cheap - Voyage voyage-3.5-lite (1024 dims)',
+    provider: 'voyage',
+    model: 'voyage-3.5-lite',
     chunkSize: 800,
     chunkOverlap: 150,
     codeAware: true,
@@ -42,15 +42,30 @@ const mockProfiles: EmbeddingProfile[] = [
   },
   {
     id: 'profile-3',
-    name: 'high-accuracy',
-    displayName: 'High Accuracy',
-    description: 'Voyage embeddings optimized for code.',
+    name: 'medium',
+    displayName: 'Medium',
+    description: 'Medium - Voyage voyage-3-large (1024 dims)',
     provider: 'voyage',
-    model: 'voyage-code-2',
+    model: 'voyage-3-large',
     chunkSize: 600,
     chunkOverlap: 100,
     codeAware: true,
     costTier: 'medium',
+    isSystem: true,
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z',
+  },
+  {
+    id: 'profile-4',
+    name: 'high',
+    displayName: 'High Quality',
+    description: 'High Quality - Voyage voyage-3.5 (1024 dims)',
+    provider: 'voyage',
+    model: 'voyage-3.5',
+    chunkSize: 600,
+    chunkOverlap: 100,
+    codeAware: true,
+    costTier: 'high',
     isSystem: true,
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
@@ -68,8 +83,8 @@ describe('EmbeddingProfileSelect', () => {
       />
     );
 
-    expect(screen.getByText('Balanced')).toBeInTheDocument();
-    expect(screen.getByText('openai / text-embedding-3-small')).toBeInTheDocument();
+    expect(screen.getByText('Cheap')).toBeInTheDocument();
+    expect(screen.getByText('voyage / voyage-3.5-lite')).toBeInTheDocument();
   });
 
   it('shows cost tier badge', () => {
@@ -120,9 +135,10 @@ describe('EmbeddingProfileSelect', () => {
     fireEvent.click(screen.getByRole('button'));
 
     // All profiles should be visible (use getAllByText since selected profile appears twice)
-    expect(screen.getAllByText('Fast & Cheap').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Balanced').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('High Accuracy').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Free & Local').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Cheap').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Medium').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('High Quality').length).toBeGreaterThanOrEqual(1);
   });
 
   it('calls onSelect when a profile is clicked', () => {
@@ -139,11 +155,11 @@ describe('EmbeddingProfileSelect', () => {
     // Open dropdown
     fireEvent.click(screen.getByRole('button'));
 
-    // Click on a different profile (find button containing "Balanced")
+    // Click on a different profile (find button containing "Cheap")
     const buttons = screen.getAllByRole('button');
-    const balancedButton = buttons.find((b) => b.textContent?.includes('Balanced'));
-    if (balancedButton) {
-      fireEvent.click(balancedButton);
+    const cheapButton = buttons.find((b) => b.textContent?.includes('Cheap'));
+    if (cheapButton) {
+      fireEvent.click(cheapButton);
     }
 
     expect(onSelect).toHaveBeenCalledWith('profile-2');
@@ -193,9 +209,9 @@ describe('EmbeddingProfileSelect', () => {
     // Open dropdown
     fireEvent.click(screen.getByRole('button'));
 
-    // Balanced and High Accuracy are code-aware
+    // Cheap, Medium, and High Quality are code-aware
     const codeAwareIndicators = screen.getAllByText('Code-aware');
-    expect(codeAwareIndicators.length).toBe(2);
+    expect(codeAwareIndicators.length).toBe(3);
   });
 
   it('is disabled when disabled prop is true', () => {

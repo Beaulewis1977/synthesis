@@ -65,29 +65,20 @@ export type DocumentContentCategory =
   | 'guide'
   | 'snippet';
 export type EmbeddingModel =
-  // Ollama models
-  | 'nomic-embed-text'
+  // Ollama models (1024 dims)
   | 'mxbai-embed-large'
-  | 'jina-embeddings-v2-base-code'
-  // OpenAI models
+  // OpenAI models (1024 dims with dimensions parameter)
   | 'text-embedding-3-large'
   | 'text-embedding-3-small'
-  | 'text-embedding-ada-002'
-  // Voyage models
+  // Voyage models (1024 dims)
   | 'voyage-code-3'
   | 'voyage-3.5'
   | 'voyage-3.5-lite'
   | 'voyage-3-large'
-  | 'voyage-code-2'
-  | 'voyage-large-2'
-  // Cohere models
-  | 'embed-v4.0'
+  // Cohere models (1024 dims)
   | 'embed-english-v3.0'
-  | 'embed-multilingual-v3.0'
-  // Google models
-  | 'text-embedding-004'
-  | 'gemini-embedding-001';
-export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage' | 'cohere' | 'google';
+  | 'embed-multilingual-v3.0';
+export type EmbeddingProvider = 'ollama' | 'openai' | 'voyage' | 'cohere';
 
 // Phase 3: Source type for metadata guarantees
 export type SourceType = 'url' | 'repo' | 'file' | 'web' | 'api'; // GPT Phase 1: Added 'web' for scraped content, 'api' for API-sourced docs
@@ -625,22 +616,22 @@ export const DEFAULT_MODEL_CONFIGS: Record<ModelFeature, Omit<ModelConfig, 'sour
   },
   embedding_docs: {
     feature: 'embedding_docs',
-    provider: 'ollama',
-    model: 'nomic-embed-text',
+    provider: '',
+    model: '',
     localOnly: false,
     enabled: true,
   },
   embedding_code: {
     feature: 'embedding_code',
-    provider: 'voyage',
-    model: 'voyage-code-3',
+    provider: '',
+    model: '',
     localOnly: false,
     enabled: true,
   },
   embedding_writing: {
     feature: 'embedding_writing',
-    provider: 'openai',
-    model: 'text-embedding-3-large',
+    provider: '',
+    model: '',
     localOnly: false,
     enabled: true,
   },
@@ -684,10 +675,9 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
       'gpt-4o',
       'gpt-4o-mini',
       // Note: gpt-5.1-codex-mini removed - requires Responses API (v1/responses)
-      // Embedding models
+      // Embedding models (1024 dims with dimensions parameter)
       'text-embedding-3-large',
       'text-embedding-3-small',
-      'text-embedding-ada-002',
     ],
     requiresApiKey: true,
     apiKeyEnvVar: 'OPENAI_API_KEY',
@@ -695,10 +685,8 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   },
   ollama: {
     models: [
-      // Embedding models
-      'nomic-embed-text', // General purpose, 768 dims
+      // Embedding models (1024 dims only)
       'mxbai-embed-large', // High quality, 1024 dims
-      'jina-embeddings-v2-base-code', // Code-specialized, 30+ languages, 768 dims
       // Chat models
       'llama3.2',
       'mistral',
@@ -713,7 +701,7 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   },
   google: {
     models: [
-      // Chat models
+      // Chat models only (embedding models removed - not 1024 dims)
       'gemini-3-pro-preview',
       'gemini-3-flash-preview',
       'gemini-2.5-flash',
@@ -721,9 +709,6 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
       'gemini-2.5-pro',
       // Vision models
       'gemini-3-pro-image-preview',
-      // Embedding models
-      'text-embedding-004',
-      'gemini-embedding-001',
     ],
     requiresApiKey: true,
     apiKeyEnvVar: 'GOOGLE_API_KEY',
@@ -750,15 +735,11 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   },
   voyage: {
     models: [
-      // Embedding models (v3.5 - latest general-purpose)
+      // Embedding models (1024 dims only)
       'voyage-3.5', // General + multilingual, 1024 dims
       'voyage-3.5-lite', // Fast general, 1024 dims
-      // Embedding models (v3 - code optimized)
       'voyage-code-3', // Best for code retrieval, 1024 dims
       'voyage-3-large', // General-purpose, 1024 dims
-      // Embedding models (v2 - legacy)
-      'voyage-code-2', // Code, 1536 dims (legacy)
-      'voyage-large-2', // General, 1536 dims (legacy)
       // Reranker models
       'rerank-2.5', // Best quality reranker
       'rerank-2.5-lite', // Fast + quality balance
@@ -769,9 +750,7 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   },
   cohere: {
     models: [
-      // Embedding models (v4 - latest)
-      'embed-v4.0', // Best multimodal, 1536 dims (supports 256-1536)
-      // Embedding models (v3)
+      // Embedding models (1024 dims only)
       'embed-english-v3.0', // English only, 1024 dims
       'embed-multilingual-v3.0', // Multilingual, 1024 dims
       // Reranker models

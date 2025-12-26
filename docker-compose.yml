@@ -1,5 +1,7 @@
 services:
   # PostgreSQL with pgvector
+  # NOTE: Local PostgreSQL 16 is used by default at localhost:5432
+  # Only use this container if you don't have local PostgreSQL installed
   synthesis-db:
     image: pgvector/pgvector:pg16
     container_name: synthesis-db
@@ -9,7 +11,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: synthesis
     ports:
-      - "5432:5432"
+      - "5433:5432"  # Changed to 5433 to avoid conflict with local PostgreSQL
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,6 +21,8 @@ services:
       retries: 10
     networks:
       - synthesis-network
+    profiles:
+      - docker-db  # Only start with --profile docker-db
 
   # Ollama (Local LLM with GPU support)
   synthesis-ollama:
@@ -47,8 +51,9 @@ services:
     container_name: synthesis-server
     restart: unless-stopped
     depends_on:
-      synthesis-db:
-        condition: service_healthy
+      # synthesis-db is optional - uses local PostgreSQL by default
+      # synthesis-db:
+      #   condition: service_healthy
       synthesis-ollama:
         condition: service_started
       synthesis-redis:

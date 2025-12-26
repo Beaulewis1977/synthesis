@@ -17,6 +17,8 @@ import {
   PROVIDER_INFO,
 } from '@synthesis/shared';
 import type { Pool } from 'pg';
+import { getEmbeddingProfileService } from './embedding-profile-service.js';
+import { MODEL_DIMENSIONS } from './embedding-router.js';
 
 /**
  * Valid feature names for model configuration
@@ -48,9 +50,9 @@ export function isValidProviderForFeature(feature: ModelFeature, provider: strin
     return ['anthropic', 'openai', 'ollama', 'google', 'zhipu', 'moonshot'].includes(provider);
   }
 
-  // Embedding features
+  // Embedding features (google removed - no 1024-dimension models)
   if (['embedding_docs', 'embedding_code', 'embedding_writing'].includes(feature)) {
-    return ['ollama', 'openai', 'voyage', 'cohere', 'google'].includes(provider);
+    return ['ollama', 'openai', 'voyage', 'cohere'].includes(provider);
   }
 
   // Reranker feature
@@ -74,7 +76,7 @@ function isValidRerankerModel(provider: string, model: string): boolean {
 }
 
 /**
- * Check if a model is a valid embedding model (not a reranker)
+ * Check if a model is a valid embedding model (not a reranker, and 1024-dimensional)
  */
 export function isValidEmbeddingModel(provider: string, model: string): boolean {
   const normalizedModel = model.toLowerCase();
@@ -86,10 +88,21 @@ export function isValidEmbeddingModel(provider: string, model: string): boolean 
 
   // For Voyage and Cohere, embedding models should NOT start with 'rerank-'
   if (provider === 'voyage' || provider === 'cohere') {
-    return !normalizedModel.startsWith('rerank-');
+    if (normalizedModel.startsWith('rerank-')) {
+      return false;
+    }
   }
 
-  // For other providers (ollama, openai, google), all models in PROVIDER_INFO are embedding models
+  // Validate model is 1024-dimensional (required for pgvector compatibility)
+  // Check if model is in our approved 1024-dimension MODEL_DIMENSIONS map
+  if (MODEL_DIMENSIONS[model] !== 1024) {
+    // Allow Ollama custom models that aren't in the list (user responsibility)
+    if (provider === 'ollama') {
+      return true;
+    }
+    return false;
+  }
+
   return true;
 }
 
@@ -248,10 +261,66 @@ export class ModelConfigService {
 
   /**
    * Get embedding configuration for a content type
+   *
+   * Implements "empty = inherit" logic: when the config has empty provider/model,
+   * it means "inherit from collection's default profile settings".
    */
   async getEmbeddingConfig(type: 'docs' | 'code' | 'writing'): Promise<ModelConfig> {
     const feature = `embedding_${type}` as ModelFeature;
-    return this.getConfig(feature);
+    const config = await this.getConfig(feature);
+
+    // Check if config has empty provider/model (indicates "inherit from profile")
+    if (!config.provider || !config.model) {
+      // Fall back to default embedding profile settings
+      const profileService = getEmbeddingProfileService(this.db);
+      const defaultProfile = await profileService.getDefaultProfile();
+
+      // If the default profile also has empty provider/model (e.g., "none" profile),
+      // keep the config as-is (caller should handle this case)
+      if (defaultProfile.provider && defaultProfile.model) {
+        return {
+          ...config,
+          provider: defaultProfile.provider,
+          model: defaultProfile.model,
+          source: 'default' as ConfigSource, // Mark as inherited from profile
+        };
+      }
+    }
+
+    return config;
+  }
+
+  /**
+   * Get embedding configuration for a collection
+   *
+   * Uses the collection's assigned profile, or default profile if none assigned.
+   * Implements "empty = inherit" logic for per-type configs.
+   */
+  async getEmbeddingConfigForCollection(
+    collectionId: string,
+    type: 'docs' | 'code' | 'writing'
+  ): Promise<ModelConfig> {
+    const feature = `embedding_${type}` as ModelFeature;
+    const config = await this.getConfig(feature);
+
+    // Check if config has empty provider/model (indicates "inherit from profile")
+    if (!config.provider || !config.model) {
+      // Get the collection's profile (or default if none assigned)
+      const profileService = getEmbeddingProfileService(this.db);
+      const profile = await profileService.getProfileForCollection(collectionId);
+
+      // If the profile has provider/model, use those
+      if (profile.provider && profile.model) {
+        return {
+          ...config,
+          provider: profile.provider,
+          model: profile.model,
+          source: 'default' as ConfigSource, // Mark as inherited from profile
+        };
+      }
+    }
+
+    return config;
   }
 
   /**

@@ -8,7 +8,7 @@
  * - Keys are encrypted at rest using AES-256-GCM
  * - Keys are never returned in full after initial storage
  * - Only masked versions are shown in the UI
- * - Environment variables take precedence over stored keys
+ * - Stored keys take precedence over environment variables
  */
 
 import { PROVIDER_INFO } from '@synthesis/shared';
@@ -54,10 +54,25 @@ export interface ApiKeyStatus {
  * API Key Service
  */
 export class ApiKeyService {
+  private loggedDecryptWarnings = new Set<string>();
   constructor(private db: Pool) {}
+
+  private warnDecryptFailure(key: string): void {
+    if (this.loggedDecryptWarnings.has(key)) {
+      return;
+    }
+    this.loggedDecryptWarnings.add(key);
+    // eslint-disable-next-line no-console
+    console.warn(
+      `Failed to decrypt stored credential for ${key}; attempting environment variable fallback.`
+    );
+  }
 
   /**
    * Get status of all API keys
+   *
+   * IMPORTANT: Database (UI-configured keys) takes precedence over environment variables.
+   * This allows users to override env vars via the UI without restarting the server.
    */
   async getAllKeyStatus(): Promise<ApiKeyStatus[]> {
     const statuses: ApiKeyStatus[] = [];
@@ -88,17 +103,8 @@ export class ApiKeyService {
 
       let status: ApiKeyStatus;
 
-      if (envValue) {
-        // Environment variable takes precedence
-        status = {
-          provider,
-          configured: true,
-          envVar,
-          source: 'env',
-          maskedValue: maskKey(envValue),
-        };
-      } else if (storedValue) {
-        // Use stored key
+      // Database (UI-configured) takes precedence over environment variables
+      if (storedValue) {
         try {
           const decrypted = decryptValue(storedValue);
           status = {
@@ -109,14 +115,34 @@ export class ApiKeyService {
             maskedValue: maskKey(decrypted),
           };
         } catch {
-          // Decryption failed, treat as not configured
-          status = {
-            provider,
-            configured: false,
-            envVar,
-            source: 'none',
-          };
+          this.warnDecryptFailure(provider);
+          // Decryption failed, fall through to env check
+          if (envValue) {
+            status = {
+              provider,
+              configured: true,
+              envVar,
+              source: 'env',
+              maskedValue: maskKey(envValue),
+            };
+          } else {
+            status = {
+              provider,
+              configured: false,
+              envVar,
+              source: 'none',
+            };
+          }
         }
+      } else if (envValue) {
+        // Fall back to environment variable
+        status = {
+          provider,
+          configured: true,
+          envVar,
+          source: 'env',
+          maskedValue: maskKey(envValue),
+        };
       } else {
         status = {
           provider,
@@ -185,39 +211,40 @@ export class ApiKeyService {
 
   /**
    * Get the actual API key for a provider (for internal use)
-   * Returns env var value if set, otherwise decrypts stored value
+   *
+   * IMPORTANT: Database (UI-configured keys) takes precedence over environment variables.
+   * This allows users to override env vars via the UI without restarting the server.
    */
   async getKey(provider: string): Promise<string | null> {
-    // Check environment variable first
-    const envVar = PROVIDER_ENV_VARS[provider] || `${provider.toUpperCase()}_API_KEY`;
-    const envValue = process.env[envVar];
-    if (envValue) {
-      return envValue;
-    }
-
-    // Check database
+    // Check database FIRST (UI-configured keys take precedence)
     try {
       const result = await this.db.query<{ encrypted_key: string }>(
         'SELECT encrypted_key FROM provider_api_keys WHERE provider = $1',
         [provider]
       );
 
-      if (result.rows.length === 0) {
-        return null;
-      }
-
-      // Keep existing try/catch around decryptValue as-is
-      try {
-        return decryptValue(result.rows[0].encrypted_key);
-      } catch {
-        return null;
+      if (result.rows.length > 0) {
+        try {
+          return decryptValue(result.rows[0].encrypted_key);
+        } catch {
+          this.warnDecryptFailure(provider);
+          // Decryption failed, fall through to env check
+        }
       }
     } catch (error) {
-      // Log database error and fail gracefully by returning null
+      // Log database error and fall through to env check
       // eslint-disable-next-line no-console
       console.error(`Failed to retrieve API key for provider ${provider}:`, error);
-      return null;
     }
+
+    // Fall back to environment variable
+    const envVar = PROVIDER_ENV_VARS[provider] || `${provider.toUpperCase()}_API_KEY`;
+    const envValue = process.env[envVar];
+    if (envValue) {
+      return envValue;
+    }
+
+    return null;
   }
 
   /**
@@ -455,6 +482,7 @@ export class ApiKeyService {
         [`${provider}_oauth`, encrypted]
       );
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error(`Failed to set OAuth token for provider ${provider}:`, error);
       throw new Error(
         `Failed to store OAuth token for provider ${provider}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -464,38 +492,43 @@ export class ApiKeyService {
 
   /**
    * Get the OAuth token for Anthropic
+   *
+   * IMPORTANT: Database takes precedence over environment variables.
+   * This is because configureAuthentication() sets process.env at runtime,
+   * which would otherwise cache old tokens and ignore user updates via UI.
    */
   async getOAuthToken(provider: string): Promise<string | null> {
     if (provider !== 'anthropic') {
       return null;
     }
 
-    // Check environment variable first
-    const envValue = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    if (envValue) {
-      return envValue;
-    }
-
-    // Check database
+    // Check database FIRST (source of truth for user-configured tokens)
     try {
       const result = await this.db.query<{ encrypted_key: string }>(
         'SELECT encrypted_key FROM provider_api_keys WHERE provider = $1',
         [`${provider}_oauth`]
       );
 
-      if (result.rows.length === 0) {
-        return null;
-      }
-
-      try {
-        return decryptValue(result.rows[0].encrypted_key);
-      } catch {
-        return null;
+      if (result.rows.length > 0) {
+        try {
+          return decryptValue(result.rows[0].encrypted_key);
+        } catch {
+          this.warnDecryptFailure(`${provider}_oauth`);
+          // Decryption failed, fall through to env check
+        }
       }
     } catch (error) {
       console.error(`Failed to retrieve OAuth token for provider ${provider}:`, error);
-      return null;
+      // Fall through to env check
     }
+
+    // Fall back to environment variable (for startup/external config)
+    const envValue = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    if (envValue) {
+      return envValue;
+    }
+
+    return null;
   }
 
   /**
@@ -524,23 +557,16 @@ export class ApiKeyService {
 
   /**
    * Get OAuth token status for Anthropic
+   *
+   * IMPORTANT: Database takes precedence over environment variables.
+   * This matches getOAuthToken() behavior.
    */
   async getOAuthTokenStatus(): Promise<{
     configured: boolean;
     source: 'env' | 'db' | 'none';
     maskedValue?: string;
   }> {
-    // Check environment variable first
-    const envValue = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    if (envValue) {
-      return {
-        configured: true,
-        source: 'env',
-        maskedValue: maskKey(envValue),
-      };
-    }
-
-    // Check database
+    // Check database FIRST (source of truth for user-configured tokens)
     try {
       const result = await this.db.query<{ encrypted_key: string }>(
         'SELECT encrypted_key FROM provider_api_keys WHERE provider = $1',
@@ -556,11 +582,23 @@ export class ApiKeyService {
             maskedValue: maskKey(decrypted),
           };
         } catch {
-          return { configured: false, source: 'none' };
+          this.warnDecryptFailure('anthropic_oauth');
+          // Decryption failed, fall through to env check
         }
       }
     } catch (error) {
       console.error('Failed to get OAuth token status:', error);
+      // Fall through to env check
+    }
+
+    // Fall back to environment variable
+    const envValue = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    if (envValue) {
+      return {
+        configured: true,
+        source: 'env',
+        maskedValue: maskKey(envValue),
+      };
     }
 
     return { configured: false, source: 'none' };
@@ -575,6 +613,17 @@ export class ApiKeyService {
 
     if (!token) {
       return { valid: false, message: 'No OAuth token configured' };
+    }
+
+    const apiValidation = await this.testAnthropicKey(token);
+    if (!apiValidation.valid) {
+      return {
+        valid: false,
+        message:
+          apiValidation.message === 'Invalid API key'
+            ? 'Invalid OAuth token'
+            : apiValidation.message,
+      };
     }
 
     const cliPath = process.env.CLAUDE_CLI_PATH || 'claude';
@@ -592,12 +641,10 @@ export class ApiKeyService {
         };
       }
 
-      // Token is set and CLI is accessible - this is the best we can verify
-      // without actually making an API call (token validity checked on first use)
+      // Token is set, CLI is accessible, and API validation succeeded
       return {
         valid: true,
-        message:
-          'OAuth token configured. Claude CLI accessible. Token will be validated on first use.',
+        message: 'OAuth token configured. Claude CLI accessible. API validation succeeded.',
       };
     } catch (error) {
       return {
