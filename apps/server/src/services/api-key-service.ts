@@ -104,12 +104,22 @@ export class ApiKeyService {
           };
         } catch {
           // Decryption failed, fall through to env check
-          status = {
-            provider,
-            configured: false,
-            envVar,
-            source: 'none',
-          };
+          if (envValue) {
+            status = {
+              provider,
+              configured: true,
+              envVar,
+              source: 'env',
+              maskedValue: maskKey(envValue),
+            };
+          } else {
+            status = {
+              provider,
+              configured: false,
+              envVar,
+              source: 'none',
+            };
+          }
         }
       } else if (envValue) {
         // Fall back to environment variable
